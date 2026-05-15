@@ -1,0 +1,8 @@
+/* ABOUTME: App-level CSS entry — Tailwind v4 (for layout utilities) + @armada/ui design tokens + global reset. */
+/* ABOUTME: Typography baseline (15px Geist 1.5) comes from @armada/ui/styles/global.css. */
+
+@import "tailwindcss";
+@source "../../../packages/ui/src";
+
+@import "@armada/ui/styles/tokens.css";
+@import "@armada/ui/styles/global.css";

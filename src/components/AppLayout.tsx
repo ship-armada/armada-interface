@@ -1,0 +1,50 @@
+// ABOUTME: App-wide layout — fixed @armada/ui-style header with our routes, body padding to clear the inset header.
+// ABOUTME: Header is local to this app (not the crowdfund-shared AppHeader) — different nav, no network badge, custom right-side chrome.
+
+import { useState, type ReactNode } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ArmadaLogo, NavBar, type NavBarItem } from '@armada/ui'
+import { WalletConnector } from './WalletConnector'
+
+const NAV: ReadonlyArray<{ label: string; path: string }> = [
+  { label: 'Dashboard', path: '/' },
+  { label: 'History', path: '/history' },
+  { label: 'Settings', path: '/settings' },
+]
+
+export function AppLayout({ children }: { children: ReactNode }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [_unused] = useState(false) // reserved for mobile sheet open state
+
+  const navItems: NavBarItem[] = NAV.map(item => ({
+    label: item.label,
+    active: location.pathname === item.path,
+    onClick: () => navigate(item.path),
+  }))
+
+  return (
+    <div className="flex min-h-screen flex-col text-foreground">
+      <header
+        className="fixed inset-x-6 top-6 z-40 flex h-14 items-center justify-between"
+      >
+        <Link to="/" aria-label="Home" className="flex shrink-0 items-center gap-2.5">
+          <ArmadaLogo />
+        </Link>
+
+        <nav aria-label="Primary" className="absolute left-1/2 hidden -translate-x-1/2 items-center sm:flex">
+          <NavBar items={navItems} />
+        </nav>
+
+        <div className="hidden shrink-0 items-center gap-3 sm:flex">
+          <WalletConnector />
+        </div>
+      </header>
+
+      {/* pt-20 clears the inset header (top-6 + h-14 = 80px). Pages center
+          inside the remaining viewport by default; pages with overflowing
+          content should add `self-start` on their root to opt out. */}
+      <main className="flex flex-1 flex-col items-center justify-center pt-20">{children}</main>
+    </div>
+  )
+}
