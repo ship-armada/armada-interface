@@ -28,5 +28,8 @@ export type { SectionHeaderProps } from './SectionHeader'
 export { StatusChip } from './StatusChip'
 export type { StatusChipProps, StatusChipVariant } from './StatusChip'
 
+export { Tabs } from './Tabs'
+export type { TabsProps, TabItem } from './Tabs'
+
 export { TechnicalDetailsDisclosure } from './TechnicalDetailsDisclosure'
 export type { TechnicalDetailsDisclosureProps } from './TechnicalDetailsDisclosure'

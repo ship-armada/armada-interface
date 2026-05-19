@@ -1,0 +1,21 @@
+/* ABOUTME: SendInputStep layout — tabs at top, conditional chain selector, optional xchain notice, recipient + amount + fee + footer. */
+/* ABOUTME: Mirrors UnshieldInputStep's stack so the Private/External tabs feel like switching between sibling experiences. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-5);
+}
+
+.xchainNotice {
+  background: rgba(243, 208, 160, 0.08);
+  border: 1px solid var(--semantic-color-border-amber);
+  border-radius: calc(var(--semantic-borderRadius-input) * 1px);
+  padding: var(--primitives-spacing-3) var(--primitives-spacing-4);
+  color: var(--semantic-color-text-amber);
+}
+
+.footer {
+  align-self: stretch;
+  margin: var(--primitives-spacing-4) calc(var(--primitives-spacing-6) * -1) calc(var(--primitives-spacing-6) * -1);
+}

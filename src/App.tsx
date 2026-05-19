@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/AppLayout'
 import { OnboardingFlow, UnlockFlow } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
 import { UnshieldModal } from '@/components/unshield'
+import { SendModal } from '@/components/payments'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { startEngine } from '@/lib/tx/executor'
@@ -68,6 +69,7 @@ export function App() {
       {/* Feature modals — mounted at App level so opening one doesn't depend on the current route. */}
       <ShieldModal />
       <UnshieldModal />
+      <SendModal />
     </>
   )
 }

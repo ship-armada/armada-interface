@@ -17,6 +17,7 @@ These primitives are NOT in `@armada/ui` because they aren't yet stable enough t
 | `RecipientInput` | Labelled address input with optional Paste-from-clipboard shortcut + inline error. Validation lives in `lib/address`. |
 | `SectionHeader` | Heading with optional trailing slot (link, chip, action). |
 | `StatusChip` | Color-coded status pill. Variants: `neutral`, `info`, `success`, `warning`, `error`. |
+| `Tabs` | Horizontal segmented control with ARIA tablist semantics. Generic over a string-id union. |
 | `TechnicalDetailsDisclosure` | Collapsible "Show technical details" wrapper built on native `<details>`. |
 
 ## Conventions (mirror `@armada/ui`)
