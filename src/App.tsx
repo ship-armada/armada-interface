@@ -13,6 +13,7 @@ import { EarnModal } from '@/components/yield'
 import { useAutoLock } from '@/hooks/useAutoLock'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
+import { useWallet } from '@/hooks/useWallet'
 import { startEngine } from '@/lib/tx/executor'
 import { shieldedWalletAtom } from '@/state/wallet'
 
@@ -22,6 +23,10 @@ export function App() {
   useTabVisible()
   useTxHistory() // hydrate tx history from IDB on cold load
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
+  // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (OnboardingFlow's
+  // SignEnrollment step, UnshieldModal's recipient pre-fill, useShieldedWallet.enroll). Mounted
+  // before the onboarding/unlock guard so the atom is correct even before the user reaches /app.
+  useWallet()
 
   useEffect(() => {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
