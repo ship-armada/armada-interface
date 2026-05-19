@@ -17,6 +17,8 @@ import { Dashboard } from '@/pages/Dashboard'
 import { History } from '@/pages/History'
 import { Settings } from '@/pages/Settings'
 import { AddressBook } from '@/pages/AddressBook'
+import { Debug } from '@/pages/Debug'
+import { isLocalMode } from '@/config/network'
 
 import '@rainbow-me/rainbowkit/styles.css'
 import './index.css'
@@ -51,6 +53,9 @@ createRoot(document.getElementById('root')!).render(
                     <Route path="history" element={<History />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="address-book" element={<AddressBook />} />
+                    {/* Debug route is registered only in local mode; sepolia builds omit it entirely so
+                        a deployed app can't surface contract addresses + faucet UI to end users. */}
+                    {isLocalMode() ? <Route path="debug" element={<Debug />} /> : null}
                   </Route>
                 </Routes>
                 <Toaster theme="dark" position="bottom-right" />

@@ -1,0 +1,101 @@
+/* ABOUTME: Debug page styling — denser layout than feature pages since this is a developer panel, not a user surface. */
+/* ABOUTME: Two-column kv definition lists for address/value pairs; table for per-chain balance rows. */
+
+.page {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto auto;
+  padding: var(--primitives-spacing-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-4);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-3);
+}
+
+.sectionTitle {
+  font-family: "Charis SIL", serif;
+  font-size: calc(var(--primitives-fontSize-xl) * 1px);
+  font-weight: var(--primitives-fontWeight-regular);
+  color: var(--semantic-color-text-primary);
+  margin: 0;
+}
+
+.sectionHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--primitives-spacing-3);
+}
+
+.subTitle {
+  color: var(--semantic-color-text-primary);
+  margin: 0 0 var(--primitives-spacing-2);
+  font-weight: var(--primitives-fontWeight-semibold);
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: minmax(160px, max-content) 1fr;
+  gap: var(--primitives-spacing-2) var(--primitives-spacing-4);
+  margin: 0;
+}
+
+.kv dt {
+  color: var(--semantic-color-text-muted);
+}
+
+.kv dd {
+  color: var(--semantic-color-text-primary);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.kv code,
+.table code {
+  font-family: "Geist Mono", monospace;
+  font-size: 0.92em;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: var(--primitives-spacing-2) var(--primitives-spacing-3);
+  text-align: left;
+  border-bottom: 1px solid var(--semantic-color-border-default);
+}
+
+.table th {
+  color: var(--semantic-color-text-muted);
+  font-weight: var(--primitives-fontWeight-regular);
+}
+
+.muted {
+  color: var(--semantic-color-text-muted);
+  margin: 0;
+}
+
+.error {
+  color: var(--semantic-color-status-error);
+}
+
+.clientBlock {
+  display: flex;
+  flex-direction: column;
+}
+
+.clientBlockSpaced {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--primitives-spacing-4);
+  padding-top: var(--primitives-spacing-3);
+  border-top: 1px solid var(--semantic-color-border-default);
+}

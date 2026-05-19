@@ -8,6 +8,7 @@ Top-level route components. Each is a thin shell that composes header chrome (fr
 | `History.tsx` | `/history` | Transaction history list |
 | `Settings.tsx` | `/settings` | Wallet unlock, passphrase, export, reset, debug |
 | `AddressBook.tsx` | `/address-book` | Parked placeholder — not in nav until built |
+| `Debug.tsx` | `/debug` | Local-mode developer panel — contract addresses, per-chain balances, faucet drip button. Route registered only when `isLocalMode()`. |
 
 ## Conventions
 

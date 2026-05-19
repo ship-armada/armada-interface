@@ -4,12 +4,14 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArmadaLogo, NavBar, type NavBarItem } from '@armada/ui'
+import { isLocalMode } from '@/config/network'
 import { WalletConnector } from './WalletConnector'
 
-const NAV: ReadonlyArray<{ label: string; path: string }> = [
+const NAV: ReadonlyArray<{ label: string; path: string; localOnly?: boolean }> = [
   { label: 'Dashboard', path: '/' },
   { label: 'History', path: '/history' },
   { label: 'Settings', path: '/settings' },
+  { label: 'Debug', path: '/debug', localOnly: true },
 ]
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -17,7 +19,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const [_unused] = useState(false) // reserved for mobile sheet open state
 
-  const navItems: NavBarItem[] = NAV.map(item => ({
+  const localMode = isLocalMode()
+  const navItems: NavBarItem[] = NAV.filter(item => !item.localOnly || localMode).map(item => ({
     label: item.label,
     active: location.pathname === item.path,
     onClick: () => navigate(item.path),
