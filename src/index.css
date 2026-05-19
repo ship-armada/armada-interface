@@ -27,3 +27,13 @@
   --color-warning: var(--semantic-color-status-warning);
   --color-info: var(--semantic-color-status-info);
 }
+
+/*
+ * RainbowKit's modal uses its own CSS variables for typography. The `theme={...}` prop only
+ * picks between two built-in fontStack presets; to actually inherit Geist we override the
+ * underlying var. Anything not exposed via `--rk-fonts-body` (line heights, label sizes)
+ * remains library-controlled.
+ */
+:root {
+  --rk-fonts-body: Geist, system-ui, -apple-system, sans-serif;
+}

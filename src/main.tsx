@@ -27,7 +27,21 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider theme={darkTheme()}>
+        <RainbowKitProvider
+          theme={darkTheme({
+            // Brand tokens lifted from @armada/ui:
+            //   accent      = --primitives-color-purple-500 (brand-lavender)
+            //   foreground  = --primitives-color-purple-900 (brand-deep) — high-contrast on lavender
+            // Hex literals (not CSS vars) because RainbowKit's theme builder feeds these
+            // straight to its inline style props, not to a stylesheet.
+            accentColor: '#c491e5',
+            accentColorForeground: '#291433',
+            // RainbowKit borderRadius is a 4-value enum: 'none' | 'small' | 'medium' | 'large'.
+            // 'large' (~16px) is the closest match to our Card radius (8px) without going harsh.
+            borderRadius: 'large',
+            overlayBlur: 'small',
+          })}
+        >
           <JotaiProvider>
             <BrowserRouter>
               <MotionConfig reducedMotion="user">
