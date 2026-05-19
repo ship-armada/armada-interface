@@ -1,0 +1,7 @@
+/* ABOUTME: OnboardingShell body — padded scroll-aware container that sits below the FlowHeader inside the Modal dialog. */
+/* ABOUTME: Step content (incl. footer) flows in here; Modal owns dialog chrome (background, radius, border). */
+
+.body {
+  padding: var(--primitives-spacing-6);
+  overflow-y: auto;
+}

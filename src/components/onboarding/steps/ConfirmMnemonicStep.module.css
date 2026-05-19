@@ -1,0 +1,65 @@
+/* ABOUTME: ConfirmMnemonicStep layout — headline + body + 3-column input row (collapses on mobile) + error region + footer. */
+/* ABOUTME: Inputs use the standard form-input styling planned for the upcoming AmountInput / RecipientInput primitives. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-3);
+}
+
+.headline {
+  font-weight: var(--primitives-fontWeight-semibold);
+  color: var(--semantic-color-text-primary);
+}
+
+.body {
+  color: var(--semantic-color-text-muted);
+  margin: 0;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--primitives-spacing-3);
+  margin-top: var(--primitives-spacing-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-1);
+}
+
+.label {
+  color: var(--semantic-color-text-muted);
+}
+
+.input {
+  background: var(--semantic-color-surface-default);
+  border: 1px solid var(--semantic-color-border-default);
+  border-radius: calc(var(--semantic-borderRadius-input) * 1px);
+  padding: 10px 12px;
+  color: var(--semantic-color-text-primary);
+  font-family: "Geist Mono", monospace;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--semantic-color-border-focus);
+  box-shadow: 0 0 0 2px rgba(196, 145, 229, 0.18);
+}
+
+.error {
+  color: var(--semantic-color-status-error);
+}
+
+.footer {
+  align-self: stretch;
+  margin: var(--primitives-spacing-6) calc(var(--primitives-spacing-6) * -1) calc(var(--primitives-spacing-6) * -1);
+}
+
+@media (max-width: 480px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+}

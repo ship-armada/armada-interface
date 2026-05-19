@@ -29,9 +29,9 @@ export function useShieldedWallet() {
     }
   }, [setWallets, setActiveId])
 
-  const create = useCallback(async (passphrase: string) => {
+  const create = useCallback(async (mnemonic: string, passphrase: string) => {
     try {
-      const out = await createWallet(passphrase)
+      const out = await createWallet(mnemonic, passphrase)
       setWallets(prev => ({
         ...prev,
         [out.id]: {
