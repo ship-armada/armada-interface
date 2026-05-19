@@ -8,7 +8,9 @@ One concern per hook. Hooks own the React lifecycle (effects, subscriptions, tim
 | `useAutoLock()` | Idle-timer-driven lock for the shielded wallet; reads `preferencesAtom.autoLockMinutes`. Mount once at App root. | Working |
 | `useWallet()` | wagmi state + ethers signer via `walletClientToSigner`. Mirrors `evmAddressAtom`. | Working |
 | `useShieldedWallet()` | Railgun wallet lifecycle: `enroll()` (EIP-712 sign → root_secret) / `unlockByPaste(hex)` / `unlockByBackup(file, passphrase)` / `exportBackup(passphrase)` / `lock()` / `reset()`. | Working |
-| `useBalances()` | Aggregated balance view (unshielded per chain, shielded, yield shares). | Stub (reads atoms only) |
+| `useBalances()` | Aggregated balance view (unshielded per chain, shielded, yield shares). | Reads atoms only; shielded is now live via `useShieldedBalanceSync` |
+| `useShieldedBalanceSync()` | Subscribes to SDK balance events + drives initial scan on unlock; writes `shieldedUsdcAtom`. Mount once at App root. | Working |
+| `useRailgunEngineSync()` | Bridges `lib/railgun/init`'s lifecycle into `railgunEngineAtom`. Mount once at App root. | Working |
 | `useYieldRate()` | Polls yield vault rate. | Stub |
 | `useFees()` | `/fees` quote + auto-refresh-before-expiry. | Stub |
 | `useTx({ kind })` | Per-tx submit/track/retry/cancel. Multi-instance — each call owns a ulid. | Skeleton (state writes work, stage pipeline TODO) |

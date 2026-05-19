@@ -19,12 +19,15 @@ export function BalanceHero() {
       ? sharesToUsdc(yieldShares, yieldRate.rate)
       : null
 
-  // Total includes vault balance — only computable when both feeds resolved.
-  const total =
-    shielded !== null && earningUsdc !== null ? shielded + earningUsdc : null
+  // Total = shielded + yield (when yield is known). Treat unknown yield as 0 for the headline
+  // so the total reflects what the user actually has access to right now; the breakdown row
+  // below still shows "—" for yield until its own sync wires up.
+  const total = shielded !== null ? shielded + (earningUsdc ?? 0n) : null
 
-  // Pre-sync state — we deliberately never show 0; an empty/zero balance is itself a sync-complete answer.
-  const isSyncing = shielded === null || yieldShares === null
+  // Pre-sync state — gates only on shielded (the canonical "do I have private USDC?" feed).
+  // Yield sync is a separate pipeline; when it isn't wired the breakdown shows "—" and the
+  // total simply omits the vault contribution.
+  const isSyncing = shielded === null
 
   return (
     <Card variant="raised" className={styles.card}>

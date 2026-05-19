@@ -12,8 +12,8 @@ Wrappers around `@railgun-community/wallet` / `@railgun-community/engine` for sh
 | `network.ts` | Patches the SDK's `NETWORK_CONFIG.Hardhat` entry to point at our PrivacyPool deployment; loads the hub provider via `loadProvider`. | Working |
 | `database.ts` | `createWebDatabase` — IndexedDB-backed LevelDB instance the engine uses for persistence. | Working |
 | `artifacts.ts` | IndexedDB-backed ArtifactStore that caches ZK circuit artifacts across reloads. | Working |
-| `prover.ts` | Lazy-initialise the proving engine; expose proof generation entry points. Mirrors warmup state to `railgunEngineAtom`. | Stub |
-| `sync.ts` | Trigger shielded-balance scans and expose sync status. | Stub |
+| `prover.ts` | Lazy-initialise the proving engine; expose proof generation entry points. | Stub |
+| `sync.ts` | Subscribe + multiplex SDK balance-update events; `refreshShieldedBalances` + `getShieldedERC20Balance` helpers. Bridge hook lives in `hooks/useShieldedBalanceSync.ts`. | Working |
 
 ## Secret-handling rules (HARD)
 

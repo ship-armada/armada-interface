@@ -12,6 +12,7 @@ import { SendModal } from '@/components/payments'
 import { EarnModal } from '@/components/yield'
 import { useAutoLock } from '@/hooks/useAutoLock'
 import { useRailgunEngineSync } from '@/hooks/useRailgunEngineSync'
+import { useShieldedBalanceSync } from '@/hooks/useShieldedBalanceSync'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { useWallet } from '@/hooks/useWallet'
@@ -37,6 +38,10 @@ export function App() {
   // a "warming up…" indicator. No-op until the first call to initRailgunEngine (currently
   // triggered by enroll/unlock); future commits may pre-warm on app mount.
   useRailgunEngineSync()
+  // Subscribe to SDK balance-update events + drive initial scan whenever the wallet unlocks;
+  // mirrors the active wallet's shielded USDC balance into shieldedUsdcAtom for BalanceHero
+  // and the shield/unshield modals.
+  useShieldedBalanceSync()
 
   useEffect(() => {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
