@@ -5,7 +5,9 @@ import { useState } from 'react'
 import { PenLine } from 'lucide-react'
 import { useAccount } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
+import { useAtomValue } from 'jotai'
 import { FlowFooter } from '@/components/flow/FlowFooter'
+import { railgunEngineAtom } from '@/state/wallet'
 import styles from './WelcomeStep.module.css'
 
 export interface SignEnrollmentStepProps {
@@ -17,8 +19,15 @@ export interface SignEnrollmentStepProps {
 export function SignEnrollmentStep({ onSign, onBack }: SignEnrollmentStepProps) {
   const { isConnected } = useAccount()
   const { openConnectModal } = useConnectModal()
+  const engine = useAtomValue(railgunEngineAtom)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // While submitting, the parent's enroll() runs initRailgunEngine first (engine state goes
+  // cold → warming → ready), then signTypedData. Surface the warming step explicitly so the
+  // user doesn't think MetaMask is hung — engine init can take a couple seconds on a cold
+  // load (WASM proving stack + artifact store + merkle scan setup).
+  const warming = submitting && engine.state === 'warming'
 
   async function handleSign() {
     setError(null)
@@ -35,9 +44,10 @@ export function SignEnrollmentStep({ onSign, onBack }: SignEnrollmentStepProps) 
   // Two-button states: not-connected → open RainbowKit; connected → trigger sign.
   // We intentionally do not auto-fire the sign after connect; the user explicitly clicks twice
   // so the wallet prompts (connect + sign) don't feel chained or surprising.
+  const submittingLabel = warming ? 'Warming up engine…' : 'Waiting for signature…'
   const primary = isConnected
     ? {
-        label: submitting ? 'Waiting for signature…' : 'Sign enrollment message',
+        label: submitting ? submittingLabel : 'Sign enrollment message',
         onClick: handleSign,
         disabled: submitting,
       }

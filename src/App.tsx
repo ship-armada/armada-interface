@@ -11,6 +11,7 @@ import { UnshieldModal } from '@/components/unshield'
 import { SendModal } from '@/components/payments'
 import { EarnModal } from '@/components/yield'
 import { useAutoLock } from '@/hooks/useAutoLock'
+import { useRailgunEngineSync } from '@/hooks/useRailgunEngineSync'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { useWallet } from '@/hooks/useWallet'
@@ -32,6 +33,10 @@ export function App() {
   // SignEnrollment step, UnshieldModal's recipient pre-fill, useShieldedWallet.enroll). Mounted
   // before the onboarding/unlock guard so the atom is correct even before the user reaches /app.
   useWallet()
+  // Mirror lib/railgun/init's engine lifecycle into railgunEngineAtom so the UI can render
+  // a "warming up…" indicator. No-op until the first call to initRailgunEngine (currently
+  // triggered by enroll/unlock); future commits may pre-warm on app mount.
+  useRailgunEngineSync()
 
   useEffect(() => {
     // Start the tx execution engine. Idempotent + module-scope, so this runs

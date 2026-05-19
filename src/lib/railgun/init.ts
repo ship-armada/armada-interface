@@ -16,6 +16,46 @@ let inFlight: Promise<void> | null = null
 let lastError: Error | null = null
 
 /**
+ * Engine lifecycle state — observable via `subscribeEngineState`. A bridge hook in `hooks/`
+ * mirrors this into `railgunEngineAtom` so React UI can show a warming indicator. Lives in
+ * lib/ (no React) so the wallet flow and other lib code can read engine state without going
+ * through atoms; the atom is purely the UI projection.
+ */
+export type EngineState = 'cold' | 'warming' | 'ready' | 'failed'
+
+interface EngineStateSnapshot {
+  readonly state: EngineState
+  /** When state === 'failed', the captured error. Otherwise null. */
+  readonly error: string | null
+}
+
+let currentSnapshot: EngineStateSnapshot = { state: 'cold', error: null }
+const listeners = new Set<(s: EngineStateSnapshot) => void>()
+
+function setEngineState(state: EngineState, error: string | null = null): void {
+  currentSnapshot = { state, error }
+  for (const listener of listeners) {
+    try {
+      listener(currentSnapshot)
+    } catch {
+      /* swallow — one bad listener mustn't break the others */
+    }
+  }
+}
+
+export function getEngineState(): EngineStateSnapshot {
+  return currentSnapshot
+}
+
+/** Subscribe to lifecycle transitions. Returns an unsubscribe function. */
+export function subscribeEngineState(listener: (s: EngineStateSnapshot) => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+/**
  * Initialize the Railgun engine. Idempotent + reentrancy-safe — multiple concurrent calls share
  * the same in-flight promise. Throws (and caches the error) on first failure; subsequent calls
  * re-throw the same error until `resetInitState()` is called.
@@ -37,12 +77,15 @@ export async function initRailgunEngine(): Promise<void> {
   if (initialized) return
   if (lastError) throw lastError
   if (inFlight) return inFlight
+  setEngineState('warming')
   inFlight = doInit()
   try {
     await inFlight
     initialized = true
+    setEngineState('ready')
   } catch (err) {
     lastError = err instanceof Error ? err : new Error(String(err))
+    setEngineState('failed', lastError.message)
     throw lastError
   } finally {
     inFlight = null
@@ -116,4 +159,5 @@ export function resetInitState(): void {
   initialized = false
   inFlight = null
   lastError = null
+  setEngineState('cold')
 }
