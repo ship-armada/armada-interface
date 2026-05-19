@@ -33,6 +33,20 @@ vi.mock('@/hooks/useShieldedWallet', () => ({
   }),
 }))
 
+// SignEnrollmentStep consumes wagmi + rainbowkit hooks directly; stub both so we don't need
+// providers in the test tree. The mocked surface assumes a connected wallet — disconnected
+// state has its own dedicated test below.
+vi.mock('wagmi', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('wagmi')>()
+  return {
+    ...mod,
+    useAccount: () => ({ isConnected: true, address: '0xabc', chainId: 31337 }),
+  }
+})
+vi.mock('@rainbow-me/rainbowkit', () => ({
+  useConnectModal: () => ({ openConnectModal: vi.fn() }),
+}))
+
 function renderFlow() {
   const store = createStore()
   const onDone = vi.fn()
