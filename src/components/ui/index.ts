@@ -1,4 +1,4 @@
-// ABOUTME: Barrel export for app-local UI primitives — Card, EmptyState, Modal, SectionHeader, StatusChip, TechnicalDetailsDisclosure, AmountInput, ChainSelect, FeeSummary.
+// ABOUTME: Barrel export for app-local UI primitives — AmountInput, Card, ChainSelect, EmptyState, FeeSummary, Modal, RecipientInput, SectionHeader, StatusChip, TechnicalDetailsDisclosure.
 // ABOUTME: Re-exports each primitive plus its prop/variant types. Add a line here when a new primitive lands.
 
 export { AmountInput } from './AmountInput'
@@ -18,6 +18,9 @@ export type { FeeSummaryProps } from './FeeSummary'
 
 export { Modal } from './Modal'
 export type { ModalProps } from './Modal'
+
+export { RecipientInput } from './RecipientInput'
+export type { RecipientInputProps } from './RecipientInput'
 
 export { SectionHeader } from './SectionHeader'
 export type { SectionHeaderProps } from './SectionHeader'

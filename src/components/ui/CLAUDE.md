@@ -14,6 +14,7 @@ These primitives are NOT in `@armada/ui` because they aren't yet stable enough t
 | `EmptyState` | Centered icon + title + optional description + optional action. |
 | `FeeSummary` | Two-row "Estimated fee" + "You'll receive" panel. Loading state when `fee === null`. |
 | `Modal` | Centered modal with backdrop, focus trap, ESC dismissal, portal mount. (See Modal/) |
+| `RecipientInput` | Labelled address input with optional Paste-from-clipboard shortcut + inline error. Validation lives in `lib/address`. |
 | `SectionHeader` | Heading with optional trailing slot (link, chip, action). |
 | `StatusChip` | Color-coded status pill. Variants: `neutral`, `info`, `success`, `warning`, `error`. |
 | `TechnicalDetailsDisclosure` | Collapsible "Show technical details" wrapper built on native `<details>`. |

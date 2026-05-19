@@ -1,0 +1,69 @@
+/* ABOUTME: RecipientInput styling — input + optional Paste pill, error region. */
+/* ABOUTME: Mono font for the value so 0x/0zk strings stay legible; Paste pill mirrors the MnemonicStep Copy button. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  color: var(--semantic-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--primitives-letterSpacing-wider);
+  font-size: calc(var(--primitives-fontSize-xs) * 1px);
+  margin-bottom: var(--primitives-spacing-2);
+}
+
+.inputRow {
+  display: flex;
+  align-items: stretch;
+  gap: var(--primitives-spacing-2);
+}
+
+.input {
+  flex: 1 1 auto;
+  background: var(--semantic-color-surface-default);
+  border: 1px solid var(--semantic-color-border-default);
+  border-radius: calc(var(--semantic-borderRadius-input) * 1px);
+  padding: 10px 12px;
+  color: var(--semantic-color-text-primary);
+  font-family: "Geist Mono", monospace;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--semantic-color-border-focus);
+  box-shadow: 0 0 0 2px rgba(196, 145, 229, 0.18);
+}
+
+.input::placeholder {
+  color: var(--semantic-color-text-dim);
+}
+
+.pasteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+  background: transparent;
+  border: 1px solid var(--semantic-color-border-default);
+  color: var(--semantic-color-text-muted);
+  padding: 0 12px;
+  border-radius: calc(var(--semantic-borderRadius-input) * 1px);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.pasteBtn:hover:not(:disabled) {
+  background: var(--primitives-color-neutral-200);
+  color: var(--semantic-color-text-primary);
+}
+
+.pasteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  color: var(--semantic-color-status-error);
+  margin-top: var(--primitives-spacing-2);
+}
