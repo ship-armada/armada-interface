@@ -41,4 +41,9 @@ describe('<FlowHeader>', () => {
     render(<FlowHeader title="Deposit" currentStep={1} totalSteps={4} titleId="flow-title" />)
     expect(screen.getByRole('heading', { name: 'Deposit' })).toHaveAttribute('id', 'flow-title')
   })
+
+  it('hides the step indicator when showIndicator=false', () => {
+    render(<FlowHeader title="Error" currentStep={1} totalSteps={4} showIndicator={false} />)
+    expect(screen.queryByRole('progressbar')).toBeNull()
+  })
 })

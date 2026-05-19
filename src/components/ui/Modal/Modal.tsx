@@ -33,6 +33,12 @@ export interface ModalProps {
   showCloseButton?: boolean
   /** Accessible label override — use when the visible title isn't sufficient (e.g. icon-only headers). */
   ariaLabel?: string
+  /**
+   * Whether to render the default padded scroll-aware body wrapper around children. Default true.
+   * Set false when the consumer composes its own header/body/footer layout that must touch the dialog edges
+   * (e.g. ActionFlowShell with FlowHeader's full-width bottom border).
+   */
+  wrapBody?: boolean
   children: ReactNode
   className?: string
 }
@@ -53,6 +59,7 @@ export function Modal({
   title,
   showCloseButton,
   ariaLabel,
+  wrapBody = true,
   children,
   className,
 }: ModalProps) {
@@ -154,7 +161,7 @@ export function Modal({
             ) : null}
           </header>
         ) : null}
-        <div className={styles.body}>{children}</div>
+        {wrapBody ? <div className={styles.body}>{children}</div> : children}
       </div>
     </div>
   )

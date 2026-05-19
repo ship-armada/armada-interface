@@ -7,10 +7,12 @@ import styles from './FlowHeader.module.css'
 
 export interface FlowHeaderProps {
   title: string
-  /** 1-based index of the current step shown in the indicator. */
+  /** 1-based index of the current step shown in the indicator. Ignored when showIndicator=false. */
   currentStep: number
-  /** Total number of steps shown in the indicator. */
+  /** Total number of steps shown in the indicator. Ignored when showIndicator=false. */
   totalSteps: number
+  /** Whether to render the step indicator beneath the title. Defaults true. Pass false for the error step overlay. */
+  showIndicator?: boolean
   /** Called when the close button is clicked. Required when showCloseButton is true. */
   onClose?: () => void
   /** Whether to render the X close button. */
@@ -24,6 +26,7 @@ export function FlowHeader({
   title,
   currentStep,
   totalSteps,
+  showIndicator = true,
   onClose,
   showCloseButton = false,
   titleId,
@@ -47,7 +50,9 @@ export function FlowHeader({
           </button>
         ) : null}
       </div>
-      <FlowStepIndicator currentStep={currentStep} totalSteps={totalSteps} />
+      {showIndicator ? (
+        <FlowStepIndicator currentStep={currentStep} totalSteps={totalSteps} />
+      ) : null}
     </header>
   )
 }

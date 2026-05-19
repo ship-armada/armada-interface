@@ -1,0 +1,49 @@
+/* ABOUTME: ProgressStep stub styling — vertical stack with headline + facts grid + dev-note about the upcoming stepper. */
+/* ABOUTME: Replace this CSS when TxLifecycleStepper ships; for now it just keeps things readable. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-4);
+}
+
+.headline {
+  font-weight: var(--primitives-fontWeight-semibold);
+  color: var(--semantic-color-text-primary);
+}
+
+.sub {
+  color: var(--semantic-color-text-muted);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+  margin: 0;
+}
+
+.facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--primitives-spacing-4);
+}
+
+.facts dt {
+  color: var(--semantic-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--primitives-letterSpacing-wider);
+  font-size: calc(var(--primitives-fontSize-xs) * 1px);
+}
+
+.facts dd {
+  color: var(--semantic-color-text-primary);
+  font-family: "Geist Mono", monospace;
+}
+
+.note {
+  color: var(--semantic-color-text-muted);
+  font-style: italic;
+  border-top: 1px dashed var(--semantic-color-border-default);
+  padding-top: var(--primitives-spacing-3);
+}

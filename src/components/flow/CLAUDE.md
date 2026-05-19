@@ -7,11 +7,11 @@ ActionFlowShell + its supporting primitives. This is the shared chrome that wrap
 | Primitive | Purpose |
 |---|---|
 | `FlowStepIndicator` | Segmented "STEP N of M" bar with filled ticks up to the active step. ARIA progressbar. |
-| `FlowHeader` | Title + optional close button + FlowStepIndicator. Bordered bottom. |
+| `FlowHeader` | Title + optional close button + FlowStepIndicator. Bordered bottom. `showIndicator={false}` for the error step. |
 | `FlowFooter` | Primary CTA (right) + optional secondary CTA (left). Mobile: collapses to vertical stack. |
-| `ActionFlowShell` | (later) Combines Modal + FlowHeader + body + FlowFooter into a config-driven shell. |
-| `ProgressStep` | (later) Shared step that wraps `<TxLifecycleStepper record={...}>`. |
-| `ErrorStep` | (later) Shared step: icon + headline + message + Try Again + View Details CTAs. |
+| `ActionFlowShell` | Combines Modal + FlowHeader + body. Controlled by parent (`step` prop). Auto-locks dismissal during `progress`. |
+| `ProgressStep` | Shared progress UI for any TxKind. **Stub** until `<TxLifecycleStepper>` lands in `components/tx/`. |
+| `ErrorStep` | Icon + headline + message + Try Again (disabled when `onRetry` omitted) + optional View Details. |
 
 ## Conventions
 
