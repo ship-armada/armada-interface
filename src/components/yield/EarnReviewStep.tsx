@@ -1,0 +1,72 @@
+// ABOUTME: Earn review step — echoes the requested amount, the resolved mode (Add Funds / Withdraw), the APY used for the quote, and the fee summary.
+// ABOUTME: Same hero-numeral + facts layout as the other review steps for visual consistency.
+
+import { FlowFooter } from '@/components/flow/FlowFooter'
+import { FeeSummary } from '@/components/ui'
+import { formatUsdcAmount } from '@/lib/format'
+import { rateToApy } from '@/lib/yield'
+import type { YieldRate } from '@/hooks/useYieldRate'
+import type { EarnTab } from './EarnInputStep'
+import styles from './EarnReviewStep.module.css'
+
+export interface EarnReviewStepProps {
+  tab: EarnTab
+  amount: bigint
+  rate: YieldRate | null
+  fee: bigint | null
+  netAmount: bigint
+  onBack: () => void
+  onConfirm: () => void
+}
+
+function formatApy(rate: YieldRate | null): string {
+  if (!rate) return 'syncing…'
+  const apy = rateToApy(rate.rate)
+  if (apy === 0) return 'unavailable'
+  return `~${apy.toFixed(2)}%`
+}
+
+export function EarnReviewStep({
+  tab,
+  amount,
+  rate,
+  fee,
+  netAmount,
+  onBack,
+  onConfirm,
+}: EarnReviewStepProps) {
+  const modeLabel = tab === 'add' ? 'Add to vault' : 'Withdraw from vault'
+
+  return (
+    <div className={styles.root}>
+      <div className={styles.headline}>Review {tab === 'add' ? 'deposit' : 'withdrawal'}</div>
+      <div className={styles.amountBlock}>
+        <span className={styles.amount}>{formatUsdcAmount(amount)}</span>
+        <span className={styles.unit}>USDC</span>
+      </div>
+      <dl className={styles.facts}>
+        <div>
+          <dt>Mode</dt>
+          <dd>{modeLabel}</dd>
+        </div>
+        <div>
+          <dt>Estimated APY</dt>
+          <dd>{formatApy(rate)}</dd>
+        </div>
+      </dl>
+      <FeeSummary
+        fee={fee}
+        netAmount={netAmount}
+        netLabel={tab === 'add' ? "You'll be earning on" : "You'll receive"}
+      />
+      <FlowFooter
+        className={styles.footer}
+        primary={{
+          label: tab === 'add' ? 'Confirm deposit' : 'Confirm withdrawal',
+          onClick: onConfirm,
+        }}
+        secondary={{ label: 'Back', onClick: onBack }}
+      />
+    </div>
+  )
+}

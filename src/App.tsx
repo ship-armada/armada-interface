@@ -9,6 +9,7 @@ import { OnboardingFlow, UnlockFlow } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
 import { UnshieldModal } from '@/components/unshield'
 import { SendModal } from '@/components/payments'
+import { EarnModal } from '@/components/yield'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { startEngine } from '@/lib/tx/executor'
@@ -70,6 +71,7 @@ export function App() {
       <ShieldModal />
       <UnshieldModal />
       <SendModal />
+      <EarnModal />
     </>
   )
 }
