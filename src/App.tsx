@@ -6,6 +6,7 @@ import { Outlet } from 'react-router-dom'
 import { useAtomValue } from 'jotai'
 import { AppLayout } from '@/components/AppLayout'
 import { OnboardingFlow, UnlockFlow } from '@/components/onboarding'
+import { ShieldModal } from '@/components/shield'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { startEngine } from '@/lib/tx/executor'
@@ -59,8 +60,12 @@ export function App() {
   }
 
   return (
-    <AppLayout>
-      <Outlet />
-    </AppLayout>
+    <>
+      <AppLayout>
+        <Outlet />
+      </AppLayout>
+      {/* Feature modals — mounted at App level so opening one doesn't depend on the current route. */}
+      <ShieldModal />
+    </>
   )
 }

@@ -1,0 +1,13 @@
+/* ABOUTME: ShieldInputStep layout — vertical stack of From + Amount + FeeSummary + edge-to-edge footer. */
+/* ABOUTME: Footer negates the ActionFlowShell body padding so it spans the dialog edges. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-5);
+}
+
+.footer {
+  align-self: stretch;
+  margin: var(--primitives-spacing-4) calc(var(--primitives-spacing-6) * -1) calc(var(--primitives-spacing-6) * -1);
+}
