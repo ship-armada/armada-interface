@@ -1,15 +1,142 @@
-// ABOUTME: Settings page — Railgun wallet lifecycle (unlock, export, reset), debug toggles, app version.
-// ABOUTME: Scaffold placeholder. Real controls arrive with the Railgun wallet pass.
+// ABOUTME: Settings page — Private Wallet (lock / export / reset) + Preferences (auto-lock, technical details default) + Advanced (network, version).
+// ABOUTME: Auxiliary dialogs (MnemonicExportDialog, ResetWalletDialog) are opened via local state, not openModalAtom.
+
+import { useState, type ChangeEvent } from 'react'
+import { useAtom } from 'jotai'
+import { Button } from '@armada/ui'
+import { Card, SectionHeader } from '@/components/ui'
+import { MnemonicExportDialog, ResetWalletDialog } from '@/components/settings'
+import { useShieldedWallet } from '@/hooks/useShieldedWallet'
+import { preferencesAtom, type AutoLockMinutes } from '@/state/preferences'
+import { getNetworkMode } from '@/config/network'
+import styles from './Settings.module.css'
+
+const APP_VERSION = import.meta.env.VITE_APP_VERSION as string | undefined
+
+const AUTO_LOCK_OPTIONS: ReadonlyArray<AutoLockMinutes> = [5, 15, 30]
 
 export function Settings() {
+  const { state, lock } = useShieldedWallet()
+  const [prefs, setPrefs] = useAtom(preferencesAtom)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [resetOpen, setResetOpen] = useState(false)
+
+  const walletUnlocked = state?.status === 'unlocked'
+
   return (
-    <div className="w-full max-w-3xl px-6 text-center">
-      <h1 style={{ fontFamily: 'Charis SIL, serif', fontSize: 44, lineHeight: 1.1 }}>
-        Settings
-      </h1>
-      <p className="mt-4 text-muted-foreground">
-        Wallet unlock and recovery, passphrase change, and reset live here. Debug toggles too.
-      </p>
+    <div className={styles.page}>
+      <SectionHeader title="Settings" />
+
+      <Card className={styles.section}>
+        <h3 className={styles.sectionTitle}>Private wallet</h3>
+        <ul className={styles.rows}>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>Status</div>
+            <div className={styles.rowValue}>
+              {state?.status === 'unlocked' ? 'Unlocked' : state?.status === 'locked' ? 'Locked' : 'No wallet'}
+            </div>
+          </li>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>Lock now</div>
+            <div className={styles.rowAction}>
+              <Button
+                variant="secondary"
+                size="sm"
+                showIcon={false}
+                label="Lock"
+                onClick={lock}
+                disabled={!walletUnlocked}
+              />
+            </div>
+          </li>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>Recovery phrase</div>
+            <div className={styles.rowAction}>
+              <Button
+                variant="secondary"
+                size="sm"
+                showIcon={false}
+                label="Export"
+                onClick={() => setExportOpen(true)}
+                disabled={!walletUnlocked}
+              />
+            </div>
+          </li>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>Reset private wallet</div>
+            <div className={styles.rowAction}>
+              <Button
+                variant="secondary"
+                size="sm"
+                showIcon={false}
+                label="Reset…"
+                onClick={() => setResetOpen(true)}
+                disabled={!state}
+              />
+            </div>
+          </li>
+        </ul>
+      </Card>
+
+      <Card className={styles.section}>
+        <h3 className={styles.sectionTitle}>Preferences</h3>
+        <ul className={styles.rows}>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>Auto-lock after</div>
+            <div className={styles.rowAction}>
+              <select
+                aria-label="Auto-lock timer"
+                className={styles.select}
+                value={prefs.autoLockMinutes}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                  setPrefs({ ...prefs, autoLockMinutes: Number(e.target.value) as AutoLockMinutes })
+                }
+              >
+                {AUTO_LOCK_OPTIONS.map(min => (
+                  <option key={min} value={min}>
+                    {min} minutes
+                  </option>
+                ))}
+              </select>
+            </div>
+          </li>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>Show technical details by default</div>
+            <div className={styles.rowAction}>
+              <label className={styles.toggle}>
+                <input
+                  type="checkbox"
+                  aria-label="Show technical details by default"
+                  checked={prefs.showTechnicalDetailsByDefault}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setPrefs({ ...prefs, showTechnicalDetailsByDefault: e.target.checked })
+                  }
+                />
+                <span className={styles.toggleTrack} aria-hidden="true">
+                  <span className={styles.toggleThumb} />
+                </span>
+              </label>
+            </div>
+          </li>
+        </ul>
+      </Card>
+
+      <Card className={styles.section}>
+        <h3 className={styles.sectionTitle}>Advanced</h3>
+        <ul className={styles.rows}>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>Network</div>
+            <div className={styles.rowValue}>{getNetworkMode()}</div>
+          </li>
+          <li className={styles.row}>
+            <div className={styles.rowLabel}>App version</div>
+            <div className={styles.rowValue}>{APP_VERSION ?? 'dev'}</div>
+          </li>
+        </ul>
+      </Card>
+
+      <MnemonicExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
+      <ResetWalletDialog open={resetOpen} onClose={() => setResetOpen(false)} />
     </div>
   )
 }

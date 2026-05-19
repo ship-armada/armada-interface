@@ -8,7 +8,7 @@ import {
   activeShieldedWalletAtom,
   shieldedWalletsAtom,
 } from '@/state/wallet'
-import { createWallet, lockWallet, unlockWallet } from '@/lib/railgun/wallet'
+import { createWallet, exportMnemonic, lockWallet, resetWallet, unlockWallet } from '@/lib/railgun/wallet'
 import { track, trackError } from '@/lib/telemetry'
 
 export function useShieldedWallet() {
@@ -61,5 +61,34 @@ export function useShieldedWallet() {
     track('shielded.locked', { walletId: activeId })
   }, [activeId, setWallets])
 
-  return { state: active, unlock, create, lock }
+  const exportPhrase = useCallback(async (passphrase: string) => {
+    if (!activeId) throw new Error('No active wallet to export.')
+    try {
+      const phrase = await exportMnemonic(activeId, passphrase)
+      track('shielded.exported', { walletId: activeId })
+      return phrase
+    } catch (err) {
+      trackError('useShieldedWallet.exportPhrase', err, { scope: 'shielded.export', message: 'export failed' })
+      throw err
+    }
+  }, [activeId])
+
+  const reset = useCallback(async () => {
+    if (!activeId) return
+    try {
+      await resetWallet(activeId)
+      setWallets(prev => {
+        const next = { ...prev }
+        delete next[activeId]
+        return next
+      })
+      setActiveId(null)
+      track('shielded.reset', { walletId: activeId })
+    } catch (err) {
+      trackError('useShieldedWallet.reset', err, { scope: 'shielded.reset', message: 'reset failed' })
+      throw err
+    }
+  }, [activeId, setWallets, setActiveId])
+
+  return { state: active, unlock, create, lock, exportPhrase, reset }
 }

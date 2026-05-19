@@ -28,6 +28,8 @@ export type EventRegistry = {
   'shielded.created':         { walletId: string }                             // id is fine; mnemonic/keys never
   'shielded.unlock':          { walletId: string }
   'shielded.locked':          { walletId: string }
+  'shielded.exported':        { walletId: string }                             // Settings → Export recovery phrase; phrase content NEVER logged
+  'shielded.reset':           { walletId: string }                             // Settings → Reset private wallet; id pre-clear so we can trace
 
   'tx.submitted':             { id: string; kind: TxKind }
   'tx.transition':            { id: string; kind: TxKind; from: TxStage; to: TxStage; executionState: TxRecord['executionState'] }

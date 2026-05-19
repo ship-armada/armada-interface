@@ -50,6 +50,14 @@ export function lockWallet(_id: string): void {
   // no-op stub
 }
 
+/**
+ * Decrypt + return the stored mnemonic for a wallet. Used by Settings → Export recovery phrase.
+ * Caller is responsible for clearing the returned plaintext when the export dialog closes.
+ */
+export async function exportMnemonic(_id: string, _passphrase: string): Promise<string> {
+  throw new Error('railgun.wallet.exportMnemonic: not implemented (scaffold).')
+}
+
 /** Settings → Reset wallet: irreversibly delete the encrypted blob + all derived state for one wallet. */
 export async function resetWallet(_id: string): Promise<void> {
   throw new Error('railgun.wallet.resetWallet: not implemented (scaffold).')

@@ -7,6 +7,7 @@ import { History as HistoryIcon } from 'lucide-react'
 import { Card, EmptyState, SectionHeader, Tabs, type TabItem } from '@/components/ui'
 import { TxLifecycleStepper, TxRow } from '@/components/tx'
 import { txListAtom } from '@/state/tx'
+import { preferencesAtom } from '@/state/preferences'
 import type { TxExecutionState, TxRecord } from '@/lib/tx/types'
 import styles from './History.module.css'
 
@@ -42,6 +43,7 @@ function matches(record: TxRecord, filter: FilterId): boolean {
 
 export function History() {
   const all = useAtomValue(txListAtom)
+  const prefs = useAtomValue(preferencesAtom)
   const [filter, setFilter] = useState<FilterId>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -87,7 +89,10 @@ export function History() {
                   <TxRow record={record} onClick={() => toggle(record.id)} />
                   {isExpanded ? (
                     <div className={styles.detail}>
-                      <TxLifecycleStepper record={record} />
+                      <TxLifecycleStepper
+                        record={record}
+                        technicalDetailsDefaultOpen={prefs.showTechnicalDetailsByDefault}
+                      />
                     </div>
                   ) : null}
                 </li>
