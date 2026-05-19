@@ -12,6 +12,22 @@ vi.mock('@railgun-community/wallet', () => ({
   deleteWalletByID: vi.fn(),
 }))
 
+// Also mock our engine bootstrap modules — they eagerly import the SDK at top-level, which
+// would trigger jsdom's circomlibjs init crash. Tests for these modules will live alongside
+// them (init.test.ts / network.test.ts) once the engine plumbing has a real test surface.
+vi.mock('./init', () => ({
+  initRailgunEngine: vi.fn(async () => {}),
+  isRailgunEngineInitialized: vi.fn(() => true),
+  getRailgunInitError: vi.fn(() => null),
+  resetInitState: vi.fn(),
+}))
+vi.mock('./network', () => ({
+  loadHubNetwork: vi.fn(async () => {}),
+  isHubNetworkLoaded: vi.fn(() => true),
+  resetNetworkLoaderState: vi.fn(),
+  getHubChainDescriptor: vi.fn(() => ({ type: 0 as const, id: 31337 })),
+}))
+
 import {
   createRailgunWallet,
   loadWalletByID,

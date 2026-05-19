@@ -30,6 +30,26 @@ import {
   getWalletId as kmGetWalletId,
   setUnlocked,
 } from './keyManager'
+import { initRailgunEngine } from './init'
+import { loadHubNetwork } from './network'
+
+/**
+ * Ensure the Railgun engine is initialized + the hub network is loaded before issuing an SDK
+ * call. Both are idempotent — first call does the work, subsequent calls return immediately.
+ * loadHubNetwork failure is non-fatal during enrollment (the wallet can still be created
+ * without a network; balance scanning just won't work until the network is loaded).
+ */
+async function ensureRailgunReady(): Promise<void> {
+  await initRailgunEngine()
+  try {
+    await loadHubNetwork()
+  } catch (err) {
+    // Surface but don't block — wallet creation/load doesn't strictly need the network.
+    // Balance scans + tx submission will fail downstream until the user fixes the underlying
+    // problem (RPC down, contracts not deployed, etc.).
+    trackError('railgun.network.load', err, { scope: 'shielded.unlock', message: 'hub network load failed' })
+  }
+}
 
 /**
  * Public state shape exposed to React (atoms / hooks). No secrets — just identity + status.
@@ -87,6 +107,7 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
   rootSecret: Uint8Array
   state: ShieldedWalletState
 }> {
+  await ensureRailgunReady()
   const rootSecret = deriveRootSecret(signatureBytes)
   // IC-2 canaries on root + subkey bytes — catches the bytesToNumber truncation bug class
   // that Privacy Pools shipped. The subkey checks are belt-and-suspenders since these scalars
@@ -129,6 +150,7 @@ export async function unlockFromRootSecret(rootSecret: Uint8Array): Promise<Shie
   if (rootSecret.length !== 32) {
     throw new Error('unlockFromRootSecret: rootSecret must be 32 bytes')
   }
+  await ensureRailgunReady()
   assertEntropyFloor('root_secret', rootSecret)
   assertEntropyFloor('spending_key', deriveSpendingKeyBytes(rootSecret))
   assertEntropyFloor('viewing_key', deriveViewingKeyBytes(rootSecret))
