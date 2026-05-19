@@ -1,0 +1,41 @@
+/* ABOUTME: Step indicator styling — small uppercase label + thin gap-separated tick segments. */
+/* ABOUTME: Filled segments use the brand lavender token; unfilled use a muted neutral. Transitions respect reduced-motion. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+  width: 100%;
+}
+
+.label {
+  font-size: calc(var(--primitives-fontSize-xs) * 1px);
+  line-height: var(--primitives-lineHeight-tight);
+  letter-spacing: var(--primitives-letterSpacing-wider);
+  text-transform: uppercase;
+  color: var(--semantic-color-text-muted);
+}
+
+.track {
+  display: flex;
+  gap: var(--primitives-spacing-2);
+  width: 100%;
+}
+
+.tick {
+  flex: 1 1 0;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--primitives-color-neutral-200);
+  transition: background 180ms ease;
+}
+
+.filled {
+  background: var(--semantic-color-brand-lavender);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick {
+    transition: none;
+  }
+}
