@@ -1,38 +1,215 @@
-// ABOUTME: Tests for lib/railgun/wallet — exercise generateMnemonic (real ethers BIP39); confirm stubs throw as documented.
-// ABOUTME: We don't assert against the official wordlist here — the underlying ethers Mnemonic does that — but we check shape.
+// ABOUTME: Tests for lib/railgun/wallet — enroll/unlock/lock/reset paths with a mocked Railgun SDK.
+// ABOUTME: Real engine init is exercised in commit 3 (init.ts port); here we verify our wallet.ts plumbs the SDK calls + keyManager correctly.
 
-import { describe, it, expect } from 'vitest'
-import { generateMnemonic, createWallet, unlockWallet, resetWallet } from './wallet'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-describe('generateMnemonic', () => {
-  it('returns a 12-word space-separated phrase', () => {
-    const m = generateMnemonic()
-    expect(m.split(' ').length).toBe(12)
+// Mock the Railgun SDK at the module boundary so we don't need a live engine to test our wrapper.
+// We capture the per-test mock impls below for assertion.
+vi.mock('@railgun-community/wallet', () => ({
+  createRailgunWallet: vi.fn(),
+  loadWalletByID: vi.fn(),
+  unloadWalletByID: vi.fn(),
+  deleteWalletByID: vi.fn(),
+}))
+
+import {
+  createRailgunWallet,
+  loadWalletByID,
+  unloadWalletByID,
+  deleteWalletByID,
+} from '@railgun-community/wallet'
+import {
+  enrollFromSignature,
+  unlockFromRootSecret,
+  unlockFromBackup,
+  lockWallet,
+  resetWallet,
+} from './wallet'
+import { isUnlocked, getWalletId, getRailgunAddress, clear as clearKeyManager } from './keyManager'
+import { encryptRootSecret, deriveRootSecret } from '@/lib/crypto/kdf'
+
+const mockCreate = createRailgunWallet as unknown as ReturnType<typeof vi.fn>
+const mockLoad = loadWalletByID as unknown as ReturnType<typeof vi.fn>
+const mockUnload = unloadWalletByID as unknown as ReturnType<typeof vi.fn>
+const mockDelete = deleteWalletByID as unknown as ReturnType<typeof vi.fn>
+
+const SAMPLE_WALLET_ID = '0d3a8e7c'
+const SAMPLE_RAILGUN_ADDRESS = '0zk1qexample…'
+
+function fixedSig(seed = 0): Uint8Array {
+  const out = new Uint8Array(65)
+  for (let i = 0; i < 64; i++) out[i] = (seed + i) & 0xff
+  out[64] = 27
+  return out
+}
+
+beforeEach(() => {
+  mockCreate.mockReset()
+  mockLoad.mockReset()
+  mockUnload.mockReset()
+  mockDelete.mockReset()
+  clearKeyManager()
+  window.localStorage.clear()
+
+  // Default happy path: createRailgunWallet returns a fixed wallet info.
+  mockCreate.mockResolvedValue({ id: SAMPLE_WALLET_ID, railgunAddress: SAMPLE_RAILGUN_ADDRESS })
+  mockLoad.mockResolvedValue({ id: SAMPLE_WALLET_ID, railgunAddress: SAMPLE_RAILGUN_ADDRESS })
+})
+
+describe('enrollFromSignature', () => {
+  it('derives root_secret from the normalized signature and creates an SDK wallet', async () => {
+    const sig = fixedSig()
+    const { rootSecret, state } = await enrollFromSignature(sig)
+
+    expect(rootSecret.length).toBe(32)
+    expect(state.id).toBe(SAMPLE_WALLET_ID)
+    expect(state.status).toBe('unlocked')
+    expect(state.railgunAddress).toBe(SAMPLE_RAILGUN_ADDRESS)
+    expect(state.checksum).toMatch(/^[0-9a-f]{4} [0-9a-f]{4} [0-9a-f]{4}$/)
+    expect(state.unlockedAt).toBeTypeOf('number')
+
+    // SDK was called with (encryptionKey, mnemonic, undefined, 0) — derivationIndex = 0.
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    const args = mockCreate.mock.calls[0]!
+    expect(args[0]).toMatch(/^[0-9a-f]{64}$/) // encryption key — 64 hex chars
+    expect(typeof args[1]).toBe('string') // mnemonic
+    expect((args[1] as string).split(' ').length).toBe(24)
+    expect(args[2]).toBeUndefined() // creationBlockNumbers
+    expect(args[3]).toBe(0) // derivation index
   })
 
-  it('words are non-empty lowercase tokens', () => {
-    const m = generateMnemonic()
-    for (const w of m.split(' ')) {
-      expect(w.length).toBeGreaterThan(0)
-      expect(w).toBe(w.toLowerCase())
-    }
+  it('marks the keyManager unlocked + persists walletId to localStorage', async () => {
+    await enrollFromSignature(fixedSig())
+    expect(isUnlocked()).toBe(true)
+    expect(getWalletId()).toBe(SAMPLE_WALLET_ID)
+    expect(getRailgunAddress()).toBe(SAMPLE_RAILGUN_ADDRESS)
+    expect(window.localStorage.getItem('armada.shielded.walletId')).toBe(SAMPLE_WALLET_ID)
   })
 
-  it('subsequent calls produce different phrases', () => {
-    const a = generateMnemonic()
-    const b = generateMnemonic()
-    expect(a).not.toBe(b)
+  it('is deterministic — same signature → same root_secret → same checksum', async () => {
+    const a = await enrollFromSignature(fixedSig(0))
+    // Snapshot a.rootSecret BEFORE clearKeyManager() zeroizes it — both `a` and the keyManager
+    // share the buffer reference (intentional, see keyManager.setUnlocked docs).
+    const aRootCopy = new Uint8Array(a.rootSecret)
+    const aChecksum = a.state.checksum
+    clearKeyManager()
+    window.localStorage.clear()
+    mockCreate.mockClear()
+    const b = await enrollFromSignature(fixedSig(0))
+    expect(b.state.checksum).toBe(aChecksum)
+    expect(b.rootSecret).toEqual(aRootCopy)
+  })
+
+  it('different signatures produce different checksums', async () => {
+    const a = await enrollFromSignature(fixedSig(0))
+    clearKeyManager()
+    window.localStorage.clear()
+    const b = await enrollFromSignature(fixedSig(1))
+    expect(b.state.checksum).not.toBe(a.state.checksum)
+  })
+
+  it('rejects signatures of the wrong length', async () => {
+    await expect(enrollFromSignature(new Uint8Array(64))).rejects.toThrow()
   })
 })
 
-describe('stubs throw with stable error strings', () => {
-  it('createWallet throws', async () => {
-    await expect(createWallet('words', 'pass')).rejects.toThrow(/not implemented/)
+describe('unlockFromRootSecret', () => {
+  it('fast-paths via loadWalletByID when a walletId is cached in localStorage', async () => {
+    window.localStorage.setItem('armada.shielded.walletId', SAMPLE_WALLET_ID)
+    const root = deriveRootSecret(fixedSig())
+    const state = await unlockFromRootSecret(root)
+
+    expect(mockLoad).toHaveBeenCalledTimes(1)
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(state.id).toBe(SAMPLE_WALLET_ID)
+    expect(state.railgunAddress).toBe(SAMPLE_RAILGUN_ADDRESS)
+    expect(state.checksum).toMatch(/^[0-9a-f]{4} [0-9a-f]{4} [0-9a-f]{4}$/)
+    expect(isUnlocked()).toBe(true)
   })
-  it('unlockWallet throws', async () => {
-    await expect(unlockWallet('id', 'pass')).rejects.toThrow(/not implemented/)
+
+  it('falls back to createRailgunWallet when loadWalletByID throws (wallet missing on this device)', async () => {
+    window.localStorage.setItem('armada.shielded.walletId', SAMPLE_WALLET_ID)
+    mockLoad.mockRejectedValueOnce(new Error('Could not load RAILGUN wallet'))
+    const root = deriveRootSecret(fixedSig())
+    const state = await unlockFromRootSecret(root)
+
+    expect(mockLoad).toHaveBeenCalledTimes(1)
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(state.id).toBe(SAMPLE_WALLET_ID)
   })
-  it('resetWallet throws', async () => {
-    await expect(resetWallet('id')).rejects.toThrow(/not implemented/)
+
+  it('creates a fresh wallet when no walletId is cached', async () => {
+    const root = deriveRootSecret(fixedSig())
+    const state = await unlockFromRootSecret(root)
+
+    expect(mockLoad).not.toHaveBeenCalled()
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(state.id).toBe(SAMPLE_WALLET_ID)
+  })
+
+  it('rejects rootSecret of the wrong length', async () => {
+    await expect(unlockFromRootSecret(new Uint8Array(16))).rejects.toThrow()
+  })
+})
+
+describe('unlockFromBackup', () => {
+  it('decrypts the backup blob and unlocks', async () => {
+    const root = deriveRootSecret(fixedSig())
+    const blob = encryptRootSecret(root, 'passphrase-here', { iterations: 1000 })
+    const state = await unlockFromBackup(blob, 'passphrase-here')
+    expect(state.status).toBe('unlocked')
+    expect(state.id).toBe(SAMPLE_WALLET_ID)
+    expect(isUnlocked()).toBe(true)
+  })
+
+  it('propagates the authentication error when the passphrase is wrong', async () => {
+    const root = deriveRootSecret(fixedSig())
+    const blob = encryptRootSecret(root, 'right-here', { iterations: 1000 })
+    await expect(unlockFromBackup(blob, 'wrong-here')).rejects.toThrow(/authentication failed/)
+  })
+})
+
+describe('lockWallet', () => {
+  it('clears the keyManager and calls SDK unloadWalletByID', async () => {
+    await enrollFromSignature(fixedSig())
+    expect(isUnlocked()).toBe(true)
+    await lockWallet('whatever-id-arg-is-ignored')
+    expect(isUnlocked()).toBe(false)
+    expect(mockUnload).toHaveBeenCalledWith(SAMPLE_WALLET_ID)
+  })
+
+  it('is a no-op when no wallet is unlocked', async () => {
+    expect(isUnlocked()).toBe(false)
+    await lockWallet('whatever')
+    expect(mockUnload).not.toHaveBeenCalled()
+  })
+})
+
+describe('resetWallet', () => {
+  it('deletes the SDK wallet and clears the cached walletId', async () => {
+    await enrollFromSignature(fixedSig())
+    expect(window.localStorage.getItem('armada.shielded.walletId')).toBe(SAMPLE_WALLET_ID)
+    await resetWallet('whatever-id-arg-is-ignored')
+    expect(mockDelete).toHaveBeenCalledWith(SAMPLE_WALLET_ID)
+    expect(window.localStorage.getItem('armada.shielded.walletId')).toBeNull()
+    expect(isUnlocked()).toBe(false)
+  })
+
+  it('throws when there is nothing to reset (no unlocked session + no cached id)', async () => {
+    await expect(resetWallet('whatever')).rejects.toThrow(/no wallet to reset/)
+  })
+
+  it('uses the cached walletId when locked but a previous session left state', async () => {
+    window.localStorage.setItem('armada.shielded.walletId', 'cached-id-xyz')
+    await resetWallet('whatever')
+    expect(mockDelete).toHaveBeenCalledWith('cached-id-xyz')
+    expect(window.localStorage.getItem('armada.shielded.walletId')).toBeNull()
+  })
+
+  it('still clears localStorage even if SDK delete throws', async () => {
+    await enrollFromSignature(fixedSig())
+    mockDelete.mockRejectedValueOnce(new Error('wallet not found'))
+    await resetWallet('whatever')
+    expect(window.localStorage.getItem('armada.shielded.walletId')).toBeNull()
   })
 })
