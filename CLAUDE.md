@@ -42,9 +42,11 @@ src/
 
 - **All source files start with two-line `// ABOUTME:` comments.** Project-wide rule from the root CLAUDE.md.
 - **No `ethers` or `@railgun-community/*` imports in `components/**`.** Business logic lives in `hooks/` and `lib/`. Components are dumb.
-- **No `console.log`/`console.debug` in `lib/railgun/`.** Secret-leak prevention. Use `lib/telemetry.ts` instead.
+- **No `console.log`/`console.debug` in `lib/railgun/`.** Secret-leak prevention. Use `lib/telemetry.ts` instead. Telemetry is **typed** via an event registry (`lib/telemetry.ts::EventRegistry`); arbitrary props are not allowed.
 - **No typography Tailwind classes app-wide.** `text-xs`/`font-*`/`tracking-*`/`leading-*`/`uppercase` etc. are forbidden — typography flows from the body baseline + @armada/ui CSS Modules. Layout utilities (`flex`, `grid`, `mx-auto`, `pt-20`, color tokens) are fine.
 - **TS strict + `noUncheckedIndexedAccess`.** No `any`, no `as any`. If a type is opaque (e.g. wagmi internals), narrow at the boundary.
+- **Tx executor lives at module scope, not React scope.** `lib/tx/executor.ts` initialises via `startEngine()` (called once from `App.tsx`). Hooks dispatch `executeTx(id)` / `cancelTx(id)`; they don't orchestrate.
+- **Single-leader execution.** Only the tab holding the `armada-tx-executor` `navigator.locks` lock runs handlers. Other tabs are passive observers. v1 has no follower-side live sync — opening multiple tabs means only the first is active.
 - Per-folder CLAUDE.md captures folder-specific conventions.
 
 ## Dev commands
@@ -71,7 +73,7 @@ For Sepolia, set `VITE_NETWORK=sepolia` and ensure manifest files exist in `depl
 
 ## Tx lifecycle model — required reading
 
-The central design is in `src/lib/tx/types.ts` and `src/lib/tx/lifecycles.ts`. Every transaction kind (`shield`, `unshield-local`, `unshield-xchain`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `payment-xchain`) declares its own stage sequence. The same `useTx()` hook handles all kinds; the same future `<TxLifecycleStepper>` component renders any record. Adding a new kind is a 3-file change:
+The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and `src/lib/tx/executor.ts`. Every transaction kind (`shield`, `unshield-local`, `unshield-xchain`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `payment-xchain`) declares its own stage sequence with a per-kind `maxDurationMs` + `retry` policy. Records carry an `executionState` (lifecycle position: `pending | active | waiting | retrying | completed | failed | expired | cancelled`) separate from the protocol `stage`. The same `useTx()` hook handles all kinds; the same future `<TxLifecycleStepper>` component renders any record. Adding a new kind is a 3-file change:
 
 1. Extend the `TxKind` union and add a stage union in `lib/tx/types.ts`.
 2. Add a lifecycle entry in `lib/tx/lifecycles.ts`.
