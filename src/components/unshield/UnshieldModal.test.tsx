@@ -43,6 +43,14 @@ describe('<UnshieldModal>', () => {
     expect(screen.getByDisplayValue(VALID_ADDR)).toBeInTheDocument()
   })
 
+  it('lets the user clear the prefilled recipient without it getting repopulated', () => {
+    renderModal({ open: true, shielded: 10_000_000n, evm: VALID_ADDR })
+    const input = screen.getByLabelText('Recipient address') as HTMLInputElement
+    expect(input.value).toBe(VALID_ADDR)
+    fireEvent.change(input, { target: { value: '' } })
+    expect(input.value).toBe('')
+  })
+
   it('advances to the review step on Continue with valid inputs', () => {
     renderModal({ open: true, shielded: 10_000_000n, evm: VALID_ADDR })
     fireEvent.change(screen.getByLabelText('How much USDC?'), { target: { value: '5' } })

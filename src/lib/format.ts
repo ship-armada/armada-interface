@@ -28,7 +28,9 @@ export function formatUsdcAmount(amount: bigint, options?: { decimals?: number }
 /** Parse a USDC input string (e.g. "150" or "150.50") to 6-decimal raw bigint. */
 export function parseUsdcInput(input: string): bigint {
   const num = parseFloat(input)
-  if (Number.isNaN(num) || num < 0) return 0n
+  // Reject non-finite (NaN, ±Infinity, "1e500") and negatives. parseFloat accepts
+  // "Infinity" silently; without the isFinite guard, BigInt(Infinity) throws RangeError.
+  if (!Number.isFinite(num) || num < 0) return 0n
   return BigInt(Math.floor(num * 1e6))
 }
 

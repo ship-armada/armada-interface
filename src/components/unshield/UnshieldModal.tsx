@@ -1,7 +1,7 @@
 // ABOUTME: UnshieldModal — withdraw private USDC to an EVM address. Selects unshield-local or unshield-xchain based on destination chain.
 // ABOUTME: Two useTx hooks are mounted (one per kind); submit picks the right one. Record subscription follows the kind that was submitted.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { openModalAtom } from '@/state/ui'
 import { evmAddressAtom, shieldedUsdcAtom } from '@/state/wallet'
@@ -42,6 +42,9 @@ export function UnshieldModal() {
   const [errorAtStep, setErrorAtStep] = useState<FlowVisibleStep | undefined>(undefined)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submittedKind, setSubmittedKind] = useState<SubmittedKind | null>(null)
+  // One-shot guard so the connected-EVM prefill only runs on the modal's rising
+  // edge — otherwise clearing the recipient would immediately refill from the effect.
+  const didPrefillRef = useRef(false)
 
   // Source data.
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
@@ -59,10 +62,15 @@ export function UnshieldModal() {
 
   const computedKind: SubmittedKind = destChainId === hubChainId ? 'unshield-local' : 'unshield-xchain'
 
-  // Pre-fill recipient from the connected EVM wallet the first time the modal opens (if available).
+  // Pre-fill recipient from the connected EVM wallet on the modal's rising edge only,
+  // so the user can clear the field afterwards without it getting repopulated.
   useEffect(() => {
-    if (isOpen && !recipient && connectedEvm) setRecipient(connectedEvm)
-  }, [isOpen, recipient, connectedEvm])
+    if (!isOpen) return
+    if (didPrefillRef.current) return
+    didPrefillRef.current = true
+    if (!recipient && connectedEvm) setRecipient(connectedEvm)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
 
   // Reset local state on close.
   useEffect(() => {
@@ -72,6 +80,7 @@ export function UnshieldModal() {
       setErrorAtStep(undefined)
       setAmountStr('')
       setSubmittedKind(null)
+      didPrefillRef.current = false
     }
   }, [isOpen])
 

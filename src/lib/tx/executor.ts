@@ -137,6 +137,15 @@ export function cancelTx(id: string): void {
   const store = getDefaultStore()
   const record = store.get(txListAtom).find(t => t.id === id)
   if (!record) return
+  // Don't clobber an already-terminal record. OCC accepts the bumped seq, so
+  // without this guard cancel() on a completed/failed/expired tx would rewrite
+  // its terminal state to `cancelled` in both the atom and IDB.
+  if (record.executionState === 'completed'
+    || record.executionState === 'failed'
+    || record.executionState === 'expired'
+    || record.executionState === 'cancelled') {
+    return
+  }
   const cancelled = markCancelled(record)
   store.set(upsertTxAtom, cancelled)
   void putTxIfFresh(cancelled)

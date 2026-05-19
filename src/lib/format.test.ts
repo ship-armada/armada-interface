@@ -45,6 +45,13 @@ describe('parseUsdcInput', () => {
     expect(parseUsdcInput('abc')).toBe(0n)
     expect(parseUsdcInput('-5')).toBe(0n)
   })
+  it('returns 0 for non-finite values (Infinity, NaN, very large exponents)', () => {
+    // parseFloat accepts these silently; without the isFinite guard, BigInt(Infinity) throws.
+    expect(parseUsdcInput('Infinity')).toBe(0n)
+    expect(parseUsdcInput('-Infinity')).toBe(0n)
+    expect(parseUsdcInput('1e500')).toBe(0n)
+    expect(parseUsdcInput('NaN')).toBe(0n)
+  })
 })
 
 describe('truncateAddress', () => {

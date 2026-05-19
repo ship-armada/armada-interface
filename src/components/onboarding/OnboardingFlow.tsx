@@ -1,7 +1,7 @@
 // ABOUTME: First-run state machine — Welcome → Mnemonic → Confirm → Passphrase → Complete.
 // ABOUTME: Generates the mnemonic on mount and holds it in component state. The Complete step is gated by App-level mode (not atom state) so the success panel gets its moment.
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { OnboardingShell } from './OnboardingShell'
 import { WelcomeStep } from './steps/WelcomeStep'
 import { MnemonicStep } from './steps/MnemonicStep'
@@ -36,14 +36,25 @@ export function OnboardingFlow({ onDone }: OnboardingFlowProps) {
   // useMemo (vs useState) makes the dep explicit; the empty deps array locks the value.
   const mnemonic = useMemo(() => generateMnemonic(), [])
   const [creationError, setCreationError] = useState<string | null>(null)
+  // Generation counter: every navigation away from `creating` invalidates an
+  // in-flight `create()` call so its late resolve can't jump the user forward.
+  const creationGenRef = useRef(0)
+
+  function leaveCreating(next: Step) {
+    creationGenRef.current += 1
+    setStep(next)
+  }
 
   async function handlePassphraseConfirmed(passphrase: string) {
     setCreationError(null)
     setStep('creating')
+    const gen = ++creationGenRef.current
     try {
       await create(mnemonic, passphrase)
+      if (creationGenRef.current !== gen) return // user navigated back; ignore stale result
       setStep('complete')
     } catch (err) {
+      if (creationGenRef.current !== gen) return // user navigated back; suppress stale error too
       // createWallet is stubbed today — surface the error and let the user retry.
       // When lib/railgun is real, this catches actual encryption / persistence failures.
       setCreationError(err instanceof Error ? err.message : 'Wallet creation failed.')
@@ -75,7 +86,7 @@ export function OnboardingFlow({ onDone }: OnboardingFlowProps) {
       {(step === 'passphrase' || step === 'creating') && (
         <>
           <PassphraseStep
-            onBack={() => setStep('confirm-mnemonic')}
+            onBack={() => leaveCreating('confirm-mnemonic')}
             onContinue={handlePassphraseConfirmed}
           />
           {creationError ? (
