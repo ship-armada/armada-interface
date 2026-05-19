@@ -12,17 +12,21 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 
 ## Current contents
 
-| File / dir | Purpose | Status |
-|---|---|---|
-| `AppLayout.tsx` | Fixed-inset header + nav + body wrap | Working |
-| `WalletConnector.tsx` | Header wallet button — RainbowKit render-prop wired to `@armada/ui` `WalletButton` (all 4 states) | Working |
-| `balance/` | Balance card, breakdown chips | Empty |
-| `shield/` | ShieldModal, ShieldForm | Empty |
-| `unshield/` | UnshieldModal, UnshieldForm | Empty |
-| `yield/` | YieldDepositModal, YieldWithdrawModal, YieldPositionCard | Empty |
-| `payments/` | PayShieldedModal, PayExternalModal | Empty |
-| `tx/` | TxLifecycleStepper, TxHistoryList, TxStatusChip | Empty |
-| `settings/` | PassphraseDialog, MnemonicExport, ResetWallet | Empty |
+| File / dir | Purpose |
+|---|---|
+| `AppLayout.tsx` | Fixed-inset header + nav + body wrap |
+| `WalletConnector.tsx` | Header wallet button — RainbowKit render-prop wired to `@armada/ui` `WalletButton` (all 4 states) |
+| `ui/` | App-local primitives (Card, Modal, AmountInput, ChainSelect, FeeSummary, RecipientInput, SectionHeader, StatusChip, Tabs, TechnicalDetailsDisclosure, EmptyState) — see `ui/CLAUDE.md` |
+| `flow/` | ActionFlowShell + FlowHeader + FlowFooter + FlowStepIndicator + ProgressStep + ErrorStep — see `flow/CLAUDE.md` |
+| `tx/` | TxLifecycleStepper, TxRow, TxStatusChip, stageCopy helpers — see `tx/CLAUDE.md` |
+| `balance/` | BalanceHero (dashboard hero card) |
+| `dashboard/` | ActionGrid, ActionCard, RecentActivityCard, InProgressCard — see `dashboard/CLAUDE.md` |
+| `shield/` | ShieldModal + steps — see `shield/CLAUDE.md` |
+| `unshield/` | UnshieldModal + steps — see `unshield/CLAUDE.md` |
+| `payments/` | SendModal + steps (Private / External tabs) — see `payments/CLAUDE.md` |
+| `yield/` | EarnModal + steps (Add / Withdraw tabs) — see `yield/CLAUDE.md` |
+| `onboarding/` | OnboardingFlow (5-step first-run), UnlockFlow, OnboardingShell — see `onboarding/CLAUDE.md` |
+| `settings/` | MnemonicExportDialog, ResetWalletDialog — see `settings/CLAUDE.md` |
 
 ## When you add a component
 
