@@ -17,8 +17,9 @@ export function WelcomeStep({ onContinue }: WelcomeStepProps) {
       </div>
       <h3 className={styles.title}>Create your private USDC account</h3>
       <p className={styles.body}>
-        Armada keeps your USDC balance and activity private. We'll generate a recovery phrase
-        you can use to restore your account, then secure it with a passphrase you choose.
+        Armada keeps your USDC balance and activity private. Your privacy keys are derived from a
+        signature your EVM wallet produces — no extra recovery phrase to write down. You'll create
+        an optional encrypted backup so you can restore from any device.
       </p>
       <FlowFooter
         className={styles.footer}

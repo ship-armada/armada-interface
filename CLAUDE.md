@@ -2,7 +2,7 @@
 
 USDC user app on the Armada protocol — shield, unshield, yield, payments, cross-chain. Replaces the legacy `usdc-v2-frontend` app.
 
-**Status:** Scaffold only. No real wallet/contract/relayer/Railgun integration yet. Every flow stubs through `telemetry.track('stub.*')` so the shapes are real but the side effects are deferred.
+**Status:** Phase 1 Railgun integration landed — EIP-712-signature-derived wallet enroll/unlock/lock/reset wired through `lib/crypto` + `lib/railgun`. OnboardingFlow runs the full sign → checksum → backup ceremony; UnlockFlow offers paste / backup / sign-again. Tx flows (shield/unshield/payments/yield) still stub through `telemetry.track('stub.*')`.
 
 ## Plan
 
@@ -30,7 +30,7 @@ src/
 ├── index.css                @import tailwindcss + @armada/ui tokens.css + global.css
 ├── config/                  env-driven config — network, wagmi, deployments, relayer
 ├── lib/                     pure logic, no React (rpc, cache, format, revert, wagmi-adapter, telemetry, relayer, cctp)
-│   ├── railgun/             SDK wrappers (wallet, prover, sync) — currently stubbed
+│   ├── railgun/             SDK wrappers (wallet, init, network, keyManager, artifacts, database) — Phase 1 lifecycle wired; prover + sync still stubbed
 │   └── tx/                  lifecycle model — types, lifecycles, reducer, storage, poller
 ├── state/                   Jotai atoms (tx, wallet, fees, visibility, ui)
 ├── hooks/                   per-concern hooks (useWallet, useShieldedWallet, useBalances, useYieldRate, useFees, useTx, useTxHistory, useCctpAttestation, useTabVisible)
@@ -83,7 +83,7 @@ This model fixes the crowdfund-committer's `useTransactionFlow` single-tx limita
 
 ## What's intentionally NOT in the scaffold
 
-- Real wallet/contract/relayer/Railgun/CCTP integration. Every hook stubs out with `telemetry.track('stub.*')` calls.
+- Real contract/relayer/CCTP integration for tx flows (shield/unshield/payments/yield). Those hooks still stub through `telemetry.track('stub.*')`. Phase 1 Railgun wallet lifecycle IS real.
 - e2e tests.
 - Real telemetry sink (console-only for now).
 - Service worker / offline support.

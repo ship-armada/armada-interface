@@ -50,9 +50,9 @@ export function ResetWalletDialog({ open, onClose }: ResetWalletDialogProps) {
           <AlertTriangle size={32} />
         </div>
         <p className={styles.body}>
-          This deletes your encrypted recovery phrase and key material from this device. You'll
-          need to import or create a new account afterwards. Anything not also kept in your written
-          recovery phrase will be lost permanently.
+          This deletes your wallet and key material from this device. You'll need to re-sign with
+          your EVM wallet (or paste your recovery secret) afterwards. Anything not also preserved
+          in an exported backup will be lost permanently.
         </p>
         <div className={styles.field}>
           <label htmlFor="reset-confirm" className={styles.label}>

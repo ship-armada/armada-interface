@@ -12,7 +12,10 @@ Pure logic — **no React imports allowed.** These modules are unit-testable wit
 | `telemetry.ts` | `track / trackTxTransition / trackError`. Console-only initially; sink swappable later. | Working |
 | `relayer.ts` | HTTP client for `/fees`, `/relay`, `/status/:txHash`. **Stub** — signatures only. | Stub |
 | `cctp.ts` | `MessageSent` log parsing + `pollIrisOnce`. **Stub.** | Stub |
-| `railgun/wallet.ts` | Create/unlock/lock/reset Railgun wallet. **Stub.** | Stub |
+| `railgun/wallet.ts` | EIP-712-signature-derived enroll/unlock/lock/reset. Plural-ready (`id` arg accepted but ignored — singular UX). | Working |
+| `railgun/keyManager.ts` | Module-scope unlocked-state singleton: `rootSecret`, `walletId`, SDK encryption key, address, checksum. Getters throw when locked. | Working |
+| `railgun/init.ts` | `startRailgunEngine` + POI dummy + level-js DB + IndexedDB artifact store. Idempotent. | Working |
+| `railgun/network.ts` | Patches the SDK's `NETWORK_CONFIG.Hardhat` entry with our PrivacyPool address; loads the hub provider. | Working |
 | `railgun/prover.ts` | Proof generation entry points (shield/unshield/transfer). **Stub.** | Stub |
 | `railgun/sync.ts` | Shielded-balance scan + status. **Stub.** | Stub |
 | `tx/` | Tx lifecycle model — see `tx/CLAUDE.md`. | Working (types) + Stub (poller integration) |

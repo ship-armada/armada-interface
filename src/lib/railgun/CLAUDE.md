@@ -6,7 +6,12 @@ Wrappers around `@railgun-community/wallet` / `@railgun-community/engine` for sh
 
 | File | Purpose | Status |
 |---|---|---|
-| `wallet.ts` | Create / unlock / lock / reset a Railgun wallet. Plural-ready (`id` param) even though v1 UX is singular. | Stub |
+| `wallet.ts` | EIP-712-signature-derived enroll/unlock/lock/reset. Plural-ready (`id` arg accepted but ignored — singular UX). | Working |
+| `keyManager.ts` | Module-scope unlocked-state singleton — owns the live `rootSecret`, walletId, SDK encryption key, railgun address, checksum. Zeroizes on `clear()`. | Working |
+| `init.ts` | `startRailgunEngine` + POI dummy + level-js DB + IndexedDB artifact store. Idempotent. | Working |
+| `network.ts` | Patches the SDK's `NETWORK_CONFIG.Hardhat` entry to point at our PrivacyPool deployment; loads the hub provider via `loadProvider`. | Working |
+| `database.ts` | `createWebDatabase` — IndexedDB-backed LevelDB instance the engine uses for persistence. | Working |
+| `artifacts.ts` | IndexedDB-backed ArtifactStore that caches ZK circuit artifacts across reloads. | Working |
 | `prover.ts` | Lazy-initialise the proving engine; expose proof generation entry points. Mirrors warmup state to `railgunEngineAtom`. | Stub |
 | `sync.ts` | Trigger shielded-balance scans and expose sync status. | Stub |
 
