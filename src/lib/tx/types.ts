@@ -175,8 +175,25 @@ export interface ArtifactsXchain extends ArtifactsCommon {
   destTxHash?: `0x${string}`
 }
 
+/**
+ * Shield-specific artifacts. The `build-proof` stage stashes its outputs here so the next stage
+ * (and any post-reload resume) can submit the on-chain shield tx without re-signing RAILGUN_SHIELD
+ * or re-computing the engine-side request. `value` is stringified for IDB serializability.
+ */
+export interface ArtifactsShield extends ArtifactsCommon {
+  privacyPoolAddress?: string
+  usdcAddress?: string
+  shieldRequest?: {
+    npk: `0x${string}`
+    value: string
+    encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]
+    shieldKey: `0x${string}`
+  }
+}
+
 export type ArtifactsFor<K extends TxKind> =
   K extends 'unshield-xchain' | 'payment-xchain' ? ArtifactsXchain
+  : K extends 'shield' ? ArtifactsShield
   : ArtifactsCommon
 
 /* Ownership / session context — captured at submit. Required for history

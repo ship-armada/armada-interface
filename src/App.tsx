@@ -15,7 +15,11 @@ import { useRailgunEngineSync } from '@/hooks/useRailgunEngineSync'
 import { useShieldedBalanceSync } from '@/hooks/useShieldedBalanceSync'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
+import { useUsdcBalances } from '@/hooks/useUsdcBalances'
 import { useWallet } from '@/hooks/useWallet'
+// Side-effect import: registers the shield handler with the tx executor at module load.
+// Per-feature handlers each have their own side-effect entry point under features/<area>/index.ts.
+import '@/features/shield'
 import { startEngine } from '@/lib/tx/executor'
 import { readStoredWalletId } from '@/lib/railgun/wallet'
 import {
@@ -42,6 +46,9 @@ export function App() {
   // mirrors the active wallet's shielded USDC balance into shieldedUsdcAtom for BalanceHero
   // and the shield/unshield modals.
   useShieldedBalanceSync()
+  // Poll the connected wallet's hub USDC balance into usdcBalancesAtom so the ShieldModal's
+  // MAX is populated and the user can shield without typing an arbitrary number.
+  useUsdcBalances()
 
   useEffect(() => {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
