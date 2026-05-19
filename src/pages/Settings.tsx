@@ -1,11 +1,11 @@
 // ABOUTME: Settings page — Private Wallet (lock / export / reset) + Preferences (auto-lock, technical details default) + Advanced (network, version).
-// ABOUTME: Auxiliary dialogs (MnemonicExportDialog, ResetWalletDialog) are opened via local state, not openModalAtom.
+// ABOUTME: Auxiliary dialogs (RecoverySecretExportDialog, ResetWalletDialog) are opened via local state, not openModalAtom.
 
 import { useState, type ChangeEvent } from 'react'
 import { useAtom } from 'jotai'
 import { Button } from '@armada/ui'
 import { Card, SectionHeader } from '@/components/ui'
-import { MnemonicExportDialog, ResetWalletDialog } from '@/components/settings'
+import { RecoverySecretExportDialog, ResetWalletDialog } from '@/components/settings'
 import { useShieldedWallet } from '@/hooks/useShieldedWallet'
 import { preferencesAtom, type AutoLockMinutes } from '@/state/preferences'
 import { getNetworkMode } from '@/config/network'
@@ -50,7 +50,7 @@ export function Settings() {
             </div>
           </li>
           <li className={styles.row}>
-            <div className={styles.rowLabel}>Recovery phrase</div>
+            <div className={styles.rowLabel}>Recovery secret</div>
             <div className={styles.rowAction}>
               <Button
                 variant="secondary"
@@ -135,7 +135,7 @@ export function Settings() {
         </ul>
       </Card>
 
-      <MnemonicExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
+      <RecoverySecretExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
       <ResetWalletDialog open={resetOpen} onClose={() => setResetOpen(false)} />
     </div>
   )

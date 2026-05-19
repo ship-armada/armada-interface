@@ -7,7 +7,7 @@ One concern per hook. Hooks own the React lifecycle (effects, subscriptions, tim
 | `useTabVisible()` | Sole `visibilitychange` listener → `tabVisibleAtom`. Mount once at App root. | Working |
 | `useAutoLock()` | Idle-timer-driven lock for the shielded wallet; reads `preferencesAtom.autoLockMinutes`. Mount once at App root. | Working |
 | `useWallet()` | wagmi state + ethers signer via `walletClientToSigner`. Mirrors `evmAddressAtom`. | Working |
-| `useShieldedWallet()` | Railgun wallet lifecycle: `enroll()` (EIP-712 sign → root_secret) / `unlockByPaste(hex)` / `unlockByBackup(file, passphrase)` / `exportBackup(passphrase)` / `lock()` / `reset()`. Deprecated `create` / `unlock` / `exportPhrase` retained until OnboardingFlow / UnlockFlow / MnemonicExportDialog rewrites land. | Working |
+| `useShieldedWallet()` | Railgun wallet lifecycle: `enroll()` (EIP-712 sign → root_secret) / `unlockByPaste(hex)` / `unlockByBackup(file, passphrase)` / `exportBackup(passphrase)` / `lock()` / `reset()`. | Working |
 | `useBalances()` | Aggregated balance view (unshielded per chain, shielded, yield shares). | Stub (reads atoms only) |
 | `useYieldRate()` | Polls yield vault rate. | Stub |
 | `useFees()` | `/fees` quote + auto-refresh-before-expiry. | Stub |

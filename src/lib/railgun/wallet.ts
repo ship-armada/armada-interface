@@ -9,8 +9,6 @@ type RailgunSdk = typeof import('@railgun-community/wallet')
 async function railgunSdk(): Promise<RailgunSdk> {
   return import('@railgun-community/wallet')
 }
-import { generateMnemonic as scureGenerateMnemonic } from '@scure/bip39'
-import { wordlist as wordlistEnglish } from '@scure/bip39/wordlists/english'
 import {
   antiPhishChecksumBytes,
   assertEntropyFloor,
@@ -268,35 +266,6 @@ export async function resetWallet(_id: string): Promise<void> {
   }
   clearStoredWalletId()
   track('shielded.reset', { walletId: id })
-}
-
-// ============================================================================
-// Deprecated legacy surface — kept compiling AND kept working (where possible)
-// so existing consumers / tests don't break before they migrate in commits 3-6.
-// Each function will be removed once its consumer migrates. Marked @deprecated
-// to surface in IDE tooling but not via runtime throws (would cascade-break tests).
-// ============================================================================
-
-/** @deprecated Phase 1: use `enrollFromSignature` instead. Will be removed when OnboardingFlow migrates. */
-export function generateMnemonic(): string {
-  // Functional fallback — produces a real 12-word BIP-39 so the legacy OnboardingFlow still
-  // renders during commits 2-3. Once OnboardingFlow is rewritten (commit 4) this is removed.
-  return scureGenerateMnemonic(wordlistEnglish, 128)
-}
-
-/** @deprecated Phase 1: use `enrollFromSignature` instead. */
-export async function createWallet(_mnemonic: string, _passphrase: string): Promise<{ id: string; railgunAddress: string }> {
-  throw new Error('railgun.wallet.createWallet: not implemented (scaffold).')
-}
-
-/** @deprecated Phase 1: use `unlockFromRootSecret` or `unlockFromBackup` instead. */
-export async function unlockWallet(_id: string, _passphrase: string): Promise<ShieldedWalletState> {
-  throw new Error('railgun.wallet.unlockWallet: not implemented (scaffold).')
-}
-
-/** @deprecated Phase 1: root_secret is the canonical recovery value — no mnemonic to export. */
-export async function exportMnemonic(_id: string, _passphrase: string): Promise<string> {
-  throw new Error('railgun.wallet.exportMnemonic: not implemented (scaffold).')
 }
 
 /**

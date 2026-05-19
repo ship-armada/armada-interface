@@ -12,14 +12,11 @@ import {
 } from '@/state/wallet'
 import { wagmiConfig } from '@/config/wagmi'
 import {
-  createWallet,
   enrollFromSignature,
-  exportMnemonic,
   lockWallet,
   resetWallet,
   unlockFromBackup,
   unlockFromRootSecret,
-  unlockWallet,
   type ShieldedWalletState,
 } from '@/lib/railgun/wallet'
 import { getRootSecret as kmGetRootSecret } from '@/lib/railgun/keyManager'
@@ -39,10 +36,6 @@ import { track, trackError } from '@/lib/telemetry'
  * 1. Calls the lib function (which writes the keyManager singleton)
  * 2. Mirrors the resulting `ShieldedWalletState` into `shieldedWalletsAtom` + `activeRailgunWalletIdAtom`
  * 3. Emits a `track(...)` event on success, `trackError(...)` on failure
- *
- * Legacy methods (`create`/`unlock`/`exportPhrase`) are retained as deprecated delegates so the
- * v1 OnboardingFlow / UnlockFlow / MnemonicExportDialog keep compiling until their dedicated
- * rewrites land in subsequent Phase 1 commits.
  */
 export function useShieldedWallet() {
   const active = useAtomValue(activeShieldedWalletAtom)
@@ -188,64 +181,6 @@ export function useShieldedWallet() {
     }
   }, [activeId, setWallets, setActiveId])
 
-  /**
-   * @deprecated Pre-signature-flow shim. OnboardingFlow rewrite (Phase 1 commit 6) replaces this
-   * with `enroll()`. Delegates to the lib stub which throws.
-   */
-  const create = useCallback(async (mnemonic: string, passphrase: string) => {
-    try {
-      const out = await createWallet(mnemonic, passphrase)
-      setWallets(prev => ({
-        ...prev,
-        [out.id]: {
-          id: out.id,
-          status: 'unlocked',
-          railgunAddress: out.railgunAddress,
-          unlockedAt: Date.now(),
-        },
-      }))
-      setActiveId(out.id)
-      track('shielded.created', { walletId: out.id })
-      return out
-    } catch (err) {
-      trackError('useShieldedWallet.create', err, { scope: 'shielded.create', message: 'create failed' })
-      throw err
-    }
-  }, [setWallets, setActiveId])
-
-  /**
-   * @deprecated Pre-signature-flow shim. UnlockFlow rewrite (Phase 1 commit 5) replaces this
-   * with `unlockByPaste` + `unlockByBackup`. Delegates to the lib stub which throws.
-   */
-  const unlock = useCallback(async (id: string, passphrase: string) => {
-    try {
-      const next = await unlockWallet(id, passphrase)
-      setWallets(prev => ({ ...prev, [id]: next }))
-      setActiveId(id)
-      track('shielded.unlock', { walletId: id })
-    } catch (err) {
-      trackError('useShieldedWallet.unlock', err, { scope: 'shielded.unlock', message: 'unlock failed' })
-      throw err
-    }
-  }, [setWallets, setActiveId])
-
-  /**
-   * @deprecated The Phase 1 surface has no displayable mnemonic — root_secret is the canonical
-   * recovery value, exported as an encrypted backup blob via `exportBackup`. Delegates to the lib
-   * stub which throws. Settings dialog rewrite (Phase 1 commit 7) drops this.
-   */
-  const exportPhrase = useCallback(async (passphrase: string) => {
-    if (!activeId) throw new Error('No active wallet to export.')
-    try {
-      const phrase = await exportMnemonic(activeId, passphrase)
-      track('shielded.exported', { walletId: activeId })
-      return phrase
-    } catch (err) {
-      trackError('useShieldedWallet.exportPhrase', err, { scope: 'shielded.export', message: 'export failed' })
-      throw err
-    }
-  }, [activeId])
-
   return {
     state: active,
     enroll,
@@ -254,9 +189,5 @@ export function useShieldedWallet() {
     exportBackup,
     lock,
     reset,
-    // Deprecated — retained until consumer rewrites land in commits 5-7.
-    create,
-    unlock,
-    exportPhrase,
   }
 }
