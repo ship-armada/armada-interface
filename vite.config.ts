@@ -4,6 +4,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -57,6 +58,17 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Railgun SDK + transitive deps (level-js, circomlibjs, ethereum-cryptography, etc.) reach
+    // for Node built-ins at runtime. Polyfill the minimum set that the SDK actually touches —
+    // expanding this list later is cheap, but each entry adds bundle weight.
+    nodePolyfills({
+      include: ['buffer', 'process', 'util', 'stream', 'events', 'assert', 'crypto'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
     serveDeployments(),
   ],
   define: {
