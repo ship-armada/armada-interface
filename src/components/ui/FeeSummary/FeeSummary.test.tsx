@@ -1,0 +1,44 @@
+// ABOUTME: Tests for FeeSummary — loading state, formatted fee + net amount, custom labels, refresh hint.
+
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { FeeSummary } from './FeeSummary'
+
+describe('<FeeSummary>', () => {
+  it('renders loading copy when fee is null', () => {
+    render(<FeeSummary fee={null} netAmount={100_000_000n} />)
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  })
+
+  it('renders the formatted fee and net amount when fee is present', () => {
+    render(<FeeSummary fee={250_000n} netAmount={99_750_000n} />)
+    expect(screen.getByText(/0\.25/)).toBeInTheDocument()
+    expect(screen.getByText(/99\.75/)).toBeInTheDocument()
+  })
+
+  it('renders the default labels', () => {
+    render(<FeeSummary fee={0n} netAmount={0n} />)
+    expect(screen.getByText('Estimated fee')).toBeInTheDocument()
+    expect(screen.getByText("You'll receive")).toBeInTheDocument()
+  })
+
+  it('honors custom labels', () => {
+    render(
+      <FeeSummary
+        fee={0n}
+        netAmount={0n}
+        feeLabel="Protocol fee"
+        netLabel="You'll deposit"
+      />,
+    )
+    expect(screen.getByText('Protocol fee')).toBeInTheDocument()
+    expect(screen.getByText("You'll deposit")).toBeInTheDocument()
+  })
+
+  it('shows the refresh hint only when fee is non-null and isRefreshing is true', () => {
+    const { rerender } = render(<FeeSummary fee={null} netAmount={0n} isRefreshing />)
+    expect(screen.queryByText(/refreshing/)).toBeNull() // null fee → loading wins
+    rerender(<FeeSummary fee={1_000n} netAmount={0n} isRefreshing />)
+    expect(screen.getByText(/refreshing/)).toBeInTheDocument()
+  })
+})

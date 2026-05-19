@@ -8,12 +8,15 @@ These primitives are NOT in `@armada/ui` because they aren't yet stable enough t
 
 | Primitive | Purpose |
 |---|---|
+| `AmountInput` | USDC amount input. `display` variant (big serif numeral) and `compact` variant. MAX button + AVAILABLE caption when `max` is supplied. |
 | `Card` | Surface — bordered, rounded, padded body. `default` and `raised` variants. |
+| `ChainSelect` | Native `<select>` dropdown over `getAllChainIdentities()`; restrict via `chains` prop. |
 | `EmptyState` | Centered icon + title + optional description + optional action. |
+| `FeeSummary` | Two-row "Estimated fee" + "You'll receive" panel. Loading state when `fee === null`. |
+| `Modal` | Centered modal with backdrop, focus trap, ESC dismissal, portal mount. (See Modal/) |
 | `SectionHeader` | Heading with optional trailing slot (link, chip, action). |
 | `StatusChip` | Color-coded status pill. Variants: `neutral`, `info`, `success`, `warning`, `error`. |
 | `TechnicalDetailsDisclosure` | Collapsible "Show technical details" wrapper built on native `<details>`. |
-| `Modal` | Centered modal with backdrop, focus trap, ESC dismissal, portal mount. (See Modal/) |
 
 ## Conventions (mirror `@armada/ui`)
 
