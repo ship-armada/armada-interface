@@ -1,8 +1,29 @@
 /* ABOUTME: App-level CSS entry — Tailwind v4 (for layout utilities) + @armada/ui design tokens + global reset. */
-/* ABOUTME: Typography baseline (15px Geist 1.5) comes from @armada/ui/styles/global.css. */
+/* ABOUTME: @theme maps Tailwind's named color slots to our --semantic-color-* tokens so utility classes like `text-foreground` resolve. */
 
 @import "tailwindcss";
 @source "../../../packages/ui/src";
 
 @import "@armada/ui/styles/tokens.css";
 @import "@armada/ui/styles/global.css";
+
+/*
+ * Tailwind v4: any --color-* declared in @theme becomes a utility-class family
+ * (bg-*, text-*, border-*, etc.). We point each slot at a semantic token so the
+ * design system stays the single source of truth — change `tokens.css` and
+ * everything downstream tracks automatically.
+ */
+@theme {
+  --color-background: var(--semantic-color-surface-bg);
+  --color-foreground: var(--semantic-color-text-primary);
+  --color-muted-foreground: var(--semantic-color-text-muted);
+  --color-secondary-foreground: var(--semantic-color-text-secondary);
+  --color-card: var(--semantic-color-surface-default);
+  --color-card-raised: var(--semantic-color-surface-raised);
+  --color-border: var(--semantic-color-border-default);
+  --color-primary: var(--semantic-color-brand-lavender);
+  --color-destructive: var(--semantic-color-status-error);
+  --color-success: var(--semantic-color-status-success);
+  --color-warning: var(--semantic-color-status-warning);
+  --color-info: var(--semantic-color-status-info);
+}
