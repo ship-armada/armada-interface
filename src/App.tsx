@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { AppLayout } from '@/components/AppLayout'
 import { OnboardingFlow, UnlockFlow } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
@@ -15,7 +15,12 @@ import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { useWallet } from '@/hooks/useWallet'
 import { startEngine } from '@/lib/tx/executor'
-import { shieldedWalletAtom } from '@/state/wallet'
+import { readStoredWalletId } from '@/lib/railgun/wallet'
+import {
+  activeRailgunWalletIdAtom,
+  shieldedWalletAtom,
+  shieldedWalletsAtom,
+} from '@/state/wallet'
 
 type GuardMode = 'pre-init' | 'onboarding' | 'unlock' | 'app'
 
@@ -35,17 +40,37 @@ export function App() {
   }, [])
 
   const wallet = useAtomValue(shieldedWalletAtom)
+  const setShieldedWallets = useSetAtom(shieldedWalletsAtom)
+  const setActiveWalletId = useSetAtom(activeRailgunWalletIdAtom)
   const [mode, setMode] = useState<GuardMode>('pre-init')
 
-  // Initial mode derivation runs once after the atom hydrates. After that, the
-  // guard is owned by setMode() so onboarding/unlock flows can keep their screens
-  // visible across atom updates.
+  // Cold-boot hydration + initial mode derivation, in one pass to avoid a race between
+  // separate effects (the mode effect would otherwise read a stale `wallet.status` before the
+  // hydration setState landed). Source of truth on cold boot is localStorage — the Railgun
+  // SDK persists wallet IDB and we persist the walletId on enroll, but Jotai atoms reset to
+  // defaults on every page load.
+  //
+  // Three cases:
+  //   - `wallet.status === 'unlocked'`: HMR re-mount, atoms already populated → straight to app.
+  //   - persisted walletId in localStorage: returning user → seed `locked` entry → UnlockFlow.
+  //   - neither: first run → OnboardingFlow.
   useEffect(() => {
     if (mode !== 'pre-init') return
-    if (wallet.status === 'missing') setMode('onboarding')
-    else if (wallet.status === 'locked') setMode('unlock')
-    else setMode('app')
-  }, [mode, wallet.status])
+    if (wallet.status === 'unlocked') {
+      setMode('app')
+      return
+    }
+    const persistedId = readStoredWalletId()
+    if (persistedId) {
+      setShieldedWallets(prev =>
+        prev[persistedId] ? prev : { ...prev, [persistedId]: { id: persistedId, status: 'locked' } },
+      )
+      setActiveWalletId(prev => prev ?? persistedId)
+      setMode('unlock')
+      return
+    }
+    setMode('onboarding')
+  }, [mode, wallet.status, setShieldedWallets, setActiveWalletId])
 
   // After initial derivation, react to subsequent lock events (auto-lock timer).
   useEffect(() => {

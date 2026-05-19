@@ -66,6 +66,15 @@ export interface ShieldedWalletState {
 /** Persisted across reloads so we can fast-path `loadWalletByID` instead of recreating. */
 const STORED_WALLET_ID_KEY = 'armada.shielded.walletId'
 
+/**
+ * Public lookup — App.tsx uses this on cold boot to seed `shieldedWalletsAtom` with a `locked`
+ * entry when a walletId is persisted but the keyManager is (necessarily) empty after reload.
+ * Returning null is the signal to route to OnboardingFlow; non-null routes to UnlockFlow.
+ */
+export function readStoredWalletId(): string | null {
+  return storedWalletId()
+}
+
 function storedWalletId(): string | null {
   try {
     return window.localStorage.getItem(STORED_WALLET_ID_KEY)
