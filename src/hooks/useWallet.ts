@@ -34,7 +34,9 @@ export function useWallet(): UseWalletResult {
 
   useEffect(() => {
     setEvmAddress(address ?? null)
-    if (address) track('wallet.connected', { address, chainId })
+    // Telemetry: emit chainId only — EVM address is sensitive and excluded by EventRegistry.
+    if (address) track('wallet.connected', { chainId: chainId ?? null })
+    else track('wallet.disconnected', {})
   }, [address, chainId, setEvmAddress])
 
   return {
