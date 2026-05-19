@@ -1,10 +1,10 @@
-// ABOUTME: Pure state transitions for TxRecord — advance(), markFailed(), markExpired(). No React, no IO.
-// ABOUTME: Hooks call these and write the result back to the txListAtom + IDB.
+// ABOUTME: Pure state transitions for TxRecord — advance(), markFailed(), markExpired(), markCancelled(), etc. No React, no IO.
+// ABOUTME: Hooks call these and write the result back to the txListAtom + IDB. Every transition increments updatedSeq (OCC; see storage.ts).
 
 import { lifecycleFor } from './lifecycles'
 import type { ArtifactsFor, StageFor, TxKind, TxRecord } from './types'
 
-/** Advance a record to the next stage. Idempotent: returns the same record if already at terminal success. */
+/** Reach the next stage. Sets executionState to `completed` if at terminalSuccess, else `active`. */
 export function advance<K extends TxKind>(
   record: TxRecord<K>,
   toStage: StageFor<K>,
@@ -24,16 +24,38 @@ export function advance<K extends TxKind>(
     ...record,
     stage: toStage,
     stagesCompleted: newCompleted,
-    status: isTerminal ? 'confirmed' : 'submitted',
+    executionState: isTerminal ? 'completed' : 'active',
+    updatedSeq: record.updatedSeq + 1,
     updatedAt: Date.now(),
     artifacts: { ...record.artifacts, ...artifactPatch },
+  }
+}
+
+/** Stage is in flight but blocked on an external event (e.g. Iris attestation). */
+export function markWaiting<K extends TxKind>(record: TxRecord<K>): TxRecord<K> {
+  return {
+    ...record,
+    executionState: 'waiting',
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
+  }
+}
+
+/** A retry attempt is in flight after a recoverable failure. */
+export function markRetrying<K extends TxKind>(record: TxRecord<K>): TxRecord<K> {
+  return {
+    ...record,
+    executionState: 'retrying',
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
   }
 }
 
 export function markFailed<K extends TxKind>(record: TxRecord<K>, error: string): TxRecord<K> {
   return {
     ...record,
-    status: 'failed',
+    executionState: 'failed',
+    updatedSeq: record.updatedSeq + 1,
     updatedAt: Date.now(),
     artifacts: { ...record.artifacts, error } as Partial<ArtifactsFor<K>>,
   }
@@ -42,20 +64,44 @@ export function markFailed<K extends TxKind>(record: TxRecord<K>, error: string)
 export function markExpired<K extends TxKind>(record: TxRecord<K>): TxRecord<K> {
   return {
     ...record,
-    status: 'expired',
+    executionState: 'expired',
+    updatedSeq: record.updatedSeq + 1,
     updatedAt: Date.now(),
   }
 }
 
-/** Is this stage one the user can retry from (vs starting over)? */
+export function markCancelled<K extends TxKind>(record: TxRecord<K>): TxRecord<K> {
+  return {
+    ...record,
+    executionState: 'cancelled',
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
+  }
+}
+
+/** Is the current stage one the user/executor can retry from (vs starting over)? */
 export function isRetryable<K extends TxKind>(record: TxRecord<K>): boolean {
   const lifecycle = lifecycleFor(record.kind)
   return (lifecycle.retryableStages as readonly string[]).includes(record.stage)
 }
 
-/** Should this record be polled on app resume? Plan §7: pending < 30 min → resume; older → mark expired. */
-const RESUME_WINDOW_MS = 30 * 60_000
+/**
+ * Should this record be polled on app resume? Plan §7 + reviewer #7:
+ *   non-terminal AND (Date.now() - createdAt) < lifecycle.maxDurationMs → resume
+ *   else → caller marks it expired
+ *
+ * Using createdAt rather than updatedAt because the lifecycle cap is wall-clock total,
+ * not idle time. A long pause in updates while waiting on Iris is normal.
+ */
 export function shouldResume<K extends TxKind>(record: TxRecord<K>): boolean {
-  if (record.status === 'confirmed' || record.status === 'failed' || record.status === 'expired') return false
-  return Date.now() - record.updatedAt < RESUME_WINDOW_MS
+  if (
+    record.executionState === 'completed' ||
+    record.executionState === 'failed' ||
+    record.executionState === 'expired' ||
+    record.executionState === 'cancelled'
+  ) {
+    return false
+  }
+  const lifecycle = lifecycleFor(record.kind)
+  return Date.now() - record.createdAt < lifecycle.maxDurationMs
 }

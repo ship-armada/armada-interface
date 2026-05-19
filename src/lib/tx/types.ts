@@ -10,7 +10,34 @@ export type TxKind =
   | 'yield-withdraw'
   | 'payment-xchain'
 
-export type TxStatus = 'building' | 'submitted' | 'confirmed' | 'failed' | 'expired'
+/**
+ * Execution lifecycle state — separate from the protocol stage so they don't
+ * grow tangled meanings (e.g. an xchain unshield can be `waiting` for hours
+ * during `iris-attestation-pending` without "submitted" losing meaning).
+ *
+ *  pending    — record created, executor has not started this stage yet
+ *  active     — executor is currently running the stage
+ *  waiting    — running but awaiting an external event (Iris attestation, mint receipt)
+ *  retrying   — a retry attempt is in flight after a recoverable failure
+ *  completed  — terminal success (stage === lifecycle.terminalSuccess)
+ *  failed     — terminal failure (unrecoverable error)
+ *  expired    — exceeded lifecycle.maxDurationMs without reaching a terminal state
+ *  cancelled  — user-initiated abort
+ */
+export type TxExecutionState =
+  | 'pending'
+  | 'active'
+  | 'waiting'
+  | 'retrying'
+  | 'completed'
+  | 'failed'
+  | 'expired'
+  | 'cancelled'
+
+/** A non-terminal state still has work to do (resumable / pollable). */
+export const NON_TERMINAL_STATES: ReadonlyArray<TxExecutionState> = [
+  'pending', 'active', 'waiting', 'retrying',
+]
 
 /* Stage unions — every TxKind declares its own sequence. Adding a stage means
  * adding to the union AND to the lifecycle definition in `lifecycles.ts`. */
@@ -152,23 +179,48 @@ export type ArtifactsFor<K extends TxKind> =
   K extends 'unshield-xchain' | 'payment-xchain' ? ArtifactsXchain
   : ArtifactsCommon
 
+/* Ownership / session context — captured at submit. Required for history
+ * filtering, debugging, and the plural-wallet schema in state/wallet.ts. */
+
+export interface TxWalletContext {
+  /** Connected EVM wallet at submit time. Undefined for shielded-only ops
+   *  that didn't touch an EVM signer (e.g. a pure shielded transfer). */
+  evmAddress: string | undefined
+  /** Always present — every tx originates from a shielded wallet. */
+  railgunWalletId: string
+  /** Source chain id for the operation. Hub chain for shielded-only ops. */
+  sourceChainId: number
+}
+
 /* The record itself. */
 
 export interface TxRecord<K extends TxKind = TxKind> {
   /** ulid; idempotency key (client-side dedup). */
   id: string
   kind: K
-  status: TxStatus
+  /** Lifecycle execution state — independent of protocol position. */
+  executionState: TxExecutionState
+  /** Protocol position within the lifecycle. */
   stage: StageFor<K>
   /** Stages completed so far, in order. Useful for stepper rendering. */
   stagesCompleted: StageFor<K>[]
+  /** Monotonic transition counter. Reducer increments; storage rejects stale writes (OCC). */
+  updatedSeq: number
   createdAt: number
   updatedAt: number
   meta: MetaFor<K>
   artifacts: Partial<ArtifactsFor<K>>
+  walletContext: TxWalletContext
 }
 
 /* Lifecycle metadata — drives steppers, retry buttons, expiry rules. */
+
+export interface TxRetryPolicy {
+  /** Maximum total retry attempts across the lifecycle's retryable stages. */
+  maxAttempts: number
+  /** Base backoff between retries (ms). Pollers add jitter on top. */
+  backoffMs: number
+}
 
 export interface TxLifecycle<K extends TxKind = TxKind> {
   kind: K
@@ -179,4 +231,8 @@ export interface TxLifecycle<K extends TxKind = TxKind> {
   retryableStages: ReadonlyArray<StageFor<K>>
   /** Heuristic durations for ETA UI (milliseconds). */
   estDuration: { p50: number; p90: number }
+  /** Hard cap on total lifecycle duration. After this, executionState → expired. */
+  maxDurationMs: number
+  /** Retry policy applied within retryableStages. */
+  retry: TxRetryPolicy
 }

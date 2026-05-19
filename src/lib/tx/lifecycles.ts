@@ -3,12 +3,23 @@
 
 import type { TxKind, TxLifecycle } from './types'
 
+/* Standard retry policies — shared across kinds with similar shapes. */
+const SHORT_RETRY = { maxAttempts: 3, backoffMs: 5_000 } as const
+const LONG_RETRY = { maxAttempts: 5, backoffMs: 10_000 } as const
+
+/* Standard duration caps. */
+const SHORT_CAP = 10 * 60_000   // 10 min — same-chain operations
+const YIELD_CAP = 15 * 60_000   // 15 min — yield ops can wait for the next block batch
+const XCHAIN_CAP = 60 * 60_000  // 60 min — Iris standard finality can take ~20 min on its own
+
 const shield: TxLifecycle<'shield'> = {
   kind: 'shield',
   stages: ['build-proof', 'submit-relayer', 'hub-confirmed'],
   terminalSuccess: 'hub-confirmed',
   retryableStages: ['submit-relayer'],
   estDuration: { p50: 8_000, p90: 25_000 },
+  maxDurationMs: SHORT_CAP,
+  retry: SHORT_RETRY,
 }
 
 const unshieldLocal: TxLifecycle<'unshield-local'> = {
@@ -17,6 +28,8 @@ const unshieldLocal: TxLifecycle<'unshield-local'> = {
   terminalSuccess: 'hub-confirmed',
   retryableStages: ['submit-relayer'],
   estDuration: { p50: 8_000, p90: 25_000 },
+  maxDurationMs: SHORT_CAP,
+  retry: SHORT_RETRY,
 }
 
 const unshieldXchain: TxLifecycle<'unshield-xchain'> = {
@@ -33,6 +46,8 @@ const unshieldXchain: TxLifecycle<'unshield-xchain'> = {
   terminalSuccess: 'client-mint-confirmed',
   retryableStages: ['submit-relayer', 'iris-attestation-pending'],
   estDuration: { p50: 30_000, p90: 120_000 },
+  maxDurationMs: XCHAIN_CAP,
+  retry: LONG_RETRY,
 }
 
 const transferShielded: TxLifecycle<'transfer-shielded'> = {
@@ -41,6 +56,8 @@ const transferShielded: TxLifecycle<'transfer-shielded'> = {
   terminalSuccess: 'hub-confirmed',
   retryableStages: ['submit-relayer'],
   estDuration: { p50: 8_000, p90: 25_000 },
+  maxDurationMs: SHORT_CAP,
+  retry: SHORT_RETRY,
 }
 
 const yieldDeposit: TxLifecycle<'yield-deposit'> = {
@@ -49,6 +66,8 @@ const yieldDeposit: TxLifecycle<'yield-deposit'> = {
   terminalSuccess: 'hub-confirmed',
   retryableStages: ['submit-relayer'],
   estDuration: { p50: 10_000, p90: 30_000 },
+  maxDurationMs: YIELD_CAP,
+  retry: SHORT_RETRY,
 }
 
 const yieldWithdraw: TxLifecycle<'yield-withdraw'> = {
@@ -57,6 +76,8 @@ const yieldWithdraw: TxLifecycle<'yield-withdraw'> = {
   terminalSuccess: 'hub-confirmed',
   retryableStages: ['submit-relayer'],
   estDuration: { p50: 10_000, p90: 30_000 },
+  maxDurationMs: YIELD_CAP,
+  retry: SHORT_RETRY,
 }
 
 const paymentXchain: TxLifecycle<'payment-xchain'> = {
@@ -73,6 +94,8 @@ const paymentXchain: TxLifecycle<'payment-xchain'> = {
   terminalSuccess: 'client-mint-confirmed',
   retryableStages: ['submit-relayer', 'iris-attestation-pending'],
   estDuration: { p50: 30_000, p90: 120_000 },
+  maxDurationMs: XCHAIN_CAP,
+  retry: LONG_RETRY,
 }
 
 /** Lookup table keyed by TxKind. Use `lifecycleFor(kind)` rather than indexing directly. */

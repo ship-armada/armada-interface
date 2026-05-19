@@ -26,7 +26,7 @@ export function trackTxTransition(record: TxRecord, fromStage: TxStage, toStage:
   emit('info', 'tx.transition', {
     id: record.id,
     kind: record.kind,
-    status: record.status,
+    executionState: record.executionState,
     fromStage,
     toStage,
   })
