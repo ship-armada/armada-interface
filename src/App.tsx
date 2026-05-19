@@ -10,6 +10,7 @@ import { ShieldModal } from '@/components/shield'
 import { UnshieldModal } from '@/components/unshield'
 import { SendModal } from '@/components/payments'
 import { EarnModal } from '@/components/yield'
+import { useAutoLock } from '@/hooks/useAutoLock'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { startEngine } from '@/lib/tx/executor'
@@ -20,6 +21,7 @@ type GuardMode = 'pre-init' | 'onboarding' | 'unlock' | 'app'
 export function App() {
   useTabVisible()
   useTxHistory() // hydrate tx history from IDB on cold load
+  useAutoLock()  // idle-timer-driven lock for the shielded wallet
 
   useEffect(() => {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
