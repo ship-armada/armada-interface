@@ -5,6 +5,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import wasm from 'vite-plugin-wasm'
+import topLevelAwait from 'vite-plugin-top-level-await'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -56,6 +58,14 @@ function serveDeployments() {
 
 export default defineConfig({
   plugins: [
+    // wasm + topLevelAwait MUST come before react() so the Railgun SDK's ZK WASM modules
+    // (Poseidon hash, curve25519-scalarmult) load as ES modules at runtime instead of being
+    // served through Vite's SPA HTML fallback (which manifests as `WebAssembly.instantiate:
+    // expected magic word 00 61 73 6d, found 3c 21 64 6f` — i.e. the wasm fetch returned
+    // index.html). topLevelAwait is required because the wasm plugin's emitted modules use
+    // top-level `await` to defer the rest of the module until the WASM is ready.
+    wasm(),
+    topLevelAwait(),
     react(),
     tailwindcss(),
     // Railgun SDK + transitive deps (level-js, circomlibjs, ethereum-cryptography, etc.) reach
@@ -91,6 +101,13 @@ export default defineConfig({
         global: 'globalThis',
       },
     },
+    // These packages contain `import.meta.url`-relative .wasm imports that esbuild's
+    // prebundler can't statically resolve. Excluding them keeps the wasm() plugin's runtime
+    // ESM loader in charge — same fix the legacy usdc-v2-frontend applied.
+    exclude: [
+      '@railgun-community/poseidon-hash-wasm',
+      '@railgun-community/curve25519-scalarmult-wasm',
+    ],
   },
   server: {
     port: 5176,
