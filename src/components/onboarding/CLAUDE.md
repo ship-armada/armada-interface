@@ -8,7 +8,7 @@ First-run setup + returning-user unlock. Mounted by the top-level guard in `App.
 |---|---|
 | `OnboardingShell` | Non-dismissible `Modal` + `FlowHeader` wrapper. Owns the body padding; step content + footer flow inside. |
 | `OnboardingFlow` | 5-step state machine: Welcome → Mnemonic → Confirm → Passphrase → Complete. Generates the mnemonic on mount. |
-| `UnlockFlow` | Single-screen passphrase entry for returning users. Calls `useShieldedWallet().unlock(walletId, passphrase)`. |
+| `UnlockFlow` | Three-mode unlock (paste hex secret / upload backup + passphrase / re-sign with EVM wallet). Calls `useShieldedWallet().unlockByPaste` / `unlockByBackup` / `enroll`. |
 | `steps/WelcomeStep` | Intro + Create CTA. |
 | `steps/MnemonicStep` | 12-word grid + Copy + "I've saved it". |
 | `steps/ConfirmMnemonicStep` | 3-word fill-in at positions 3/7/11. |
@@ -34,6 +34,6 @@ Why a local mode state instead of reading the atom directly? Because `useShielde
 ## What's stubbed today
 
 - `createWallet(mnemonic, passphrase)` throws (lib/railgun encryption integration pending). The flow surfaces the throw as a passphrase-step inline error.
-- `unlockWallet(id, passphrase)` throws likewise — `UnlockFlow` shows the message in its inline error.
+- `useShieldedWallet().unlockByPaste / unlockByBackup / enroll` are all wired through to `lib/railgun/wallet`. UnlockFlow surfaces any lib error inline; success calls `onUnlocked`.
 
 When `lib/railgun` lands, both flows work end-to-end with no UI changes.

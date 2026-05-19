@@ -14,7 +14,7 @@ import { useAutoLock } from '@/hooks/useAutoLock'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { startEngine } from '@/lib/tx/executor'
-import { shieldedWalletAtom, activeRailgunWalletIdAtom } from '@/state/wallet'
+import { shieldedWalletAtom } from '@/state/wallet'
 
 type GuardMode = 'pre-init' | 'onboarding' | 'unlock' | 'app'
 
@@ -30,7 +30,6 @@ export function App() {
   }, [])
 
   const wallet = useAtomValue(shieldedWalletAtom)
-  const activeId = useAtomValue(activeRailgunWalletIdAtom)
   const [mode, setMode] = useState<GuardMode>('pre-init')
 
   // Initial mode derivation runs once after the atom hydrates. After that, the
@@ -59,9 +58,7 @@ export function App() {
   }
 
   if (mode === 'unlock') {
-    return activeId ? (
-      <UnlockFlow walletId={activeId} onUnlocked={() => setMode('app')} />
-    ) : null
+    return <UnlockFlow onUnlocked={() => setMode('app')} />
   }
 
   return (
