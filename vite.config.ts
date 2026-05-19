@@ -61,10 +61,23 @@ export default defineConfig({
   ],
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
+    // level-js (used by the Railgun engine's LevelDB store) references Node's `global`.
+    // Replace it with `globalThis` so the module evaluates in the browser. Mirrors the
+    // legacy app's esbuild/define pattern; the heavier `vite-plugin-node-polyfills` isn't
+    // required unless other Node-flavored deps surface at runtime (Buffer, process, etc.).
+    global: 'globalThis',
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        // Same replacement applied during dep pre-bundling — level-js gets compiled here.
+        global: 'globalThis',
+      },
     },
   },
   server: {
