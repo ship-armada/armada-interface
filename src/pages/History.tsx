@@ -1,20 +1,101 @@
-// ABOUTME: Transaction history page — list of every TxRecord, filterable by status/kind.
-// ABOUTME: Scaffold: renders count from useTxHistory(). Real list view arrives with the History pass.
+// ABOUTME: Activity (History) page — filter chips + list of TxRows with click-to-expand TxLifecycleStepper.
+// ABOUTME: Reads txListAtom directly; single-row expansion at a time. Pagination deferred — shows up to MAX_ROWS recent records.
 
-import { useTxHistory } from '@/hooks/useTxHistory'
+import { useAtomValue } from 'jotai'
+import { useMemo, useState } from 'react'
+import { History as HistoryIcon } from 'lucide-react'
+import { Card, EmptyState, SectionHeader, Tabs, type TabItem } from '@/components/ui'
+import { TxLifecycleStepper, TxRow } from '@/components/tx'
+import { txListAtom } from '@/state/tx'
+import type { TxExecutionState, TxRecord } from '@/lib/tx/types'
+import styles from './History.module.css'
+
+type FilterId = 'all' | 'pending' | 'complete' | 'failed'
+
+const FILTERS: ReadonlyArray<TabItem<FilterId>> = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'complete', label: 'Complete' },
+  { id: 'failed', label: 'Failed' },
+]
+
+const MAX_ROWS = 50
+
+const PENDING_STATES: ReadonlySet<TxExecutionState> = new Set([
+  'pending',
+  'active',
+  'waiting',
+  'retrying',
+])
+const FAILED_STATES: ReadonlySet<TxExecutionState> = new Set([
+  'failed',
+  'expired',
+  'cancelled',
+])
+
+function matches(record: TxRecord, filter: FilterId): boolean {
+  if (filter === 'all') return true
+  if (filter === 'pending') return PENDING_STATES.has(record.executionState)
+  if (filter === 'complete') return record.executionState === 'completed'
+  return FAILED_STATES.has(record.executionState)
+}
 
 export function History() {
-  const { list } = useTxHistory()
+  const all = useAtomValue(txListAtom)
+  const [filter, setFilter] = useState<FilterId>('all')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const rows = useMemo(() => {
+    return all
+      .filter(r => matches(r, filter))
+      .slice()
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, MAX_ROWS)
+  }, [all, filter])
+
+  function toggle(id: string) {
+    setExpandedId(prev => (prev === id ? null : id))
+  }
+
   return (
-    <div className="w-full max-w-3xl px-6 text-center">
-      <h1 style={{ fontFamily: 'Charis SIL, serif', fontSize: 44, lineHeight: 1.1 }}>
-        History
-      </h1>
-      <p className="mt-4 text-muted-foreground">
-        {list.length === 0
-          ? 'No transactions yet. Your shield, unshield, yield, and payment activity will appear here.'
-          : `${list.length} transaction${list.length === 1 ? '' : 's'} on this device.`}
-      </p>
+    <div className={styles.page}>
+      <SectionHeader title="Activity" />
+      <Tabs
+        items={FILTERS}
+        selected={filter}
+        onSelect={setFilter}
+        ariaLabel="Activity filter"
+        className={styles.filters}
+      />
+      {rows.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={<HistoryIcon size={28} />}
+            title="No matching activity"
+            description={filter === 'all'
+              ? 'Your transactions will appear here as they happen.'
+              : 'Try a different filter to see other transactions.'}
+          />
+        </Card>
+      ) : (
+        <Card className={styles.listCard}>
+          <ul className={styles.list}>
+            {rows.map(record => {
+              const isExpanded = expandedId === record.id
+              return (
+                <li key={record.id} className={styles.item}>
+                  <TxRow record={record} onClick={() => toggle(record.id)} />
+                  {isExpanded ? (
+                    <div className={styles.detail}>
+                      <TxLifecycleStepper record={record} />
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
+      )}
     </div>
   )
 }
