@@ -1,0 +1,155 @@
+/* ABOUTME: TxLifecycleStepper styling — header status row, vertical stage rows with connecting line, technical-details facts list. */
+/* ABOUTME: Icons get color from per-state classes; active uses brand lavender + spin animation, failed uses status-error, done uses status-success. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--primitives-spacing-3);
+}
+
+.eta {
+  color: var(--semantic-color-text-muted);
+}
+
+.stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-3);
+  position: relative;
+}
+
+/* Connecting line behind the icons. Positioned 10px from the left (half the icon width). */
+.stages::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 9px;
+  width: 2px;
+  background: var(--semantic-color-border-default);
+  z-index: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+  position: relative;
+  z-index: 1;
+}
+
+.iconCell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: var(--semantic-color-surface-raised);
+  border-radius: 50%;
+}
+
+.label {
+  color: var(--semantic-color-text-secondary);
+}
+
+/* Per-row styling */
+.done .label {
+  color: var(--semantic-color-text-primary);
+}
+.pending .label {
+  color: var(--semantic-color-text-muted);
+}
+.current-failed .label {
+  color: var(--semantic-color-status-error);
+  font-weight: var(--primitives-fontWeight-medium);
+}
+.current-active .label,
+.current-waiting .label {
+  color: var(--semantic-color-text-primary);
+  font-weight: var(--primitives-fontWeight-medium);
+}
+
+/* Icon colors */
+.iconDone {
+  color: var(--semantic-color-status-success);
+}
+.iconFailed {
+  color: var(--semantic-color-status-error);
+}
+.iconActive {
+  color: var(--semantic-color-brand-lavender);
+  animation: spin 1.2s linear infinite;
+}
+.iconPending {
+  color: var(--semantic-color-text-dim);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iconActive {
+    animation: none;
+  }
+}
+
+/* Technical details facts list */
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+  margin: 0;
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: var(--primitives-spacing-3);
+  align-items: baseline;
+}
+
+.facts dt {
+  color: var(--semantic-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--primitives-letterSpacing-wider);
+  font-size: calc(var(--primitives-fontSize-xs) * 1px);
+}
+
+.facts dd {
+  color: var(--semantic-color-text-primary);
+  word-break: break-all;
+}
+
+.hash {
+  font-family: "Geist Mono", monospace;
+  color: var(--semantic-color-text-secondary);
+}
+
+.link {
+  font-family: "Geist Mono", monospace;
+  color: var(--semantic-color-text-lavender);
+  text-decoration: underline;
+  text-decoration-color: rgba(196, 145, 229, 0.32);
+  word-break: break-all;
+}
+
+.link:hover {
+  text-decoration-color: var(--semantic-color-text-lavender);
+}
+
+.error {
+  color: var(--semantic-color-status-error);
+}

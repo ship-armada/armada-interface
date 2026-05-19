@@ -24,3 +24,38 @@ export function truncateAddress(address: string): string {
   if (address.length <= 10) return address
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
+
+/**
+ * Compact relative-time formatter — "just now" / "12s ago" / "5m ago" / "3h ago" / "Yesterday" / "Mar 14".
+ *
+ * Pure / no React. `now` is injectable for deterministic tests; defaults to Date.now().
+ * Future tense is supported (negative diffs) → "in 2m", "in 1h".
+ */
+export function formatRelativeTime(ms: number, now: number = Date.now()): string {
+  const diffMs = now - ms
+  const future = diffMs < 0
+  const abs = Math.abs(diffMs)
+  const s = Math.round(abs / 1000)
+
+  if (s < 10) return future ? 'in a moment' : 'just now'
+  if (s < 60) return future ? `in ${s}s` : `${s}s ago`
+
+  const m = Math.round(s / 60)
+  if (m < 60) return future ? `in ${m}m` : `${m}m ago`
+
+  const h = Math.round(m / 60)
+  if (h < 24) return future ? `in ${h}h` : `${h}h ago`
+
+  const d = Math.round(h / 24)
+  if (d === 1) return future ? 'Tomorrow' : 'Yesterday'
+  if (d < 7) return future ? `in ${d}d` : `${d}d ago`
+
+  // Fall back to absolute formatting for older timestamps. "Mar 14" / "Mar 14, 2024" (if not this year).
+  const date = new Date(ms)
+  const sameYear = date.getFullYear() === new Date(now).getFullYear()
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}

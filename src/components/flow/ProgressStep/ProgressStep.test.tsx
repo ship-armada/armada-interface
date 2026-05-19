@@ -1,5 +1,5 @@
-// ABOUTME: Tests for ProgressStep stub — renders pre-record placeholder and post-record facts.
-// ABOUTME: Replace these tests when TxLifecycleStepper ships and ProgressStep wraps it.
+// ABOUTME: Tests for ProgressStep — pre-record placeholder vs. delegating to TxLifecycleStepper once a record exists.
+// ABOUTME: We assert via well-known stage copy ("Preparing transaction") that TxLifecycleStepper rendered.
 
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -10,17 +10,17 @@ const sampleRecord: TxRecord<'shield'> = {
   id: '01JX',
   kind: 'shield',
   executionState: 'active',
-  stage: 'submit-relayer',
-  stagesCompleted: ['build-proof'],
+  stage: 'build-proof',
+  stagesCompleted: [],
   updatedSeq: 1,
   createdAt: 0,
   updatedAt: 0,
-  meta: { amount: 1000000n, feeCacheId: 'fc-1', fromChainId: 1 },
+  meta: { amount: 1_000_000n, feeCacheId: 'fc-1', fromChainId: 31337 },
   artifacts: {},
   walletContext: {
     evmAddress: '0xabc',
     railgunWalletId: 'rg-1',
-    sourceChainId: 1,
+    sourceChainId: 31337,
   },
 }
 
@@ -28,13 +28,14 @@ describe('<ProgressStep>', () => {
   it('renders preparing placeholder when no record exists', () => {
     render(<ProgressStep record={null} />)
     expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
+    expect(screen.getByText('Hang on a moment…')).toBeInTheDocument()
   })
 
-  it('renders kind, stage, and executionState from the record', () => {
+  it('delegates to TxLifecycleStepper when record is present', () => {
     render(<ProgressStep record={sampleRecord} />)
-    expect(screen.getByText('Transaction in progress')).toBeInTheDocument()
-    expect(screen.getByText('shield')).toBeInTheDocument()
-    expect(screen.getByText('submit-relayer')).toBeInTheDocument()
-    expect(screen.getByText('active')).toBeInTheDocument()
+    // TxLifecycleStepper renders one row per lifecycle stage; the first is "Preparing transaction"
+    // which is shield's build-proof copy. Status chip "Pending" should also be visible.
+    expect(screen.getByText('Pending')).toBeInTheDocument()
+    expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
   })
 })
