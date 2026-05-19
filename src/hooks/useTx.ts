@@ -7,10 +7,11 @@ import { ulid } from 'ulid'
 import type { MetaFor, StageFor, TxKind, TxRecord, TxWalletContext } from '@/lib/tx/types'
 import { lifecycleFor } from '@/lib/tx/lifecycles'
 import { putTxIfFresh } from '@/lib/tx/storage'
+import { cancelTx, executeTx } from '@/lib/tx/executor'
 import { txByIdAtom, upsertTxAtom } from '@/state/tx'
 import { evmAddressAtom, shieldedWalletAtom } from '@/state/wallet'
 import { getNetworkConfig } from '@/config/network'
-import { track, trackError } from '@/lib/telemetry'
+import { track } from '@/lib/telemetry'
 
 export interface UseTxOptions<K extends TxKind> {
   kind: K
@@ -67,20 +68,21 @@ export function useTx<K extends TxKind>(opts: UseTxOptions<K>): UseTxResult<K> {
     await putTxIfFresh(initial)
     track('tx.submitted', { id: newId, kind: opts.kind })
 
-    // TODO(Bundle 3): executeTx(newId) — dispatches into the registered stage handler.
+    // Dispatch to the executor. No-op until a stage handler is registered
+    // for this kind (feature passes do that at module load time).
+    executeTx(newId)
     return newId
   }, [opts.kind, upsert, evmAddress, shieldedWallet])
 
   const retry = useCallback(async () => {
     if (!record) throw new Error('useTx.retry: no record')
-    trackError('useTx.retry', new Error('not implemented'), { id: record.id })
-    // TODO(Bundle 3): executeTx(record.id) re-enters at the current retryable stage.
+    // Re-dispatch — the engine picks up from the current retryable stage.
+    executeTx(record.id)
   }, [record])
 
   const cancel = useCallback(() => {
     if (!record) return
-    track('tx.cancelled', { id: record.id, kind: record.kind })
-    // TODO(Bundle 3): cancelTx(record.id) aborts the in-flight handler.
+    cancelTx(record.id)
   }, [record])
 
   return { record, submit, retry, cancel }
