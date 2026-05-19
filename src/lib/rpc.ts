@@ -40,10 +40,37 @@ export class FallbackJsonRpcProvider extends JsonRpcProvider {
         return result
       } catch (err) {
         lastError = err
+        // Only fall through to the next URL for transport-level failures.
+        // RPC-level errors (execution reverted, invalid params, etc.) are
+        // deterministic — retrying against another node either masks them with
+        // stale state or duplicates work. Surface them to the caller.
+        if (!isTransportError(err)) throw err
       }
     }
     throw lastError
   }
+}
+
+/**
+ * Classify whether an ethers/fetch error is transport-level (network, timeout,
+ * 5xx, connection refused) vs. RPC-level (execution reverted, invalid argument,
+ * bad data). Defaults to NOT retrying on unknown errors — better to surface a
+ * real problem than silently mask it by hopping providers.
+ */
+function isTransportError(err: unknown): boolean {
+  if (err === null || err === undefined) return true
+  const e = err as { code?: string; message?: string }
+  const code = e.code
+  if (code === 'NETWORK_ERROR' || code === 'TIMEOUT' || code === 'SERVER_ERROR') return true
+  // ethers v6 emits these for non-transport problems; do NOT retry.
+  if (code === 'CALL_EXCEPTION' || code === 'INVALID_ARGUMENT' || code === 'BAD_DATA'
+    || code === 'NUMERIC_FAULT' || code === 'UNSUPPORTED_OPERATION'
+    || code === 'INSUFFICIENT_FUNDS' || code === 'NONCE_EXPIRED'
+    || code === 'REPLACEMENT_UNDERPRICED' || code === 'TRANSACTION_REPLACED'
+    || code === 'ACTION_REJECTED') return false
+  const msg = e.message ?? ''
+  if (/fetch failed|ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up|aborted/i.test(msg)) return true
+  return false
 }
 
 /** Create a provider with optional ordered fallback. Single URL → plain `JsonRpcProvider`. */

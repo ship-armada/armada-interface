@@ -12,7 +12,7 @@ let dbPromise: Promise<IDBDatabase> | null = null
 
 function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise
-  dbPromise = new Promise((resolve, reject) => {
+  const promise = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = () => {
       const db = req.result
@@ -23,8 +23,21 @@ function openDb(): Promise<IDBDatabase> {
       }
     }
     req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
+    // Clear the cached promise on failure so a later call can retry. Without
+    // this, a single transient open error (quota, blocked upgrade, etc.) would
+    // poison every cache op for the rest of the page lifetime.
+    req.onerror = () => {
+      if (dbPromise === promise) dbPromise = null
+      reject(req.error)
+    }
+    req.onblocked = () => {
+      if (dbPromise === promise) dbPromise = null
+      reject(new Error('IndexedDB open blocked (another tab holds an older version)'))
+    }
   })
+  // Defensive: also clear if the promise rejects for any reason not caught above.
+  promise.catch(() => { if (dbPromise === promise) dbPromise = null })
+  dbPromise = promise
   return dbPromise
 }
 

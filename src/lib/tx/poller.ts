@@ -70,11 +70,18 @@ export async function poll<T>(
     const delay = jittered(baseDelay, o.jitter)
 
     await new Promise<void>((resolve) => {
-      const t = setTimeout(resolve, delay)
-      o.signal?.addEventListener('abort', () => {
+      // Listener is removed in both branches (timer fires, or abort fires)
+      // so long-running polls don't accumulate listeners on the shared signal.
+      const onAbort = () => {
         clearTimeout(t)
+        o.signal?.removeEventListener('abort', onAbort)
         resolve()
-      })
+      }
+      const t = setTimeout(() => {
+        o.signal?.removeEventListener('abort', onAbort)
+        resolve()
+      }, delay)
+      o.signal?.addEventListener('abort', onAbort)
     })
   }
 

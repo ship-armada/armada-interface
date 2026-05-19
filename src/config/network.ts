@@ -33,9 +33,11 @@ export function isLocalMode(): boolean {
   return getNetworkMode() === 'local'
 }
 
+// Local CCTP domains match config/networks.ts (HUB=100, CLIENT_A=101, CLIENT_B=102).
+// Real CCTP domains (e.g. Ethereum=0, Base=6) are reserved for the `sepolia` mode.
 const LOCAL_HUB: ChainIdentity = {
   chainId: 31337,
-  domain: 0,
+  domain: 100,
   name: 'Anvil Hub (local)',
   rpcUrls: ['http://localhost:8545'],
 } as const

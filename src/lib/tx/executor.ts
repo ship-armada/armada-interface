@@ -5,7 +5,7 @@ import { getDefaultStore } from 'jotai'
 import { track, trackError } from '../telemetry'
 import { lifecycleFor } from './lifecycles'
 import { markCancelled, markExpired, shouldResume } from './reducer'
-import { putTxIfFresh } from './storage'
+import { loadAllTx, putTxIfFresh } from './storage'
 import type { StageFor, TxKind, TxRecord } from './types'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
 import { tabVisibleAtom } from '@/state/visibility'
@@ -151,17 +151,34 @@ function onBecomeLeader(): void {
   void resumeNonTerminal()
 }
 
-/** Walk persisted records on app load; resume non-terminal ones; expire stale. */
+/**
+ * Walk persisted records on app load; resume non-terminal ones; expire stale.
+ *
+ * Reads from IDB directly rather than `txListAtom` because hydration
+ * (`useTxHistory`) races against leader-lock acquisition. If the lock is
+ * acquired before hydration completes, the atom is still empty and we'd miss
+ * everything. `upsertTxAtom` is OCC-safe so seeding records here cannot
+ * regress any newer in-memory state that hydration produces later.
+ */
 async function resumeNonTerminal(): Promise<void> {
   const store = getDefaultStore()
-  const list = store.get(txListAtom)
-  for (const record of list) {
+  let records: TxRecord[]
+  try {
+    records = await loadAllTx()
+  } catch (err) {
+    trackError('tx.executor.resume', err, { scope: 'tx.executor', message: 'loadAllTx failed' })
+    return
+  }
+  for (const record of records) {
     if (record.executionState === 'completed'
       || record.executionState === 'failed'
       || record.executionState === 'expired'
       || record.executionState === 'cancelled') {
       continue
     }
+    // Seed the atom so executeTx() can find the record even if useTxHistory
+    // hasn't finished hydrating yet. OCC ensures we don't clobber newer state.
+    store.set(upsertTxAtom, record)
     if (shouldResume(record)) {
       executeTx(record.id)
     } else {
