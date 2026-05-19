@@ -1,0 +1,64 @@
+/* ABOUTME: ActionCard styling — vertical stack with brand-tinted icon chip, title, and subtitle. */
+/* ABOUTME: Subtle hover lift via translateY; focus ring uses the lavender border-focus token. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--primitives-spacing-2);
+  text-align: left;
+  width: 100%;
+  background: var(--semantic-color-surface-default);
+  border: 1px solid var(--semantic-color-border-default);
+  border-radius: calc(var(--semantic-borderRadius-card) * 1px);
+  padding: var(--primitives-spacing-5);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.card:hover:not(:disabled) {
+  background: var(--semantic-color-surface-raised);
+  border-color: rgba(196, 145, 229, 0.32);
+  transform: translateY(-1px);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--semantic-color-border-focus);
+  outline-offset: 2px;
+}
+
+.card:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(196, 145, 229, 0.12);
+  color: var(--semantic-color-brand-lavender);
+}
+
+.title {
+  color: var(--semantic-color-text-primary);
+  font-weight: var(--primitives-fontWeight-medium);
+}
+
+.subtitle {
+  color: var(--semantic-color-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+}

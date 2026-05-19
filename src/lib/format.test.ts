@@ -2,7 +2,14 @@
 // ABOUTME: Relative-time tests inject `now` so the buckets are deterministic across runs.
 
 import { describe, it, expect } from 'vitest'
-import { formatUsdc, formatUsdcPlain, parseUsdcInput, truncateAddress, formatRelativeTime } from './format'
+import {
+  formatUsdc,
+  formatUsdcPlain,
+  formatUsdcAmount,
+  parseUsdcInput,
+  truncateAddress,
+  formatRelativeTime,
+} from './format'
 
 describe('formatUsdc', () => {
   it('formats a raw 6-decimal amount as a dollar string', () => {
@@ -15,6 +22,17 @@ describe('formatUsdcPlain', () => {
   it('returns a plain decimal string suitable for inputs', () => {
     expect(formatUsdcPlain(2_500_000n)).toBe('2.5')
     expect(formatUsdcPlain(0n)).toBe('0')
+  })
+})
+
+describe('formatUsdcAmount', () => {
+  it('formats with thousand separators and 2 decimal places by default', () => {
+    expect(formatUsdcAmount(12_481_220_000n)).toBe('12,481.22')
+    expect(formatUsdcAmount(0n)).toBe('0.00')
+  })
+  it('honors a custom decimals option', () => {
+    expect(formatUsdcAmount(1_234_567_890n, { decimals: 4 })).toBe('1,234.5679')
+    expect(formatUsdcAmount(1_500_000n, { decimals: 0 })).toBe('2')
   })
 })
 

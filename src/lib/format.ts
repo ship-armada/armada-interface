@@ -12,6 +12,19 @@ export function formatUsdcPlain(amount: bigint): string {
   return (Number(amount) / 1e6).toString()
 }
 
+/**
+ * Format a USDC raw amount as a locale-grouped number string with a fixed number of decimals.
+ * Suitable for the BalanceHero display ("12,481.22") and similar large-number presentations.
+ */
+export function formatUsdcAmount(amount: bigint, options?: { decimals?: number }): string {
+  const decimals = options?.decimals ?? 2
+  const dollars = Number(amount) / 1e6
+  return dollars.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
+}
+
 /** Parse a USDC input string (e.g. "150" or "150.50") to 6-decimal raw bigint. */
 export function parseUsdcInput(input: string): bigint {
   const num = parseFloat(input)

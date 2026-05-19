@@ -1,0 +1,91 @@
+/* ABOUTME: BalanceHero styling — uppercase tracking label, Charis-SIL display total, two-column breakdown with a vertical divider. */
+/* ABOUTME: Card uses surface-raised + extra vertical padding to give the hero number breathing room. */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-5);
+  padding: var(--primitives-spacing-8) var(--primitives-spacing-6);
+}
+
+.label {
+  color: var(--semantic-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--primitives-letterSpacing-wider);
+  font-size: calc(var(--primitives-fontSize-xs) * 1px);
+}
+
+.syncing {
+  color: var(--semantic-color-text-secondary);
+  font-family: "Charis SIL", serif;
+  font-size: calc(var(--primitives-fontSize-2xl) * 1px);
+  line-height: var(--primitives-lineHeight-tight);
+  font-weight: var(--primitives-fontWeight-regular);
+  margin: var(--primitives-spacing-2) 0;
+}
+
+.totalRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--primitives-spacing-3);
+  color: var(--semantic-color-text-primary);
+  margin: var(--primitives-spacing-2) 0;
+}
+
+.totalAmount {
+  font-family: "Charis SIL", serif;
+  font-size: calc(var(--primitives-fontSize-5xl) * 1px);
+  line-height: var(--primitives-lineHeight-tight);
+  font-weight: var(--primitives-fontWeight-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+.totalUnit {
+  color: var(--semantic-color-text-muted);
+  font-size: calc(var(--primitives-fontSize-lg) * 1px);
+  letter-spacing: var(--primitives-letterSpacing-wide);
+}
+
+.breakdown {
+  display: flex;
+  align-items: stretch;
+  gap: var(--primitives-spacing-6);
+  border-top: 1px solid var(--semantic-color-border-default);
+  padding-top: var(--primitives-spacing-5);
+}
+
+.breakdownItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-1);
+  flex: 1 1 0;
+}
+
+.breakdownLabel {
+  color: var(--semantic-color-text-muted);
+}
+
+.breakdownValue {
+  color: var(--semantic-color-text-primary);
+  font-family: "Charis SIL", serif;
+  font-size: calc(var(--primitives-fontSize-2xl) * 1px);
+  line-height: var(--primitives-lineHeight-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.breakdownDivider {
+  width: 1px;
+  background: var(--semantic-color-border-default);
+  align-self: stretch;
+}
+
+@media (max-width: 480px) {
+  .breakdown {
+    flex-direction: column;
+    gap: var(--primitives-spacing-3);
+  }
+  .breakdownDivider {
+    width: 100%;
+    height: 1px;
+  }
+}

@@ -1,0 +1,14 @@
+/* ABOUTME: ActionGrid layout — 4 equal columns on desktop, 2x2 on narrow viewports. */
+/* ABOUTME: Gap matches the dashboard's between-section spacing for visual rhythm. */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--primitives-spacing-4);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
