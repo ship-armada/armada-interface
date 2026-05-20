@@ -118,24 +118,14 @@
 .iconFailed {
   color: var(--semantic-color-status-error);
 }
+/* Animation comes from Tailwind's `animate-spin` utility (applied alongside `iconActive` in the
+   component). Keeping the spin in Tailwind dodges the CSS-Modules keyframe-scoping issues that
+   left the previous in-module `@keyframes spin` rule unreachable. */
 .iconActive {
   color: var(--semantic-color-brand-lavender);
-  /* armada-spin is declared globally in index.css. Referencing a global keyframe sidesteps the
-     CSS-Modules name-rewrite that left the previous in-module `spin` keyframe unreachable, which
-     made the icon appear frozen. transform-box + transform-origin ensures the SVG pivots around
-     its own visual center rather than the top-left of its viewBox. */
-  animation: armada-spin 1.2s linear infinite;
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
 }
 .iconPending {
   color: var(--semantic-color-text-dim);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .iconActive {
-    animation: none;
-  }
 }
 
 /* Technical details facts list */

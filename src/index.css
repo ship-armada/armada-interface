@@ -37,12 +37,3 @@
 :root {
   --rk-fonts-body: Geist, system-ui, -apple-system, sans-serif;
 }
-
-/*
- * Global spinner keyframes. Lives here (not in a CSS module) so the rule can be referenced
- * by name from any module without depending on CSS-Modules keyframe-scoping behavior, which
- * has historically caused the icon to appear frozen even though `animation: spin …` was set.
- */
-@keyframes armada-spin {
-  to { transform: rotate(360deg); }
-}

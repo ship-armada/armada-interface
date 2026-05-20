@@ -41,7 +41,7 @@ function RowIcon({ kind }: { kind: RowKind }) {
       return <XCircle className={styles.iconFailed} size={20} aria-hidden="true" />
     case 'current-active':
     case 'current-waiting':
-      return <Loader2 className={styles.iconActive} size={20} aria-hidden="true" />
+      return <Loader2 className={`${styles.iconActive} animate-spin`} size={20} aria-hidden="true" />
     case 'pending':
       return <Circle className={styles.iconPending} size={20} aria-hidden="true" />
   }
