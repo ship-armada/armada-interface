@@ -1,5 +1,5 @@
-// ABOUTME: Returning-user unlock — three modes (paste root_secret hex, upload backup file, re-sign with EVM wallet) gated by Tabs.
-// ABOUTME: All three modes resolve to a re-unlocked keyManager via useShieldedWallet; the caller's `onUnlocked` then advances the App-level guard.
+// ABOUTME: Returning-user unlock — two modes (paste root_secret hex, upload backup file) gated by Tabs.
+// ABOUTME: Re-signing was explored but removed (specs/TX_SIGNING.md §"Recovery"): non-deterministic wallets produce a different identity each time. Paste / backup are the canonical paths.
 
 import { useId, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Lock } from 'lucide-react'
@@ -14,16 +14,15 @@ export interface UnlockFlowProps {
   onUnlocked: () => void
 }
 
-type Mode = 'paste' | 'backup' | 'sign'
+type Mode = 'paste' | 'backup'
 
 const MODES: ReadonlyArray<{ id: Mode; label: string }> = [
   { id: 'paste', label: 'Paste secret' },
   { id: 'backup', label: 'Backup file' },
-  { id: 'sign', label: 'Sign again' },
 ]
 
 export function UnlockFlow({ onUnlocked }: UnlockFlowProps) {
-  const { unlockByPaste, unlockByBackup, enroll } = useShieldedWallet()
+  const { unlockByPaste, unlockByBackup } = useShieldedWallet()
   const [mode, setMode] = useState<Mode>('paste')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,19 +74,6 @@ export function UnlockFlow({ onUnlocked }: UnlockFlowProps) {
       await unlockByBackup(backupFile, backupPassphrase)
       setBackupFile(null)
       setBackupPassphrase('')
-      onUnlocked()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unlock failed.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  async function handleSignAgain() {
-    setError(null)
-    setSubmitting(true)
-    try {
-      await enroll()
       onUnlocked()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unlock failed.')
@@ -189,27 +175,6 @@ export function UnlockFlow({ onUnlocked }: UnlockFlowProps) {
               }}
             />
           </form>
-        )}
-
-        {mode === 'sign' && (
-          <div className={styles.root}>
-            <p className={styles.body}>
-              Re-signing only restores access if your wallet produces deterministic signatures
-              (most don't). If the checksum from your signature doesn't match the one saved for
-              this device, you'll be asked to use Paste secret or Backup file instead.
-            </p>
-            {error ? (
-              <div role="alert" className={styles.error}>{error}</div>
-            ) : null}
-            <FlowFooter
-              className={styles.footer}
-              primary={{
-                label: submitting ? 'Waiting for signature…' : 'Sign to unlock',
-                onClick: handleSignAgain,
-                disabled: submitting,
-              }}
-            />
-          </div>
         )}
       </div>
     </OnboardingShell>

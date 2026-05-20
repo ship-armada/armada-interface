@@ -8,7 +8,7 @@ First-run setup + returning-user unlock. Mounted by the top-level guard in `App.
 |---|---|
 | `OnboardingShell` | Non-dismissible `Modal` + `FlowHeader` wrapper. Owns the body padding; step content + footer flow inside. |
 | `OnboardingFlow` | 6-step state machine: Welcome → Sign → Checksum → Backup → ConfirmBackup → Complete. Drives `useShieldedWallet().enroll` + `exportBackup`. |
-| `UnlockFlow` | Three-mode unlock (paste hex secret / upload backup + passphrase / re-sign with EVM wallet). Calls `useShieldedWallet().unlockByPaste` / `unlockByBackup` / `enroll`. |
+| `UnlockFlow` | Two-mode unlock (paste hex secret / upload backup + passphrase). Calls `useShieldedWallet().unlockByPaste` / `unlockByBackup`. Re-signing is not offered (spec §"Recovery": non-deterministic wallets produce a different identity each time). |
 | `steps/WelcomeStep` | Intro + Create CTA. |
 | `steps/SignEnrollmentStep` | EIP-712 sign prompt + in-flight/error state. |
 | `steps/AntiPhishChecksumStep` | Displays the live anti-phish checksum so the user recognizes their own wallet on later unlocks. |
