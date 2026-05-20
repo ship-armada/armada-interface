@@ -294,10 +294,9 @@ async function runWaitForDelivery(
   const result = await poll<`0x${string}`>(
     async (signal) => {
       if (signal.aborted) return null
-      // Query MessageReceived logs filtered by the indexed `nonce` topic via viem's typed
-      // event filter. eth_getLogs returns only mined events — exactly what we want for
-      // "delivery confirmed". CCTP nonces are globally-unique per source domain, so this
-      // match is unambiguous (no false positives unlike a balance-delta heuristic).
+      // Query MessageReceived logs filtered by the indexed `nonce` topic. eth_getLogs returns
+      // only mined events — exactly what we want for "delivery confirmed". CCTP nonces are
+      // globally-unique per source domain, so this match is unambiguous.
       const logs = await destClient.getLogs({
         address: destMessageTransmitter,
         event: MESSAGE_RECEIVED_EVENT,
