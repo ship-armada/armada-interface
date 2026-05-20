@@ -7,6 +7,7 @@
 // the first time initRailgunEngine() runs.
 import { createWebDatabase } from './database'
 import { createBrowserArtifactStore } from './artifacts'
+import { initializeProver } from './prover'
 
 const ENGINE_DB_NAME = 'armada-shielded'
 const ENGINE_WALLET_SOURCE = 'armadainf' // ≤16 chars, lowercase, no special chars — SDK constraint
@@ -126,6 +127,12 @@ async function doInit(): Promise<void> {
     undefined, // customPOILists
     true, // verboseScanLogging
   )
+
+  // Wire snarkjs as the Groth16 prover implementation. Unshield / transfer proofs throw
+  // "Requires groth16 full prover implementation" without this. Shield doesn't need it
+  // (ECIES + Poseidon only), but we initialize unconditionally so the first unshield doesn't
+  // pay the snarkjs import cost on the critical path.
+  await initializeProver()
 
   // POI is required by the SDK for proof generation calls, but our deployment doesn't run a POI
   // node. Install a noop interface so isRequiredForChain() returns false without crashing.
