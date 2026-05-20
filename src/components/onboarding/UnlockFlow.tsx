@@ -194,8 +194,9 @@ export function UnlockFlow({ onUnlocked }: UnlockFlowProps) {
         {mode === 'sign' && (
           <div className={styles.root}>
             <p className={styles.body}>
-              Re-sign the enrollment message with your EVM wallet to restore this account. No backup
-              file or recovery secret needed — signing with the same wallet produces the same keys.
+              Re-signing only restores access if your wallet produces deterministic signatures
+              (most don't). If the checksum from your signature doesn't match the one saved for
+              this device, you'll be asked to use Paste secret or Backup file instead.
             </p>
             {error ? (
               <div role="alert" className={styles.error}>{error}</div>

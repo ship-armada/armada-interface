@@ -65,6 +65,13 @@ export interface ShieldedWalletState {
 
 /** Persisted across reloads so we can fast-path `loadWalletByID` instead of recreating. */
 const STORED_WALLET_ID_KEY = 'armada.shielded.walletId'
+/**
+ * Persisted alongside the walletId so re-signing can detect a checksum mismatch (spec §
+ * "Recovery & re-signing"). The anti-phish checksum is non-secret — safe to store in plaintext.
+ * Without this, a second signature from a non-deterministic wallet would silently bind a
+ * different identity to the same UI session.
+ */
+const STORED_CHECKSUM_KEY = 'armada.shielded.checksum'
 
 /**
  * Public lookup — App.tsx uses this on cold boot to seed `shieldedWalletsAtom` with a `locked`
@@ -92,6 +99,21 @@ function storeWalletId(id: string): void {
 function clearStoredWalletId(): void {
   try {
     window.localStorage.removeItem(STORED_WALLET_ID_KEY)
+    window.localStorage.removeItem(STORED_CHECKSUM_KEY)
+  } catch {
+    /* silent */
+  }
+}
+function storedChecksum(): string | null {
+  try {
+    return window.localStorage.getItem(STORED_CHECKSUM_KEY)
+  } catch {
+    return null
+  }
+}
+function storeChecksum(checksum: string): void {
+  try {
+    window.localStorage.setItem(STORED_CHECKSUM_KEY, checksum)
   } catch {
     /* silent */
   }
@@ -134,6 +156,22 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
 
   const sdkEncryptionKey = deriveSdkEncryptionKeyHex(rootSecret)
   const cachedWalletId = storedWalletId()
+  const cachedChecksum = storedChecksum()
+  const derivedChecksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))
+
+  // Spec §"Recovery & re-signing": if a wallet is already enrolled and the user re-signs with
+  // a non-deterministic wallet, the new signature derives a DIFFERENT root_secret → different
+  // identity. We detect that here via the persisted checksum and refuse to clobber the session.
+  // Users with deterministic-signing wallets (e.g. Ledger / RFC 6979 conformant) get the
+  // happy-path load below; everyone else sees a clear error directing them to paste-secret.
+  if (cachedChecksum && derivedChecksum !== cachedChecksum) {
+    throw new Error(
+      `This signature produces a different identity (${derivedChecksum}) than your stored wallet (${cachedChecksum}). ` +
+        'Most wallets produce a different signature every time — re-signing is not a reliable recovery path. ' +
+        'Use Paste secret or Backup file instead.',
+    )
+  }
+
   let walletId: string
   let railgunAddress: string
   let isFirstTime: boolean
@@ -163,15 +201,14 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
     isFirstTime = true
   }
 
-  const checksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))
-
   storeWalletId(walletId)
+  storeChecksum(derivedChecksum)
   setUnlocked({
     rootSecret,
     walletId,
     sdkEncryptionKey,
     railgunAddress,
-    checksum,
+    checksum: derivedChecksum,
   })
   if (isFirstTime) {
     track('shielded.created', { walletId })
@@ -185,7 +222,7 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
       id: walletId,
       status: 'unlocked',
       railgunAddress,
-      checksum,
+      checksum: derivedChecksum,
       unlockedAt: Date.now(),
     },
   }
@@ -231,6 +268,7 @@ export async function unlockFromRootSecret(rootSecret: Uint8Array): Promise<Shie
 
   const checksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))
   storeWalletId(walletId)
+  storeChecksum(checksum)
   setUnlocked({ rootSecret, walletId, sdkEncryptionKey, railgunAddress, checksum })
   track('shielded.unlock', { walletId })
 
