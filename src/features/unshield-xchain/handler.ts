@@ -212,9 +212,13 @@ async function runSubmitAndBurn(
     ? pad(destHookRouter as `0x${string}`, { size: 32 })
     : `0x${'00'.repeat(32)}` as `0x${string}`
 
-  // maxFee = 0 for now (no relayer fee in this path). When the relayer-mediated path lands we
-  // pull from useFees / the /fees endpoint and pass the quoted value here.
-  const maxFee = 0n
+  // maxFee = the relayer's enforced floor for cross-chain delivery (1.1 USDC raw in mock mode).
+  // The relayer skips messages whose maxFee is below its minimum, so passing 0 strands the
+  // message on the hub. The fee is deducted from the amount minted on the destination — for
+  // a 10 USDC withdraw with 1.1 USDC fee, the recipient gets 8.9 USDC.
+  // TODO(fees): query the relayer's /fees endpoint and surface the quote on the review step
+  // so the user sees the actual fee before confirming. For now we hardcode the floor.
+  const maxFee = 1_100_000n
 
   const hash = await sendTransaction(wagmiConfig, {
     to: privacyPoolAddress as `0x${string}`,
