@@ -51,7 +51,7 @@ export function UnshieldModal() {
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
   const max = shieldedUsdc ?? 0n
   const amount = parseUsdcInput(amountStr)
-  const { quote, isStale } = useFees()
+  const { quote, isStale, refresh } = useFees()
 
   // Two hooks mounted; whichever kind we submit to gets a record. The other stays idle.
   const txLocal = useTx({ kind: 'unshield-local' })
@@ -105,18 +105,23 @@ export function UnshieldModal() {
   async function handleSubmit() {
     setSubmitError(null)
     try {
+      const activeQuote = quote && !isStale ? quote : await refresh()
+      if (!activeQuote) {
+        throw new Error('Could not fetch a current fee quote — please try again.')
+      }
+      const feeCacheId = activeQuote.cacheId
       if (computedKind === 'unshield-local') {
         setSubmittedKind('unshield-local')
         await txLocal.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           recipient,
         })
       } else {
         setSubmittedKind('unshield-xchain')
         await txXchain.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           toChainId: destChainId,
           recipient,
         })

@@ -10,8 +10,12 @@ import { trackError } from '@/lib/telemetry'
 export interface UseFeesResult {
   quote: FeeSchedule | null
   isStale: boolean
-  /** Force a fresh fetch — usually unnecessary; the hook auto-refreshes near expiry. */
-  refresh: () => Promise<void>
+  /**
+   * Force a fresh fetch — usually unnecessary; the hook auto-refreshes near expiry. Returns the
+   * fresh schedule so callers can submit with the new cacheId directly without waiting for a
+   * subsequent re-render to surface the updated atom value.
+   */
+  refresh: () => Promise<FeeSchedule | null>
 }
 
 /** Re-fetch 30s before the relayer's TTL expires so callers never see a stale quote. */
@@ -29,15 +33,17 @@ export function useFees(): UseFeesResult {
   const isStale = useAtomValue(feeQuoteIsStaleAtom)
   const inFlightLocalRef = useRef(false)
 
-  const refresh = useCallback(async () => {
-    if (inFlight) return
+  const refresh = useCallback(async (): Promise<FeeSchedule | null> => {
+    if (inFlight) return null
     inFlight = true
     inFlightLocalRef.current = true
     try {
       const next = await fetchFees()
       setQuote(next)
+      return next
     } catch (err) {
       trackError('useFees.refresh', err, { scope: 'fees', message: 'fetchFees failed' })
+      return null
     } finally {
       inFlight = false
       inFlightLocalRef.current = false

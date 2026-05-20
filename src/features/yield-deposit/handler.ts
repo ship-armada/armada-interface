@@ -74,7 +74,7 @@ async function runBuildProof(
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   const progress = createProofProgressWriter(record)
-  await buildYieldAdaptTransaction({
+  const built = await buildYieldAdaptTransaction({
     walletId,
     encryptionKey,
     mode: 'lend',
@@ -86,51 +86,33 @@ async function runBuildProof(
     hubChainId: getNetworkConfig().hub.chainId,
     onProgress: progress.write,
   })
-  // We don't persist the populated tx — the next stage rebuilds it deterministically from the
-  // proof cached in the engine. Saves us serializing a complex tuple to IDB; downside is that
-  // a resume between stages has to re-prove (~20-30s). Acceptable for v1.
 
   if (ctx.signal.aborted) throw new Error('cancelled')
-  // Advance from `progress.latest()` — the progress writer bumped updatedSeq; the original
-  // `record` param's seq is stale and would be silently dropped by upsertTxAtom's OCC guard.
-  await ctx.upsert(advance(progress.latest(), 'submit-relayer'))
+  // Stash the populated calldata so submit-relayer skips re-proving. The SDK's
+  // generateProofTransactions is stateless — without this, a resume (or even the normal
+  // build-proof → submit-relayer transition) would pay the ~20-30s proving cost twice.
+  await ctx.upsert(advance(progress.latest(), 'submit-relayer', {
+    yieldTx: {
+      to: built.transaction.to,
+      data: built.transaction.data,
+      value: built.transaction.value.toString(),
+    },
+  }))
 }
 
 async function runSubmitAndConfirm(
   record: TxRecord<'yield-deposit'>,
   ctx: Parameters<typeof yieldDepositHandler.run>[1],
 ): Promise<void> {
-  if (!kmIsUnlocked()) {
-    throw new Error('Yield deposit requires an unlocked shielded wallet.')
+  const yieldTx = record.artifacts.yieldTx
+  if (!yieldTx) {
+    throw new Error('Yield adapt-proof tx missing — re-run build-proof stage.')
   }
-  const walletId = kmGetWalletId()
-  const encryptionKey = kmGetSdkEncryptionKey()
-  const railgunAddress = kmGetRailgunAddress()
-  const deployments = await loadDeployments()
-  const yieldDeployment = await loadYieldDeployment()
-  if (!yieldDeployment) {
-    throw new Error('Yield deployment manifest not found.')
-  }
-
-  // Rebuild the tx deterministically — the engine has the proof cached from build-proof, so
-  // this call is fast (the SDK reuses the cached proof when the inputs match).
-  const built = await buildYieldAdaptTransaction({
-    walletId,
-    encryptionKey,
-    mode: 'lend',
-    unshieldToken: deployments.hub.cctp.usdc,
-    shieldOutputToken: yieldDeployment.contracts.armadaYieldVault,
-    amount: record.meta.amount,
-    railgunAddress,
-    adapterAddress: yieldDeployment.contracts.armadaYieldAdapter,
-    hubChainId: getNetworkConfig().hub.chainId,
-  })
-  if (ctx.signal.aborted) throw new Error('cancelled')
 
   const hash = await sendTransaction(wagmiConfig, {
-    to: built.transaction.to,
-    data: built.transaction.data,
-    value: built.transaction.value,
+    to: yieldTx.to,
+    data: yieldTx.data,
+    value: BigInt(yieldTx.value),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
 

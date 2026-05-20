@@ -192,9 +192,25 @@ export interface ArtifactsShield extends ArtifactsCommon {
   }
 }
 
+/**
+ * Yield-specific artifacts. The `build-proof` stage stashes the populated adapter calldata here
+ * so submit-relayer can dispatch it directly without re-running `generateProofTransactions`
+ * (which is stateless in the Railgun SDK — a second call from submit-relayer would otherwise pay
+ * the full ~20-30s proving cost again). `value` is stringified for IDB serializability.
+ */
+export interface ArtifactsYield extends ArtifactsCommon {
+  yieldTx?: {
+    to: `0x${string}`
+    data: `0x${string}`
+    value: string
+  }
+}
+
 export type ArtifactsFor<K extends TxKind> =
   K extends 'unshield-xchain' ? ArtifactsXchain
   : K extends 'shield' ? ArtifactsShield
+  : K extends 'yield-deposit' ? ArtifactsYield
+  : K extends 'yield-withdraw' ? ArtifactsYield
   : ArtifactsCommon
 
 /* Ownership / session context — captured at submit. Required for history

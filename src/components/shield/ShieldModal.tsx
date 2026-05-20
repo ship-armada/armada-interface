@@ -43,7 +43,7 @@ export function ShieldModal() {
   const max = balances.unshielded[fromChainId] ?? 0n
   const amount = parseUsdcInput(amountStr)
 
-  const { quote, isStale } = useFees()
+  const { quote, isStale, refresh } = useFees()
   // Direct hub shield is user-submitted — no relayer fee. `feeForKind('shield', ...)` returns 0n
   // by design; we still gate on `quote` so the FeeSummary shows "Loading…" until the schedule
   // arrives (UX consistency across modals; the loading state is brief in practice).
@@ -79,9 +79,15 @@ export function ShieldModal() {
   async function handleSubmit() {
     setSubmitError(null)
     try {
+      // Submit with a fresh cacheId — if the cached quote is within the staleness window the
+      // modal sat through, re-quote first so the relayer doesn't reject with FEE_EXPIRED.
+      const activeQuote = quote && !isStale ? quote : await refresh()
+      if (!activeQuote) {
+        throw new Error('Could not fetch a current fee quote — please try again.')
+      }
       await tx.submit({
         amount,
-        feeCacheId: quote?.cacheId ?? '',
+        feeCacheId: activeQuote.cacheId,
         fromChainId,
       })
       setStep('progress')

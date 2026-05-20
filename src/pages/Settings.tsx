@@ -1,13 +1,14 @@
 // ABOUTME: Settings page — Private Wallet (lock / export / reset) + Preferences (auto-lock, technical details default) + Advanced (network, version).
 // ABOUTME: Auxiliary dialogs (RecoverySecretExportDialog, ResetWalletDialog) are opened via local state, not openModalAtom.
 
-import { useState, type ChangeEvent } from 'react'
-import { useAtom } from 'jotai'
+import { useEffect, useState, type ChangeEvent } from 'react'
+import { useAtom, useAtomValue } from 'jotai'
 import { Button } from '@armada/ui'
 import { Card, SectionHeader } from '@/components/ui'
 import { RecoverySecretExportDialog, ResetWalletDialog } from '@/components/settings'
 import { useShieldedWallet } from '@/hooks/useShieldedWallet'
 import { preferencesAtom, type AutoLockMinutes } from '@/state/preferences'
+import { autoLockDeadlineAtom } from '@/state/wallet'
 import { getNetworkMode } from '@/config/network'
 import styles from './Settings.module.css'
 
@@ -101,6 +102,12 @@ export function Settings() {
             </div>
           </li>
           <li className={styles.row}>
+            <div className={styles.rowLabel}>Time until auto-lock</div>
+            <div className={styles.rowValue}>
+              <AutoLockCountdown />
+            </div>
+          </li>
+          <li className={styles.row}>
             <div className={styles.rowLabel}>Show technical details by default</div>
             <div className={styles.rowAction}>
               <label className={styles.toggle}>
@@ -139,4 +146,24 @@ export function Settings() {
       <ResetWalletDialog open={resetOpen} onClose={() => setResetOpen(false)} />
     </div>
   )
+}
+
+/**
+ * Live countdown to the next auto-lock. Reads `autoLockDeadlineAtom` (written by `useAutoLock`
+ * on each user-activity reset). Ticks every 10s — finer-grained ticking isn't useful at minute
+ * granularity. Returns '—' when no timer is armed (wallet missing/locked).
+ */
+function AutoLockCountdown() {
+  const deadline = useAtomValue(autoLockDeadlineAtom)
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (deadline == null) return
+    const t = window.setInterval(() => setNow(Date.now()), 10_000)
+    return () => window.clearInterval(t)
+  }, [deadline])
+  if (deadline == null) return <>—</>
+  const remaining = Math.max(0, deadline - now)
+  if (remaining <= 0) return <>Locking now…</>
+  const minutes = Math.ceil(remaining / 60_000)
+  return <>{minutes === 1 ? 'Less than a minute' : `${minutes} minutes`}</>
 }

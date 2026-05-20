@@ -45,3 +45,10 @@ export const shieldedUsdcAtom = atom<bigint | null>(null)
 
 /** Shielded yield shares (raw 18-decimal units). null until sync. */
 export const yieldSharesAtom = atom<bigint | null>(null)
+
+/**
+ * Absolute timestamp (ms since epoch) at which the shielded wallet will auto-lock if no further
+ * user activity occurs. Null when no lock timer is armed (wallet missing or already locked).
+ * Written by `useAutoLock` on each arming/reset; read by Settings for the live countdown.
+ */
+export const autoLockDeadlineAtom = atom<number | null>(null)

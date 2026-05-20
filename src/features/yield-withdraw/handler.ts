@@ -70,7 +70,7 @@ async function runBuildProof(
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   const progress = createProofProgressWriter(record)
-  await buildYieldAdaptTransaction({
+  const built = await buildYieldAdaptTransaction({
     walletId,
     encryptionKey,
     mode: 'redeem',
@@ -86,43 +86,29 @@ async function runBuildProof(
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')
-  // Advance from `progress.latest()` — see yield-deposit handler for the OCC-bump rationale.
-  await ctx.upsert(advance(progress.latest(), 'submit-relayer'))
+  // Stash the populated calldata — see yield-deposit handler for the proof-cache rationale.
+  await ctx.upsert(advance(progress.latest(), 'submit-relayer', {
+    yieldTx: {
+      to: built.transaction.to,
+      data: built.transaction.data,
+      value: built.transaction.value.toString(),
+    },
+  }))
 }
 
 async function runSubmitAndConfirm(
   record: TxRecord<'yield-withdraw'>,
   ctx: Parameters<typeof yieldWithdrawHandler.run>[1],
 ): Promise<void> {
-  if (!kmIsUnlocked()) {
-    throw new Error('Yield withdraw requires an unlocked shielded wallet.')
+  const yieldTx = record.artifacts.yieldTx
+  if (!yieldTx) {
+    throw new Error('Yield adapt-proof tx missing — re-run build-proof stage.')
   }
-  const walletId = kmGetWalletId()
-  const encryptionKey = kmGetSdkEncryptionKey()
-  const railgunAddress = kmGetRailgunAddress()
-  const deployments = await loadDeployments()
-  const yieldDeployment = await loadYieldDeployment()
-  if (!yieldDeployment) {
-    throw new Error('Yield deployment manifest not found.')
-  }
-
-  const built = await buildYieldAdaptTransaction({
-    walletId,
-    encryptionKey,
-    mode: 'redeem',
-    unshieldToken: yieldDeployment.contracts.armadaYieldVault,
-    shieldOutputToken: deployments.hub.cctp.usdc,
-    amount: record.meta.shares,
-    railgunAddress,
-    adapterAddress: yieldDeployment.contracts.armadaYieldAdapter,
-    hubChainId: getNetworkConfig().hub.chainId,
-  })
-  if (ctx.signal.aborted) throw new Error('cancelled')
 
   const hash = await sendTransaction(wagmiConfig, {
-    to: built.transaction.to,
-    data: built.transaction.data,
-    value: built.transaction.value,
+    to: yieldTx.to,
+    data: yieldTx.data,
+    value: BigInt(yieldTx.value),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
 

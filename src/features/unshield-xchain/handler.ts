@@ -332,10 +332,26 @@ async function runWaitForDelivery(
   // burn and destination mint don't have distinct signals in mock mode (no Iris API; relayer's
   // /status reports only on hub-side txs). Walk through them as visual progress; finer-grained
   // detection is a real-CCTP-mode polish that requires Iris polling.
+  //
+  // Brief inter-stage delay so the stepper has time to render each row as "current" rather than
+  // flashing through three transitions in a single frame. ~350ms feels intentional and still
+  // completes the visual sequence in ~1s. Skipped between the last-but-one and terminal stage to
+  // keep the success state landing promptly.
+  const STAGE_VISUAL_DELAY_MS = 350
   let cursor = record
-  for (const next of ['iris-attestation-ready', 'client-mint-pending', 'client-mint-confirmed'] as const) {
+  const skipStages = ['iris-attestation-ready', 'client-mint-pending', 'client-mint-confirmed'] as const
+  for (let i = 0; i < skipStages.length; i++) {
+    const next = skipStages[i]!
     cursor = advance(cursor, next, next === 'client-mint-confirmed' ? { destTxHash: result.value } : {})
     await ctx.upsert(cursor)
+    // Only delay before the next non-terminal hop; no point pausing before terminal.
+    if (i < skipStages.length - 1) {
+      await new Promise<void>(resolve => {
+        const t = setTimeout(resolve, STAGE_VISUAL_DELAY_MS)
+        ctx.signal.addEventListener('abort', () => { clearTimeout(t); resolve() }, { once: true })
+      })
+      if (ctx.signal.aborted) return
+    }
   }
 
   // Balance refresh — the user just sent shielded USDC out, so their shielded balance dropped.

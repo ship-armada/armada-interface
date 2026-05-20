@@ -52,7 +52,7 @@ export function EarnModal() {
   const max = tab === 'add' ? shieldedUsdc ?? 0n : earningUsdc ?? 0n
 
   const amount = parseUsdcInput(amountStr)
-  const { quote, isStale } = useFees()
+  const { quote, isStale, refresh } = useFees()
   // Both yield-deposit and yield-withdraw read from the relayer's crossContract fee bucket.
   // The FeeSummary panel renders the value; the handler doesn't deduct it on the wire today
   // (user-submitted path) but exposes it for awareness.
@@ -100,11 +100,16 @@ export function EarnModal() {
   async function handleSubmit() {
     setSubmitError(null)
     try {
+      const activeQuote = quote && !isStale ? quote : await refresh()
+      if (!activeQuote) {
+        throw new Error('Could not fetch a current fee quote — please try again.')
+      }
+      const feeCacheId = activeQuote.cacheId
       if (tab === 'add') {
         setSubmittedKind('yield-deposit')
         await txDeposit.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
         })
       } else {
         setSubmittedKind('yield-withdraw')
@@ -117,7 +122,7 @@ export function EarnModal() {
             : 0n
         await txWithdraw.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           shares,
         })
       }

@@ -57,7 +57,7 @@ export function SendModal() {
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
   const max = shieldedUsdc ?? 0n
   const amount = parseUsdcInput(amountStr)
-  const { quote, isStale } = useFees()
+  const { quote, isStale, refresh } = useFees()
 
   // Deployment manifests — used to validate that the chosen destination chain actually has a
   // deployment present. Otherwise the user could pick a chain that the submit step would throw on.
@@ -128,25 +128,31 @@ export function SendModal() {
   async function handleSubmit() {
     setSubmitError(null)
     try {
+      // Re-quote if the cached fee is stale — see ShieldModal for the rationale.
+      const activeQuote = quote && !isStale ? quote : await refresh()
+      if (!activeQuote) {
+        throw new Error('Could not fetch a current fee quote — please try again.')
+      }
+      const feeCacheId = activeQuote.cacheId
       if (computedKind === 'transfer-shielded') {
         setSubmittedKind('transfer-shielded')
         await txTransfer.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           recipient,
         })
       } else if (computedKind === 'unshield-local') {
         setSubmittedKind('unshield-local')
         await txUnshieldLocal.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           recipient,
         })
       } else {
         setSubmittedKind('unshield-xchain')
         await txUnshieldXchain.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           toChainId: destChainId,
           recipient,
         })
