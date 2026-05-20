@@ -14,16 +14,19 @@ export interface UnlockFlowProps {
   onUnlocked: () => void
 }
 
-type Mode = 'paste' | 'backup'
+type Mode = 'backup' | 'paste'
 
+// Backup-file is the canonical recovery path — it's what the onboarding ceremony actually
+// produces. Paste-secret is an escape hatch for users who exported the raw hex from Settings.
+// Order here = tab order = default selected tab.
 const MODES: ReadonlyArray<{ id: Mode; label: string }> = [
-  { id: 'paste', label: 'Paste secret' },
   { id: 'backup', label: 'Backup file' },
+  { id: 'paste', label: 'Paste secret' },
 ]
 
 export function UnlockFlow({ onUnlocked }: UnlockFlowProps) {
   const { unlockByPaste, unlockByBackup } = useShieldedWallet()
-  const [mode, setMode] = useState<Mode>('paste')
+  const [mode, setMode] = useState<Mode>('backup')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
