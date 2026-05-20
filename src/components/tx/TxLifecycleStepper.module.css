@@ -120,18 +120,16 @@
 }
 .iconActive {
   color: var(--semantic-color-brand-lavender);
-  animation: spin 1.2s linear infinite;
-  /* Without an explicit origin, browsers can pivot the SVG around its top-left corner instead
-     of its center — making a 360° rotation look static. `center` = `50% 50%`. */
-  transform-origin: center;
+  /* armada-spin is declared globally in index.css. Referencing a global keyframe sidesteps the
+     CSS-Modules name-rewrite that left the previous in-module `spin` keyframe unreachable, which
+     made the icon appear frozen. transform-box + transform-origin ensures the SVG pivots around
+     its own visual center rather than the top-left of its viewBox. */
+  animation: armada-spin 1.2s linear infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
 }
 .iconPending {
   color: var(--semantic-color-text-dim);
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
