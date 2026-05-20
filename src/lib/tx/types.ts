@@ -155,6 +155,12 @@ export interface ArtifactsXchain extends ArtifactsCommon {
   attestation?: `0x${string}`
   /** Hash of the destination-chain `receiveMessage` / `relayWithHook` tx. */
   destTxHash?: `0x${string}`
+  /**
+   * Recipient's USDC balance on the destination chain at the moment we finished the hub burn.
+   * The polling stage watches for balance ≥ start + amount to detect CCTP delivery. Stored as
+   * a decimal string (raw 6-decimal USDC) for IDB serializability.
+   */
+  destStartingBalance?: string
 }
 
 /**

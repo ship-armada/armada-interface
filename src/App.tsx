@@ -21,6 +21,7 @@ import { useWallet } from '@/hooks/useWallet'
 // Per-feature handlers each have their own side-effect entry point under features/<area>/index.ts.
 import '@/features/shield'
 import '@/features/unshield'
+import '@/features/unshield-xchain'
 import '@/features/transfer-shielded'
 import { startEngine } from '@/lib/tx/executor'
 import { readStoredWalletId } from '@/lib/railgun/wallet'

@@ -29,8 +29,7 @@ Switching tabs clears the recipient field, since 0zk and 0x have incompatible sh
 
 ## What's wired now
 
-- `transfer-shielded` and `unshield-local` executor handlers are registered — Private and External-to-hub tabs run end-to-end.
-- `unshield-xchain` handler still pending (lands with the cross-chain feature commit).
+- All three handlers (`transfer-shielded`, `unshield-local`, `unshield-xchain`) are registered — Private, External-to-hub, and External-to-client tabs all run end-to-end.
 
 ## Still stubbed
 

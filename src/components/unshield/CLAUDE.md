@@ -23,10 +23,11 @@ The recipient field pre-fills with the connected EVM address (`evmAddressAtom`) 
 
 ## What's wired now
 
-- The `unshield-local` handler (`features/unshield/handler.ts`) is registered. Submit walks `build-proof` (20-30s ZK proof gen on local Anvil) → `submit-relayer` (populated tx submitted via the user's wallet) → `hub-confirmed` (receipt + balance refresh).
-- Direct user submission with `sendWithPublicWallet=true`; no relayer fee path. The submit-relayer stage prompts MetaMask once for the transact tx.
+- `unshield-local` (`features/unshield/handler.ts`): `build-proof` (20-30s ZK gen) → `submit-relayer` (user-signed transact) → `hub-confirmed` (receipt + balance refresh).
+- `unshield-xchain` (`features/unshield-xchain/handler.ts`): `build-proof` → `submit-relayer` (user-signed `atomicCrossChainUnshield`) → `hub-burn-confirmed` (capture destination starting balance) → `iris-attestation-pending` (poll destination chain for the recipient's USDC balance to tick up; the local CCTP relay or Iris does the actual delivery) → final stages advanced through on detection.
+- Direct user submission throughout; no relayer-mediated submit path yet. SendModal's External-tab xchain branch also routes to this same handler.
 
 ## Still stubbed
 
-- The `unshield-xchain` handler — different shape (hub burn + Iris attestation poll + client mint). Will land alongside the CCTP relayer work.
-- `useFees()` returns null; FeeSummary renders "Loading…". The local handler has no fee surface; xchain will when the relayer fee schedule wires up.
+- `useFees()` returns null; FeeSummary renders "Loading…". Both handlers ignore fees today.
+- The xchain handler collapses the last three stages (iris-attestation-ready / client-mint-pending / client-mint-confirmed) on a single destination-balance detection. Finer-grained Iris + relayer status polling is a polish pass.

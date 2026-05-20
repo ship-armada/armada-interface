@@ -119,3 +119,122 @@ export async function populateUnshieldTransaction(opts: {
     value: tx.value ? BigInt(tx.value.toString()) : 0n,
   }
 }
+
+/**
+ * Cross-chain unshield: the proof is generated with the PrivacyPool itself as the unshield
+ * recipient (the pool effectively burns the shielded UTXO and emits CCTP messages to deliver
+ * USDC to the real recipient on a different chain). Same SDK fn, different recipient.
+ */
+export async function generateXchainUnshieldProof(opts: {
+  walletId: string
+  encryptionKey: string
+  tokenAddress: string
+  privacyPoolAddress: string
+  amount: bigint
+  onProgress?: (fraction: number) => void
+}): Promise<void> {
+  await loadHubNetwork()
+  const [{ generateUnshieldProof }, { TXIDVersion, NetworkName }] = await Promise.all([
+    railgunSdk(),
+    sharedModels(),
+  ])
+  await generateUnshieldProof(
+    TXIDVersion.V2_PoseidonMerkle,
+    NetworkName.Hardhat,
+    opts.walletId,
+    opts.encryptionKey,
+    [
+      {
+        tokenAddress: opts.tokenAddress,
+        amount: opts.amount,
+        // The PrivacyPool itself receives the USDC — it then forwards via CCTP. The actual user
+        // recipient is encoded in the atomicCrossChainUnshield args (not the proof).
+        recipientAddress: opts.privacyPoolAddress,
+      },
+    ],
+    [],
+    undefined,
+    true,
+    undefined,
+    (progress) => opts.onProgress?.(progress / 100),
+  )
+}
+
+/**
+ * Populate the proof + decode the engine's `transact([tx])` calldata to extract the single
+ * inner `Transaction` struct. We need the struct (not the calldata) because the cross-chain
+ * entry point is `atomicCrossChainUnshield(tx, ...)` — same struct, different surrounding args.
+ *
+ * Returns a deeply-cloned mutable object with bigints restored (ethers v6 returns frozen
+ * Result proxies and large-magnitude integers are stringified during the JSON deep-clone).
+ */
+export async function buildXchainUnshieldTransactionStruct(opts: {
+  walletId: string
+  tokenAddress: string
+  privacyPoolAddress: string
+  amount: bigint
+}): Promise<unknown> {
+  const [{ populateProvedUnshield }, { TXIDVersion, NetworkName }] = await Promise.all([
+    railgunSdk(),
+    sharedModels(),
+  ])
+  const { ethers } = await import('ethers')
+
+  const gasDetails = await buildGasDetails()
+  const result = await populateProvedUnshield(
+    TXIDVersion.V2_PoseidonMerkle,
+    NetworkName.Hardhat,
+    opts.walletId,
+    [
+      {
+        tokenAddress: opts.tokenAddress,
+        amount: opts.amount,
+        recipientAddress: opts.privacyPoolAddress,
+      },
+    ],
+    [],
+    undefined,
+    true,
+    undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    gasDetails as any,
+  )
+  const calldata = result.transaction.data
+  if (!calldata) {
+    throw new Error('buildXchainUnshieldTransactionStruct: SDK returned no calldata')
+  }
+
+  // The SDK populates `transact([transaction])`; decode and pull the single inner struct.
+  const TRANSACT_ABI = [
+    'function transact((tuple(tuple(uint256 x, uint256 y) a, tuple(uint256[2] x, uint256[2] y) b, tuple(uint256 x, uint256 y) c) proof, bytes32 merkleRoot, bytes32[] nullifiers, bytes32[] commitments, tuple(uint16 treeNumber, uint72 minGasPrice, uint8 unshield, uint64 chainID, address adaptContract, bytes32 adaptParams, tuple(bytes32[4] ciphertext, bytes32 blindedSenderViewingKey, bytes32 blindedReceiverViewingKey, bytes annotationData, bytes memo)[] commitmentCiphertext) boundParams, tuple(bytes32 npk, tuple(uint8 tokenType, address tokenAddress, uint256 tokenSubID) token, uint120 value) unshieldPreimage)[] _transactions)',
+  ]
+  const iface = new ethers.Interface(TRANSACT_ABI)
+  const decoded = iface.decodeFunctionData('transact', calldata)
+  const transactions = decoded[0]
+  if (!transactions || transactions.length === 0) {
+    throw new Error('buildXchainUnshieldTransactionStruct: no transactions in decoded calldata')
+  }
+
+  // ethers v6 returns frozen `Result` proxies. Deep-clone via JSON (with bigint stringification)
+  // and restore bigints where the contract expects them. Same trick the legacy app uses.
+  const raw = transactions[0]
+  const cloned = JSON.parse(
+    JSON.stringify(raw, (_, v) => (typeof v === 'bigint' ? v.toString() : v)),
+  )
+  function restoreBigints(value: unknown): unknown {
+    if (value === null || value === undefined) return value
+    if (typeof value === 'string' && /^\d+$/.test(value) && value.length > 15) {
+      return BigInt(value)
+    }
+    if (Array.isArray(value)) return value.map(restoreBigints)
+    if (typeof value === 'object') {
+      const out: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        out[k] = restoreBigints(v)
+      }
+      return out
+    }
+    return value
+  }
+  return restoreBigints(cloned)
+}
