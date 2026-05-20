@@ -73,6 +73,7 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  const progress = createProofProgressWriter(record)
   await buildYieldAdaptTransaction({
     walletId,
     encryptionKey,
@@ -83,14 +84,16 @@ async function runBuildProof(
     railgunAddress,
     adapterAddress,
     hubChainId: getNetworkConfig().hub.chainId,
-    onProgress: createProofProgressWriter(record),
+    onProgress: progress.write,
   })
   // We don't persist the populated tx — the next stage rebuilds it deterministically from the
   // proof cached in the engine. Saves us serializing a complex tuple to IDB; downside is that
   // a resume between stages has to re-prove (~20-30s). Acceptable for v1.
 
   if (ctx.signal.aborted) throw new Error('cancelled')
-  await ctx.upsert(advance(record, 'submit-relayer'))
+  // Advance from `progress.latest()` — the progress writer bumped updatedSeq; the original
+  // `record` param's seq is stale and would be silently dropped by upsertTxAtom's OCC guard.
+  await ctx.upsert(advance(progress.latest(), 'submit-relayer'))
 }
 
 async function runSubmitAndConfirm(

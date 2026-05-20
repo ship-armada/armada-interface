@@ -68,20 +68,22 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  const progress = createProofProgressWriter(record)
   await generateTransferProofForRecipient({
     walletId,
     encryptionKey,
     tokenAddress,
     recipient: record.meta.recipient,
     amount: record.meta.amount,
-    onProgress: createProofProgressWriter(record),
+    onProgress: progress.write,
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // Same deterministic-inputs argument as unshield-local — populate re-reads the token address
-  // from the same manifest, so no artifacts persistence needed.
-  const next = advance(record, 'submit-relayer')
+  // from the same manifest, so no artifacts persistence needed. Advance from `progress.latest()`
+  // because the progress writes bumped updatedSeq.
+  const next = advance(progress.latest(), 'submit-relayer')
   await ctx.upsert(next)
 }
 

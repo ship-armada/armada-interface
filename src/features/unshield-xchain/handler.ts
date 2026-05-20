@@ -165,17 +165,19 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  const progress = createProofProgressWriter(record)
   await generateXchainUnshieldProof({
     walletId,
     encryptionKey,
     tokenAddress,
     privacyPoolAddress,
     amount: record.meta.amount,
-    onProgress: createProofProgressWriter(record),
+    onProgress: progress.write,
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')
-  await ctx.upsert(advance(record, 'submit-relayer'))
+  // Advance from the LIVE record (progress bumps incremented updatedSeq).
+  await ctx.upsert(advance(progress.latest(), 'submit-relayer'))
 }
 
 async function runSubmitAndBurn(

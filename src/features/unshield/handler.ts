@@ -71,21 +71,21 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  const progress = createProofProgressWriter(record)
   await generateUnshieldProofForRecipient({
     walletId,
     encryptionKey,
     tokenAddress,
     recipient: record.meta.recipient,
     amount: record.meta.amount,
-    onProgress: createProofProgressWriter(record),
+    onProgress: progress.write,
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
-  // The populate step re-reads the token address from the same deployment manifest, so we don't
-  // need to stash it in artifacts. Inputs (walletId, recipient, amount, tokenAddress) all match
-  // the proof call deterministically because they come from the record + a stable manifest.
-  const next = advance(record, 'submit-relayer')
+  // Advance from the LIVE record (progress bumps bumped updatedSeq). Using the original
+  // `record` param here would hit upsertTxAtom's OCC guard and drop the transition silently.
+  const next = advance(progress.latest(), 'submit-relayer')
   await ctx.upsert(next)
 }
 

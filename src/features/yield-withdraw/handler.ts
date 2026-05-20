@@ -69,6 +69,7 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  const progress = createProofProgressWriter(record)
   await buildYieldAdaptTransaction({
     walletId,
     encryptionKey,
@@ -81,11 +82,12 @@ async function runBuildProof(
     railgunAddress,
     adapterAddress: yieldDeployment.contracts.armadaYieldAdapter,
     hubChainId: getNetworkConfig().hub.chainId,
-    onProgress: createProofProgressWriter(record),
+    onProgress: progress.write,
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')
-  await ctx.upsert(advance(record, 'submit-relayer'))
+  // Advance from `progress.latest()` — see yield-deposit handler for the OCC-bump rationale.
+  await ctx.upsert(advance(progress.latest(), 'submit-relayer'))
 }
 
 async function runSubmitAndConfirm(
