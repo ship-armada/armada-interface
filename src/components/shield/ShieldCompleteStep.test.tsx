@@ -7,8 +7,8 @@ import { ShieldCompleteStep } from './ShieldCompleteStep'
 describe('<ShieldCompleteStep>', () => {
   it('renders the headline and the net amount in the body copy', () => {
     render(<ShieldCompleteStep netAmount={250_500_000n} onDone={() => {}} />)
-    expect(screen.getByRole('heading', { name: "You're in" })).toBeInTheDocument()
-    expect(screen.getByText(/250\.50 USDC/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Success' })).toBeInTheDocument()
+    expect(screen.getByText(/You've deposited 250\.50 USDC/)).toBeInTheDocument()
   })
 
   it('fires onDone when the Done CTA is clicked', () => {

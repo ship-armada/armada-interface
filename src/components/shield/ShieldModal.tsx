@@ -6,6 +6,7 @@ import { useAtom } from 'jotai'
 import { openModalAtom } from '@/state/ui'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
+import { feeForKind } from '@/lib/relayer'
 import { useBalances } from '@/hooks/useBalances'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
@@ -42,11 +43,11 @@ export function ShieldModal() {
   const max = balances.unshielded[fromChainId] ?? 0n
   const amount = parseUsdcInput(amountStr)
 
-  const { quote, isStale } = useFees()
-  // Shield fee: today we don't have a per-kind fee quote source for shield (relayer doesn't fee
-  // shield because it's user-submitted). Null fee renders the loading copy in FeeSummary; when
-  // a real source lands, swap this in.
-  const fee: bigint | null = quote ? 0n : null
+  const { quote, isStale, refresh } = useFees()
+  // Direct hub shield is user-submitted — no relayer fee. `feeForKind('shield', ...)` returns 0n
+  // by design; we still gate on `quote` so the FeeSummary shows "Loading…" until the schedule
+  // arrives (UX consistency across modals; the loading state is brief in practice).
+  const fee: bigint | null = quote ? feeForKind(quote, 'shield') : null
   const netAmount = amount > fee! && fee !== null ? amount - fee : amount
 
   const tx = useTx({ kind: 'shield' })
@@ -78,9 +79,15 @@ export function ShieldModal() {
   async function handleSubmit() {
     setSubmitError(null)
     try {
+      // Submit with a fresh cacheId — if the cached quote is within the staleness window the
+      // modal sat through, re-quote first so the relayer doesn't reject with FEE_EXPIRED.
+      const activeQuote = quote && !isStale ? quote : await refresh()
+      if (!activeQuote) {
+        throw new Error('Could not fetch a current fee quote — please try again.')
+      }
       await tx.submit({
         amount,
-        feeCacheId: quote?.cacheId ?? '',
+        feeCacheId: activeQuote.cacheId,
         fromChainId,
       })
       setStep('progress')

@@ -41,7 +41,7 @@ function RowIcon({ kind }: { kind: RowKind }) {
       return <XCircle className={styles.iconFailed} size={20} aria-hidden="true" />
     case 'current-active':
     case 'current-waiting':
-      return <Loader2 className={styles.iconActive} size={20} aria-hidden="true" />
+      return <Loader2 className={`${styles.iconActive} animate-spin`} size={20} aria-hidden="true" />
     case 'pending':
       return <Circle className={styles.iconPending} size={20} aria-hidden="true" />
   }
@@ -90,6 +90,15 @@ export function TxLifecycleStepper({
             stage as string,
             isCurrent ? record.executionState : undefined,
           )
+          // Only show the proof-progress bar on the active build-proof row. Other stages don't
+          // carry a meaningful percentage; the lifecycle stepper handles its own visual progress.
+          const showProgress =
+            isCurrent
+            && stage === 'build-proof'
+            && typeof record.artifacts.proofProgress === 'number'
+          const progressPct = showProgress
+            ? Math.round((record.artifacts.proofProgress ?? 0) * 100)
+            : 0
           return (
             <li
               key={stage as string}
@@ -99,7 +108,27 @@ export function TxLifecycleStepper({
               <span className={styles.iconCell}>
                 <RowIcon kind={kind} />
               </span>
-              <span className={styles.label}>{copy}</span>
+              <span className={styles.labelCol}>
+                <span className={styles.label}>
+                  {copy}
+                  {showProgress ? <span className={styles.progressPct}> · {progressPct}%</span> : null}
+                </span>
+                {showProgress ? (
+                  <span
+                    className={styles.progressTrack}
+                    role="progressbar"
+                    aria-valuenow={progressPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Proof generation progress"
+                  >
+                    <span
+                      className={styles.progressFill}
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </span>
+                ) : null}
+              </span>
             </li>
           )
         })}
@@ -176,7 +205,7 @@ function TxLink({ hash, chainId }: { hash: `0x${string}`; chainId: number }) {
 }
 
 function destinationChainIdFor(record: TxRecord): number | undefined {
-  if (record.kind === 'unshield-xchain' || record.kind === 'payment-xchain') {
+  if (record.kind === 'unshield-xchain') {
     return (record.meta as { toChainId?: number }).toChainId
   }
   return undefined

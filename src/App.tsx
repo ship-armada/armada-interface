@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { AppLayout } from '@/components/AppLayout'
 import { OnboardingFlow, UnlockFlow } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
@@ -11,10 +11,29 @@ import { UnshieldModal } from '@/components/unshield'
 import { SendModal } from '@/components/payments'
 import { EarnModal } from '@/components/yield'
 import { useAutoLock } from '@/hooks/useAutoLock'
+import { useRailgunEngineSync } from '@/hooks/useRailgunEngineSync'
+import { useFees } from '@/hooks/useFees'
+import { useShieldedBalanceSync } from '@/hooks/useShieldedBalanceSync'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
+import { useUsdcBalances } from '@/hooks/useUsdcBalances'
+import { useWallet } from '@/hooks/useWallet'
+// Side-effect imports: register each feature's stage handler with the tx executor at module load.
+// Per-feature handlers each have their own side-effect entry point under features/<area>/index.ts.
+import '@/features/shield'
+import '@/features/unshield'
+import '@/features/unshield-xchain'
+import '@/features/transfer-shielded'
+import '@/features/yield-deposit'
+import '@/features/yield-withdraw'
 import { startEngine } from '@/lib/tx/executor'
-import { shieldedWalletAtom, activeRailgunWalletIdAtom } from '@/state/wallet'
+import { initRailgunEngine } from '@/lib/railgun/init'
+import { readStoredWalletId } from '@/lib/railgun/wallet'
+import {
+  activeRailgunWalletIdAtom,
+  shieldedWalletAtom,
+  shieldedWalletsAtom,
+} from '@/state/wallet'
 
 type GuardMode = 'pre-init' | 'onboarding' | 'unlock' | 'app'
 
@@ -22,26 +41,70 @@ export function App() {
   useTabVisible()
   useTxHistory() // hydrate tx history from IDB on cold load
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
+  // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (OnboardingFlow's
+  // SignEnrollment step, UnshieldModal's recipient pre-fill, useShieldedWallet.enroll). Mounted
+  // before the onboarding/unlock guard so the atom is correct even before the user reaches /app.
+  useWallet()
+  // Mirror lib/railgun/init's engine lifecycle into railgunEngineAtom so the UI can render
+  // a "warming up…" indicator. No-op until the first call to initRailgunEngine (currently
+  // triggered by enroll/unlock); future commits may pre-warm on app mount.
+  useRailgunEngineSync()
+  // Subscribe to SDK balance-update events + drive initial scan whenever the wallet unlocks;
+  // mirrors the active wallet's shielded USDC balance into shieldedUsdcAtom for BalanceHero
+  // and the shield/unshield modals.
+  useShieldedBalanceSync()
+  // Poll the connected wallet's hub USDC balance into usdcBalancesAtom so the ShieldModal's
+  // MAX is populated and the user can shield without typing an arbitrary number.
+  useUsdcBalances()
+  // Fetch the relayer's fee schedule on mount + auto-refresh near expiry. Modals all share the
+  // same cached quote via feeQuoteAtom; mounting at root ensures it's warm by the time any
+  // modal opens (otherwise the first modal sees `quote=null` briefly).
+  useFees()
 
   useEffect(() => {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
     // safely under StrictMode's double-mount and never spawns a second engine.
     startEngine()
+    // Opportunistically pre-warm the Railgun engine — loads the WASM proving stack + IDB DB +
+    // artifact store in the background while the user is still onboarding or browsing. Without
+    // this, the first proof-generating tx pays a 1-2s warmup before the SDK can do anything.
+    // Idempotent: a later enroll/unlock call also goes through ensureRailgunReady() which is a
+    // no-op once initialized.
+    void initRailgunEngine()
   }, [])
 
   const wallet = useAtomValue(shieldedWalletAtom)
-  const activeId = useAtomValue(activeRailgunWalletIdAtom)
+  const setShieldedWallets = useSetAtom(shieldedWalletsAtom)
+  const setActiveWalletId = useSetAtom(activeRailgunWalletIdAtom)
   const [mode, setMode] = useState<GuardMode>('pre-init')
 
-  // Initial mode derivation runs once after the atom hydrates. After that, the
-  // guard is owned by setMode() so onboarding/unlock flows can keep their screens
-  // visible across atom updates.
+  // Cold-boot hydration + initial mode derivation, in one pass to avoid a race between
+  // separate effects (the mode effect would otherwise read a stale `wallet.status` before the
+  // hydration setState landed). Source of truth on cold boot is localStorage — the Railgun
+  // SDK persists wallet IDB and we persist the walletId on enroll, but Jotai atoms reset to
+  // defaults on every page load.
+  //
+  // Three cases:
+  //   - `wallet.status === 'unlocked'`: HMR re-mount, atoms already populated → straight to app.
+  //   - persisted walletId in localStorage: returning user → seed `locked` entry → UnlockFlow.
+  //   - neither: first run → OnboardingFlow.
   useEffect(() => {
     if (mode !== 'pre-init') return
-    if (wallet.status === 'missing') setMode('onboarding')
-    else if (wallet.status === 'locked') setMode('unlock')
-    else setMode('app')
-  }, [mode, wallet.status])
+    if (wallet.status === 'unlocked') {
+      setMode('app')
+      return
+    }
+    const persistedId = readStoredWalletId()
+    if (persistedId) {
+      setShieldedWallets(prev =>
+        prev[persistedId] ? prev : { ...prev, [persistedId]: { id: persistedId, status: 'locked' } },
+      )
+      setActiveWalletId(prev => prev ?? persistedId)
+      setMode('unlock')
+      return
+    }
+    setMode('onboarding')
+  }, [mode, wallet.status, setShieldedWallets, setActiveWalletId])
 
   // After initial derivation, react to subsequent lock events (auto-lock timer).
   useEffect(() => {
@@ -59,9 +122,7 @@ export function App() {
   }
 
   if (mode === 'unlock') {
-    return activeId ? (
-      <UnlockFlow walletId={activeId} onUnlocked={() => setMode('app')} />
-    ) : null
+    return <UnlockFlow onUnlocked={() => setMode('app')} />
   }
 
   return (

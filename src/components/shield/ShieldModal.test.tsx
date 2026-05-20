@@ -7,6 +7,14 @@ import { Provider, createStore } from 'jotai'
 import { ShieldModal } from './ShieldModal'
 import { openModalAtom } from '@/state/ui'
 import { usdcBalancesAtom } from '@/state/wallet'
+import { feeQuoteAtom } from '@/state/fees'
+
+const FAKE_QUOTE = {
+  cacheId: 'test-cache',
+  expiresAt: Date.now() + 5 * 60_000,
+  chainId: 31337,
+  fees: { transfer: '0', unshield: '0', crossContract: '0', crossChainShield: '0', crossChainUnshield: '0' },
+}
 
 function renderModal(opts?: { open?: boolean; max?: bigint }) {
   const store = createStore()
@@ -14,6 +22,7 @@ function renderModal(opts?: { open?: boolean; max?: bigint }) {
   if (opts?.max !== undefined) {
     store.set(usdcBalancesAtom, { 31337: opts.max })
   }
+  store.set(feeQuoteAtom, FAKE_QUOTE)
   render(
     <Provider store={store}>
       <ShieldModal />

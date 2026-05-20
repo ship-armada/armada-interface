@@ -80,24 +80,6 @@ const yieldWithdraw: TxLifecycle<'yield-withdraw'> = {
   retry: SHORT_RETRY,
 }
 
-const paymentXchain: TxLifecycle<'payment-xchain'> = {
-  kind: 'payment-xchain',
-  stages: [
-    'build-proof',
-    'submit-relayer',
-    'hub-burn-confirmed',
-    'iris-attestation-pending',
-    'iris-attestation-ready',
-    'client-mint-pending',
-    'client-mint-confirmed',
-  ],
-  terminalSuccess: 'client-mint-confirmed',
-  retryableStages: ['submit-relayer', 'iris-attestation-pending'],
-  estDuration: { p50: 30_000, p90: 120_000 },
-  maxDurationMs: XCHAIN_CAP,
-  retry: LONG_RETRY,
-}
-
 /** Lookup table keyed by TxKind. Use `lifecycleFor(kind)` rather than indexing directly. */
 const LIFECYCLES = {
   shield,
@@ -106,7 +88,6 @@ const LIFECYCLES = {
   'transfer-shielded': transferShielded,
   'yield-deposit': yieldDeposit,
   'yield-withdraw': yieldWithdraw,
-  'payment-xchain': paymentXchain,
 } as const
 
 export function lifecycleFor<K extends TxKind>(kind: K): TxLifecycle<K> {

@@ -4,7 +4,7 @@
 import { getDefaultStore } from 'jotai'
 import { track, trackError } from '../telemetry'
 import { lifecycleFor } from './lifecycles'
-import { markCancelled, markExpired, shouldResume } from './reducer'
+import { markCancelled, markExpired, markRetrying, shouldResume } from './reducer'
 import { loadAllTx, putTxIfFresh } from './storage'
 import type { StageFor, TxKind, TxRecord } from './types'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
@@ -125,6 +125,52 @@ export function executeTx(id: string): void {
   const controller = new AbortController()
   running.set(id, controller)
   void runHandlerChain(record, handler, controller)
+}
+
+/**
+ * Returns true if `record` is in a state we'd allow the user to retry from. Two conditions:
+ *  1. The record is terminal but recoverable: `failed`, `expired`, or `cancelled`.
+ *  2. The current stage is listed in the lifecycle's `retryableStages` — i.e., the handler can
+ *     re-enter it without going through earlier stages that are no longer safe to redo (e.g.,
+ *     re-burning shielded UTXOs).
+ *
+ * Pre-terminal states (`pending`, `active`, `waiting`, `retrying`) aren't "retryable" in this
+ * sense — they're already running; the user wants Cancel, not Retry.
+ */
+export function canRetryTx(record: TxRecord): boolean {
+  const isRecoverable = record.executionState === 'failed'
+    || record.executionState === 'expired'
+    || record.executionState === 'cancelled'
+  if (!isRecoverable) return false
+  const lifecycle = lifecycleFor(record.kind)
+  return (lifecycle.retryableStages as ReadonlyArray<string>).includes(record.stage as string)
+}
+
+/**
+ * Mark the record as retrying and re-dispatch the handler chain. No-op if the record doesn't
+ * exist, the stage isn't retryable, or the record is already in a non-terminal state.
+ */
+export function retryTx(id: string): void {
+  const store = getDefaultStore()
+  const record = store.get(txListAtom).find(t => t.id === id)
+  if (!record) {
+    trackError('tx.executor.retry', new Error('no record'), {
+      scope: 'tx.executor',
+      message: `retryTx called for unknown id ${id}`,
+    })
+    return
+  }
+  if (!canRetryTx(record)) {
+    trackError('tx.executor.retry', new Error('not retryable'), {
+      scope: 'tx.executor',
+      message: `retry rejected: state=${record.executionState} stage=${record.stage} kind=${record.kind}`,
+    })
+    return
+  }
+  const retried = markRetrying(record)
+  store.set(upsertTxAtom, retried)
+  void putTxIfFresh(retried)
+  executeTx(id)
 }
 
 /** Abort the in-flight handler chain for a tx and mark the record `cancelled`. */

@@ -26,7 +26,7 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `payments/` | SendModal + steps (Private / External tabs) — see `payments/CLAUDE.md` |
 | `yield/` | EarnModal + steps (Add / Withdraw tabs) — see `yield/CLAUDE.md` |
 | `onboarding/` | OnboardingFlow (5-step first-run), UnlockFlow, OnboardingShell — see `onboarding/CLAUDE.md` |
-| `settings/` | MnemonicExportDialog, ResetWalletDialog — see `settings/CLAUDE.md` |
+| `settings/` | RecoverySecretExportDialog, ResetWalletDialog — see `settings/CLAUDE.md` |
 
 ## When you add a component
 

@@ -33,6 +33,17 @@ export function isLocalMode(): boolean {
   return getNetworkMode() === 'local'
 }
 
+/**
+ * Optional integrator address passed to `PrivacyPool.shield()` to route shield fees to a third
+ * party. Defaults to ZeroAddress when unset or malformed (no fee-routing relationship).
+ * Partners configure via `VITE_INTEGRATOR_ADDRESS` without touching code.
+ */
+export function getIntegratorAddress(): `0x${string}` {
+  const raw = import.meta.env.VITE_INTEGRATOR_ADDRESS as string | undefined
+  if (raw && /^0x[0-9a-fA-F]{40}$/.test(raw)) return raw as `0x${string}`
+  return '0x0000000000000000000000000000000000000000'
+}
+
 // Local CCTP domains match config/networks.ts (HUB=100, CLIENT_A=101, CLIENT_B=102).
 // Real CCTP domains (e.g. Ethereum=0, Base=6) are reserved for the `sepolia` mode.
 const LOCAL_HUB: ChainIdentity = {

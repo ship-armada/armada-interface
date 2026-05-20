@@ -6,11 +6,20 @@ import { Provider, createStore } from 'jotai'
 import { EarnModal } from './EarnModal'
 import { openModalAtom } from '@/state/ui'
 import { shieldedUsdcAtom } from '@/state/wallet'
+import { feeQuoteAtom } from '@/state/fees'
+
+const FAKE_QUOTE = {
+  cacheId: 'test-cache',
+  expiresAt: Date.now() + 5 * 60_000,
+  chainId: 31337,
+  fees: { transfer: '0', unshield: '0', crossContract: '0', crossChainShield: '0', crossChainUnshield: '0' },
+}
 
 function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false; shielded?: bigint }) {
   const store = createStore()
   if (opts?.open) store.set(openModalAtom, opts.open)
   if (opts?.shielded !== undefined) store.set(shieldedUsdcAtom, opts.shielded)
+  store.set(feeQuoteAtom, FAKE_QUOTE)
   render(
     <Provider store={store}>
       <EarnModal />

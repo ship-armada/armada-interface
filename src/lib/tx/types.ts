@@ -8,7 +8,6 @@ export type TxKind =
   | 'transfer-shielded'
   | 'yield-deposit'
   | 'yield-withdraw'
-  | 'payment-xchain'
 
 /**
  * Execution lifecycle state — separate from the protocol stage so they don't
@@ -76,15 +75,6 @@ export type StageYieldWithdraw =
   | 'submit-relayer'
   | 'hub-confirmed'
 
-export type StagePaymentXchain =
-  | 'build-proof'
-  | 'submit-relayer'
-  | 'hub-burn-confirmed'
-  | 'iris-attestation-pending'
-  | 'iris-attestation-ready'
-  | 'client-mint-pending'
-  | 'client-mint-confirmed'
-
 export type TxStage =
   | StageShield
   | StageUnshieldLocal
@@ -92,7 +82,6 @@ export type TxStage =
   | StageTransferShielded
   | StageYieldDeposit
   | StageYieldWithdraw
-  | StagePaymentXchain
 
 /* Per-kind stage map — used to constrain `TxRecord<K>['stage']` to legal values. */
 export type StageFor<K extends TxKind> =
@@ -102,7 +91,6 @@ export type StageFor<K extends TxKind> =
   : K extends 'transfer-shielded' ? StageTransferShielded
   : K extends 'yield-deposit' ? StageYieldDeposit
   : K extends 'yield-withdraw' ? StageYieldWithdraw
-  : K extends 'payment-xchain' ? StagePaymentXchain
   : never
 
 /* Meta — input parameters captured at tx submit time. */
@@ -142,11 +130,6 @@ export interface MetaYieldWithdraw extends MetaCommon {
   shares: bigint
 }
 
-export interface MetaPaymentXchain extends MetaCommon {
-  toChainId: number
-  recipient: string
-}
-
 export type MetaFor<K extends TxKind> =
   K extends 'shield' ? MetaShield
   : K extends 'unshield-local' ? MetaUnshieldLocal
@@ -154,7 +137,6 @@ export type MetaFor<K extends TxKind> =
   : K extends 'transfer-shielded' ? MetaTransferShielded
   : K extends 'yield-deposit' ? MetaYieldDeposit
   : K extends 'yield-withdraw' ? MetaYieldWithdraw
-  : K extends 'payment-xchain' ? MetaPaymentXchain
   : never
 
 /* Artifacts — opaque outputs accumulated as stages complete. */
@@ -164,6 +146,12 @@ export interface ArtifactsCommon {
   sourceTxHash?: `0x${string}`
   /** Error message if the tx failed. */
   error?: string
+  /**
+   * ZK-proof generation progress (0–1). Set by the build-proof stage of any kind that calls
+   * `generateUnshieldProof` / `generateTransferProof` / `generateProofTransactions`. Atom-only
+   * write (no IDB) because progress is ephemeral — a reload restarts proof gen from scratch.
+   */
+  proofProgress?: number
 }
 
 export interface ArtifactsXchain extends ArtifactsCommon {
@@ -173,10 +161,56 @@ export interface ArtifactsXchain extends ArtifactsCommon {
   attestation?: `0x${string}`
   /** Hash of the destination-chain `receiveMessage` / `relayWithHook` tx. */
   destTxHash?: `0x${string}`
+  /**
+   * CCTP V2 nonce extracted from the source-chain MessageSent envelope (bytes32 at offset
+   * [12, 44) of the message). The destination MessageTransmitter's `MessageReceived` event
+   * has this as its indexed `nonce` topic, so we detect delivery by an exact-match log query
+   * rather than recipient-balance polling — eliminates the false-positive window.
+   */
+  cctpNonce?: `0x${string}`
+  /**
+   * Block number on the destination chain at the moment we finished the hub burn. The polling
+   * stage uses this as the `fromBlock` floor when scanning for MessageReceived events so we
+   * don't pay for full-history rescans. Stored as a decimal string for IDB.
+   */
+  destFromBlock?: string
+}
+
+/**
+ * Shield-specific artifacts. The `build-proof` stage stashes its outputs here so the next stage
+ * (and any post-reload resume) can submit the on-chain shield tx without re-signing RAILGUN_SHIELD
+ * or re-computing the engine-side request. `value` is stringified for IDB serializability.
+ */
+export interface ArtifactsShield extends ArtifactsCommon {
+  privacyPoolAddress?: string
+  usdcAddress?: string
+  shieldRequest?: {
+    npk: `0x${string}`
+    value: string
+    encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]
+    shieldKey: `0x${string}`
+  }
+}
+
+/**
+ * Yield-specific artifacts. The `build-proof` stage stashes the populated adapter calldata here
+ * so submit-relayer can dispatch it directly without re-running `generateProofTransactions`
+ * (which is stateless in the Railgun SDK — a second call from submit-relayer would otherwise pay
+ * the full ~20-30s proving cost again). `value` is stringified for IDB serializability.
+ */
+export interface ArtifactsYield extends ArtifactsCommon {
+  yieldTx?: {
+    to: `0x${string}`
+    data: `0x${string}`
+    value: string
+  }
 }
 
 export type ArtifactsFor<K extends TxKind> =
-  K extends 'unshield-xchain' | 'payment-xchain' ? ArtifactsXchain
+  K extends 'unshield-xchain' ? ArtifactsXchain
+  : K extends 'shield' ? ArtifactsShield
+  : K extends 'yield-deposit' ? ArtifactsYield
+  : K extends 'yield-withdraw' ? ArtifactsYield
   : ArtifactsCommon
 
 /* Ownership / session context — captured at submit. Required for history

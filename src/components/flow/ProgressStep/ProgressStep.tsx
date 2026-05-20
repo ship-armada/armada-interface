@@ -1,9 +1,9 @@
-// ABOUTME: Shared progress step — renders the active tx's <TxLifecycleStepper> for any TxKind.
+// ABOUTME: Shared progress step — renders the active tx's <TxLifecycleStepper> for any TxKind, with a Cancel CTA on in-flight records.
 // ABOUTME: When no record exists yet (user clicked Confirm but executor hasn't written the first transition), shows a preparing placeholder.
 
 import { useAtomValue } from 'jotai'
 import type { TxRecord } from '@/lib/tx/types'
-import { TxLifecycleStepper } from '@/components/tx'
+import { TxActions, TxLifecycleStepper } from '@/components/tx'
 import { preferencesAtom } from '@/state/preferences'
 import styles from './ProgressStep.module.css'
 
@@ -32,6 +32,8 @@ export function ProgressStep({ record, technicalDetailsDefaultOpen }: ProgressSt
   return (
     <div className={styles.root}>
       <TxLifecycleStepper record={record} technicalDetailsDefaultOpen={defaultOpen} />
+      {/* Cancel only — Retry on failure is handled by the modal's dedicated ErrorStep. */}
+      <TxActions record={record} variant="cancel" />
     </div>
   )
 }

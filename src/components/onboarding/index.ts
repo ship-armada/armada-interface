@@ -13,14 +13,17 @@ export type { UnlockFlowProps } from './UnlockFlow'
 export { WelcomeStep } from './steps/WelcomeStep'
 export type { WelcomeStepProps } from './steps/WelcomeStep'
 
-export { MnemonicStep } from './steps/MnemonicStep'
-export type { MnemonicStepProps } from './steps/MnemonicStep'
+export { SignEnrollmentStep } from './steps/SignEnrollmentStep'
+export type { SignEnrollmentStepProps } from './steps/SignEnrollmentStep'
 
-export { ConfirmMnemonicStep } from './steps/ConfirmMnemonicStep'
-export type { ConfirmMnemonicStepProps } from './steps/ConfirmMnemonicStep'
+export { AntiPhishChecksumStep } from './steps/AntiPhishChecksumStep'
+export type { AntiPhishChecksumStepProps } from './steps/AntiPhishChecksumStep'
 
-export { PassphraseStep } from './steps/PassphraseStep'
-export type { PassphraseStepProps } from './steps/PassphraseStep'
+export { BackupPassphraseStep } from './steps/BackupPassphraseStep'
+export type { BackupPassphraseStepProps } from './steps/BackupPassphraseStep'
+
+export { ConfirmBackupStep } from './steps/ConfirmBackupStep'
+export type { ConfirmBackupStepProps } from './steps/ConfirmBackupStep'
 
 export { CompleteStep } from './steps/CompleteStep'
 export type { CompleteStepProps } from './steps/CompleteStep'

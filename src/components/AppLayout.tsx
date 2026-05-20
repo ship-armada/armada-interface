@@ -10,6 +10,7 @@ const NAV: ReadonlyArray<{ label: string; path: string }> = [
   { label: 'Dashboard', path: '/' },
   { label: 'History', path: '/history' },
   { label: 'Settings', path: '/settings' },
+  { label: 'Debug', path: '/debug' },
 ]
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -41,10 +42,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* pt-20 clears the inset header (top-6 + h-14 = 80px). Pages center
-          inside the remaining viewport by default; pages with overflowing
-          content should add `self-start` on their root to opt out. */}
-      <main className="flex flex-1 flex-col items-center justify-center pt-20">{children}</main>
+      {/* Inline paddingTop instead of a Tailwind utility — `pt-28` was getting eaten somewhere
+          in the cascade (either not generated, or overridden by global.css's universal-selector
+          reset). Inline style has the highest specificity short of !important and bypasses
+          generation issues entirely. 112px = 80px header bottom (top-6 + h-14) + 32px breathing. */}
+      <main
+        className="flex flex-1 flex-col items-center justify-center"
+        style={{ paddingTop: '7rem' }}
+      >
+        {children}
+      </main>
     </div>
   )
 }

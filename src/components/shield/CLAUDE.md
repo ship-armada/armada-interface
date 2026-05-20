@@ -9,7 +9,7 @@ The deposit (public → private) flow. Owned by `ShieldModal`, opened via `setOp
 | `ShieldModal` | Orchestrator. Owns `step` + form state, wires `useTx({kind:'shield'})`, renders ActionFlowShell. |
 | `ShieldInputStep` | From-chain `ChainSelect` + `AmountInput` (display variant) + `FeeSummary`. Validates amount > 0 and ≤ max. |
 | `ShieldReviewStep` | Read-only echo with the big-numeral amount + From chain row + FeeSummary + Confirm CTA. |
-| `ShieldCompleteStep` | Success panel ("You're in") with the deposited amount + Done CTA. |
+| `ShieldCompleteStep` | Success panel ("Success — you've deposited X USDC") + Done CTA. |
 
 ## State machinery
 
@@ -22,11 +22,16 @@ The deposit (public → private) flow. Owned by `ShieldModal`, opened via `setOp
 
 `shield` is the only kind that requires a user wallet signature. The "Confirm in your wallet" copy is surfaced by `stageCopy.ts` when `executionState === 'waiting'` on the submit stage — `<TxLifecycleStepper>` (via `ProgressStep`) reads that automatically. No special handling here.
 
-## What's stubbed
+## What's wired now (Phase 2)
 
-- `useFees()` returns `quote=null`; FeeSummary therefore renders "Loading…" for the fee line. Real fee source lands when relayer is wired.
-- The shield executor handler isn't registered yet. `tx.submit()` creates the record + persists it, but the lifecycle never advances. `ProgressStep` shows the stepper at the initial stage indefinitely until the handler lands.
-- `useBalances().unshielded[chainId]` is sourced from `usdcBalancesAtom` (empty `{}` until wallet balances poll). Today the MAX defaults to `0n`; the user can type but Continue stays disabled until balances populate.
+- The shield handler (`features/shield/handler.ts`) is registered with the executor; `tx.submit()` runs the full `build-proof → submit-relayer → hub-confirmed` chain. The user's wallet prompts twice: once to sign `RAILGUN_SHIELD`, then to submit the on-chain `PrivacyPool.shield(...)` (with a one-time USDC `approve(MAX_UINT256)` first if needed).
+- `useUsdcBalances()` polls the connected wallet's hub USDC balance into `usdcBalancesAtom` so the MAX is populated.
+- After confirmation the handler triggers `refreshShieldedBalances`, which fires the SDK's onBalanceUpdate callback and `useShieldedBalanceSync` writes the new shielded total into `shieldedUsdcAtom`.
+
+## Still stubbed
+
+- `useFees()` returns `quote=null`; FeeSummary renders "Loading…". Direct hub shield has no relayer fee today, so this is cosmetic — the handler doesn't read fees.
+- Cross-chain shield (from client chain via CCTP) — different contract surface; will land in its own commit.
 
 ## Why the modal lives at App level
 

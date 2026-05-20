@@ -116,3 +116,49 @@ export function isHubDeployment(
 export function getUsdcAddress(deployments: ResolvedDeployments, chain: ChainIdentity): string | undefined {
   return findDeploymentForChain(deployments, chain.chainId)?.cctp.usdc
 }
+
+/**
+ * Yield deployment manifest (`yield-hub.json` / `yield-hub-sepolia.json`). Separate from the
+ * privacy-pool manifests because yield is an optional layer — not every deployment runs it.
+ *
+ * `armadaYieldVault` issues shielded ayUSDC shares; `armadaYieldAdapter` is the relay-adapt
+ * target that `lendAndShield` / `redeemAndShield` call. Both addresses are required for the
+ * yield-deposit / yield-withdraw handlers.
+ */
+export interface YieldDeployment {
+  chainId: number
+  contracts: {
+    armadaYieldVault: string
+    armadaYieldAdapter: string
+  }
+  config: {
+    usdc: string
+    mockAaveSpoke: string
+    reserveId: number
+    yieldFeeBps: number
+    treasury: string
+  }
+  timestamp: string
+}
+
+let yieldCached: YieldDeployment | null = null
+
+/**
+ * Fetch the yield deployment manifest. Returns null if the manifest isn't present (e.g., a
+ * deployment that doesn't include yield contracts). Cached in memory after the first call;
+ * callers can rely on subsequent calls being cheap.
+ */
+export async function loadYieldDeployment(): Promise<YieldDeployment | null> {
+  if (yieldCached) return yieldCached
+  const cfg = getNetworkConfig()
+  const suffix = cfg.mode === 'sepolia' ? '-sepolia' : ''
+  const name = `yield-hub${suffix}.json`
+  try {
+    const res = await fetch(`/api/deployments/${name}`)
+    if (!res.ok) return null
+    yieldCached = (await res.json()) as YieldDeployment
+    return yieldCached
+  } catch {
+    return null
+  }
+}

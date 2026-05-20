@@ -1,5 +1,5 @@
 // ABOUTME: SendModal — pay someone in USDC, either privately (0zk → 0zk) or to an external wallet (0x). Picks among three kinds based on the tab + destination chain.
-// ABOUTME: Mounts three useTx hooks (transfer-shielded / unshield-local / payment-xchain); submitted-kind state locks the subscription for the rest of the flow.
+// ABOUTME: Mounts three useTx hooks (transfer-shielded / unshield-local / unshield-xchain); submitted-kind state locks the subscription for the rest of the flow. External-tab + xchain reuses unshield-xchain — same contract path, different UI entry.
 
 import { useEffect, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
@@ -8,7 +8,13 @@ import { shieldedUsdcAtom } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { getNetworkConfig } from '@/config/network'
+import {
+  findDeploymentForChain,
+  loadDeployments,
+  type ResolvedDeployments,
+} from '@/config/deployments'
 import { parseUsdcInput } from '@/lib/format'
+import { feeForKind } from '@/lib/relayer'
 import {
   ActionFlowShell,
   ProgressStep,
@@ -23,11 +29,11 @@ import { SendCompleteStep } from './SendCompleteStep'
 type LocalStep = FlowStep
 const STEPS: ReadonlyArray<FlowVisibleStep> = ['input', 'review', 'progress', 'complete']
 
-type SubmittedKind = 'transfer-shielded' | 'unshield-local' | 'payment-xchain'
+type SubmittedKind = 'transfer-shielded' | 'unshield-local' | 'unshield-xchain'
 
 function computeKind(tab: SendTab, destChainId: number, hubChainId: number): SubmittedKind {
   if (tab === 'private') return 'transfer-shielded'
-  return destChainId === hubChainId ? 'unshield-local' : 'payment-xchain'
+  return destChainId === hubChainId ? 'unshield-local' : 'unshield-xchain'
 }
 
 export function SendModal() {
@@ -51,24 +57,46 @@ export function SendModal() {
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
   const max = shieldedUsdc ?? 0n
   const amount = parseUsdcInput(amountStr)
-  const { quote, isStale } = useFees()
-  const fee: bigint | null = quote ? 0n : null
-  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
+  const { quote, isStale, refresh } = useFees()
+
+  // Deployment manifests — used to validate that the chosen destination chain actually has a
+  // deployment present. Otherwise the user could pick a chain that the submit step would throw on.
+  const [deployments, setDeployments] = useState<ResolvedDeployments | null>(null)
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    void loadDeployments()
+      .then(d => { if (!cancelled) setDeployments(d) })
+      .catch(() => { /* leave null — gate stays neutral, submit will surface the real error */ })
+    return () => { cancelled = true }
+  }, [isOpen])
+  const destHasDeployment =
+    tab === 'private' || !deployments
+      ? true
+      : findDeploymentForChain(deployments, destChainId) !== undefined
+  const destDeploymentError = destHasDeployment
+    ? undefined
+    : 'This destination chain has no deployment manifest. Pick another chain.'
 
   // Three useTx hooks mounted; only one gets a record per flow.
   const txTransfer = useTx({ kind: 'transfer-shielded' })
   const txUnshieldLocal = useTx({ kind: 'unshield-local' })
-  const txPaymentXchain = useTx({ kind: 'payment-xchain' })
+  const txUnshieldXchain = useTx({ kind: 'unshield-xchain' })
 
   const activeTx =
     submittedKind === 'transfer-shielded' ? txTransfer
     : submittedKind === 'unshield-local' ? txUnshieldLocal
-    : submittedKind === 'payment-xchain' ? txPaymentXchain
+    : submittedKind === 'unshield-xchain' ? txUnshieldXchain
     : null
   const record = activeTx?.record ?? null
 
   const computedKind: SubmittedKind = computeKind(tab, destChainId, hubChainId)
-  const isXchain = computedKind === 'payment-xchain'
+  const isXchain = computedKind === 'unshield-xchain'
+  // Fee derives from the quote per the resolved kind. transfer-shielded + unshield-xchain
+  // carry meaningful quotes; unshield-local is informational today (user-submitted, no relayer
+  // leg) but exposed for parity.
+  const fee: bigint | null = quote ? feeForKind(quote, computedKind) : null
+  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
 
   // Reset local state on close.
   useEffect(() => {
@@ -100,25 +128,31 @@ export function SendModal() {
   async function handleSubmit() {
     setSubmitError(null)
     try {
+      // Re-quote if the cached fee is stale — see ShieldModal for the rationale.
+      const activeQuote = quote && !isStale ? quote : await refresh()
+      if (!activeQuote) {
+        throw new Error('Could not fetch a current fee quote — please try again.')
+      }
+      const feeCacheId = activeQuote.cacheId
       if (computedKind === 'transfer-shielded') {
         setSubmittedKind('transfer-shielded')
         await txTransfer.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           recipient,
         })
       } else if (computedKind === 'unshield-local') {
         setSubmittedKind('unshield-local')
         await txUnshieldLocal.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           recipient,
         })
       } else {
-        setSubmittedKind('payment-xchain')
-        await txPaymentXchain.submit({
+        setSubmittedKind('unshield-xchain')
+        await txUnshieldXchain.submit({
           amount,
-          feeCacheId: quote?.cacheId ?? '',
+          feeCacheId,
           toChainId: destChainId,
           recipient,
         })
@@ -159,6 +193,7 @@ export function SendModal() {
           fee={fee}
           netAmount={netAmount}
           isFeeRefreshing={isStale}
+          destDeploymentError={destDeploymentError}
           onCancel={close}
           onContinue={() => setStep('review')}
         />

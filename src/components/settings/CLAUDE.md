@@ -6,7 +6,7 @@ Auxiliary dialogs for the Settings page — destructive actions are gated here s
 
 | Component | Purpose |
 |---|---|
-| `MnemonicExportDialog` | Two-phase: passphrase gate → 12-word reveal grid. Clears state on close so the plaintext mnemonic never outlives the dialog. |
+| `RecoverySecretExportDialog` | Tabs over two modes — encrypted backup file (passphrase + browser download) and raw hex (opt-in reveal). Clears state on close so revealed material never outlives the dialog. |
 | `ResetWalletDialog` | Destructive — requires typing "reset" before the Reset CTA enables. Calls `useShieldedWallet().reset()`. |
 
 ## Conventions
@@ -15,6 +15,7 @@ Auxiliary dialogs for the Settings page — destructive actions are gated here s
 - Open/close is controlled by Settings page-local state (not `openModalAtom`); these dialogs are Settings-internal.
 - Secret-handling rules from `lib/railgun/CLAUDE.md` apply here: never `console.log` the mnemonic, never store it outside the dialog's local state, clear on close.
 
-## What's stubbed
+## Wired
 
-- `useShieldedWallet().exportPhrase` / `reset` both delegate to lib stubs that throw. The dialogs surface the error inline; when `lib/railgun` lands, the dialogs work end-to-end without UI changes.
+- `useShieldedWallet().exportBackup` produces an `armada-backup-v1` blob via `lib/crypto/kdf::encryptRootSecret`. The dialog JSON-stringifies + downloads it.
+- `useShieldedWallet().reset` deletes the SDK wallet entry, clears the keyManager + the cached walletId, and drops the active atom entry. The dialog surfaces any error inline.

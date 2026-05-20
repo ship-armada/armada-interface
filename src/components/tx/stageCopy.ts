@@ -47,15 +47,6 @@ const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
     'submit-relayer': 'Submitting privately',
     'hub-confirmed': 'Returned to balance',
   },
-  'payment-xchain': {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': 'Submitting privately',
-    'hub-burn-confirmed': 'Confirmed on hub',
-    'iris-attestation-pending': 'Waiting for cross-chain confirmation',
-    'iris-attestation-ready': 'Cross-chain confirmation ready',
-    'client-mint-pending': 'Delivering on destination chain',
-    'client-mint-confirmed': 'Funds delivered',
-  },
 }
 
 /**
@@ -76,12 +67,14 @@ export function stageCopy(
 /** Short title used in lists (Recent Activity, In Progress) and in modal headers. */
 const KIND_TITLES: Record<TxKind, string> = {
   shield: 'Deposit',
+  // Withdraw and Send-External both produce `unshield-*` records — there's no separate kind
+  // for "Payment" because the contract paths are identical. The UI distinguishes the user's
+  // intent (self vs other) via the modal they started from + the recipient field default.
   'unshield-local': 'Withdraw',
   'unshield-xchain': 'Withdraw',
   'transfer-shielded': 'Private transfer',
   'yield-deposit': 'Vault deposit',
   'yield-withdraw': 'Vault withdrawal',
-  'payment-xchain': 'Payment',
 }
 
 export function kindTitle(kind: TxKind): string {
@@ -95,9 +88,9 @@ export function kindTitle(kind: TxKind): string {
  */
 export function recordTitle(record: TxRecord): string {
   const base = kindTitle(record.kind)
-  if (record.kind === 'unshield-xchain' || record.kind === 'payment-xchain') {
-    // unshield-xchain / payment-xchain meta carries toChainId. TS can't narrow the union from kind
-    // here because TxRecord is parametrised; the runtime read is safe — meta is shaped per-kind.
+  if (record.kind === 'unshield-xchain') {
+    // unshield-xchain meta carries toChainId. TS can't narrow the union from kind here because
+    // TxRecord is parametrised; the runtime read is safe — meta is shaped per-kind.
     const meta = record.meta as { toChainId?: number }
     const chain = meta.toChainId !== undefined ? getChainById(meta.toChainId) : undefined
     if (chain) return `${base} to ${chain.name}`

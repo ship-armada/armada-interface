@@ -8,6 +8,6 @@ export interface UseCctpAttestationResult {
   status: 'pending' | 'ready' | 'expired'
 }
 
-export function useCctpAttestation(_record: TxRecord<'unshield-xchain'> | TxRecord<'payment-xchain'> | undefined): UseCctpAttestationResult {
+export function useCctpAttestation(_record: TxRecord<'unshield-xchain'> | undefined): UseCctpAttestationResult {
   return { status: 'pending' }
 }

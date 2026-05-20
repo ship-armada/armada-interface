@@ -63,6 +63,37 @@
   color: var(--semantic-color-text-secondary);
 }
 
+.labelCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.progressPct {
+  color: var(--semantic-color-text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+
+.progressTrack {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: 4px;
+  background: var(--semantic-color-border-default);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  background: var(--semantic-color-brand-lavender);
+  border-radius: 999px;
+  transition: width 200ms ease-out;
+}
+
 /* Per-row styling */
 .done .label {
   color: var(--semantic-color-text-primary);
@@ -87,23 +118,14 @@
 .iconFailed {
   color: var(--semantic-color-status-error);
 }
+/* Animation comes from Tailwind's `animate-spin` utility (applied alongside `iconActive` in the
+   component). Keeping the spin in Tailwind dodges the CSS-Modules keyframe-scoping issues that
+   left the previous in-module `@keyframes spin` rule unreachable. */
 .iconActive {
   color: var(--semantic-color-brand-lavender);
-  animation: spin 1.2s linear infinite;
 }
 .iconPending {
   color: var(--semantic-color-text-dim);
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .iconActive {
-    animation: none;
-  }
 }
 
 /* Technical details facts list */

@@ -21,8 +21,12 @@ Once a kind is submitted, the record subscription is locked to that hook for the
 
 The recipient field pre-fills with the connected EVM address (`evmAddressAtom`) the first time the modal opens, so "withdraw to my own wallet" requires zero typing. The user can change it for any other EVM destination.
 
-## What's stubbed
+## What's wired now
 
-- `useFees()` returns null; FeeSummary renders "Loading…".
-- Executor handlers for `unshield-local` and `unshield-xchain` aren't registered yet; Progress shows the stepper at the initial stage indefinitely.
-- `shieldedUsdcAtom` is null until Railgun sync; max defaults to 0 → Continue disabled until balances populate.
+- `unshield-local` (`features/unshield/handler.ts`): `build-proof` (20-30s ZK gen) → `submit-relayer` (user-signed transact) → `hub-confirmed` (receipt + balance refresh).
+- `unshield-xchain` (`features/unshield-xchain/handler.ts`): `build-proof` → `submit-relayer` (user-signed `atomicCrossChainUnshield`) → `hub-burn-confirmed` (capture destination starting balance) → `iris-attestation-pending` (poll destination chain for the recipient's USDC balance to tick up; the local CCTP relay or Iris does the actual delivery) → final stages advanced through on detection.
+- Direct user submission throughout; no relayer-mediated submit path yet. SendModal's External-tab xchain branch also routes to this same handler.
+
+## Still stubbed
+
+- The xchain handler collapses the last three stages (iris-attestation-ready / client-mint-pending / client-mint-confirmed) on a single destination-event detection. Finer-grained Iris polling is a real-CCTP-mode polish pass.
