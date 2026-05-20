@@ -8,6 +8,11 @@ import { shieldedUsdcAtom } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { getNetworkConfig } from '@/config/network'
+import {
+  findDeploymentForChain,
+  loadDeployments,
+  type ResolvedDeployments,
+} from '@/config/deployments'
 import { parseUsdcInput } from '@/lib/format'
 import { feeForKind } from '@/lib/relayer'
 import {
@@ -53,6 +58,25 @@ export function SendModal() {
   const max = shieldedUsdc ?? 0n
   const amount = parseUsdcInput(amountStr)
   const { quote, isStale } = useFees()
+
+  // Deployment manifests — used to validate that the chosen destination chain actually has a
+  // deployment present. Otherwise the user could pick a chain that the submit step would throw on.
+  const [deployments, setDeployments] = useState<ResolvedDeployments | null>(null)
+  useEffect(() => {
+    if (!isOpen) return
+    let cancelled = false
+    void loadDeployments()
+      .then(d => { if (!cancelled) setDeployments(d) })
+      .catch(() => { /* leave null — gate stays neutral, submit will surface the real error */ })
+    return () => { cancelled = true }
+  }, [isOpen])
+  const destHasDeployment =
+    tab === 'private' || !deployments
+      ? true
+      : findDeploymentForChain(deployments, destChainId) !== undefined
+  const destDeploymentError = destHasDeployment
+    ? undefined
+    : 'This destination chain has no deployment manifest. Pick another chain.'
 
   // Three useTx hooks mounted; only one gets a record per flow.
   const txTransfer = useTx({ kind: 'transfer-shielded' })
@@ -163,6 +187,7 @@ export function SendModal() {
           fee={fee}
           netAmount={netAmount}
           isFeeRefreshing={isStale}
+          destDeploymentError={destDeploymentError}
           onCancel={close}
           onContinue={() => setStep('review')}
         />

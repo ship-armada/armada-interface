@@ -7,9 +7,10 @@ import {
   waitForTransactionReceipt,
   writeContract,
 } from 'wagmi/actions'
-import { erc20Abi, maxUint256, zeroAddress } from 'viem'
+import { erc20Abi, maxUint256 } from 'viem'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
+import { getIntegratorAddress } from '@/config/network'
 import {
   getRailgunAddress as kmGetRailgunAddress,
   getWalletId as kmGetWalletId,
@@ -213,7 +214,7 @@ async function runSubmitAndConfirm(
     address: privacyPoolAddress as `0x${string}`,
     abi: PRIVACY_POOL_SHIELD_ABI,
     functionName: 'shield',
-    args: [[shieldRequestTuple], zeroAddress],
+    args: [[shieldRequestTuple], getIntegratorAddress()],
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
 

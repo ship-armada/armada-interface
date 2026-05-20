@@ -28,6 +28,8 @@ export interface SendInputStepProps {
   fee: bigint | null
   netAmount: bigint
   isFeeRefreshing?: boolean
+  /** When set, the destination chain has no deployment manifest — block Continue and explain inline. */
+  destDeploymentError?: string
   onCancel: () => void
   onContinue: () => void
 }
@@ -45,6 +47,7 @@ export function SendInputStep({
   fee,
   netAmount,
   isFeeRefreshing,
+  destDeploymentError,
   onCancel,
   onContinue,
 }: SendInputStepProps) {
@@ -65,7 +68,7 @@ export function SendInputStep({
       : 'Enter a valid EVM address (0x… 42 chars).'
     : undefined
 
-  const isValid = amount > 0n && !tooMuch && recipientValid
+  const isValid = amount > 0n && !tooMuch && recipientValid && !destDeploymentError
 
   return (
     <div className={styles.root}>
@@ -80,6 +83,11 @@ export function SendInputStep({
       {isXchain ? (
         <div className={styles.xchainNotice}>
           Cross-chain payment takes a few minutes for the CCTP confirmation.
+        </div>
+      ) : null}
+      {destDeploymentError ? (
+        <div className={styles.destError} role="alert">
+          {destDeploymentError}
         </div>
       ) : null}
       <RecipientInput

@@ -27,6 +27,7 @@ import '@/features/transfer-shielded'
 import '@/features/yield-deposit'
 import '@/features/yield-withdraw'
 import { startEngine } from '@/lib/tx/executor'
+import { initRailgunEngine } from '@/lib/railgun/init'
 import { readStoredWalletId } from '@/lib/railgun/wallet'
 import {
   activeRailgunWalletIdAtom,
@@ -64,6 +65,12 @@ export function App() {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
     // safely under StrictMode's double-mount and never spawns a second engine.
     startEngine()
+    // Opportunistically pre-warm the Railgun engine — loads the WASM proving stack + IDB DB +
+    // artifact store in the background while the user is still onboarding or browsing. Without
+    // this, the first proof-generating tx pays a 1-2s warmup before the SDK can do anything.
+    // Idempotent: a later enroll/unlock call also goes through ensureRailgunReady() which is a
+    // no-op once initialized.
+    void initRailgunEngine()
   }, [])
 
   const wallet = useAtomValue(shieldedWalletAtom)

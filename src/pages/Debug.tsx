@@ -46,6 +46,33 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   )
 }
 
+/**
+ * `dl` row helper: `dt` label + `dd` containing the value as code with an inline copy button.
+ * Returns a fragment so callers can drop it straight into a `<dl>`. When `value` is missing,
+ * renders an em-dash placeholder (no copy button).
+ */
+function AddressRow({ label, value, truncate = false }: {
+  label: string
+  value: string | undefined
+  truncate?: boolean
+}) {
+  return (
+    <>
+      <dt>{label}</dt>
+      <dd>
+        {value ? (
+          <span className={styles.copyRow}>
+            <code>{truncate ? truncateAddress(value) : value}</code>
+            <CopyButton value={value} label={label} />
+          </span>
+        ) : (
+          '—'
+        )}
+      </dd>
+    </>
+  )
+}
+
 const ERC20_BALANCE_ABI = ['function balanceOf(address) view returns (uint256)']
 
 /** Secondary manifest shape (hub-v3.json / client-v3.json / clientB-v3.json). */
@@ -140,6 +167,7 @@ export function Debug() {
   const [refreshing, setRefreshing] = useState(false)
   const [drippingChainId, setDrippingChainId] = useState<number | null>(null)
   const [dripError, setDripError] = useState<string | null>(null)
+  const [resettingEngine, setResettingEngine] = useState(false)
 
   // Refresh chain balances against the currently-connected EVM address. Called on mount,
   // after a successful faucet drip, and via the "Refresh" button.
@@ -192,6 +220,20 @@ export function Debug() {
     void refreshBalances()
   }, [refreshBalances])
 
+  const handleResetEngine = useCallback(async () => {
+    setResettingEngine(true)
+    try {
+      // Reset the module-scope init flags then trigger a re-init. The Jotai atom mirror will
+      // re-track lifecycle (cold → warming → ready/failed). Doesn't clear IDB / artifact cache;
+      // for a hard reset the user can wipe site data via devtools.
+      const { resetInitState, initRailgunEngine } = await import('@/lib/railgun/init')
+      resetInitState()
+      await initRailgunEngine()
+    } finally {
+      setResettingEngine(false)
+    }
+  }, [])
+
   const handleDrip = useCallback(
     async (chainId: number) => {
       if (!evmAddress) {
@@ -233,7 +275,20 @@ export function Debug() {
         <h3 className={styles.sectionTitle}>Network</h3>
         <dl className={styles.kv}>
           <dt>Mode</dt><dd>{localMode ? 'local' : 'sepolia'}</dd>
-          <dt>Engine state</dt><dd>{engine.state}{engine.error ? ` — ${engine.error}` : ''}</dd>
+          <dt>Engine state</dt>
+          <dd>
+            <span className={styles.copyRow}>
+              <span>{engine.state}{engine.error ? ` — ${engine.error}` : ''}</span>
+              <Button
+                variant="secondary"
+                size="sm"
+                showIcon={false}
+                label={resettingEngine ? 'Resetting…' : 'Reset'}
+                onClick={() => void handleResetEngine()}
+                disabled={resettingEngine || engine.state === 'warming'}
+              />
+            </span>
+          </dd>
           <dt>Hub chain</dt><dd>{getNetworkConfig().hub.name} ({getNetworkConfig().hub.chainId})</dd>
           <dt>Client chains</dt><dd>{getNetworkConfig().clients.map(c => `${c.name} (${c.chainId})`).join(', ')}</dd>
           <dt>Relayer URL</dt><dd><code>{getNetworkConfig().relayerUrl ?? '—'}</code></dd>
@@ -243,21 +298,11 @@ export function Debug() {
       <Card className={styles.section}>
         <h3 className={styles.sectionTitle}>Connected wallet</h3>
         <dl className={styles.kv}>
-          <dt>EVM address</dt><dd>{evmAddress ? <code>{evmAddress}</code> : '— not connected —'}</dd>
+          <AddressRow label="EVM address" value={evmAddress ?? undefined} />
           <dt>Wallet chain</dt><dd>{connectedChainId ?? '—'}</dd>
-          <dt>Shielded wallet ID</dt><dd>{shieldedState?.id ? <code>{shieldedState.id}</code> : '—'}</dd>
+          <AddressRow label="Shielded wallet ID" value={shieldedState?.id} />
           <dt>Shielded status</dt><dd>{shieldedState?.status ?? 'missing'}</dd>
-          <dt>Railgun address</dt>
-          <dd>
-            {shieldedState?.railgunAddress ? (
-              <span className={styles.copyRow}>
-                <code>{truncateAddress(shieldedState.railgunAddress)}</code>
-                <CopyButton value={shieldedState.railgunAddress} label="Railgun address" />
-              </span>
-            ) : (
-              '—'
-            )}
-          </dd>
+          <AddressRow label="Railgun address" value={shieldedState?.railgunAddress} truncate />
           <dt>Anti-phish checksum</dt><dd>{shieldedState?.checksum ?? '—'}</dd>
           <dt>Shielded USDC</dt><dd>{shielded === null ? '— not synced —' : `${formatUsdcAmount(shielded)} USDC`}</dd>
         </dl>
@@ -323,16 +368,16 @@ export function Debug() {
         <h3 className={styles.sectionTitle}>Hub contracts</h3>
         {deployments ? (
           <dl className={styles.kv}>
-            <dt>PrivacyPool</dt><dd><code>{deployments.hub.contracts.privacyPool}</code></dd>
-            <dt>MerkleModule</dt><dd><code>{deployments.hub.contracts.merkleModule}</code></dd>
-            <dt>VerifierModule</dt><dd><code>{deployments.hub.contracts.verifierModule}</code></dd>
-            <dt>ShieldModule</dt><dd><code>{deployments.hub.contracts.shieldModule}</code></dd>
-            <dt>TransactModule</dt><dd><code>{deployments.hub.contracts.transactModule}</code></dd>
-            <dt>HookRouter</dt><dd><code>{deployments.hub.contracts.hookRouter}</code></dd>
-            <dt>USDC</dt><dd><code>{deployments.hub.cctp.usdc}</code></dd>
-            <dt>TokenMessenger</dt><dd><code>{deployments.hub.cctp.tokenMessenger}</code></dd>
-            <dt>MessageTransmitter</dt><dd><code>{deployments.hub.cctp.messageTransmitter}</code></dd>
-            <dt>Faucet</dt><dd>{faucetByChainId[deployments.hub.chainId] ? <code>{faucetByChainId[deployments.hub.chainId]}</code> : '—'}</dd>
+            <AddressRow label="PrivacyPool" value={deployments.hub.contracts.privacyPool} />
+            <AddressRow label="MerkleModule" value={deployments.hub.contracts.merkleModule} />
+            <AddressRow label="VerifierModule" value={deployments.hub.contracts.verifierModule} />
+            <AddressRow label="ShieldModule" value={deployments.hub.contracts.shieldModule} />
+            <AddressRow label="TransactModule" value={deployments.hub.contracts.transactModule} />
+            <AddressRow label="HookRouter" value={deployments.hub.contracts.hookRouter} />
+            <AddressRow label="USDC" value={deployments.hub.cctp.usdc} />
+            <AddressRow label="TokenMessenger" value={deployments.hub.cctp.tokenMessenger} />
+            <AddressRow label="MessageTransmitter" value={deployments.hub.cctp.messageTransmitter} />
+            <AddressRow label="Faucet" value={faucetByChainId[deployments.hub.chainId]} />
           </dl>
         ) : (
           <p className={styles.muted}>Loading…</p>
@@ -346,10 +391,10 @@ export function Debug() {
             <div key={c.chainId} className={i > 0 ? styles.clientBlockSpaced : styles.clientBlock}>
               <h4 className={styles.subTitle}>{getNetworkConfig().clients[i]?.name ?? `Client ${i + 1}`} ({c.chainId})</h4>
               <dl className={styles.kv}>
-                <dt>PrivacyPoolClient</dt><dd><code>{c.contracts.privacyPoolClient}</code></dd>
-                <dt>HookRouter</dt><dd><code>{c.contracts.hookRouter}</code></dd>
-                <dt>USDC</dt><dd><code>{c.cctp.usdc}</code></dd>
-                <dt>Faucet</dt><dd>{faucetByChainId[c.chainId] ? <code>{faucetByChainId[c.chainId]}</code> : '—'}</dd>
+                <AddressRow label="PrivacyPoolClient" value={c.contracts.privacyPoolClient} />
+                <AddressRow label="HookRouter" value={c.contracts.hookRouter} />
+                <AddressRow label="USDC" value={c.cctp.usdc} />
+                <AddressRow label="Faucet" value={faucetByChainId[c.chainId]} />
               </dl>
             </div>
           ))
