@@ -1,5 +1,5 @@
 // ABOUTME: SendModal — pay someone in USDC, either privately (0zk → 0zk) or to an external wallet (0x). Picks among three kinds based on the tab + destination chain.
-// ABOUTME: Mounts three useTx hooks (transfer-shielded / unshield-local / payment-xchain); submitted-kind state locks the subscription for the rest of the flow.
+// ABOUTME: Mounts three useTx hooks (transfer-shielded / unshield-local / unshield-xchain); submitted-kind state locks the subscription for the rest of the flow. External-tab + xchain reuses unshield-xchain — same contract path, different UI entry.
 
 import { useEffect, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
@@ -23,11 +23,11 @@ import { SendCompleteStep } from './SendCompleteStep'
 type LocalStep = FlowStep
 const STEPS: ReadonlyArray<FlowVisibleStep> = ['input', 'review', 'progress', 'complete']
 
-type SubmittedKind = 'transfer-shielded' | 'unshield-local' | 'payment-xchain'
+type SubmittedKind = 'transfer-shielded' | 'unshield-local' | 'unshield-xchain'
 
 function computeKind(tab: SendTab, destChainId: number, hubChainId: number): SubmittedKind {
   if (tab === 'private') return 'transfer-shielded'
-  return destChainId === hubChainId ? 'unshield-local' : 'payment-xchain'
+  return destChainId === hubChainId ? 'unshield-local' : 'unshield-xchain'
 }
 
 export function SendModal() {
@@ -58,17 +58,17 @@ export function SendModal() {
   // Three useTx hooks mounted; only one gets a record per flow.
   const txTransfer = useTx({ kind: 'transfer-shielded' })
   const txUnshieldLocal = useTx({ kind: 'unshield-local' })
-  const txPaymentXchain = useTx({ kind: 'payment-xchain' })
+  const txUnshieldXchain = useTx({ kind: 'unshield-xchain' })
 
   const activeTx =
     submittedKind === 'transfer-shielded' ? txTransfer
     : submittedKind === 'unshield-local' ? txUnshieldLocal
-    : submittedKind === 'payment-xchain' ? txPaymentXchain
+    : submittedKind === 'unshield-xchain' ? txUnshieldXchain
     : null
   const record = activeTx?.record ?? null
 
   const computedKind: SubmittedKind = computeKind(tab, destChainId, hubChainId)
-  const isXchain = computedKind === 'payment-xchain'
+  const isXchain = computedKind === 'unshield-xchain'
 
   // Reset local state on close.
   useEffect(() => {
@@ -115,8 +115,8 @@ export function SendModal() {
           recipient,
         })
       } else {
-        setSubmittedKind('payment-xchain')
-        await txPaymentXchain.submit({
+        setSubmittedKind('unshield-xchain')
+        await txUnshieldXchain.submit({
           amount,
           feeCacheId: quote?.cacheId ?? '',
           toChainId: destChainId,

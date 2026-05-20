@@ -8,7 +8,6 @@ export type TxKind =
   | 'transfer-shielded'
   | 'yield-deposit'
   | 'yield-withdraw'
-  | 'payment-xchain'
 
 /**
  * Execution lifecycle state — separate from the protocol stage so they don't
@@ -76,15 +75,6 @@ export type StageYieldWithdraw =
   | 'submit-relayer'
   | 'hub-confirmed'
 
-export type StagePaymentXchain =
-  | 'build-proof'
-  | 'submit-relayer'
-  | 'hub-burn-confirmed'
-  | 'iris-attestation-pending'
-  | 'iris-attestation-ready'
-  | 'client-mint-pending'
-  | 'client-mint-confirmed'
-
 export type TxStage =
   | StageShield
   | StageUnshieldLocal
@@ -92,7 +82,6 @@ export type TxStage =
   | StageTransferShielded
   | StageYieldDeposit
   | StageYieldWithdraw
-  | StagePaymentXchain
 
 /* Per-kind stage map — used to constrain `TxRecord<K>['stage']` to legal values. */
 export type StageFor<K extends TxKind> =
@@ -102,7 +91,6 @@ export type StageFor<K extends TxKind> =
   : K extends 'transfer-shielded' ? StageTransferShielded
   : K extends 'yield-deposit' ? StageYieldDeposit
   : K extends 'yield-withdraw' ? StageYieldWithdraw
-  : K extends 'payment-xchain' ? StagePaymentXchain
   : never
 
 /* Meta — input parameters captured at tx submit time. */
@@ -142,11 +130,6 @@ export interface MetaYieldWithdraw extends MetaCommon {
   shares: bigint
 }
 
-export interface MetaPaymentXchain extends MetaCommon {
-  toChainId: number
-  recipient: string
-}
-
 export type MetaFor<K extends TxKind> =
   K extends 'shield' ? MetaShield
   : K extends 'unshield-local' ? MetaUnshieldLocal
@@ -154,7 +137,6 @@ export type MetaFor<K extends TxKind> =
   : K extends 'transfer-shielded' ? MetaTransferShielded
   : K extends 'yield-deposit' ? MetaYieldDeposit
   : K extends 'yield-withdraw' ? MetaYieldWithdraw
-  : K extends 'payment-xchain' ? MetaPaymentXchain
   : never
 
 /* Artifacts — opaque outputs accumulated as stages complete. */
@@ -192,7 +174,7 @@ export interface ArtifactsShield extends ArtifactsCommon {
 }
 
 export type ArtifactsFor<K extends TxKind> =
-  K extends 'unshield-xchain' | 'payment-xchain' ? ArtifactsXchain
+  K extends 'unshield-xchain' ? ArtifactsXchain
   : K extends 'shield' ? ArtifactsShield
   : ArtifactsCommon
 

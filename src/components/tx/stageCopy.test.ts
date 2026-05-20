@@ -30,7 +30,6 @@ describe('kindTitle', () => {
     expect(kindTitle('transfer-shielded')).toBe('Private transfer')
     expect(kindTitle('yield-deposit')).toBe('Vault deposit')
     expect(kindTitle('yield-withdraw')).toBe('Vault withdrawal')
-    expect(kindTitle('payment-xchain')).toBe('Payment')
   })
 })
 
@@ -57,14 +56,4 @@ describe('recordTitle', () => {
     expect(recordTitle(record)).toMatch(/^Withdraw to /)
   })
 
-  it('appends chain name for payment-xchain', () => {
-    const record: TxRecord<'payment-xchain'> = {
-      id: '01J', kind: 'payment-xchain', executionState: 'pending', stage: 'build-proof',
-      stagesCompleted: [], updatedSeq: 0, createdAt: 0, updatedAt: 0,
-      meta: { amount: 0n, feeCacheId: '', toChainId: 31339, recipient: '0x0' },
-      artifacts: {},
-      walletContext: { evmAddress: undefined, railgunWalletId: '', sourceChainId: 31337 },
-    }
-    expect(recordTitle(record)).toMatch(/^Payment to /)
-  })
 })

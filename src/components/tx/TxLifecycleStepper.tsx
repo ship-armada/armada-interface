@@ -176,7 +176,7 @@ function TxLink({ hash, chainId }: { hash: `0x${string}`; chainId: number }) {
 }
 
 function destinationChainIdFor(record: TxRecord): number | undefined {
-  if (record.kind === 'unshield-xchain' || record.kind === 'payment-xchain') {
+  if (record.kind === 'unshield-xchain') {
     return (record.meta as { toChainId?: number }).toChainId
   }
   return undefined
