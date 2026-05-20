@@ -9,7 +9,7 @@ The deposit (public → private) flow. Owned by `ShieldModal`, opened via `setOp
 | `ShieldModal` | Orchestrator. Owns `step` + form state, wires `useTx({kind:'shield'})`, renders ActionFlowShell. |
 | `ShieldInputStep` | From-chain `ChainSelect` + `AmountInput` (display variant) + `FeeSummary`. Validates amount > 0 and ≤ max. |
 | `ShieldReviewStep` | Read-only echo with the big-numeral amount + From chain row + FeeSummary + Confirm CTA. |
-| `ShieldCompleteStep` | Success panel ("You're in") with the deposited amount + Done CTA. |
+| `ShieldCompleteStep` | Success panel ("Success — you've deposited X USDC") + Done CTA. |
 
 ## State machinery
 

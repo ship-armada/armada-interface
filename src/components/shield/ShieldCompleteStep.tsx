@@ -18,9 +18,9 @@ export function ShieldCompleteStep({ netAmount, onDone }: ShieldCompleteStepProp
       <div className={styles.icon} aria-hidden="true">
         <CheckCircle2 size={40} />
       </div>
-      <h3 className={styles.title}>You're in</h3>
+      <h3 className={styles.title}>Success</h3>
       <p className={styles.body}>
-        Your private balance is now {formatUsdcAmount(netAmount)} USDC.
+        You've deposited {formatUsdcAmount(netAmount)} USDC.
       </p>
       <FlowFooter
         className={styles.footer}

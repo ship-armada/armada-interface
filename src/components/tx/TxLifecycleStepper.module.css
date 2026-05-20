@@ -90,6 +90,9 @@
 .iconActive {
   color: var(--semantic-color-brand-lavender);
   animation: spin 1.2s linear infinite;
+  /* Without an explicit origin, browsers can pivot the SVG around its top-left corner instead
+     of its center — making a 360° rotation look static. `center` = `50% 50%`. */
+  transform-origin: center;
 }
 .iconPending {
   color: var(--semantic-color-text-dim);
