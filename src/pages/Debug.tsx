@@ -16,7 +16,6 @@ import { formatUsdcAmount, truncateAddress } from '@/lib/format'
 import styles from './Debug.module.css'
 
 const ERC20_BALANCE_ABI = ['function balanceOf(address) view returns (uint256)']
-const FAUCET_ABI = ['function drip() external']
 
 /** Secondary manifest shape (hub-v3.json / client-v3.json / clientB-v3.json). */
 interface FaucetManifest {
@@ -100,7 +99,7 @@ export function Debug() {
   // Read-only consumers — Sign step gates on these, here we just surface them for inspection.
   const engine = useAtomValue(railgunEngineAtom)
   const shielded = useAtomValue(shieldedUsdcAtom)
-  const { address: evmAddress, signer } = useWallet()
+  const { address: evmAddress } = useWallet()
   const { state: shieldedState } = useShieldedWallet()
   const { chainId: connectedChainId } = useAccount()
 
@@ -160,22 +159,26 @@ export function Debug() {
   }, [refreshBalances])
 
   const handleDrip = useCallback(
-    async (chainId: number, faucetAddress: string) => {
-      if (!signer) {
+    async (chainId: number) => {
+      if (!evmAddress) {
         setDripError('Connect your wallet first.')
-        return
-      }
-      if (connectedChainId !== chainId) {
-        setDripError(`Switch your wallet to chain ${chainId} before dripping.`)
         return
       }
       setDripError(null)
       setDrippingChainId(chainId)
       try {
-        const faucet = new ethers.Contract(faucetAddress, FAUCET_ABI, signer)
-        const dripFn = faucet.drip as () => Promise<ethers.ContractTransactionResponse>
-        const tx = await dripFn()
-        await tx.wait()
+        // POST to the dev-server endpoint — uses the Anvil deployer to call dripTo(address),
+        // sending USDC + sponsor ETH to the user. Sidesteps the chicken-and-egg of needing
+        // gas to call drip() directly. The endpoint is local-mode only (503 on sepolia).
+        const res = await fetch('/api/fund-gas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: evmAddress, chainId }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+          throw new Error(data.error ?? 'Drip failed.')
+        }
         await refreshBalances()
       } catch (err) {
         setDripError(err instanceof Error ? err.message : 'Drip failed.')
@@ -183,7 +186,7 @@ export function Debug() {
         setDrippingChainId(null)
       }
     },
-    [signer, connectedChainId, refreshBalances],
+    [evmAddress, refreshBalances],
   )
 
   if (!isLocalMode()) {
@@ -262,8 +265,8 @@ export function Debug() {
                         size="sm"
                         showIcon={false}
                         label={drippingChainId === b.chainId ? 'Dripping…' : 'Drip'}
-                        onClick={() => void handleDrip(b.chainId, b.faucetAddress!)}
-                        disabled={drippingChainId !== null}
+                        onClick={() => void handleDrip(b.chainId)}
+                        disabled={drippingChainId !== null || !evmAddress}
                       />
                     ) : (
                       <span className={styles.muted}>no faucet</span>
