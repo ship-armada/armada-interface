@@ -12,6 +12,7 @@ import { SendModal } from '@/components/payments'
 import { EarnModal } from '@/components/yield'
 import { useAutoLock } from '@/hooks/useAutoLock'
 import { useRailgunEngineSync } from '@/hooks/useRailgunEngineSync'
+import { useFees } from '@/hooks/useFees'
 import { useShieldedBalanceSync } from '@/hooks/useShieldedBalanceSync'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
@@ -54,6 +55,10 @@ export function App() {
   // Poll the connected wallet's hub USDC balance into usdcBalancesAtom so the ShieldModal's
   // MAX is populated and the user can shield without typing an arbitrary number.
   useUsdcBalances()
+  // Fetch the relayer's fee schedule on mount + auto-refresh near expiry. Modals all share the
+  // same cached quote via feeQuoteAtom; mounting at root ensures it's warm by the time any
+  // modal opens (otherwise the first modal sees `quote=null` briefly).
+  useFees()
 
   useEffect(() => {
     // Start the tx execution engine. Idempotent + module-scope, so this runs

@@ -9,6 +9,7 @@ import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
+import { feeForKind } from '@/lib/relayer'
 import {
   ActionFlowShell,
   ProgressStep,
@@ -52,8 +53,6 @@ export function SendModal() {
   const max = shieldedUsdc ?? 0n
   const amount = parseUsdcInput(amountStr)
   const { quote, isStale } = useFees()
-  const fee: bigint | null = quote ? 0n : null
-  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
 
   // Three useTx hooks mounted; only one gets a record per flow.
   const txTransfer = useTx({ kind: 'transfer-shielded' })
@@ -69,6 +68,11 @@ export function SendModal() {
 
   const computedKind: SubmittedKind = computeKind(tab, destChainId, hubChainId)
   const isXchain = computedKind === 'unshield-xchain'
+  // Fee derives from the quote per the resolved kind. transfer-shielded + unshield-xchain
+  // carry meaningful quotes; unshield-local is informational today (user-submitted, no relayer
+  // leg) but exposed for parity.
+  const fee: bigint | null = quote ? feeForKind(quote, computedKind) : null
+  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
 
   // Reset local state on close.
   useEffect(() => {

@@ -24,6 +24,7 @@ import {
 import {
   extractCctpMessageFromReceipt,
 } from '@/lib/cctp'
+import { fetchFees, feeForKind } from '@/lib/relayer'
 
 // MessageReceived event signature parsed for viem's typed log filter — accepts indexed-arg
 // filters via `args.nonce`. Mirrors the on-chain event verbatim (see contracts/cctp/MockCCTPV2.sol).
@@ -216,13 +217,12 @@ async function runSubmitAndBurn(
     ? pad(destHookRouter as `0x${string}`, { size: 32 })
     : `0x${'00'.repeat(32)}` as `0x${string}`
 
-  // maxFee = the relayer's enforced floor for cross-chain delivery (1.1 USDC raw in mock mode).
-  // The relayer skips messages whose maxFee is below its minimum, so passing 0 strands the
-  // message on the hub. The fee is deducted from the amount minted on the destination — for
-  // a 10 USDC withdraw with 1.1 USDC fee, the recipient gets 8.9 USDC.
-  // TODO(fees): query the relayer's /fees endpoint and surface the quote on the review step
-  // so the user sees the actual fee before confirming. For now we hardcode the floor.
-  const maxFee = 1_100_000n
+  // maxFee = the relayer's quoted CCTP delivery fee. We re-fetch at submit time so the value
+  // is fresh; the relayer enforces a minimum and skips messages below it. Fee is deducted from
+  // the amount minted on the destination — recipient receives (amount − maxFee). The modal's
+  // Review step shows the same fee to the user (via feeForKind on the cached quote).
+  const feeQuote = await fetchFees()
+  const maxFee = feeForKind(feeQuote, 'unshield-xchain')
 
   const hash = await sendTransaction(wagmiConfig, {
     to: privacyPoolAddress as `0x${string}`,

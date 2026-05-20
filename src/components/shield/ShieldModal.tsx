@@ -6,6 +6,7 @@ import { useAtom } from 'jotai'
 import { openModalAtom } from '@/state/ui'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
+import { feeForKind } from '@/lib/relayer'
 import { useBalances } from '@/hooks/useBalances'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
@@ -43,10 +44,10 @@ export function ShieldModal() {
   const amount = parseUsdcInput(amountStr)
 
   const { quote, isStale } = useFees()
-  // Shield fee: today we don't have a per-kind fee quote source for shield (relayer doesn't fee
-  // shield because it's user-submitted). Null fee renders the loading copy in FeeSummary; when
-  // a real source lands, swap this in.
-  const fee: bigint | null = quote ? 0n : null
+  // Direct hub shield is user-submitted — no relayer fee. `feeForKind('shield', ...)` returns 0n
+  // by design; we still gate on `quote` so the FeeSummary shows "Loading…" until the schedule
+  // arrives (UX consistency across modals; the loading state is brief in practice).
+  const fee: bigint | null = quote ? feeForKind(quote, 'shield') : null
   const netAmount = amount > fee! && fee !== null ? amount - fee : amount
 
   const tx = useTx({ kind: 'shield' })

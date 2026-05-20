@@ -29,5 +29,4 @@ The recipient field pre-fills with the connected EVM address (`evmAddressAtom`) 
 
 ## Still stubbed
 
-- `useFees()` returns null; FeeSummary renders "Loading…". Both handlers ignore fees today.
-- The xchain handler collapses the last three stages (iris-attestation-ready / client-mint-pending / client-mint-confirmed) on a single destination-balance detection. Finer-grained Iris + relayer status polling is a polish pass.
+- The xchain handler collapses the last three stages (iris-attestation-ready / client-mint-pending / client-mint-confirmed) on a single destination-event detection. Finer-grained Iris polling is a real-CCTP-mode polish pass.

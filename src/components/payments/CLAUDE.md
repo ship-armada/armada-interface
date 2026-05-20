@@ -33,7 +33,7 @@ Switching tabs clears the recipient field, since 0zk and 0x have incompatible sh
 
 ## Still stubbed
 
-- `useFees()` returns null → FeeSummary shows "Loading…". Direct user-submitted paths don't have a relayer fee yet.
+- _none today_ — FeeSummary renders the per-kind quote from `useFees()`.
 
 ## Folder name
 

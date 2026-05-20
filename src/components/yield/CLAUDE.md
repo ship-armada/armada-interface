@@ -45,5 +45,4 @@ This is intentionally cautious — we'd rather show "unavailable" than a wrong n
 
 ## Still stubbed
 
-- `useFees()` returns null → FeeSummary shows "Loading…". The handlers ignore fees today.
 - `rateToApy()` returns 0 — APY display is shaped but the conversion math is incomplete.

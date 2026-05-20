@@ -9,6 +9,7 @@ import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { parseUsdcInput } from '@/lib/format'
+import { feeForKind } from '@/lib/relayer'
 import { sharesToUsdc } from '@/lib/yield'
 import {
   ActionFlowShell,
@@ -52,7 +53,11 @@ export function EarnModal() {
 
   const amount = parseUsdcInput(amountStr)
   const { quote, isStale } = useFees()
-  const fee: bigint | null = quote ? 0n : null
+  // Both yield-deposit and yield-withdraw read from the relayer's crossContract fee bucket.
+  // The FeeSummary panel renders the value; the handler doesn't deduct it on the wire today
+  // (user-submitted path) but exposes it for awareness.
+  const yieldKind: 'yield-deposit' | 'yield-withdraw' = tab === 'add' ? 'yield-deposit' : 'yield-withdraw'
+  const fee: bigint | null = quote ? feeForKind(quote, yieldKind) : null
   const netAmount = amount > 0n && fee !== null ? amount - fee : amount
 
   // Two useTx hooks; only one gets a record per flow.
