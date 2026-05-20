@@ -23,6 +23,8 @@ import '@/features/shield'
 import '@/features/unshield'
 import '@/features/unshield-xchain'
 import '@/features/transfer-shielded'
+import '@/features/yield-deposit'
+import '@/features/yield-withdraw'
 import { startEngine } from '@/lib/tx/executor'
 import { readStoredWalletId } from '@/lib/railgun/wallet'
 import {

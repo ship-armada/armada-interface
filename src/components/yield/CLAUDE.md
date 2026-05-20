@@ -37,8 +37,13 @@ The conversion path means the displayed "amount" is the **expected USDC output**
 
 This is intentionally cautious — we'd rather show "unavailable" than a wrong number.
 
-## What's stubbed
+## What's wired now
 
-- `useYieldRate()` returns null → APY shows "syncing…", max=0 for the Withdraw tab.
-- `useFees()` returns null → FeeSummary shows "Loading…".
-- Executor handlers for both kinds aren't registered yet; Progress shows the stepper at the initial stage.
+- Executor handlers for `yield-deposit` and `yield-withdraw` are registered. Submit walks `build-proof` → `submit-relayer` → `hub-confirmed` via the adapter's atomic lend/redeem entry point (`buildYieldAdaptTransaction` in `lib/railgun/yield.ts`).
+- `useYieldRate()` polls `vault.convertToAssets(1e18)` on the hub every 30s; the Withdraw tab's max and the APY hint read from it.
+- `useShieldedBalanceSync` writes both `shieldedUsdcAtom` and `yieldSharesAtom` so the user's shielded ayUSDC balance is visible.
+
+## Still stubbed
+
+- `useFees()` returns null → FeeSummary shows "Loading…". The handlers ignore fees today.
+- `rateToApy()` returns 0 — APY display is shaped but the conversion math is incomplete.
