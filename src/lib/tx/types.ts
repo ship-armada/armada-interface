@@ -156,11 +156,18 @@ export interface ArtifactsXchain extends ArtifactsCommon {
   /** Hash of the destination-chain `receiveMessage` / `relayWithHook` tx. */
   destTxHash?: `0x${string}`
   /**
-   * Recipient's USDC balance on the destination chain at the moment we finished the hub burn.
-   * The polling stage watches for balance ≥ start + amount to detect CCTP delivery. Stored as
-   * a decimal string (raw 6-decimal USDC) for IDB serializability.
+   * CCTP V2 nonce extracted from the source-chain MessageSent envelope (bytes32 at offset
+   * [12, 44) of the message). The destination MessageTransmitter's `MessageReceived` event
+   * has this as its indexed `nonce` topic, so we detect delivery by an exact-match log query
+   * rather than recipient-balance polling — eliminates the false-positive window.
    */
-  destStartingBalance?: string
+  cctpNonce?: `0x${string}`
+  /**
+   * Block number on the destination chain at the moment we finished the hub burn. The polling
+   * stage uses this as the `fromBlock` floor when scanning for MessageReceived events so we
+   * don't pay for full-history rescans. Stored as a decimal string for IDB.
+   */
+  destFromBlock?: string
 }
 
 /**

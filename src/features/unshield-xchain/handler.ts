@@ -2,9 +2,9 @@
 // ABOUTME: Same handler covers Withdraw modal (destination ≠ hub) and Send-External tab (destination ≠ hub) — same contract path, different UI entry.
 
 import { ethers } from 'ethers'
-import { encodeFunctionData, erc20Abi, pad } from 'viem'
+import { encodeFunctionData, pad, parseAbiItem } from 'viem'
+import { getPublicClient } from 'wagmi/actions'
 import {
-  readContract,
   sendTransaction,
   waitForTransactionReceipt,
 } from 'wagmi/actions'
@@ -21,6 +21,15 @@ import {
   buildXchainUnshieldTransactionStruct,
   generateXchainUnshieldProof,
 } from '@/lib/railgun/unshield'
+import {
+  extractCctpMessageFromReceipt,
+} from '@/lib/cctp'
+
+// MessageReceived event signature parsed for viem's typed log filter — accepts indexed-arg
+// filters via `args.nonce`. Mirrors the on-chain event verbatim (see contracts/cctp/MockCCTPV2.sol).
+const MESSAGE_RECEIVED_EVENT = parseAbiItem(
+  'event MessageReceived(address indexed caller, uint32 sourceDomain, bytes32 indexed nonce, bytes32 sender, uint32 indexed finalityThresholdExecuted, bytes messageBody)',
+)
 import { advance, markFailed, markWaiting } from '@/lib/tx/reducer'
 import { poll } from '@/lib/tx/poller'
 import type { StageHandler } from '@/lib/tx/executor'
@@ -220,18 +229,33 @@ async function runSubmitAndBurn(
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
 
-  await waitForTransactionReceipt(wagmiConfig, { hash })
+  const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
 
-  // Move past `submit-relayer` → `hub-burn-confirmed`. Snapshot the destination-side starting
-  // balance so the polling stage can detect a delta even if the recipient already held USDC.
-  const destStartingBalance = await readDestUsdcBalance({
-    chainId: record.meta.toChainId,
-    usdcAddress: destClientDeployment.cctp.usdc as `0x${string}`,
-    recipient: record.meta.recipient as `0x${string}`,
+  // Extract the CCTP message reference from the hub receipt — gives us the indexed `nonce`
+  // topic to filter destination events on (unique per CCTP message, eliminates false positives
+  // we'd otherwise get from balance polling).
+  const cctpRef = extractCctpMessageFromReceipt({
+    logs: receipt.logs,
+    messageTransmitterAddress: deployments.hub.cctp.messageTransmitter as `0x${string}`,
   })
+  if (!cctpRef) {
+    throw new Error('No CCTP MessageSent log in hub tx receipt — cross-chain delivery cannot be tracked.')
+  }
+
+  // Snapshot the destination chain's current block height so the delivery poll can scope its
+  // log query to fromBlock=now. Avoids re-scanning history; also cheap to support a resume
+  // mid-poll (we keep matching from the same fromBlock floor).
+  const destClient = getPublicClient(wagmiConfig, { chainId: record.meta.toChainId })
+  if (!destClient) {
+    throw new Error(`No wagmi public client for destination chain ${record.meta.toChainId}`)
+  }
+  const destFromBlock = await destClient.getBlockNumber()
+
   await ctx.upsert(advance(record, 'hub-burn-confirmed', {
     sourceTxHash: hash,
-    destStartingBalance: destStartingBalance.toString(),
+    messageHash: cctpRef.messageHash,
+    cctpNonce: cctpRef.nonce,
+    destFromBlock: destFromBlock.toString(),
   }))
 }
 
@@ -244,33 +268,45 @@ async function runWaitForDelivery(
   if (!destClientDeployment) {
     throw new Error(`No deployment for destination chain ${record.meta.toChainId}`)
   }
-  const usdcAddress = destClientDeployment.cctp.usdc as `0x${string}`
-  const recipient = record.meta.recipient as `0x${string}`
-  const startStr = record.artifacts.destStartingBalance
-  const startingBalance = startStr ? BigInt(startStr) : 0n
-  const targetIncrease = record.meta.amount
+  const destMessageTransmitter = destClientDeployment.cctp.messageTransmitter as `0x${string}`
+  const nonce = record.artifacts.cctpNonce
+  if (!nonce) {
+    throw new Error('Missing cctpNonce artifact — cannot scope destination log query.')
+  }
+  const fromBlock = record.artifacts.destFromBlock
+    ? BigInt(record.artifacts.destFromBlock)
+    : 0n
+
+  const destClient = getPublicClient(wagmiConfig, { chainId: record.meta.toChainId })
+  if (!destClient) {
+    throw new Error(`No wagmi public client for destination chain ${record.meta.toChainId}`)
+  }
 
   // Park the record in 'waiting' so the stepper renders the "Waiting for cross-chain confirmation"
-  // copy. The executor loop pauses (per `markWaiting` semantics) until our poll() returns.
+  // copy. The handler doesn't return here — poll() continues; the 'waiting' state is purely a
+  // UI hint for the active row.
   await ctx.upsert(markWaiting(record))
 
-  const result = await poll<bigint>(
+  const result = await poll<`0x${string}`>(
     async (signal) => {
       if (signal.aborted) return null
-      const current = await readDestUsdcBalance({
-        chainId: record.meta.toChainId,
-        usdcAddress,
-        recipient,
+      // Query MessageReceived logs filtered by the indexed `nonce` topic via viem's typed
+      // event filter. eth_getLogs returns only mined events — exactly what we want for
+      // "delivery confirmed". CCTP nonces are globally-unique per source domain, so this
+      // match is unambiguous (no false positives unlike a balance-delta heuristic).
+      const logs = await destClient.getLogs({
+        address: destMessageTransmitter,
+        event: MESSAGE_RECEIVED_EVENT,
+        args: { nonce },
+        fromBlock,
+        toBlock: 'latest',
       })
-      // CCTP can deliver slightly more than the proof amount when a relayer fee was zero on
-      // their end; comparing ≥ targetIncrease keeps it tolerant.
-      if (current - startingBalance >= targetIncrease) {
-        return current
-      }
+      const first = logs[0]
+      if (first?.transactionHash) return first.transactionHash as `0x${string}`
       return null
     },
     {
-      intervalMs: 4_000,
+      intervalMs: 3_000,
       jitter: 0.2,
       timeoutMs: 10 * 60_000, // 10 min cap — well below the lifecycle's 60 min xchain cap
       signal: ctx.signal,
@@ -285,13 +321,13 @@ async function runWaitForDelivery(
     )
   }
 
-  // Walk through the remaining stages so the stepper shows progress, then terminate.
-  // (Our single "balance increased" signal collapses Iris-ready + mint-pending + mint-confirmed
-  // into one detection; future improvement is to break these apart via the relayer's /status
-  // endpoint or destination-chain event logs.)
+  // We have ONE real signal (MessageReceived observed) — the intermediate stages between hub
+  // burn and destination mint don't have distinct signals in mock mode (no Iris API; relayer's
+  // /status reports only on hub-side txs). Walk through them as visual progress; finer-grained
+  // detection is a real-CCTP-mode polish that requires Iris polling.
   let cursor = record
   for (const next of ['iris-attestation-ready', 'client-mint-pending', 'client-mint-confirmed'] as const) {
-    cursor = advance(cursor, next)
+    cursor = advance(cursor, next, next === 'client-mint-confirmed' ? { destTxHash: result.value } : {})
     await ctx.upsert(cursor)
   }
 
@@ -299,22 +335,6 @@ async function runWaitForDelivery(
   if (kmIsUnlocked()) {
     void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
   }
-}
-
-async function readDestUsdcBalance(opts: {
-  chainId: number
-  usdcAddress: `0x${string}`
-  recipient: `0x${string}`
-}): Promise<bigint> {
-  // Force chainId so wagmi picks the destination chain's transport — readContract on a
-  // multi-chain wagmi config defaults to the connected chain otherwise.
-  return readContract(wagmiConfig, {
-    chainId: opts.chainId,
-    address: opts.usdcAddress,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: [opts.recipient],
-  })
 }
 
 function encodeAtomicCrossChainUnshield(
