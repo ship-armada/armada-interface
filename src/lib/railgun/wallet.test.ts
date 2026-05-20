@@ -127,6 +127,27 @@ describe('enrollFromSignature', () => {
   it('rejects signatures of the wrong length', async () => {
     await expect(enrollFromSignature(new Uint8Array(64))).rejects.toThrow()
   })
+
+  it('try-loads an existing SDK wallet when a walletId is cached in localStorage', async () => {
+    // Simulates "Sign again" on UnlockFlow: same signature, but a walletId from a prior session
+    // is already persisted. Must call loadWalletByID, not createRailgunWallet, so the SDK
+    // preserves its scan cursor + UTXO set (otherwise shielded balance shows 0 after reload).
+    window.localStorage.setItem('armada.shielded.walletId', SAMPLE_WALLET_ID)
+    const { state } = await enrollFromSignature(fixedSig())
+    expect(mockLoad).toHaveBeenCalledTimes(1)
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(state.id).toBe(SAMPLE_WALLET_ID)
+    expect(state.railgunAddress).toBe(SAMPLE_RAILGUN_ADDRESS)
+  })
+
+  it('falls back to createRailgunWallet when the cached walletId fails to load (cleared IDB)', async () => {
+    window.localStorage.setItem('armada.shielded.walletId', SAMPLE_WALLET_ID)
+    mockLoad.mockRejectedValueOnce(new Error('Could not load RAILGUN wallet'))
+    const { state } = await enrollFromSignature(fixedSig())
+    expect(mockLoad).toHaveBeenCalledTimes(1)
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(state.id).toBe(SAMPLE_WALLET_ID)
+  })
 })
 
 describe('unlockFromRootSecret', () => {

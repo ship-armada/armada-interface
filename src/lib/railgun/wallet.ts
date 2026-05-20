@@ -98,17 +98,26 @@ function clearStoredWalletId(): void {
 }
 
 /**
- * First-time enrollment from a normalized EIP-712 signature. Derives root_secret, runs IC-2
- * canary on root + subkey bytes, creates the SDK wallet via the internal-mnemonic shim, and
- * marks the keyManager unlocked.
+ * Enrollment from a normalized EIP-712 signature. Derives root_secret, runs IC-2 canary on
+ * root + subkey bytes, and unlocks the SDK wallet.
+ *
+ * Try-load-first semantics: if a walletId is already persisted in localStorage (returning user
+ * who re-signed via the UnlockFlow "Sign again" tab, or onboarding that succeeded but the user
+ * reloaded mid-ceremony), we load the existing SDK wallet from IDB to preserve its merkle scan
+ * cursor + UTXO set. Falling back to `createRailgunWallet` would re-run the wallet's scanner
+ * from scratch and (in some SDK code paths) skip already-known commitments — the symptom is
+ * "shielded balance shows 0 after reload+sign-again".
+ *
+ * First-time enrollment (no cached walletId) emits `shielded.created`; returning paths emit
+ * `shielded.unlock`.
  *
  * Returns `rootSecret` to the caller because the onboarding flow needs it to drive the backup
  * ceremony. After the user finishes the ceremony the caller is expected to drop its reference;
  * the keyManager retains the authoritative copy until lock or reset.
  *
  * Phase 1 compromise: `deriveInternalMnemonic` produces a deterministic 24-word BIP-39 from
- * root_secret; we hand it to `createRailgunWallet` and never expose it. Phase 2 drops the shim
- * by going through the lower-level engine package.
+ * root_secret; we hand it to `createRailgunWallet` (or `loadWalletByID`) and never expose it.
+ * Phase 2 drops the shim by going through the lower-level engine package.
  */
 export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
   rootSecret: Uint8Array
@@ -123,18 +132,52 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
   assertEntropyFloor('spending_key', deriveSpendingKeyBytes(rootSecret))
   assertEntropyFloor('viewing_key', deriveViewingKeyBytes(rootSecret))
 
-  const { walletId, railgunAddress } = await createSdkWalletFromRoot(rootSecret)
+  const sdkEncryptionKey = deriveSdkEncryptionKeyHex(rootSecret)
+  const cachedWalletId = storedWalletId()
+  let walletId: string
+  let railgunAddress: string
+  let isFirstTime: boolean
+
+  if (cachedWalletId) {
+    // Returning path — try to load the existing SDK wallet first. Preserves scan state + UTXOs.
+    try {
+      const { loadWalletByID } = await railgunSdk()
+      const info = await loadWalletByID(sdkEncryptionKey, cachedWalletId, false /* isViewOnlyWallet */)
+      walletId = cachedWalletId
+      railgunAddress = info.railgunAddress
+      isFirstTime = false
+    } catch (err) {
+      // Cached id but no entry in this device's IDB (cleared / new device / corrupted state).
+      // Recreate deterministically from root_secret; the walletId is stable across recreates.
+      trackError('railgun.wallet.loadByID', err, { scope: 'shielded.enroll', message: 'load failed, recreating' })
+      const recreated = await createSdkWalletFromRoot(rootSecret)
+      walletId = recreated.walletId
+      railgunAddress = recreated.railgunAddress
+      isFirstTime = false // we had a cache; treat as returning even if load failed
+    }
+  } else {
+    // True first-time enrollment.
+    const fresh = await createSdkWalletFromRoot(rootSecret)
+    walletId = fresh.walletId
+    railgunAddress = fresh.railgunAddress
+    isFirstTime = true
+  }
+
   const checksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))
 
   storeWalletId(walletId)
   setUnlocked({
     rootSecret,
     walletId,
-    sdkEncryptionKey: deriveSdkEncryptionKeyHex(rootSecret),
+    sdkEncryptionKey,
     railgunAddress,
     checksum,
   })
-  track('shielded.created', { walletId })
+  if (isFirstTime) {
+    track('shielded.created', { walletId })
+  } else {
+    track('shielded.unlock', { walletId })
+  }
 
   return {
     rootSecret,
