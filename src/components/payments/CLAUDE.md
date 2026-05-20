@@ -27,11 +27,14 @@ can later add an optional `recipientLabel` field to differentiate if the product
 
 Switching tabs clears the recipient field, since 0zk and 0x have incompatible shapes and a leftover value from the other tab would always be invalid. Re-typing is the safer UX.
 
-## What's stubbed
+## What's wired now
 
-- `useFees()` returns null → FeeSummary shows "Loading…" indefinitely.
-- Executor handlers for all three kinds aren't registered yet; Progress shows the stepper at the initial stage.
-- `shieldedUsdcAtom` is null until Railgun sync; max defaults to 0 → Continue stays disabled.
+- `transfer-shielded` and `unshield-local` executor handlers are registered — Private and External-to-hub tabs run end-to-end.
+- `unshield-xchain` handler still pending (lands with the cross-chain feature commit).
+
+## Still stubbed
+
+- `useFees()` returns null → FeeSummary shows "Loading…". Direct user-submitted paths don't have a relayer fee yet.
 
 ## Folder name
 
