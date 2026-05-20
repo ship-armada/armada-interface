@@ -32,6 +32,7 @@ const MESSAGE_RECEIVED_EVENT = parseAbiItem(
 )
 import { advance, markFailed, markWaiting } from '@/lib/tx/reducer'
 import { poll } from '@/lib/tx/poller'
+import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -170,6 +171,7 @@ async function runBuildProof(
     tokenAddress,
     privacyPoolAddress,
     amount: record.meta.amount,
+    onProgress: createProofProgressWriter(record),
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')

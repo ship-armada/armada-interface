@@ -17,6 +17,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/railgun/sync'
 import { buildYieldAdaptTransaction } from '@/lib/railgun/yield'
 import { advance, markFailed } from '@/lib/tx/reducer'
+import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -82,6 +83,7 @@ async function runBuildProof(
     railgunAddress,
     adapterAddress,
     hubChainId: getNetworkConfig().hub.chainId,
+    onProgress: createProofProgressWriter(record),
   })
   // We don't persist the populated tx — the next stage rebuilds it deterministically from the
   // proof cached in the engine. Saves us serializing a complex tuple to IDB; downside is that

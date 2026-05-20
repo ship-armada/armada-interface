@@ -146,6 +146,12 @@ export interface ArtifactsCommon {
   sourceTxHash?: `0x${string}`
   /** Error message if the tx failed. */
   error?: string
+  /**
+   * ZK-proof generation progress (0–1). Set by the build-proof stage of any kind that calls
+   * `generateUnshieldProof` / `generateTransferProof` / `generateProofTransactions`. Atom-only
+   * write (no IDB) because progress is ephemeral — a reload restarts proof gen from scratch.
+   */
+  proofProgress?: number
 }
 
 export interface ArtifactsXchain extends ArtifactsCommon {

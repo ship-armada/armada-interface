@@ -17,6 +17,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/railgun/sync'
 import { buildYieldAdaptTransaction } from '@/lib/railgun/yield'
 import { advance, markFailed } from '@/lib/tx/reducer'
+import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -80,6 +81,7 @@ async function runBuildProof(
     railgunAddress,
     adapterAddress: yieldDeployment.contracts.armadaYieldAdapter,
     hubChainId: getNetworkConfig().hub.chainId,
+    onProgress: createProofProgressWriter(record),
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')

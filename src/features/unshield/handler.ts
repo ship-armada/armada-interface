@@ -18,6 +18,7 @@ import {
   populateUnshieldTransaction,
 } from '@/lib/railgun/unshield'
 import { advance, markFailed } from '@/lib/tx/reducer'
+import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -76,8 +77,7 @@ async function runBuildProof(
     tokenAddress,
     recipient: record.meta.recipient,
     amount: record.meta.amount,
-    // TODO(progress UI): wire onProgress through to a record-level field so the UI can show
-    // proof-generation percent. For v1 we just block until done; the spinner stays active.
+    onProgress: createProofProgressWriter(record),
   })
 
   if (ctx.signal.aborted) throw new Error('cancelled')
