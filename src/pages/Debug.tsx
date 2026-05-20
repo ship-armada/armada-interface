@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ethers } from 'ethers'
 import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
+import { Check, Copy } from 'lucide-react'
 import { Card, SectionHeader } from '@/components/ui'
 import { Button } from '@armada/ui'
 import { useWallet } from '@/hooks/useWallet'
@@ -14,6 +15,36 @@ import { getNetworkConfig, isLocalMode, type ChainIdentity } from '@/config/netw
 import { railgunEngineAtom, shieldedUsdcAtom } from '@/state/wallet'
 import { formatUsdcAmount, truncateAddress } from '@/lib/format'
 import styles from './Debug.module.css'
+
+/**
+ * Small inline copy-to-clipboard widget. Shows a checkmark for 1.2s after a successful copy,
+ * then reverts. Inline-scoped to Debug; if a second consumer needs it we'll promote to
+ * components/ui/CopyValue. Until then, premature abstraction.
+ */
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false)
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1_200)
+    } catch {
+      // Clipboard API can fail in non-secure contexts (rare on localhost / https). Silent —
+      // the user can still select+copy the text manually.
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => void handleCopy()}
+      className={styles.copyButton}
+      aria-label={copied ? `Copied ${label}` : `Copy ${label}`}
+      title={copied ? 'Copied!' : 'Copy to clipboard'}
+    >
+      {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+    </button>
+  )
+}
 
 const ERC20_BALANCE_ABI = ['function balanceOf(address) view returns (uint256)']
 
@@ -216,7 +247,17 @@ export function Debug() {
           <dt>Wallet chain</dt><dd>{connectedChainId ?? '—'}</dd>
           <dt>Shielded wallet ID</dt><dd>{shieldedState?.id ? <code>{shieldedState.id}</code> : '—'}</dd>
           <dt>Shielded status</dt><dd>{shieldedState?.status ?? 'missing'}</dd>
-          <dt>Railgun address</dt><dd>{shieldedState?.railgunAddress ? <code>{truncateAddress(shieldedState.railgunAddress)}</code> : '—'}</dd>
+          <dt>Railgun address</dt>
+          <dd>
+            {shieldedState?.railgunAddress ? (
+              <span className={styles.copyRow}>
+                <code>{truncateAddress(shieldedState.railgunAddress)}</code>
+                <CopyButton value={shieldedState.railgunAddress} label="Railgun address" />
+              </span>
+            ) : (
+              '—'
+            )}
+          </dd>
           <dt>Anti-phish checksum</dt><dd>{shieldedState?.checksum ?? '—'}</dd>
           <dt>Shielded USDC</dt><dd>{shielded === null ? '— not synced —' : `${formatUsdcAmount(shielded)} USDC`}</dd>
         </dl>
