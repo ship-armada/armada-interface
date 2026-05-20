@@ -1,5 +1,5 @@
-// ABOUTME: Local-mode developer panel — contract addresses, wallet balances on each chain, and a faucet drip button.
-// ABOUTME: Hidden in sepolia mode (the faucet endpoint doesn't exist and these addresses are public-record).
+// ABOUTME: Developer panel — contract addresses, wallet balances on each chain, plus a faucet drip button in local mode only.
+// ABOUTME: Available in both local and sepolia (read-only diagnostics make sense everywhere); the faucet column hides on sepolia.
 
 import { useCallback, useEffect, useState } from 'react'
 import { ethers } from 'ethers'
@@ -135,11 +135,14 @@ export function Debug() {
     }
   }, [evmAddress, deployments, faucetByChainId])
 
-  // One-time bootstrap: pull the privacy-pool deployments + the secondary faucet manifests.
+  // One-time bootstrap: pull the privacy-pool deployments + (local mode only) the secondary
+  // faucet manifests. The faucet manifests (hub-v3.json etc.) only exist for the local Anvil
+  // deployment; skipping the fetch on Sepolia avoids three 404s in the network panel.
   useEffect(() => {
     void (async () => {
       const resolved = await loadDeployments()
       setDeployments(resolved)
+      if (!isLocalMode()) return
       const [hubFaucet, clientFaucet, clientBFaucet] = await Promise.all([
         loadFaucetManifest('hub'),
         loadFaucetManifest('clientA'),
@@ -189,16 +192,7 @@ export function Debug() {
     [evmAddress, refreshBalances],
   )
 
-  if (!isLocalMode()) {
-    return (
-      <div className={styles.page}>
-        <SectionHeader title="Debug" />
-        <Card className={styles.section}>
-          <p>The Debug page is only available in local mode (<code>VITE_NETWORK=local</code>).</p>
-        </Card>
-      </div>
-    )
-  }
+  const localMode = isLocalMode()
 
   return (
     <div className={styles.page}>
@@ -207,7 +201,7 @@ export function Debug() {
       <Card className={styles.section}>
         <h3 className={styles.sectionTitle}>Network</h3>
         <dl className={styles.kv}>
-          <dt>Mode</dt><dd>local</dd>
+          <dt>Mode</dt><dd>{localMode ? 'local' : 'sepolia'}</dd>
           <dt>Engine state</dt><dd>{engine.state}{engine.error ? ` — ${engine.error}` : ''}</dd>
           <dt>Hub chain</dt><dd>{getNetworkConfig().hub.name} ({getNetworkConfig().hub.chainId})</dd>
           <dt>Client chains</dt><dd>{getNetworkConfig().clients.map(c => `${c.name} (${c.chainId})`).join(', ')}</dd>
@@ -249,7 +243,7 @@ export function Debug() {
                 <th>Chain</th>
                 <th>ETH</th>
                 <th>USDC</th>
-                <th>Faucet</th>
+                {localMode ? <th>Faucet</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -258,20 +252,22 @@ export function Debug() {
                   <td>{b.name} ({b.chainId})</td>
                   <td>{b.ethBalance === null ? '—' : ethers.formatEther(b.ethBalance).slice(0, 8)}</td>
                   <td>{b.usdcBalance === null ? '—' : formatUsdcAmount(b.usdcBalance)}</td>
-                  <td>
-                    {b.faucetAddress ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        showIcon={false}
-                        label={drippingChainId === b.chainId ? 'Dripping…' : 'Drip'}
-                        onClick={() => void handleDrip(b.chainId)}
-                        disabled={drippingChainId !== null || !evmAddress}
-                      />
-                    ) : (
-                      <span className={styles.muted}>no faucet</span>
-                    )}
-                  </td>
+                  {localMode ? (
+                    <td>
+                      {b.faucetAddress ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          showIcon={false}
+                          label={drippingChainId === b.chainId ? 'Dripping…' : 'Drip'}
+                          onClick={() => void handleDrip(b.chainId)}
+                          disabled={drippingChainId !== null || !evmAddress}
+                        />
+                      ) : (
+                        <span className={styles.muted}>no faucet</span>
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
