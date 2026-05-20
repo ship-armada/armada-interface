@@ -5,7 +5,7 @@ import { useAtomValue } from 'jotai'
 import { useMemo, useState } from 'react'
 import { History as HistoryIcon } from 'lucide-react'
 import { Card, EmptyState, SectionHeader, Tabs, type TabItem } from '@/components/ui'
-import { TxLifecycleStepper, TxRow } from '@/components/tx'
+import { TxActions, TxLifecycleStepper, TxRow } from '@/components/tx'
 import { txListAtom } from '@/state/tx'
 import { preferencesAtom } from '@/state/preferences'
 import type { TxExecutionState, TxRecord } from '@/lib/tx/types'
@@ -93,6 +93,7 @@ export function History() {
                         record={record}
                         technicalDetailsDefaultOpen={prefs.showTechnicalDetailsByDefault}
                       />
+                      <TxActions record={record} />
                     </div>
                   ) : null}
                 </li>

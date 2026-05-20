@@ -10,4 +10,7 @@ export type { TxRowProps } from './TxRow'
 export { TxStatusChip } from './TxStatusChip'
 export type { TxStatusChipProps } from './TxStatusChip'
 
+export { TxActions } from './TxActions'
+export type { TxActionsProps } from './TxActions'
+
 export { stageCopy, kindTitle, recordTitle } from './stageCopy'
