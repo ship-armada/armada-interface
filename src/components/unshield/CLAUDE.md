@@ -21,8 +21,12 @@ Once a kind is submitted, the record subscription is locked to that hook for the
 
 The recipient field pre-fills with the connected EVM address (`evmAddressAtom`) the first time the modal opens, so "withdraw to my own wallet" requires zero typing. The user can change it for any other EVM destination.
 
-## What's stubbed
+## What's wired now
 
-- `useFees()` returns null; FeeSummary renders "Loading…".
-- Executor handlers for `unshield-local` and `unshield-xchain` aren't registered yet; Progress shows the stepper at the initial stage indefinitely.
-- `shieldedUsdcAtom` is null until Railgun sync; max defaults to 0 → Continue disabled until balances populate.
+- The `unshield-local` handler (`features/unshield/handler.ts`) is registered. Submit walks `build-proof` (20-30s ZK proof gen on local Anvil) → `submit-relayer` (populated tx submitted via the user's wallet) → `hub-confirmed` (receipt + balance refresh).
+- Direct user submission with `sendWithPublicWallet=true`; no relayer fee path. The submit-relayer stage prompts MetaMask once for the transact tx.
+
+## Still stubbed
+
+- The `unshield-xchain` handler — different shape (hub burn + Iris attestation poll + client mint). Will land alongside the CCTP relayer work.
+- `useFees()` returns null; FeeSummary renders "Loading…". The local handler has no fee surface; xchain will when the relayer fee schedule wires up.

@@ -17,9 +17,10 @@ import { useTabVisible } from '@/hooks/useTabVisible'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { useUsdcBalances } from '@/hooks/useUsdcBalances'
 import { useWallet } from '@/hooks/useWallet'
-// Side-effect import: registers the shield handler with the tx executor at module load.
+// Side-effect imports: register each feature's stage handler with the tx executor at module load.
 // Per-feature handlers each have their own side-effect entry point under features/<area>/index.ts.
 import '@/features/shield'
+import '@/features/unshield'
 import { startEngine } from '@/lib/tx/executor'
 import { readStoredWalletId } from '@/lib/railgun/wallet'
 import {
