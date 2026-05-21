@@ -1,109 +1,106 @@
-// ABOUTME: Polls connected wallet's public USDC balance on every configured chain + writes into usdcBalancesAtom.
-// ABOUTME: Mount once at App root. Skips polling when the wallet is disconnected or deployments aren't resolved yet.
+// ABOUTME: Polls connected wallet's public USDC balance on every configured chain via React Query — per-chain queries dedup, jitter naturally, and pause when the tab is hidden.
+// ABOUTME: Mount once at App root. Mirrors results into usdcBalancesAtom for atom-based consumers (ShieldModal MAX, etc).
 
-import { useEffect, useRef } from 'react'
-import { useSetAtom } from 'jotai'
+import { useQueries, useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { erc20Abi } from 'viem'
 import { readContract } from 'wagmi/actions'
 import { wagmiConfig } from '@/config/wagmi'
 import { useWallet } from '@/hooks/useWallet'
 import { loadDeployments } from '@/config/deployments'
+import { tabVisibleAtom } from '@/state/visibility'
 import { usdcBalancesAtom } from '@/state/wallet'
 import { trackError } from '@/lib/telemetry'
 
 const POLL_INTERVAL_MS = 15_000
 
 /**
- * Build the (chainId, usdcAddress) list from the resolved deployments. Hub + every client
- * deployment carries its own `cctp.usdc` — pull them all so the ShieldModal's MAX is populated
- * regardless of which `fromChainId` the user selects.
- */
-function chainUsdcPairs(
-  deployments: Awaited<ReturnType<typeof loadDeployments>>,
-): Array<{ chainId: number; usdcAddress: `0x${string}` }> {
-  const pairs: Array<{ chainId: number; usdcAddress: `0x${string}` }> = [
-    { chainId: deployments.hub.chainId, usdcAddress: deployments.hub.cctp.usdc as `0x${string}` },
-  ]
-  for (const client of deployments.clients) {
-    pairs.push({ chainId: client.chainId, usdcAddress: client.cctp.usdc as `0x${string}` })
-  }
-  return pairs
-}
-
-/**
  * Reads the connected wallet's public USDC balance on every configured chain (hub + clients)
  * every 15s and mirrors them into `usdcBalancesAtom`. The ShieldModal reads this atom to
  * populate its MAX based on the currently-selected `fromChainId`.
  *
- * Per-chain reads go through `readContract({ chainId })` so wagmi picks the right transport
- * for each chain — no manual `JsonRpcProvider` plumbing needed.
+ * Per-chain reads go through one React Query per chain. Query dedup means multiple mounts share
+ * a single in-flight request per chain. The natural per-query scheduling (each query schedules
+ * its own interval starting at its own first-success time) jitters network traffic so all chains
+ * don't fire on the same millisecond.
  */
 export function useUsdcBalances(): void {
   const { address } = useWallet()
   const setBalances = useSetAtom(usdcBalancesAtom)
-  const inFlightRef = useRef(false)
+  const tabVisible = useAtomValue(tabVisibleAtom)
 
+  // Deployments load once and rarely change at runtime — cache them via a static query rather
+  // than re-fetching per balance tick (the prior implementation did the latter unnecessarily).
+  const deployments = useQuery({
+    queryKey: ['deployments'],
+    queryFn: () => loadDeployments(),
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
+
+  const pairs = deployments.data
+    ? [
+        {
+          chainId: deployments.data.hub.chainId,
+          usdcAddress: deployments.data.hub.cctp.usdc as `0x${string}`,
+        },
+        ...deployments.data.clients.map(c => ({
+          chainId: c.chainId,
+          usdcAddress: c.cctp.usdc as `0x${string}`,
+        })),
+      ]
+    : []
+
+  const results = useQueries({
+    queries: pairs.map(pair => ({
+      queryKey: ['usdc-balance', pair.chainId, pair.usdcAddress, address] as const,
+      queryFn: async (): Promise<{ chainId: number; balance: bigint }> => {
+        const balance = await readContract(wagmiConfig, {
+          address: pair.usdcAddress,
+          abi: erc20Abi,
+          functionName: 'balanceOf',
+          args: [address as `0x${string}`],
+          chainId: pair.chainId,
+        })
+        return { chainId: pair.chainId, balance }
+      },
+      enabled: !!address,
+      refetchInterval: tabVisible ? POLL_INTERVAL_MS : false,
+      refetchIntervalInBackground: false,
+      placeholderData: (prev: { chainId: number; balance: bigint } | undefined) => prev,
+      staleTime: 0,
+    })),
+  })
+
+  // Clear the atom when the wallet disconnects so stale balances from a prior session don't
+  // linger on the UI.
   useEffect(() => {
-    if (!address) {
-      setBalances({}) // clear when wallet disconnects
-      return
-    }
-
-    let cancelled = false
-
-    async function tick(): Promise<void> {
-      if (inFlightRef.current) return
-      inFlightRef.current = true
-      try {
-        const deployments = await loadDeployments()
-        const pairs = chainUsdcPairs(deployments)
-        // Read all chains in parallel — Promise.allSettled so one chain's RPC hiccup doesn't
-        // wipe out the other chains' results.
-        const results = await Promise.allSettled(
-          pairs.map(({ chainId, usdcAddress }) =>
-            readContract(wagmiConfig, {
-              address: usdcAddress,
-              abi: erc20Abi,
-              functionName: 'balanceOf',
-              args: [address as `0x${string}`],
-              chainId,
-            }).then(balance => ({ chainId, balance })),
-          ),
-        )
-        if (cancelled) return
-        setBalances(prev => {
-          const next = { ...prev }
-          for (const r of results) {
-            if (r.status === 'fulfilled') {
-              next[r.value.chainId] = r.value.balance
-            }
-          }
-          return next
-        })
-        // Surface partial failures once per tick — useful when one RPC is flaky but the others work.
-        const rejected = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
-        if (rejected.length > 0) {
-          trackError('useUsdcBalances.tick', rejected[0]!.reason, {
-            scope: 'usdc.balance',
-            message: `${rejected.length}/${pairs.length} chain reads failed`,
-          })
-        }
-      } catch (err) {
-        trackError('useUsdcBalances.tick', err, {
-          scope: 'usdc.balance',
-          message: 'usdc balance poll failed',
-        })
-      } finally {
-        inFlightRef.current = false
-      }
-    }
-
-    void tick() // immediate read on mount / address change
-    const interval = window.setInterval(() => void tick(), POLL_INTERVAL_MS)
-
-    return () => {
-      cancelled = true
-      window.clearInterval(interval)
-    }
+    if (!address) setBalances({})
   }, [address, setBalances])
+
+  // Mirror fulfilled results into the atom. Re-runs on every render whose results array changes
+  // (i.e. on each fulfilled query). Skipping unfulfilled (loading / error) entries so a single
+  // slow chain doesn't blank the others.
+  useEffect(() => {
+    if (!address) return
+    setBalances(prev => {
+      const next = { ...prev }
+      for (const r of results) {
+        if (r.data) next[r.data.chainId] = r.data.balance
+      }
+      return next
+    })
+  }, [results, address, setBalances])
+
+  // Surface persistent failures via telemetry (once per error transition per chain).
+  useEffect(() => {
+    const failed = results.filter(r => r.error)
+    if (failed.length > 0) {
+      trackError('useUsdcBalances.query', failed[0]!.error, {
+        scope: 'usdc.balance',
+        message: `${failed.length}/${results.length} chain reads failed`,
+      })
+    }
+  }, [results])
 }
