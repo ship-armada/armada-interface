@@ -21,8 +21,13 @@ const RANGE_ERROR_PATTERNS: readonly RegExp[] = [
   /more than [\d,]+ (results|records|logs)/i,
   /range is too wide/i,
   /response size exceeded/i,
-  /query timeout/i,
   /eth_getLogs.*limit/i,
+  // Deliberately omitted: /query timeout/i. A generic timeout could be a transient network
+  // issue rather than a range-too-large signal; bisecting on it doubles load and is very
+  // likely to time out again. Providers that DO time out specifically on large getLogs ranges
+  // (rather than returning an explicit error) will fall through to the caller — we'll handle
+  // those by adding a more specific pattern (e.g. requiring co-occurrence with getLogs
+  // context) once we see one in practice.
 ] as const
 
 function isBlockRangeError(err: unknown): boolean {
@@ -78,10 +83,19 @@ async function bisectEthGetLogs(
     const result = await send('eth_getLogs', [filter])
     return Array.isArray(result) ? result : []
   } catch (err) {
-    if (!isBlockRangeError(err) || depth >= MAX_BISECT_DEPTH) throw err
+    if (!isBlockRangeError(err)) throw err
     const from = parseHexBlock(filter.fromBlock)
     const to = parseHexBlock(filter.toBlock)
     if (from == null || to == null || to <= from) throw err // can't split
+    if (depth >= MAX_BISECT_DEPTH) {
+      // Wrap the original RPC error with bisection context so debug output points at the
+      // pathological range without losing the upstream message.
+      const original = err instanceof Error ? err.message : String(err)
+      throw new Error(
+        `eth_getLogs bisection exceeded max depth ${MAX_BISECT_DEPTH} at range ${from}..${to}: ${original}`,
+        { cause: err instanceof Error ? err : undefined },
+      )
+    }
     const mid = Math.floor((from + to) / 2)
     if (mid <= from || mid >= to) throw err // single-block range
     // Recurse on left + right halves; concatenate results. Order matters for some downstream

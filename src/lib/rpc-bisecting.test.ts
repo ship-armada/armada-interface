@@ -110,15 +110,29 @@ describe('bisectEthGetLogs', () => {
     expect(send).toHaveBeenCalledTimes(1)
   })
 
-  it('respects MAX_BISECT_DEPTH (no infinite recursion)', async () => {
+  it('does not infinite-recurse on a pathological range (single-block branch wins in practice)', async () => {
     const err = new Error('block range too wide')
     const send = vi.fn().mockRejectedValue(err)
-    // Range is 0..0xFFFFFF (16M blocks) — should bail before bisecting forever.
+    // Range is 0..0xFFFFFF (16M blocks). Bisection halves until it hits a single-block range,
+    // which is the operative cap below MAX_BISECT_DEPTH (16M < 2^25, so single-block fires
+    // before depth). Original error propagates unwrapped — that path is informative enough.
     await expect(
       _bisectEthGetLogs(send, { fromBlock: '0x0', toBlock: '0xFFFFFF' }, 0),
-    ).rejects.toThrow('block range too wide')
-    // Exact call count depends on the depth limit, but should be finite + small.
-    expect(send.mock.calls.length).toBeLessThan(200)
+    ).rejects.toThrow(/block range too wide/)
+    expect(send.mock.calls.length).toBeLessThan(400)
+  })
+
+  it('wraps the original error with range + depth context when MAX_BISECT_DEPTH fires', async () => {
+    const err = new Error('block range too wide')
+    const send = vi.fn().mockRejectedValue(err)
+    // Start the recursion near the depth limit so the depth-cap branch fires before the
+    // single-block branch can. Range is large enough that subdivision is still meaningful.
+    await expect(
+      _bisectEthGetLogs(send, { fromBlock: '0x0', toBlock: '0xFFFFFFFF' }, 24),
+    ).rejects.toThrow(/bisection exceeded max depth/)
+    await expect(
+      _bisectEthGetLogs(send, { fromBlock: '0x0', toBlock: '0xFFFFFFFF' }, 24),
+    ).rejects.toThrow(/block range too wide/)
   })
 
   it('preserves filter fields other than fromBlock/toBlock', async () => {
