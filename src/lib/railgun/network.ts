@@ -31,11 +31,16 @@ function sdkPollIntervalMs(): number {
 }
 
 /**
- * Deployment block of our PrivacyPool — the SDK scans events from this block forward.
- * Local Anvil = 0 (full history is tiny); Sepolia = ~deployment block to avoid scanning millions
- * of empty blocks. Update when the Sepolia deployment moves.
+ * Sepolia fallback when the deployment manifest doesn't carry a `deployBlock` field (older
+ * manifests). Local Anvil = 0 (full history is tiny). This is purely defensive — the manifest
+ * value takes precedence whenever it's present.
+ *
+ * The SDK uses NETWORK_CONFIG.<name>.deploymentBlock to bound the initial historical scan in
+ * RailgunEngine.getStartScanningBlock — see node_modules/@railgun-community/engine/dist/
+ * railgun-engine.js. A stale or wrong value here means the SDK walks all blocks from the
+ * stored value to current head, which on a public RPC trips rate limits.
  */
-function deploymentBlock(): number {
+function fallbackDeploymentBlock(): number {
   return getNetworkConfig().mode === 'sepolia' ? 10_321_000 : 0
 }
 
@@ -46,6 +51,7 @@ function patchNetworkConfig(
   networkConfig: Record<string, Record<string, unknown>>,
   privacyPoolAddress: string,
   relayAdaptContract: string | undefined,
+  deployBlock: number,
 ): void {
   if (networkConfigPatched) return
 
@@ -57,7 +63,7 @@ function patchNetworkConfig(
   target.proxyContract = privacyPoolAddress
   target.relayAdaptContract = relayAdaptContract ?? ethers.ZeroAddress
   target.relayAdaptHistory = relayAdaptContract ? [relayAdaptContract] : ['']
-  target.deploymentBlock = deploymentBlock()
+  target.deploymentBlock = deployBlock
   target.poseidonMerkleAccumulatorV3Contract = ethers.ZeroAddress
   target.poseidonMerkleVerifierV3Contract = ethers.ZeroAddress
   target.tokenVaultV3Contract = ethers.ZeroAddress
@@ -104,10 +110,16 @@ export async function loadHubNetwork(): Promise<void> {
   // We don't currently surface a yield adapter through the new app's deployment schema; pass
   // ZeroAddress for the relayAdapt entry. When the Yield modal needs adapt-based proofs we'll
   // wire the address through deployments.ts and re-patch here.
+  //
+  // Deploy block: prefer the manifest field (recorded by deploy_privacy_pool.ts at deploy time),
+  // fall back to a hardcoded sepolia value for older manifests. The SDK reads this via
+  // NETWORK_CONFIG.<name>.deploymentBlock to bound the initial historical scan.
+  const deployBlock = deployments.hub.deployBlock ?? fallbackDeploymentBlock()
   patchNetworkConfig(
     NETWORK_CONFIG as unknown as Record<string, Record<string, unknown>>,
     privacyPool,
     undefined,
+    deployBlock,
   )
 
   // Sanity check: the configured RPC must respond with PrivacyPool bytecode at the expected

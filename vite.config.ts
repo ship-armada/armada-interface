@@ -193,17 +193,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      // Deep-import alias for the Railgun engine's internal constants module. The engine
-      // package restricts its `exports` field to the main entry, so Vite's resolver rejects
-      // `import('@railgun-community/engine/dist/utils/constants')` at runtime. We need that
-      // module specifically to patch the per-chain V2 start block (see lib/railgun/init.ts —
-      // patchEngineStartBlock). Alias resolves the path directly via the filesystem and
-      // sidesteps the exports check. If a future SDK rewrite renames the file, the alias
-      // throws at build time — which is exactly when we want to be told.
-      '@railgun-community/engine/dist/utils/constants': path.resolve(
-        __dirname,
-        '../../node_modules/@railgun-community/engine/dist/utils/constants.js',
-      ),
     },
   },
   optimizeDeps: {

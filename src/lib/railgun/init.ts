@@ -9,8 +9,6 @@ import { getDefaultStore } from 'jotai'
 import { createWebDatabase } from './database'
 import { createBrowserArtifactStore } from './artifacts'
 import { initializeProver } from './prover'
-import { loadDeployments } from '@/config/deployments'
-import { trackError } from '@/lib/telemetry'
 import { syncStateAtom } from '@/state/wallet'
 
 const ENGINE_DB_NAME = 'armada-shielded'
@@ -125,18 +123,6 @@ async function doInit(): Promise<void> {
   const db = createWebDatabase(ENGINE_DB_NAME)
   const artifactStore = await createBrowserArtifactStore()
 
-  // Patch the engine's per-chain V2 start block to our PrivacyPool deploy block. The SDK's
-  // hardcoded ENGINE_V2_START_BLOCK_NUMBERS_EVM table only has entries for the legacy Railgun
-  // mainnet deploys; for any new chain (e.g. Sepolia 11155111) it falls through to 0 and the
-  // initial Shield/Transact/Unshield event scan walks the entire chain history (hundreds of
-  // empty getLogs chunks on public RPCs → rate-limited and sync fails silently). We read the
-  // deploy block from the manifest written by deploy_privacy_pool.ts (ship-armada/armada-poc#278)
-  // and mutate the SDK's mutable constants object before the first scan runs.
-  //
-  // Non-fatal on failure: if the deep import or the manifest read goes wrong, we leave the
-  // constant at 0. Sync will work — just slowly — and we'll see a telemetry error.
-  await patchEngineStartBlock()
-
   await startRailgunEngine(
     ENGINE_WALLET_SOURCE,
     db as never, // level-js export shape isn't typed; SDK accepts the leveldown-compatible API
@@ -198,51 +184,6 @@ async function doInit(): Promise<void> {
 
 export function isRailgunEngineInitialized(): boolean {
   return initialized
-}
-
-/**
- * Mutate the engine's per-chain V2 start-block constants so the initial scan starts at our
- * PrivacyPool deploy block instead of block 0. Idempotent — safe to call from doInit each time.
- *
- * Implementation note: the constant object lives at `@railgun-community/engine/dist/utils/constants`
- * and is not re-exported from the package's main entry. The deep import works under Vite + node
- * resolution today; if a future SDK version tightens its `exports` map and blocks this path, the
- * try/catch swallows the failure and sync falls back to scanning from block 0 (slower but correct).
- */
-async function patchEngineStartBlock(): Promise<void> {
-  try {
-    const deployments = await loadDeployments()
-    const chainId = deployments.hub.chainId
-    const deployBlock = deployments.hub.deployBlock
-    if (typeof deployBlock !== 'number' || deployBlock <= 0) {
-      // Manifest didn't include a deploy block (older deploys, or local mode). Skip.
-      return
-    }
-    // Deep import. The engine package restricts its `exports` field to the main entry, but
-    // tsc + Vite resolve filesystem paths inside node_modules without enforcing that field for
-    // legacy packages — so this Just Works at both compile time and runtime. The narrow cast
-    // captures the shape we depend on; a future SDK rewrite could break this and the try/catch
-    // around the whole function would surface a telemetry error.
-    type EngineConstants = {
-      ENGINE_V2_START_BLOCK_NUMBERS_EVM?: Record<number, number>
-      ENGINE_V2_SHIELD_EVENT_UPDATE_03_09_23_BLOCK_NUMBERS_EVM?: Record<number, number>
-    }
-    // @ts-expect-error - deep import; engine package's exports field hides this path from tsc
-    const constants = (await import('@railgun-community/engine/dist/utils/constants')) as EngineConstants
-    if (constants.ENGINE_V2_START_BLOCK_NUMBERS_EVM) {
-      constants.ENGINE_V2_START_BLOCK_NUMBERS_EVM[chainId] = deployBlock
-    }
-    if (constants.ENGINE_V2_SHIELD_EVENT_UPDATE_03_09_23_BLOCK_NUMBERS_EVM) {
-      // Our shield event uses the post-Mar-23 format (no legacy variant). Setting this to the
-      // same deploy block ensures the scanner never wastes time looking for legacy shield events.
-      constants.ENGINE_V2_SHIELD_EVENT_UPDATE_03_09_23_BLOCK_NUMBERS_EVM[chainId] = deployBlock
-    }
-  } catch (err) {
-    trackError('railgun.init.patchEngineStartBlock', err, {
-      scope: 'engine.init',
-      message: 'failed to patch engine V2 start block — sync will scan from block 0',
-    })
-  }
 }
 
 export function getRailgunInitError(): Error | null {
