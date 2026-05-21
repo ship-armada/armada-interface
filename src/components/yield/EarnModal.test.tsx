@@ -7,6 +7,7 @@ import { EarnModal } from './EarnModal'
 import { openModalAtom } from '@/state/ui'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { feeQuoteAtom } from '@/state/fees'
+import { withTestQueryClient } from '@/test-utils/queryClient'
 
 const FAKE_QUOTE = {
   cacheId: 'test-cache',
@@ -20,11 +21,11 @@ function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false;
   if (opts?.open) store.set(openModalAtom, opts.open)
   if (opts?.shielded !== undefined) store.set(shieldedUsdcAtom, opts.shielded)
   store.set(feeQuoteAtom, FAKE_QUOTE)
-  render(
+  render(withTestQueryClient(
     <Provider store={store}>
       <EarnModal />
     </Provider>,
-  )
+  ))
   return store
 }
 

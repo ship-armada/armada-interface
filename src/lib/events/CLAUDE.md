@@ -17,7 +17,12 @@ The reviewer flagged (rec #8) that indexer-vs-RPC will keep coming back as a dec
 | `EventSource.ts` | The interface + raw event shapes (`RawCommitment`, `RawNullifier`, `RawTxLog`, `FetchRange`). | Working |
 | `RpcEventSource.ts` | Implementation against an ethers `JsonRpcProvider`. | Stub — returns empty arrays |
 | `IndexerEventSource.ts` | Implementation against an HTTP indexer. | Stub — throws |
+| `getLogsChunked.ts` | Generic helper that splits an inclusive block range into windows of at most `maxRange` blocks. Honors `AbortSignal`, supports an `onChunk` progress callback. | Working |
 | `index.ts` | Factory `getEventSource({ provider, hubContractAddress })` + re-exports. | Working |
+
+## Bounded log queries — non-negotiable
+
+Public RPCs (Alchemy, Infura, publicnode) reject or rate-limit `eth_getLogs` requests that span more than ~10k blocks. The `RpcEventSource` implementation MUST go through `getLogsChunked` (or a per-tick equivalent) and MUST honor `NetworkConfig.maxLogRange` — never call the underlying client's `getLogs` with an unbounded `fromBlock`/`toBlock` directly. The chunker runs locally too with a generously large `maxLogRange` so the same code path covers both environments.
 
 ## Wiring policy
 

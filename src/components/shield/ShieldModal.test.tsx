@@ -8,6 +8,7 @@ import { ShieldModal } from './ShieldModal'
 import { openModalAtom } from '@/state/ui'
 import { usdcBalancesAtom } from '@/state/wallet'
 import { feeQuoteAtom } from '@/state/fees'
+import { withTestQueryClient } from '@/test-utils/queryClient'
 
 const FAKE_QUOTE = {
   cacheId: 'test-cache',
@@ -23,11 +24,11 @@ function renderModal(opts?: { open?: boolean; max?: bigint }) {
     store.set(usdcBalancesAtom, { 31337: opts.max })
   }
   store.set(feeQuoteAtom, FAKE_QUOTE)
-  render(
+  render(withTestQueryClient(
     <Provider store={store}>
       <ShieldModal />
     </Provider>,
-  )
+  ))
   return store
 }
 

@@ -31,8 +31,9 @@ import { fetchFees, feeForKind } from '@/lib/relayer'
 const MESSAGE_RECEIVED_EVENT = parseAbiItem(
   'event MessageReceived(address indexed caller, uint32 sourceDomain, bytes32 indexed nonce, bytes32 sender, uint32 indexed finalityThresholdExecuted, bytes messageBody)',
 )
-import { advance, markFailed, markWaiting } from '@/lib/tx/reducer'
+import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
 import { poll } from '@/lib/tx/poller'
+import { scanCctpDeliveryWindow } from './scan'
 import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
@@ -281,10 +282,6 @@ async function runWaitForDelivery(
   if (!nonce) {
     throw new Error('Missing cctpNonce artifact — cannot scope destination log query.')
   }
-  const fromBlock = record.artifacts.destFromBlock
-    ? BigInt(record.artifacts.destFromBlock)
-    : 0n
-
   const destClient = getPublicClient(wagmiConfig, { chainId: record.meta.toChainId })
   if (!destClient) {
     throw new Error(`No wagmi public client for destination chain ${record.meta.toChainId}`)
@@ -293,23 +290,43 @@ async function runWaitForDelivery(
   // Park the record in 'waiting' so the stepper renders the "Waiting for cross-chain confirmation"
   // copy. The handler doesn't return here — poll() continues; the 'waiting' state is purely a
   // UI hint for the active row.
-  await ctx.upsert(markWaiting(record))
+  let cursor = markWaiting(record)
+  await ctx.upsert(cursor)
+
+  // Mutable scan cursor. Initialised from the artifact (set by runSubmitAndBurn to the dest-chain
+  // head at burn time). Advanced after every tick whose scan finds no match so a long-running poll
+  // never re-scans history; a crash + resume picks up from the persisted value.
+  let scanFromBlock = record.artifacts.destFromBlock
+    ? BigInt(record.artifacts.destFromBlock)
+    : 0n
+  const maxLogRange = BigInt(getNetworkConfig().maxLogRange)
 
   const result = await poll<`0x${string}`>(
     async (signal) => {
       if (signal.aborted) return null
-      // Query MessageReceived logs filtered by the indexed `nonce` topic. eth_getLogs returns
-      // only mined events — exactly what we want for "delivery confirmed". CCTP nonces are
-      // globally-unique per source domain, so this match is unambiguous.
-      const logs = await destClient.getLogs({
-        address: destMessageTransmitter,
-        event: MESSAGE_RECEIVED_EVENT,
-        args: { nonce },
-        fromBlock,
-        toBlock: 'latest',
+      // Bounded per-tick scan — never queries more than maxLogRange blocks in a single getLogs
+      // call. Across many ticks the cursor marches forward chunk-by-chunk; once caught up to head,
+      // ticks short-circuit on `no-new-blocks` until the next block lands.
+      const outcome = await scanCctpDeliveryWindow({
+        getBlockNumber: () => destClient.getBlockNumber(),
+        getLogsForRange: (fromBlock, toBlock) => destClient.getLogs({
+          address: destMessageTransmitter,
+          event: MESSAGE_RECEIVED_EVENT,
+          args: { nonce },
+          fromBlock,
+          toBlock,
+        }),
+        scanFromBlock,
+        maxLogRange,
       })
-      const first = logs[0]
-      if (first?.transactionHash) return first.transactionHash as `0x${string}`
+      if (outcome.kind === 'match') return outcome.txHash
+      if (outcome.kind === 'no-new-blocks') return null
+
+      // Advance the cursor and persist so a crash + resume starts where we left off rather than
+      // re-scanning everything back to burn-time head.
+      scanFromBlock = outcome.nextScanFromBlock
+      cursor = patchArtifacts(cursor, { destFromBlock: scanFromBlock.toString() })
+      await ctx.upsert(cursor)
       return null
     },
     {
@@ -338,7 +355,8 @@ async function runWaitForDelivery(
   // completes the visual sequence in ~1s. Skipped between the last-but-one and terminal stage to
   // keep the success state landing promptly.
   const STAGE_VISUAL_DELAY_MS = 350
-  let cursor = record
+  // `cursor` carries forward from the poll loop above — it already reflects any artifact patches
+  // we wrote during the scan, so each advance() composes cleanly on top of the latest seq.
   const skipStages = ['iris-attestation-ready', 'client-mint-pending', 'client-mint-confirmed'] as const
   for (let i = 0; i < skipStages.length; i++) {
     const next = skipStages[i]!

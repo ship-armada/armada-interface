@@ -7,6 +7,7 @@ import { UnshieldModal } from './UnshieldModal'
 import { openModalAtom } from '@/state/ui'
 import { shieldedUsdcAtom, evmAddressAtom } from '@/state/wallet'
 import { feeQuoteAtom } from '@/state/fees'
+import { withTestQueryClient } from '@/test-utils/queryClient'
 
 const VALID_ADDR = '0x1234567890abcdef1234567890abcdef12345678'
 
@@ -27,11 +28,11 @@ function renderModal(opts?: {
   if (opts?.shielded !== undefined) store.set(shieldedUsdcAtom, opts.shielded)
   if (opts?.evm) store.set(evmAddressAtom, opts.evm)
   store.set(feeQuoteAtom, FAKE_QUOTE)
-  render(
+  render(withTestQueryClient(
     <Provider store={store}>
       <UnshieldModal />
     </Provider>,
-  )
+  ))
   return store
 }
 

@@ -6,16 +6,17 @@ import { render, screen } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { BalanceHero } from './BalanceHero'
 import { shieldedUsdcAtom, yieldSharesAtom } from '@/state/wallet'
+import { withTestQueryClient } from '@/test-utils/queryClient'
 
 function renderWith(values: { shielded: bigint | null; yieldShares: bigint | null }) {
   const store = createStore()
   store.set(shieldedUsdcAtom, values.shielded)
   store.set(yieldSharesAtom, values.yieldShares)
-  return render(
+  return render(withTestQueryClient(
     <Provider store={store}>
       <BalanceHero />
     </Provider>,
-  )
+  ))
 }
 
 describe('<BalanceHero>', () => {

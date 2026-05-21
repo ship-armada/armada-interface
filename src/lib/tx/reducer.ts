@@ -79,6 +79,23 @@ export function markCancelled<K extends TxKind>(record: TxRecord<K>): TxRecord<K
   }
 }
 
+/**
+ * Merge artifacts without touching stage or executionState. Used by polling handlers that need
+ * to persist progress (e.g. advancing a log-scan cursor between ticks) while the record stays in
+ * `waiting`. Increments updatedSeq so OCC writes succeed in order.
+ */
+export function patchArtifacts<K extends TxKind>(
+  record: TxRecord<K>,
+  artifactPatch: Partial<ArtifactsFor<K>>,
+): TxRecord<K> {
+  return {
+    ...record,
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
+    artifacts: { ...record.artifacts, ...artifactPatch },
+  }
+}
+
 /** Is the current stage one the user/executor can retry from (vs starting over)? */
 export function isRetryable<K extends TxKind>(record: TxRecord<K>): boolean {
   const lifecycle = lifecycleFor(record.kind)
