@@ -1,0 +1,58 @@
+# Netlify build config — armada-interface deploy.
+#
+# This file is picked up because the Netlify site is configured with
+# Base directory = "apps/armada-interface" in the UI. The committer app's
+# root-level netlify.toml is a separate Netlify site and isn't affected.
+#
+# Env vars set in the Netlify UI (not committed):
+#   VITE_WALLETCONNECT_PROJECT_ID  required for WalletConnect modal
+#   VITE_RELAYER_URL               public relayer endpoint when the VPS is live
+#                                  (omit until then — submit flows will error,
+#                                   but UI/flow review still works)
+#   DEPLOYMENT_INSTANCE            optional override; defaults to "demo1"
+#                                  (build-step variable only, no VITE_ prefix
+#                                   because it's never exposed to bundled JS)
+
+[build]
+  base    = "apps/armada-interface"
+  publish = "dist"
+  # Build flow:
+  #   1. cd to workspace root (npm needs the root package.json + lockfile)
+  #   2. clean any cached node_modules from a previous deploy attempt
+  #   3. install with --legacy-peer-deps (Railgun SDK peer-dep conflict)
+  #   4. fetch the selected deployment instance's manifests from the
+  #      armada-deployments repo and write them under public/api/deployments/
+  #      with the legacy filenames the interface fetches today
+  #   5. build the workspace
+  command = """
+    cd ../.. && \
+    rm -rf node_modules package-lock.json && \
+    npm install --legacy-peer-deps && \
+    cd apps/armada-interface && \
+    mkdir -p public/api/deployments && \
+    INSTANCE="${DEPLOYMENT_INSTANCE:-demo1}" && \
+    BASE="https://raw.githubusercontent.com/ship-armada/armada-deployments/main/testnet/${INSTANCE}" && \
+    echo "Fetching deployment manifests from instance: ${INSTANCE}" && \
+    curl -sfL -o public/api/deployments/hub-sepolia-v3.json               "${BASE}/sepolia/cctp.json" && \
+    curl -sfL -o public/api/deployments/client-sepolia-v3.json            "${BASE}/base-sepolia/cctp.json" && \
+    curl -sfL -o public/api/deployments/clientB-sepolia-v3.json           "${BASE}/arbitrum-sepolia/cctp.json" && \
+    curl -sfL -o public/api/deployments/privacy-pool-hub-sepolia.json     "${BASE}/sepolia/privacy-pool.json" && \
+    curl -sfL -o public/api/deployments/privacy-pool-client-sepolia.json  "${BASE}/base-sepolia/privacy-pool.json" && \
+    curl -sfL -o public/api/deployments/privacy-pool-clientB-sepolia.json "${BASE}/arbitrum-sepolia/privacy-pool.json" && \
+    curl -sfL -o public/api/deployments/yield-hub-sepolia.json            "${BASE}/sepolia/yield.json" && \
+    cd ../.. && \
+    npm run build --workspace=@armada/interface
+  """
+
+[build.environment]
+  NPM_FLAGS    = "--legacy-peer-deps"
+  NODE_VERSION = "20"
+  # Switches all network-dependent decisions in the app (manifest filename
+  # suffix, hub chain id + RPC, explorer URLs, poll cadence) to sepolia.
+  VITE_NETWORK = "sepolia"
+
+# SPA fallback — react-router serves /history, /settings, /debug, etc.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
