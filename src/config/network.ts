@@ -23,6 +23,13 @@ export interface NetworkConfig {
   readonly indexerUrl: string | null
   /** RPC + balance polling cadence. Shorter on local, longer on testnet. */
   readonly pollIntervalMs: number
+  /**
+   * Max block span allowed in a single `eth_getLogs` request. Public RPCs (Alchemy/Infura/
+   * publicnode) cap unbounded queries; 5_000 sits safely under the common 10_000 ceiling and
+   * leaves headroom for providers with stricter limits. Local Anvil has no cap, so we set a
+   * generously large value rather than disabling the chunker — keeps one code path.
+   */
+  readonly maxLogRange: number
 }
 
 export function getNetworkMode(): NetworkMode {
@@ -108,6 +115,7 @@ function sepoliaConfig(): NetworkConfig {
     irisUrl: (import.meta.env.VITE_IRIS_URL as string | undefined) ?? 'https://iris-api-sandbox.circle.com',
     indexerUrl: (import.meta.env.VITE_INDEXER_URL as string | undefined) ?? null,
     pollIntervalMs: 15_000,
+    maxLogRange: 5_000,
   }
 }
 
@@ -121,6 +129,7 @@ function localConfig(): NetworkConfig {
     irisUrl: 'https://iris-api-sandbox.circle.com',
     indexerUrl: null,
     pollIntervalMs: 5_000,
+    maxLogRange: 100_000,
   }
 }
 

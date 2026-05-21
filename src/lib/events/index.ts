@@ -9,6 +9,7 @@ import { RpcEventSource } from './RpcEventSource'
 export type { EventSource, FetchRange, RawCommitment, RawNullifier, RawTxLog } from './EventSource'
 export { RpcEventSource } from './RpcEventSource'
 export { IndexerEventSource } from './IndexerEventSource'
+export { getLogsChunked, type ChunkedLogsClient, type ChunkedLogsOptions } from './getLogsChunked'
 
 /**
  * Resolve the active EventSource based on network config.
