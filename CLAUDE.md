@@ -47,6 +47,8 @@ src/
 - **TS strict + `noUncheckedIndexedAccess`.** No `any`, no `as any`. If a type is opaque (e.g. wagmi internals), narrow at the boundary.
 - **Tx executor lives at module scope, not React scope.** `lib/tx/executor.ts` initialises via `startEngine()` (called once from `App.tsx`). Hooks dispatch `executeTx(id)` / `cancelTx(id)`; they don't orchestrate.
 - **Single-leader execution.** Only the tab holding the `armada-tx-executor` `navigator.locks` lock runs handlers. Other tabs are passive observers. v1 has no follower-side live sync — opening multiple tabs means only the first is active.
+- **Polling goes through React Query.** All HTTP and RPC reads that fit a request/response shape use `useQuery` / `useQueries`, configured with `refetchIntervalInBackground: false` so hidden tabs don't burn quota. Don't write bespoke `setInterval` pollers.
+- **`eth_getLogs` is always bounded.** Never query from genesis or with an unbounded `toBlock` on a public RPC. Either chunk via `lib/events/getLogsChunked` or scan one bounded window per poll tick (see `features/unshield-xchain/scan.ts`). The per-network cap lives in `NetworkConfig.maxLogRange` (5_000 on sepolia, 100_000 on local).
 - Per-folder CLAUDE.md captures folder-specific conventions.
 
 ## Dev commands
