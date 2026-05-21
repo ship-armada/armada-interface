@@ -4,6 +4,10 @@
 import { describe, it, expect, vi } from 'vitest'
 import { getLogsChunked, type ChunkedLogsClient } from './getLogsChunked'
 
+// Deliberately not a viem `Log` — getLogsChunked is generic over <TLog> and never inspects log
+// fields. The synthetic shape lets each test assertion verify which window a returned log came
+// from (via fromBlockSeen/toBlockSeen). Real viem compatibility is the caller's concern, not
+// this helper's.
 interface FakeLog {
   blockNumber: bigint
   fromBlockSeen: bigint

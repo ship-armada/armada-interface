@@ -52,6 +52,11 @@ export function useUsdcBalances(): void {
       ]
     : []
 
+  // Initialization order: deployments query runs first → on success `pairs` populates → only then
+  // does `useQueries` spin up per-chain balance queries. `pairs` is `[]` until deployments resolve,
+  // so no balance queries run prematurely. Once pairs exist, each per-chain query also gates on
+  // `enabled: !!address` (skip when wallet disconnected) and `refetchInterval: tabVisible ? ... : false`
+  // (pause polling when tab hidden, but still run the initial fetch on mount).
   const results = useQueries({
     queries: pairs.map(pair => ({
       queryKey: ['usdc-balance', pair.chainId, pair.usdcAddress, address] as const,

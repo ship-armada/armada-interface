@@ -24,10 +24,18 @@ export interface NetworkConfig {
   /** RPC + balance polling cadence. Shorter on local, longer on testnet. */
   readonly pollIntervalMs: number
   /**
-   * Max block span allowed in a single `eth_getLogs` request. Public RPCs (Alchemy/Infura/
-   * publicnode) cap unbounded queries; 5_000 sits safely under the common 10_000 ceiling and
-   * leaves headroom for providers with stricter limits. Local Anvil has no cap, so we set a
-   * generously large value rather than disabling the chunker — keeps one code path.
+   * Max block span allowed in a single `eth_getLogs` request.
+   *
+   * Provider limits observed at time of writing:
+   *   - Alchemy free tier: 10_000 blocks
+   *   - Infura: 10_000 blocks (most methods)
+   *   - publicnode.com endpoints: varies; some as low as 5_000
+   *   - QuickNode free tier: 10_000
+   *
+   * 5_000 is half the common ceiling. The headroom covers (a) stricter-tier providers, (b)
+   * filter complexity overhead some providers apply when topics/addresses match many logs, and
+   * (c) future tightening without code change. Local Anvil has no cap, so we set a generous
+   * value rather than disabling the chunker — keeps one code path for both environments.
    */
   readonly maxLogRange: number
 }

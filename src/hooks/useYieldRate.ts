@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
+import { useEffect } from 'react'
 import { readContract } from 'wagmi/actions'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadYieldDeployment } from '@/config/deployments'
@@ -65,12 +66,16 @@ export function useYieldRate(): YieldRate | null {
     staleTime: 0,
   })
 
-  if (query.error) {
-    trackError('useYieldRate.query', query.error, {
-      scope: 'yield.rate',
-      message: 'vault rate read failed',
-    })
-  }
+  // Surface persistent fetch errors via telemetry. Wrapped in useEffect so we only emit once
+  // per error transition rather than on every re-render while the error persists.
+  useEffect(() => {
+    if (query.error) {
+      trackError('useYieldRate.query', query.error, {
+        scope: 'yield.rate',
+        message: 'vault rate read failed',
+      })
+    }
+  }, [query.error])
 
   return query.data ?? null
 }
