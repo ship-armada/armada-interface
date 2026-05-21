@@ -7,6 +7,7 @@ import { SendModal } from './SendModal'
 import { openModalAtom } from '@/state/ui'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { feeQuoteAtom } from '@/state/fees'
+import { withTestQueryClient } from '@/test-utils/queryClient'
 
 const VALID_EVM = '0x1234567890abcdef1234567890abcdef12345678'
 const VALID_0ZK = '0zk' + 'a'.repeat(40)
@@ -23,11 +24,11 @@ function renderModal(opts?: { open?: boolean; shielded?: bigint }) {
   if (opts?.open) store.set(openModalAtom, 'payment')
   if (opts?.shielded !== undefined) store.set(shieldedUsdcAtom, opts.shielded)
   store.set(feeQuoteAtom, FAKE_QUOTE)
-  render(
+  render(withTestQueryClient(
     <Provider store={store}>
       <SendModal />
     </Provider>,
-  )
+  ))
   return store
 }
 

@@ -1,9 +1,11 @@
-// ABOUTME: Fee quote manager — fetches /fees from the relayer, caches in `feeQuoteAtom`, auto-refreshes ~30s before the cached quote's expiry.
-// ABOUTME: Multi-instance safe; the in-flight guard prevents duplicate fetches when several modals mount simultaneously. Tracks errors via the telemetry sink.
+// ABOUTME: Fee quote manager — wraps fetchFees() in a React Query that auto-refetches near expiry, exponentially backs off on cold-start failures, and pauses when the tab is hidden.
+// ABOUTME: Mirrors the latest quote into feeQuoteAtom so non-React readers (handlers, modal tests) stay on the existing atom-based contract.
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtom, useAtomValue } from 'jotai'
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { feeQuoteAtom, feeQuoteIsStaleAtom } from '@/state/fees'
+import { tabVisibleAtom } from '@/state/visibility'
 import { fetchFees, type FeeSchedule } from '@/lib/relayer'
 import { trackError } from '@/lib/telemetry'
 
@@ -11,59 +13,84 @@ export interface UseFeesResult {
   quote: FeeSchedule | null
   isStale: boolean
   /**
-   * Force a fresh fetch — usually unnecessary; the hook auto-refreshes near expiry. Returns the
-   * fresh schedule so callers can submit with the new cacheId directly without waiting for a
-   * subsequent re-render to surface the updated atom value.
+   * Force a fresh fetch — usually unnecessary; the query auto-refreshes near expiry. Resolves to
+   * the freshest schedule so callers can submit with the new cacheId immediately without waiting
+   * for a re-render to surface the updated atom value.
    */
   refresh: () => Promise<FeeSchedule | null>
 }
 
-/** Re-fetch 30s before the relayer's TTL expires so callers never see a stale quote. */
-const REFRESH_LEAD_MS = 30_000
-/** Cold-start poll cadence when no quote exists yet (relayer might be starting up). */
-const COLD_RETRY_MS = 15_000
+export const FEES_QUERY_KEY = ['fees'] as const
 
-// Module-scope in-flight guard — `useFees` is called from multiple modals concurrently and we
-// don't want N parallel /fees requests. A simple boolean is fine because fetchFees() resolves
-// once and clears it before returning.
-let inFlight = false
+/** Re-fetch this many ms before the relayer's quote expires so callers never see a stale quote. */
+const REFRESH_LEAD_MS = 30_000
+/** Fallback refetch cadence when the cached quote has no expiresAt (shouldn't happen — defensive). */
+const FALLBACK_REFETCH_MS = 60_000
+/** Cold-start retry schedule: 5s → 15s → 30s → 60s, then 60s indefinitely. */
+const COLD_RETRY_SCHEDULE_MS = [5_000, 15_000, 30_000, 60_000] as const
+
+/**
+ * Compute the next refetch delay so we re-fetch ~REFRESH_LEAD_MS before the quote expires.
+ * Floor at 1s so a near-expired quote doesn't trigger a tight refetch loop.
+ */
+function refetchDelayFor(quote: FeeSchedule | null): number {
+  if (!quote) return FALLBACK_REFETCH_MS
+  const ms = quote.expiresAt - Date.now() - REFRESH_LEAD_MS
+  return Math.max(1_000, ms)
+}
 
 export function useFees(): UseFeesResult {
-  const [quote, setQuote] = useAtom(feeQuoteAtom)
+  const [atomQuote, setAtomQuote] = useAtom(feeQuoteAtom)
   const isStale = useAtomValue(feeQuoteIsStaleAtom)
-  const inFlightLocalRef = useRef(false)
+  const tabVisible = useAtomValue(tabVisibleAtom)
+  const queryClient = useQueryClient()
 
-  const refresh = useCallback(async (): Promise<FeeSchedule | null> => {
-    if (inFlight) return null
-    inFlight = true
-    inFlightLocalRef.current = true
-    try {
-      const next = await fetchFees()
-      setQuote(next)
-      return next
-    } catch (err) {
+  const query = useQuery({
+    queryKey: FEES_QUERY_KEY,
+    queryFn: ({ signal }) => fetchFees(signal),
+    // Tab-visibility gate: when hidden the interval pauses; resumes on visibility flip.
+    refetchInterval: ({ state }) => (tabVisible ? refetchDelayFor(state.data ?? null) : false),
+    refetchIntervalInBackground: false,
+    // Refetch on focus if the cached quote is past its refresh window — cheap correctness.
+    refetchOnWindowFocus: 'always',
+    // Cold-start retry with the explicit schedule above. Loops 60s indefinitely until success
+    // because the modal flows cannot proceed without a quote.
+    retry: true,
+    retryDelay: attemptIndex =>
+      COLD_RETRY_SCHEDULE_MS[Math.min(attemptIndex, COLD_RETRY_SCHEDULE_MS.length - 1)]!,
+    staleTime: 0,
+    gcTime: 60 * 60_000,
+  })
+
+  // Mirror the latest successful fetch into feeQuoteAtom so non-React consumers (handlers calling
+  // fetchFees directly, modal tests that seed the atom) keep working unchanged.
+  useEffect(() => {
+    if (query.data) setAtomQuote(query.data)
+  }, [query.data, setAtomQuote])
+
+  // Surface persistent fetch errors via telemetry. React Query retries internally; we only emit
+  // once per error transition rather than per attempt to avoid noisy logs during a relayer outage.
+  useEffect(() => {
+    if (query.error) {
+      trackError('useFees.query', query.error, { scope: 'fees', message: 'fetchFees failed' })
+    }
+  }, [query.error])
+
+  const refresh = async (): Promise<FeeSchedule | null> => {
+    const result = await queryClient.fetchQuery({
+      queryKey: FEES_QUERY_KEY,
+      queryFn: ({ signal }) => fetchFees(signal),
+      // Bypass any staleTime so a manual refresh always hits the relayer.
+      staleTime: 0,
+    }).catch((err: unknown) => {
       trackError('useFees.refresh', err, { scope: 'fees', message: 'fetchFees failed' })
       return null
-    } finally {
-      inFlight = false
-      inFlightLocalRef.current = false
-    }
-  }, [setQuote])
+    })
+    if (result) setAtomQuote(result)
+    return result
+  }
 
-  useEffect(() => {
-    // Cold-start fetch — only one of the mounted instances will actually run it (in-flight guard).
-    if (!quote) {
-      void refresh()
-    }
-    // Schedule the next refresh based on the cached quote's expiry. The effect re-runs when
-    // `quote` changes (after a successful refresh), so the timer always targets the freshest
-    // expiresAt. Without a cached quote, we cold-retry every 15s.
-    const delay = quote
-      ? Math.max(1_000, quote.expiresAt - Date.now() - REFRESH_LEAD_MS)
-      : COLD_RETRY_MS
-    const timer = window.setTimeout(() => void refresh(), delay)
-    return () => window.clearTimeout(timer)
-  }, [quote, refresh])
-
-  return { quote, isStale, refresh }
+  // Prefer the live query data, falling back to the atom (covers the brief window before the
+  // first useEffect tick has mirrored a freshly fetched quote into the atom).
+  return { quote: query.data ?? atomQuote, isStale, refresh }
 }
