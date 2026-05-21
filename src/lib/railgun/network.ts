@@ -159,3 +159,24 @@ export function resetNetworkLoaderState(): void {
 export function getHubChainDescriptor(): { type: 0; id: number } {
   return { type: 0, id: getNetworkConfig().hub.chainId }
 }
+
+/**
+ * Fetch the current block number on the hub chain. Used at wallet enroll to seed the
+ * Railgun SDK's `creationBlockNumbers` — tells the engine "this wallet didn't exist before
+ * block N, skip decryption attempts on commitments older than that."
+ *
+ * Spins up a one-shot JsonRpcProvider. Cheap; not worth caching since the result changes.
+ */
+export async function getCurrentHubBlock(): Promise<number | null> {
+  const hubChain = getNetworkConfig().hub
+  const primaryRpc = hubChain.rpcUrls[0]
+  if (!primaryRpc) return null
+  try {
+    const provider = new ethers.JsonRpcProvider(primaryRpc)
+    return await provider.getBlockNumber()
+  } catch {
+    // Non-fatal — wallet enroll proceeds without creationBlockNumbers, engine just does
+    // slightly more decryption work on the first scan. No correctness impact.
+    return null
+  }
+}

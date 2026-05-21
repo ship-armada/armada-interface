@@ -17,6 +17,7 @@ export interface SendReviewStepProps {
   fee: bigint | null
   netAmount: bigint
   isXchain: boolean
+  submitBlockedReason?: string | null
   onBack: () => void
   onConfirm: () => void
 }
@@ -38,6 +39,7 @@ export function SendReviewStep({
   fee,
   netAmount,
   isXchain,
+  submitBlockedReason,
   onBack,
   onConfirm,
 }: SendReviewStepProps) {
@@ -73,9 +75,18 @@ export function SendReviewStep({
         </div>
       </dl>
       <FeeSummary fee={fee} netAmount={netAmount} netLabel="They'll receive" />
+      {submitBlockedReason ? (
+        <div className={styles.syncNotice} role="status" aria-live="polite">
+          {submitBlockedReason}
+        </div>
+      ) : null}
       <FlowFooter
         className={styles.footer}
-        primary={{ label: 'Confirm send', onClick: onConfirm }}
+        primary={{
+          label: 'Confirm send',
+          onClick: onConfirm,
+          disabled: Boolean(submitBlockedReason),
+        }}
         secondary={{ label: 'Back', onClick: onBack }}
       />
     </div>

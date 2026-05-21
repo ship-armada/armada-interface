@@ -14,6 +14,9 @@ export interface UnshieldReviewStepProps {
   fee: bigint | null
   netAmount: bigint
   isXchain: boolean
+  /** When set, Confirm is disabled and the reason is shown inline. Used to gate the submit
+   *  while the shielded-balance sync is still in progress. */
+  submitBlockedReason?: string | null
   onBack: () => void
   onConfirm: () => void
 }
@@ -25,6 +28,7 @@ export function UnshieldReviewStep({
   fee,
   netAmount,
   isXchain,
+  submitBlockedReason,
   onBack,
   onConfirm,
 }: UnshieldReviewStepProps) {
@@ -52,9 +56,18 @@ export function UnshieldReviewStep({
         </div>
       </dl>
       <FeeSummary fee={fee} netAmount={netAmount} netLabel="You'll receive" />
+      {submitBlockedReason ? (
+        <div className={styles.syncNotice} role="status" aria-live="polite">
+          {submitBlockedReason}
+        </div>
+      ) : null}
       <FlowFooter
         className={styles.footer}
-        primary={{ label: 'Confirm withdrawal', onClick: onConfirm }}
+        primary={{
+          label: 'Confirm withdrawal',
+          onClick: onConfirm,
+          disabled: Boolean(submitBlockedReason),
+        }}
         secondary={{ label: 'Back', onClick: onBack }}
       />
     </div>

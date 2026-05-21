@@ -8,6 +8,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
+      // Mirror the deep-import alias from vite.config.ts so tests that pull in
+      // lib/railgun/init.ts can resolve the engine's internal constants module despite its
+      // restrictive exports field. (See comment in vite.config.ts for the full reasoning.)
+      '@railgun-community/engine/dist/utils/constants': path.resolve(
+        __dirname,
+        '../../node_modules/@railgun-community/engine/dist/utils/constants.js',
+      ),
     },
   },
   define: {

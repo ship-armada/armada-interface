@@ -52,3 +52,21 @@ export const yieldSharesAtom = atom<bigint | null>(null)
  * Written by `useAutoLock` on each arming/reset; read by Settings for the live countdown.
  */
 export const autoLockDeadlineAtom = atom<number | null>(null)
+
+/**
+ * Shielded balance sync state. Reflects the Railgun engine's UTXO merkletree scan progress.
+ *
+ *   idle      — no scan has been triggered yet (engine not running, or no wallet unlocked)
+ *   syncing   — a scan is in progress; `progress` runs 0..1
+ *   complete  — most recent scan finished successfully
+ *   failed    — the scan reported MerkletreeScanStatus.Incomplete (RPC failures, etc.)
+ *
+ * Written by the SDK's setOnUTXOMerkletreeScanCallback handler in lib/railgun/init.ts and
+ * consumed by the SyncBanner UI + per-modal "block submit while sync is incomplete" gates.
+ */
+export interface SyncState {
+  readonly status: 'idle' | 'syncing' | 'complete' | 'failed'
+  readonly progress: number
+}
+
+export const syncStateAtom = atom<SyncState>({ status: 'idle', progress: 0 })

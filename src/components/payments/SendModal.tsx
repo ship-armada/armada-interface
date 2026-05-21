@@ -7,6 +7,7 @@ import { openModalAtom } from '@/state/ui'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
+import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { getNetworkConfig } from '@/config/network'
 import {
   findDeploymentForChain,
@@ -58,6 +59,9 @@ export function SendModal() {
   const max = shieldedUsdc ?? 0n
   const amount = parseUsdcInput(amountStr)
   const { quote, isStale, refresh } = useFees()
+  // Gate Confirm while the initial shielded-balance sync is incomplete. Both Send tabs
+  // (private + external) spend the user's shielded USDC, so the same gate applies.
+  const syncGate = useSpendableSyncGate()
 
   // Deployment manifests — used to validate that the chosen destination chain actually has a
   // deployment present. Otherwise the user could pick a chain that the submit step would throw on.
@@ -207,6 +211,7 @@ export function SendModal() {
           fee={fee}
           netAmount={netAmount}
           isXchain={isXchain}
+          submitBlockedReason={syncGate.reason}
           onBack={() => setStep('input')}
           onConfirm={handleSubmit}
         />
