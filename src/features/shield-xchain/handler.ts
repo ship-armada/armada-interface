@@ -28,6 +28,7 @@ import {
 } from '@/lib/railgun/shield'
 import { extractCctpMessageFromReceipt } from '@/lib/cctp'
 import { fetchFees, feeForKind } from '@/lib/relayer'
+import { ensureChain } from '@/lib/network-switch'
 import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
 import { poll } from '@/lib/tx/poller'
 import { scanCctpDeliveryWindow } from '../unshield-xchain/scan'
@@ -143,6 +144,13 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  // RAILGUN_SHIELD is chain-agnostic (plain personal_sign of a constant string), but for UX we
+  // still want the wallet on the source client chain so the prompt shows the right network and
+  // the subsequent submit-relayer step doesn't have to switch a second time. Same pattern the
+  // same-chain shield handler uses with meta.fromChainId.
+  await ensureChain(record.meta.fromChainId)
+  if (ctx.signal.aborted) throw new Error('cancelled')
+
   // Same flow as same-chain shield: prompt RAILGUN_SHIELD, derive the per-session key, ask the
   // engine to build the ShieldRequest. Cross-chain doesn't change the off-chain ZK construction —
   // only what we do with the result on-chain.
@@ -188,6 +196,11 @@ async function runSubmitAndBurn(
     throw new Error('Cross-chain deposit requires a connected EVM wallet; none captured at submit time.')
   }
   const owner = ownerCaptured as `0x${string}`
+
+  // The user may have switched networks between build-proof and submit; re-assert before the
+  // approve + crossChainShield calls. ensureChain is a no-op when already on target.
+  await ensureChain(record.meta.fromChainId)
+  if (ctx.signal.aborted) throw new Error('cancelled')
 
   // 1. Ensure USDC allowance from the user to the PrivacyPoolClient. The client contract
   //    `safeTransferFrom`s the user's tokens; we need the allowance set first. Max-approve to
