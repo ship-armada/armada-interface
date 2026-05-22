@@ -22,6 +22,7 @@ import {
   deriveShieldPrivateKey,
   SHIELD_SIGNATURE_MESSAGE,
 } from '@/lib/railgun/shield'
+import { ensureChain } from '@/lib/network-switch'
 import { advance, markFailed } from '@/lib/tx/reducer'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
@@ -126,6 +127,12 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  // Ensure the wallet is on the chain we're shielding FROM before any signature. Today the
+  // handler only supports hub-to-hub shield (so meta.fromChainId == hub); once cross-chain
+  // shield lands the same call will switch to the originating client chain instead.
+  await ensureChain(record.meta.fromChainId)
+  if (ctx.signal.aborted) throw new Error('cancelled')
+
   // Sign 'RAILGUN_SHIELD' through wagmi. The active wallet client = the user's MetaMask.
   // signMessage prompts the user; rejection bubbles up as a Viem error.
   const sigHex = await signMessage(wagmiConfig, { message: SHIELD_SIGNATURE_MESSAGE })
@@ -165,6 +172,10 @@ async function runSubmitAndConfirm(
   if (!shieldRequest || !privacyPoolAddress || !usdcAddress) {
     throw new Error('Shield artifacts missing — re-run build-proof stage.')
   }
+
+  // The user may have changed networks between build-proof and submit; re-assert here.
+  await ensureChain(record.meta.fromChainId)
+  if (ctx.signal.aborted) throw new Error('cancelled')
 
   // 1. Ensure USDC allowance. We use the connected wallet's address (looked up via wagmi's
   //    getAccount under writeContract's hood). readContract is synchronous-ish; signal-checked

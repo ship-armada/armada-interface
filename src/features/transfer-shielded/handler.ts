@@ -7,6 +7,8 @@ import {
 } from 'wagmi/actions'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
+import { getNetworkConfig } from '@/config/network'
+import { ensureChain } from '@/lib/network-switch'
 import {
   getSdkEncryptionKey as kmGetSdkEncryptionKey,
   getWalletId as kmGetWalletId,
@@ -104,6 +106,10 @@ async function runSubmitAndConfirm(
     recipient: record.meta.recipient,
     amount: record.meta.amount,
   })
+  if (ctx.signal.aborted) throw new Error('cancelled')
+
+  // Hub-side transact() — ensure the wallet is on the hub before signing.
+  await ensureChain(getNetworkConfig().hub.chainId)
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   const hash = await sendTransaction(wagmiConfig, {

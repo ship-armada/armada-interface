@@ -25,6 +25,7 @@ import {
   extractCctpMessageFromReceipt,
 } from '@/lib/cctp'
 import { fetchFees, feeForKind } from '@/lib/relayer'
+import { ensureChain } from '@/lib/network-switch'
 
 // MessageReceived event signature parsed for viem's typed log filter — accepts indexed-arg
 // filters via `args.nonce`. Mirrors the on-chain event verbatim (see contracts/cctp/MockCCTPV2.sol).
@@ -224,6 +225,12 @@ async function runSubmitAndBurn(
   // Review step shows the same fee to the user (via feeForKind on the cached quote).
   const feeQuote = await fetchFees()
   const maxFee = feeForKind(feeQuote, 'unshield-xchain')
+
+  // Hub-side atomicCrossChainUnshield() — the only user-signed leg of this flow. The
+  // destination-side receiveMessage is relayer-submitted, so we never need the user on the
+  // client chain.
+  await ensureChain(getNetworkConfig().hub.chainId)
+  if (ctx.signal.aborted) throw new Error('cancelled')
 
   const hash = await sendTransaction(wagmiConfig, {
     to: privacyPoolAddress as `0x${string}`,
