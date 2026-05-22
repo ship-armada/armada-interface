@@ -32,28 +32,49 @@ beforeEach(() => {
   switchChainMock.mockReset()
 })
 
+/** Test helper — build a fake getAccount() return value with a connector that reports `liveChainId`. */
+function fakeConnected(liveChainId: number): { isConnected: boolean; connector: { getChainId: () => Promise<number> } } {
+  return {
+    isConnected: true,
+    connector: { getChainId: async () => liveChainId },
+  }
+}
+
 describe('ensureChain', () => {
-  it('no-ops when already on the target chain', async () => {
-    getAccountMock.mockReturnValue({ isConnected: true, chainId: 11155111 })
+  it('no-ops when the connector reports the target chain (live)', async () => {
+    getAccountMock.mockReturnValue(fakeConnected(11155111))
     await ensureChain(11155111)
     expect(switchChainMock).not.toHaveBeenCalled()
   })
 
-  it('calls switchChain when on a different chain', async () => {
-    getAccountMock.mockReturnValue({ isConnected: true, chainId: 84532 })
+  it('calls switchChain when the connector reports a different chain', async () => {
+    getAccountMock.mockReturnValue(fakeConnected(84532))
+    switchChainMock.mockResolvedValueOnce(undefined)
+    await ensureChain(11155111)
+    expect(switchChainMock).toHaveBeenCalledWith({ _mock: true }, { chainId: 11155111 })
+  })
+
+  it('switches even when wagmi cached chainId matches but the live connector chainId does not', async () => {
+    // This is the desync case that motivated querying live: getAccount(config).chainId could
+    // show 11155111 while the actual injected wallet reports 84532. We must trust the live read.
+    getAccountMock.mockReturnValue({
+      isConnected: true,
+      chainId: 11155111, // stale wagmi cache
+      connector: { getChainId: async () => 84532 }, // live truth
+    })
     switchChainMock.mockResolvedValueOnce(undefined)
     await ensureChain(11155111)
     expect(switchChainMock).toHaveBeenCalledWith({ _mock: true }, { chainId: 11155111 })
   })
 
   it('throws a friendly error when no wallet is connected', async () => {
-    getAccountMock.mockReturnValue({ isConnected: false, chainId: undefined })
+    getAccountMock.mockReturnValue({ isConnected: false, connector: undefined })
     await expect(ensureChain(11155111)).rejects.toThrow(/no wallet connected/i)
     expect(switchChainMock).not.toHaveBeenCalled()
   })
 
   it('throws an actionable error when the user rejects the switch', async () => {
-    getAccountMock.mockReturnValue({ isConnected: true, chainId: 84532 })
+    getAccountMock.mockReturnValue(fakeConnected(84532))
     const rejection = Object.assign(new Error('User rejected the request.'), { code: 4001 })
     switchChainMock.mockRejectedValue(rejection)
     // Two assertions = two invocations of ensureChain; use sticky mockRejectedValue (not Once).
@@ -62,14 +83,14 @@ describe('ensureChain', () => {
   })
 
   it('wraps unknown switch errors with chain context', async () => {
-    getAccountMock.mockReturnValue({ isConnected: true, chainId: 84532 })
+    getAccountMock.mockReturnValue(fakeConnected(84532))
     switchChainMock.mockRejectedValue(new Error('chain not configured'))
     await expect(ensureChain(11155111)).rejects.toThrow(/Could not switch to Ethereum Sepolia/)
     await expect(ensureChain(11155111)).rejects.toThrow(/chain not configured/)
   })
 
   it('falls back to a chain-id label when the chain is unknown to our config', async () => {
-    getAccountMock.mockReturnValue({ isConnected: true, chainId: 84532 })
+    getAccountMock.mockReturnValue(fakeConnected(84532))
     switchChainMock.mockRejectedValue(Object.assign(new Error('rejected'), { code: 4001 }))
     await expect(ensureChain(9999)).rejects.toThrow(/chain 9999/)
   })

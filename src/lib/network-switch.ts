@@ -37,13 +37,21 @@ function isUserRejection(err: unknown): boolean {
  *
  * Use at the top of each handler's first user-signed step. The handler's outer try/catch
  * captures the thrown error and routes it into the tx record via `markFailed`.
+ *
+ * Implementation note: we query the connector's *live* chainId via `connector.getChainId()`
+ * rather than reading `getAccount(config).chainId`. The latter reflects the last
+ * `chainChanged` event wagmi observed — which can be stale when wagmi's cached state desyncs
+ * from the wallet (e.g. mid-flight switches, dropped events, race conditions on connector
+ * reconnect). Querying live mirrors what every wagmi action does internally before throwing
+ * `ConnectorChainMismatchError`, so we make the same comparison they will.
  */
 export async function ensureChain(targetChainId: number): Promise<void> {
   const account = getAccount(wagmiConfig)
-  if (!account.isConnected) {
+  if (!account.isConnected || !account.connector) {
     throw new Error('No wallet connected — connect a wallet before submitting a transaction.')
   }
-  if (account.chainId === targetChainId) return
+  const liveChainId = await account.connector.getChainId()
+  if (liveChainId === targetChainId) return
   try {
     await switchChain(wagmiConfig, { chainId: targetChainId })
   } catch (err) {
