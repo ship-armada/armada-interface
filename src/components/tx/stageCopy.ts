@@ -18,6 +18,15 @@ const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
     'submit-relayer': { waiting: 'Confirm in your wallet', active: 'Submitting transaction' },
     'hub-confirmed': 'Deposited',
   },
+  'shield-xchain': {
+    'build-proof': 'Preparing transaction',
+    'submit-relayer': { waiting: 'Confirm in your wallet', active: 'Submitting on source chain' },
+    'client-burn-confirmed': 'Confirmed on source chain',
+    'iris-attestation-pending': 'Waiting for cross-chain confirmation',
+    'iris-attestation-ready': 'Cross-chain confirmation ready',
+    'hub-mint-pending': 'Delivering to private balance',
+    'hub-mint-confirmed': 'Deposited',
+  },
   'unshield-local': {
     'build-proof': 'Preparing transaction',
     'submit-relayer': 'Submitting privately',
@@ -67,6 +76,9 @@ export function stageCopy(
 /** Short title used in lists (Recent Activity, In Progress) and in modal headers. */
 const KIND_TITLES: Record<TxKind, string> = {
   shield: 'Deposit',
+  // Cross-chain shield surfaces under the same modal/CTA as same-chain shield; the kind
+  // distinction is purely for the lifecycle. From the user's perspective both are deposits.
+  'shield-xchain': 'Deposit',
   // Withdraw and Send-External both produce `unshield-*` records — there's no separate kind
   // for "Payment" because the contract paths are identical. The UI distinguishes the user's
   // intent (self vs other) via the modal they started from + the recipient field default.
@@ -94,6 +106,11 @@ export function recordTitle(record: TxRecord): string {
     const meta = record.meta as { toChainId?: number }
     const chain = meta.toChainId !== undefined ? getChainById(meta.toChainId) : undefined
     if (chain) return `${base} to ${chain.name}`
+  }
+  if (record.kind === 'shield-xchain') {
+    const meta = record.meta as { fromChainId?: number }
+    const chain = meta.fromChainId !== undefined ? getChainById(meta.fromChainId) : undefined
+    if (chain) return `${base} from ${chain.name}`
   }
   return base
 }

@@ -50,6 +50,25 @@ const unshieldXchain: TxLifecycle<'unshield-xchain'> = {
   retry: LONG_RETRY,
 }
 
+const shieldXchain: TxLifecycle<'shield-xchain'> = {
+  kind: 'shield-xchain',
+  // Same shape as unshield-xchain but flipped direction: burn on client → mint on hub.
+  stages: [
+    'build-proof',
+    'submit-relayer',
+    'client-burn-confirmed',
+    'iris-attestation-pending',
+    'iris-attestation-ready',
+    'hub-mint-pending',
+    'hub-mint-confirmed',
+  ],
+  terminalSuccess: 'hub-mint-confirmed',
+  retryableStages: ['submit-relayer', 'iris-attestation-pending'],
+  estDuration: { p50: 30_000, p90: 120_000 },
+  maxDurationMs: XCHAIN_CAP,
+  retry: LONG_RETRY,
+}
+
 const transferShielded: TxLifecycle<'transfer-shielded'> = {
   kind: 'transfer-shielded',
   stages: ['build-proof', 'submit-relayer', 'hub-confirmed'],
@@ -83,6 +102,7 @@ const yieldWithdraw: TxLifecycle<'yield-withdraw'> = {
 /** Lookup table keyed by TxKind. Use `lifecycleFor(kind)` rather than indexing directly. */
 const LIFECYCLES = {
   shield,
+  'shield-xchain': shieldXchain,
   'unshield-local': unshieldLocal,
   'unshield-xchain': unshieldXchain,
   'transfer-shielded': transferShielded,

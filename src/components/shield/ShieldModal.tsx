@@ -1,5 +1,5 @@
 // ABOUTME: ShieldModal — orchestrator for the shield (deposit) action flow. Owns step + form state; renders ActionFlowShell with InputStep/ReviewStep/ProgressStep/CompleteStep/ErrorStep.
-// ABOUTME: Driven by openModalAtom === 'shield'; closes via setOpenModal(null). Submits via useTx({kind:'shield'}) — executor handler lands in a later commit.
+// ABOUTME: Dispatches between same-chain shield (hub source) and cross-chain shield-xchain (client source) based on fromChainId; mounts both useTx hooks so either can drive a flow.
 
 import { useEffect, useState } from 'react'
 import { useAtom } from 'jotai'
@@ -22,8 +22,13 @@ import { ShieldReviewStep } from './ShieldReviewStep'
 import { ShieldCompleteStep } from './ShieldCompleteStep'
 
 type LocalStep = FlowStep
+type SubmittedKind = 'shield' | 'shield-xchain'
 
 const STEPS: ReadonlyArray<FlowVisibleStep> = ['input', 'review', 'progress', 'complete']
+
+function computeKind(fromChainId: number, hubChainId: number): SubmittedKind {
+  return fromChainId === hubChainId ? 'shield' : 'shield-xchain'
+}
 
 export function ShieldModal() {
   const [openModal, setOpenModal] = useAtom(openModalAtom)
@@ -38,19 +43,28 @@ export function ShieldModal() {
   const [step, setStep] = useState<LocalStep>('input')
   const [errorAtStep, setErrorAtStep] = useState<FlowVisibleStep | undefined>(undefined)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submittedKind, setSubmittedKind] = useState<SubmittedKind | null>(null)
 
   const balances = useBalances()
   const max = balances.unshielded[fromChainId] ?? 0n
   const amount = parseUsdcInput(amountStr)
 
   const { quote, isStale, refresh } = useFees()
-  // Direct hub shield is user-submitted — no relayer fee. `feeForKind('shield', ...)` returns 0n
-  // by design; we still gate on `quote` so the FeeSummary shows "Loading…" until the schedule
-  // arrives (UX consistency across modals; the loading state is brief in practice).
-  const fee: bigint | null = quote ? feeForKind(quote, 'shield') : null
-  const netAmount = amount > fee! && fee !== null ? amount - fee : amount
+  // Fee derives from the resolved kind. shield = 0n (direct user submit, no relayer leg).
+  // shield-xchain = quoted relayer fee for the hub-side CCTP delivery.
+  const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
+  const fee: bigint | null = quote ? feeForKind(quote, computedKind) : null
+  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
 
-  const tx = useTx({ kind: 'shield' })
+  // Two useTx hooks mounted; only one gets a record per flow. Pattern mirrors SendModal +
+  // UnshieldModal where same-chain vs cross-chain are sibling kinds.
+  const txShield = useTx({ kind: 'shield' })
+  const txShieldXchain = useTx({ kind: 'shield-xchain' })
+  const activeTx =
+    submittedKind === 'shield' ? txShield
+    : submittedKind === 'shield-xchain' ? txShieldXchain
+    : null
+  const record = activeTx?.record ?? null
 
   // Reset local state on close so re-opening starts fresh.
   useEffect(() => {
@@ -59,18 +73,19 @@ export function ShieldModal() {
       setSubmitError(null)
       setErrorAtStep(undefined)
       setAmountStr('')
+      setSubmittedKind(null)
     }
   }, [isOpen])
 
   // Once the tx record exists and reaches a terminal state, transition step accordingly.
   useEffect(() => {
-    if (!tx.record) return
-    if (tx.record.executionState === 'completed') setStep('complete')
-    else if (tx.record.executionState === 'failed' || tx.record.executionState === 'expired') {
+    if (!record) return
+    if (record.executionState === 'completed') setStep('complete')
+    else if (record.executionState === 'failed' || record.executionState === 'expired') {
       setStep('error')
       setErrorAtStep('progress')
     }
-  }, [tx.record])
+  }, [record])
 
   function close() {
     setOpenModal(null)
@@ -85,11 +100,21 @@ export function ShieldModal() {
       if (!activeQuote) {
         throw new Error('Could not fetch a current fee quote — please try again.')
       }
-      await tx.submit({
-        amount,
-        feeCacheId: activeQuote.cacheId,
-        fromChainId,
-      })
+      if (computedKind === 'shield') {
+        setSubmittedKind('shield')
+        await txShield.submit({
+          amount,
+          feeCacheId: activeQuote.cacheId,
+          fromChainId,
+        })
+      } else {
+        setSubmittedKind('shield-xchain')
+        await txShieldXchain.submit({
+          amount,
+          feeCacheId: activeQuote.cacheId,
+          fromChainId,
+        })
+      }
       setStep('progress')
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Submit failed.')
@@ -133,12 +158,12 @@ export function ShieldModal() {
           onConfirm={handleSubmit}
         />
       )}
-      {step === 'progress' && <ProgressStep record={tx.record ?? null} />}
+      {step === 'progress' && <ProgressStep record={record} />}
       {step === 'complete' && <ShieldCompleteStep netAmount={netAmount} onDone={close} />}
       {step === 'error' && (
         <ErrorStep
-          message={submitError ?? tx.record?.artifacts.error ?? undefined}
-          onRetry={errorAtStep === 'review' ? () => setStep('review') : () => tx.retry()}
+          message={submitError ?? record?.artifacts.error ?? undefined}
+          onRetry={errorAtStep === 'review' ? () => setStep('review') : () => activeTx?.retry()}
         />
       )}
     </ActionFlowShell>

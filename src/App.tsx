@@ -21,6 +21,7 @@ import { useWallet } from '@/hooks/useWallet'
 // Side-effect imports: register each feature's stage handler with the tx executor at module load.
 // Per-feature handlers each have their own side-effect entry point under features/<area>/index.ts.
 import '@/features/shield'
+import '@/features/shield-xchain'
 import '@/features/unshield'
 import '@/features/unshield-xchain'
 import '@/features/transfer-shielded'

@@ -26,6 +26,11 @@ export function feeForKind(quote: FeeSchedule, kind: TxKind): bigint {
   switch (kind) {
     // Direct hub shield is user-submitted — no relayer fee today. Show 0 on the Review step.
     case 'shield': return 0n
+    // Cross-chain shield: relayer pays gas to deliver the CCTP-attested message on the hub
+    // (HookRouter.relayWithHook → MessageTransmitter.receiveMessage → PrivacyPool.shield).
+    // The user covers that gas budget via the maxFee passed to crossChainShield, deducted from
+    // the amount minted at the hub. Same fee bucket as the inverse direction (xchain unshield).
+    case 'shield-xchain': return BigInt(quote.fees.crossChainShield)
     case 'unshield-local': return BigInt(quote.fees.unshield)
     case 'unshield-xchain': return BigInt(quote.fees.crossChainUnshield)
     case 'transfer-shielded': return BigInt(quote.fees.transfer)

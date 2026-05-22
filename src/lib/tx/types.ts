@@ -3,6 +3,7 @@
 
 export type TxKind =
   | 'shield'
+  | 'shield-xchain'
   | 'unshield-local'
   | 'unshield-xchain'
   | 'transfer-shielded'
@@ -46,6 +47,24 @@ export type StageShield =
   | 'submit-relayer'
   | 'hub-confirmed'
 
+/**
+ * Cross-chain shield: client chain → hub. User signs `crossChainShield` on the client's
+ * PrivacyPoolClient (which burns USDC via CCTP with shield-payload hook data). The CCTP
+ * message + attestation arrives on hub; the relayer/hookRouter atomically mints USDC at the
+ * hookRouter and dispatches the shield, adding a commitment to the hub merkle tree.
+ *
+ * Stages mirror unshield-xchain's structure but flipped: burn happens on CLIENT (instead of
+ * hub), mint happens on HUB (instead of client).
+ */
+export type StageShieldXchain =
+  | 'build-proof'
+  | 'submit-relayer'
+  | 'client-burn-confirmed'
+  | 'iris-attestation-pending'
+  | 'iris-attestation-ready'
+  | 'hub-mint-pending'
+  | 'hub-mint-confirmed'
+
 export type StageUnshieldLocal =
   | 'build-proof'
   | 'submit-relayer'
@@ -77,6 +96,7 @@ export type StageYieldWithdraw =
 
 export type TxStage =
   | StageShield
+  | StageShieldXchain
   | StageUnshieldLocal
   | StageUnshieldXchain
   | StageTransferShielded
@@ -86,6 +106,7 @@ export type TxStage =
 /* Per-kind stage map — used to constrain `TxRecord<K>['stage']` to legal values. */
 export type StageFor<K extends TxKind> =
   K extends 'shield' ? StageShield
+  : K extends 'shield-xchain' ? StageShieldXchain
   : K extends 'unshield-local' ? StageUnshieldLocal
   : K extends 'unshield-xchain' ? StageUnshieldXchain
   : K extends 'transfer-shielded' ? StageTransferShielded
@@ -104,6 +125,12 @@ export interface MetaCommon {
 
 export interface MetaShield extends MetaCommon {
   /** Source chain id where USDC currently lives. */
+  fromChainId: number
+}
+
+export interface MetaShieldXchain extends MetaCommon {
+  /** Client chain id we're shielding FROM. Always a client (not hub) — the modal routes
+   *  same-chain shield to `shield` instead. */
   fromChainId: number
 }
 
@@ -132,6 +159,7 @@ export interface MetaYieldWithdraw extends MetaCommon {
 
 export type MetaFor<K extends TxKind> =
   K extends 'shield' ? MetaShield
+  : K extends 'shield-xchain' ? MetaShieldXchain
   : K extends 'unshield-local' ? MetaUnshieldLocal
   : K extends 'unshield-xchain' ? MetaUnshieldXchain
   : K extends 'transfer-shielded' ? MetaTransferShielded
@@ -206,9 +234,33 @@ export interface ArtifactsYield extends ArtifactsCommon {
   }
 }
 
+/**
+ * Cross-chain shield artifacts. Combines the shield-request fields (from build-proof, same as
+ * local shield) with the xchain message-tracking fields (from submit-relayer + delivery polling,
+ * same shape as unshield-xchain). Kept as one interface rather than intersecting `ArtifactsShield
+ * & ArtifactsXchain` so the manifest is explicit and easy to read.
+ */
+export interface ArtifactsShieldXchain extends ArtifactsXchain {
+  /** Hub PrivacyPool address — used by the hub mint detection to scope log queries. */
+  privacyPoolAddress?: string
+  /** Client PrivacyPoolClient address — used by submit-relayer to call crossChainShield. */
+  privacyPoolClientAddress?: string
+  /** Client-chain USDC token address — used for the approve preflight. */
+  clientUsdcAddress?: string
+  /** Hub-chain USDC token address — the SHIELD on the hub side references this. */
+  hubUsdcAddress?: string
+  shieldRequest?: {
+    npk: `0x${string}`
+    value: string
+    encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]
+    shieldKey: `0x${string}`
+  }
+}
+
 export type ArtifactsFor<K extends TxKind> =
   K extends 'unshield-xchain' ? ArtifactsXchain
   : K extends 'shield' ? ArtifactsShield
+  : K extends 'shield-xchain' ? ArtifactsShieldXchain
   : K extends 'yield-deposit' ? ArtifactsYield
   : K extends 'yield-withdraw' ? ArtifactsYield
   : ArtifactsCommon
