@@ -16,6 +16,7 @@ import {
 } from '@/lib/railgun/keyManager'
 import { refreshShieldedBalances } from '@/lib/railgun/sync'
 import { buildYieldAdaptTransaction } from '@/lib/railgun/yield'
+import { ensureChain } from '@/lib/network-switch'
 import { advance, markFailed } from '@/lib/tx/reducer'
 import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
@@ -108,6 +109,10 @@ async function runSubmitAndConfirm(
   if (!yieldTx) {
     throw new Error('Yield adapt-proof tx missing — re-run build-proof stage.')
   }
+
+  // Adapter call lives on the hub.
+  await ensureChain(getNetworkConfig().hub.chainId)
+  if (ctx.signal.aborted) throw new Error('cancelled')
 
   const hash = await sendTransaction(wagmiConfig, {
     to: yieldTx.to,
