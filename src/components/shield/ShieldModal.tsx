@@ -54,7 +54,13 @@ export function ShieldModal() {
   // shield-xchain = quoted relayer fee for the hub-side CCTP delivery.
   const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
   const fee: bigint | null = quote ? feeForKind(quote, computedKind) : null
-  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
+  // Floor at 0 — when amount < fee (e.g. user typed 1 USDC but cross-chain fee is 1.10) the raw
+  // subtraction would render as a negative figure in the FeeSummary. The contract enforces
+  // `maxFee < amount` and rejects on-chain anyway; clamping just keeps the UI honest until the
+  // user types a viable amount.
+  const netAmount = amount > 0n && fee !== null
+    ? (amount > fee ? amount - fee : 0n)
+    : amount
 
   // Two useTx hooks mounted; only one gets a record per flow. Pattern mirrors SendModal +
   // UnshieldModal where same-chain vs cross-chain are sibling kinds.

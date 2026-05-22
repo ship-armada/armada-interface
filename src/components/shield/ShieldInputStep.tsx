@@ -48,7 +48,8 @@ export function ShieldInputStep({
       />
       {isXchain ? (
         <div className={styles.xchainNotice}>
-          Cross-chain deposit takes a few minutes for the CCTP confirmation.
+          Cross-chain deposit takes ~30 seconds to a few minutes for the CCTP confirmation. You
+          can close this modal — progress is tracked in your activity history.
         </div>
       ) : null}
       <AmountInput
