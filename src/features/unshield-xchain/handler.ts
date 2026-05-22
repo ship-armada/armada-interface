@@ -285,10 +285,17 @@ async function runWaitForDelivery(
     throw new Error(`No deployment for destination chain ${record.meta.toChainId}`)
   }
   const destMessageTransmitter = destClientDeployment.cctp.messageTransmitter as `0x${string}`
-  const nonce = record.artifacts.cctpNonce
-  if (!nonce) {
-    throw new Error('Missing cctpNonce artifact — cannot scope destination log query.')
-  }
+  // CCTP V2 destination scan: we can't filter on the indexed `nonce` topic. V2's nonce slot is
+  // bytes32(0) on outbound MessageSent; the destination contract emits an Iris-assigned
+  // `eventNonce` which isn't derivable from the source side. So we drop the topic filter and
+  // identify ours by looking inside the messageBody's hookData for a unique-per-tx marker.
+  // For unshield-xchain the hookData encodes only `recipient`; two parallel unshields to the
+  // same recipient would be indistinguishable by content. Combined with the burn-time
+  // `destFromBlock` cursor this is correct for in-series flows, and the rare parallel-same-
+  // recipient case is acceptable (either delivery satisfies one of the two records — both
+  // ultimately resolve as the second delivery lands).
+  const recipientBytes32 = pad(record.meta.recipient as `0x${string}`, { size: 32 })
+  const uniqueMarker = recipientBytes32.slice(2).toLowerCase()
   const destClient = getPublicClient(wagmiConfig, { chainId: record.meta.toChainId })
   if (!destClient) {
     throw new Error(`No wagmi public client for destination chain ${record.meta.toChainId}`)
@@ -319,10 +326,13 @@ async function runWaitForDelivery(
         getLogsForRange: (fromBlock, toBlock) => destClient.getLogs({
           address: destMessageTransmitter,
           event: MESSAGE_RECEIVED_EVENT,
-          args: { nonce },
           fromBlock,
           toBlock,
         }),
+        matchPredicate: (log) => {
+          const body = log.args.messageBody
+          return typeof body === 'string' && body.toLowerCase().includes(uniqueMarker)
+        },
         scanFromBlock,
         maxLogRange,
       })

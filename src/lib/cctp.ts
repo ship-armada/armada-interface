@@ -6,9 +6,18 @@ import { decodeEventLog, getAbiItem, keccak256, type Log } from 'viem'
 export interface CctpMessageRef {
   /** Raw message bytes emitted by MessageTransmitter.MessageSent. */
   message: `0x${string}`
-  /** 32-byte CCTP V2 nonce, parsed out of the message envelope at offset [12, 44). */
+  /**
+   * The 32 bytes at envelope offset [12, 44) — the "nonce" slot. In CCTP V2 this is
+   * `bytes32(0)` on the source side; the destination's `MessageReceived` emits an Iris-assigned
+   * `eventNonce` here that cannot be derived from the source-side message. Kept for diagnostics
+   * only — destination log matching must use a hookData-based predicate, not this value.
+   */
   nonce: `0x${string}`
-  /** keccak256(message) — used by Iris in v2 as the canonical message identifier. */
+  /**
+   * keccak256(message). Used by the relayer as the Iris attestation key. NOT what appears as
+   * the indexed `nonce` topic on the destination's MessageReceived event — that's Iris's
+   * `eventNonce`. Kept here for log correlation against the relayer.
+   */
   messageHash: `0x${string}`
 }
 

@@ -1,19 +1,29 @@
 // ABOUTME: Pure per-tick scan helper used by the xchain unshield handler — caps the eth_getLogs window to maxLogRange blocks and advances a cursor between ticks.
 // ABOUTME: Lifted out of handler.ts so the cursor/window math is unit-testable without dragging in wagmi, ethers, or the railgun SDK.
 
+/** Minimal log shape we need: a (possibly absent) transaction hash for the match outcome. Callers pass concrete viem-typed logs which structurally satisfy this. */
+export type ScanLog = { transactionHash?: `0x${string}` | null }
+
 /** Caller-supplied range query. Lets the handler keep viem's typed event filter without leaking it into this helper's signature. */
-export type GetLogsForRange = (
+export type GetLogsForRange<TLog extends ScanLog = ScanLog> = (
   fromBlock: bigint,
   toBlock: bigint,
-) => Promise<ReadonlyArray<{ transactionHash?: `0x${string}` | null }>>
+) => Promise<ReadonlyArray<TLog>>
 
-export interface ScanInput {
+export interface ScanInput<TLog extends ScanLog = ScanLog> {
   getBlockNumber: () => Promise<bigint>
-  getLogsForRange: GetLogsForRange
+  getLogsForRange: GetLogsForRange<TLog>
   /** Current low watermark — the cursor advances forward from here. */
   scanFromBlock: bigint
   /** Cap on blocks scanned per tick. From `NetworkConfig.maxLogRange`. */
   maxLogRange: bigint
+  /**
+   * Filter logs down to "ours". When omitted, the first log in the window matches (legacy
+   * behaviour). For CCTP V2 destination scans this MUST be supplied — the indexed nonce topic
+   * is an Iris-assigned `eventNonce` that isn't derivable from the source side, so the handler
+   * has to drop the topic filter and match on the message body's hookData instead.
+   */
+  matchPredicate?: (log: TLog) => boolean
 }
 
 export type ScanOutcome =
@@ -34,7 +44,9 @@ export type ScanOutcome =
  * The caller (handler) is responsible for persisting `nextScanFromBlock` on `no-match` so a crash
  * + resume doesn't re-scan history.
  */
-export async function scanCctpDeliveryWindow(input: ScanInput): Promise<ScanOutcome> {
+export async function scanCctpDeliveryWindow<TLog extends ScanLog>(
+  input: ScanInput<TLog>,
+): Promise<ScanOutcome> {
   if (input.maxLogRange < 1n) {
     throw new Error(`scanCctpDeliveryWindow: maxLogRange must be ≥ 1 (got ${input.maxLogRange})`)
   }
@@ -49,9 +61,9 @@ export async function scanCctpDeliveryWindow(input: ScanInput): Promise<ScanOutc
 
   const logs = await input.getLogsForRange(input.scanFromBlock, toBlock)
 
-  const first = logs[0]
-  if (first?.transactionHash) {
-    return { kind: 'match', txHash: first.transactionHash }
+  const matched = input.matchPredicate ? logs.find(input.matchPredicate) : logs[0]
+  if (matched?.transactionHash) {
+    return { kind: 'match', txHash: matched.transactionHash }
   }
 
   return { kind: 'no-match', nextScanFromBlock: toBlock + 1n, scannedTo: toBlock }

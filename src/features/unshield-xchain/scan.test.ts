@@ -124,4 +124,47 @@ describe('scanCctpDeliveryWindow', () => {
       getBlockNumber, getLogsForRange, scanFromBlock: 0n, maxLogRange: 0n,
     })).rejects.toThrow(/maxLogRange/)
   })
+
+  it('uses matchPredicate to pick our log out of an unrelated-traffic batch', async () => {
+    // Simulates the CCTP V2 destination scan: we drop the indexed nonce filter because the
+    // emitted topic is an Iris-assigned eventNonce. The handler instead matches by a
+    // unique-per-tx substring inside the messageBody (e.g. encryptedBundle[0] for shield-xchain,
+    // or the padded recipient for unshield-xchain).
+    const ours = '0xours' as `0x${string}`
+    const someoneElse = '0xothr' as `0x${string}`
+    const getBlockNumber = async () => 1_000_000n
+    const getLogsForRange = vi.fn(async () => [
+      { transactionHash: someoneElse, marker: 'unrelated-traffic' },
+      { transactionHash: ours, marker: 'mine' },
+      { transactionHash: someoneElse, marker: 'more-unrelated' },
+    ])
+
+    const out = await scanCctpDeliveryWindow<{ transactionHash: `0x${string}`; marker: string }>({
+      getBlockNumber,
+      getLogsForRange,
+      matchPredicate: (log) => log.marker === 'mine',
+      scanFromBlock: 0n,
+      maxLogRange: 5_000n,
+    })
+
+    expect(out).toEqual({ kind: 'match', txHash: ours })
+  })
+
+  it('returns no-match when the matchPredicate rejects every log in the window', async () => {
+    const getBlockNumber = async () => 1_000_000n
+    const getLogsForRange = vi.fn(async () => [
+      { transactionHash: '0xa' as `0x${string}`, marker: 'unrelated-traffic' },
+      { transactionHash: '0xb' as `0x${string}`, marker: 'more-unrelated' },
+    ])
+
+    const out = await scanCctpDeliveryWindow<{ transactionHash: `0x${string}`; marker: string }>({
+      getBlockNumber,
+      getLogsForRange,
+      matchPredicate: (log) => log.marker === 'mine',
+      scanFromBlock: 0n,
+      maxLogRange: 5_000n,
+    })
+
+    expect(out.kind).toBe('no-match')
+  })
 })
