@@ -7,6 +7,7 @@ import { openModalAtom, type ModalKind } from '@/state/ui'
 import { shieldedUsdcAtom, yieldSharesAtom } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
+import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { parseUsdcInput } from '@/lib/format'
 import { feeForKind } from '@/lib/relayer'
@@ -53,6 +54,9 @@ export function EarnModal() {
 
   const amount = parseUsdcInput(amountStr)
   const { quote, isStale, refresh } = useFees()
+  // Yield ops spend the user's shielded USDC (deposit) or shielded yield shares (withdraw).
+  // Either way, we need a successful first sync before letting the user submit.
+  const syncGate = useSpendableSyncGate()
   // Both yield-deposit and yield-withdraw read from the relayer's crossContract fee bucket.
   // The FeeSummary panel renders the value; the handler doesn't deduct it on the wire today
   // (user-submitted path) but exposes it for awareness.
@@ -170,6 +174,7 @@ export function EarnModal() {
           rate={yieldRate}
           fee={fee}
           netAmount={netAmount}
+          submitBlockedReason={syncGate.reason}
           onBack={() => setStep('input')}
           onConfirm={handleSubmit}
         />

@@ -26,6 +26,10 @@ vi.mock('./network', () => ({
   isHubNetworkLoaded: vi.fn(() => true),
   resetNetworkLoaderState: vi.fn(),
   getHubChainDescriptor: vi.fn(() => ({ type: 0 as const, id: 31337 })),
+  // Returns null so wallet.ts passes undefined to createRailgunWallet — same as the prior
+  // behavior before Phase 1.4 added creationBlockNumbers wiring. Tests don't exercise the
+  // creation-block side of things; that's a runtime optimization verified on testnet.
+  getCurrentHubBlock: vi.fn(async () => null),
 }))
 
 import {

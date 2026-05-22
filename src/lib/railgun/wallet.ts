@@ -29,7 +29,7 @@ import {
   setUnlocked,
 } from './keyManager'
 import { initRailgunEngine } from './init'
-import { loadHubNetwork } from './network'
+import { getCurrentHubBlock, loadHubNetwork } from './network'
 
 /**
  * Ensure the Railgun engine is initialized + the hub network is loaded before issuing an SDK
@@ -371,12 +371,21 @@ async function createSdkWalletFromRoot(rootSecret: Uint8Array): Promise<{
 }> {
   const sdkEncryptionKey = deriveSdkEncryptionKeyHex(rootSecret)
   const mnemonic = deriveInternalMnemonic(rootSecret)
+  // creationBlockNumbers tells the engine "this wallet was created at block N, skip
+  // decryption attempts on commitments older than that". Best-effort: if the RPC read fails
+  // we pass undefined and the engine treats the wallet as having existed since chain genesis
+  // (slower first scan but correct).
+  //
+  // Important: keyed by SDK NetworkName, not chain id. We patch NETWORK_CONFIG.Hardhat to mean
+  // our hub chain (see lib/railgun/network.ts), so the key here is literally 'Hardhat'.
+  const currentBlock = await getCurrentHubBlock()
+  const creationBlockNumbers = currentBlock != null ? { Hardhat: currentBlock } : undefined
   try {
     const { createRailgunWallet } = await railgunSdk()
     const info = await createRailgunWallet(
       sdkEncryptionKey,
       mnemonic,
-      undefined, // creationBlockNumbers — fresh wallet, no historical scan range
+      creationBlockNumbers,
       0, // railgunWalletDerivationIndex — fixed at 0 for Phase 1 (one identity per spec)
     )
     return { walletId: info.id, railgunAddress: info.railgunAddress }

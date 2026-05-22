@@ -21,6 +21,13 @@ export interface PrivacyPoolHubDeployment {
     messageTransmitter: string
     usdc: string
   }
+  /**
+   * Block number the PrivacyPool router was deployed at. Used to bound the Railgun engine's
+   * initial historical scan — without it the engine starts from block 0 (Sepolia isn't in the
+   * SDK's hardcoded start-block table) and burns hundreds of getLogs calls walking empty
+   * pre-deploy chain history. Optional for backward compat with older manifests.
+   */
+  deployBlock?: number
   timestamp: string
 }
 
@@ -42,6 +49,9 @@ export interface PrivacyPoolClientDeployment {
     domain: number
     privacyPool: string
   }
+  /** Block the PrivacyPoolClient was deployed at. Optional; not consumed today (the Railgun
+   *  engine only registers the hub chain), but kept on the type for parity + future use. */
+  deployBlock?: number
   timestamp: string
 }
 

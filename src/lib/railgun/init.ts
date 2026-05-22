@@ -5,9 +5,11 @@
 // module-load under jsdom. We `import()` at call time so test files that transitively pull
 // in this module don't blow up before any user code runs. Production cost: one extra microtask
 // the first time initRailgunEngine() runs.
+import { getDefaultStore } from 'jotai'
 import { createWebDatabase } from './database'
 import { createBrowserArtifactStore } from './artifacts'
 import { initializeProver } from './prover'
+import { syncStateAtom } from '@/state/wallet'
 
 const ENGINE_DB_NAME = 'armada-shielded'
 const ENGINE_WALLET_SOURCE = 'armadainf' // ≤16 chars, lowercase, no special chars — SDK constraint
@@ -94,9 +96,14 @@ export async function initRailgunEngine(): Promise<void> {
 }
 
 async function doInit(): Promise<void> {
-  const [{ startRailgunEngine, setLoggers }, { POI }] = await Promise.all([
+  const [
+    { startRailgunEngine, setLoggers, setOnUTXOMerkletreeScanCallback },
+    { POI },
+    { MerkletreeScanStatus },
+  ] = await Promise.all([
     import('@railgun-community/wallet'),
     import('@railgun-community/engine'),
+    import('@railgun-community/shared-models'),
   ])
 
   // SDK logging — wire to console for v1, but never inside a function that handles secrets.
@@ -127,6 +134,28 @@ async function doInit(): Promise<void> {
     undefined, // customPOILists
     true, // verboseScanLogging
   )
+
+  // Wire SDK merkletree scan progress into syncStateAtom so the UI can show a banner +
+  // progress bar during the initial historical scan. The SDK emits one of four statuses;
+  // we map them to our SyncState shape. Progress is 0..1.
+  const store = getDefaultStore()
+  setOnUTXOMerkletreeScanCallback((event) => {
+    const { scanStatus, progress } = event
+    switch (scanStatus) {
+      case MerkletreeScanStatus.Started:
+        store.set(syncStateAtom, { status: 'syncing', progress: 0 })
+        break
+      case MerkletreeScanStatus.Updated:
+        store.set(syncStateAtom, { status: 'syncing', progress: progress ?? 0 })
+        break
+      case MerkletreeScanStatus.Complete:
+        store.set(syncStateAtom, { status: 'complete', progress: 1 })
+        break
+      case MerkletreeScanStatus.Incomplete:
+        store.set(syncStateAtom, { status: 'failed', progress: progress ?? 0 })
+        break
+    }
+  })
 
   // Wire snarkjs as the Groth16 prover implementation. Unshield / transfer proofs throw
   // "Requires groth16 full prover implementation" without this. Shield doesn't need it

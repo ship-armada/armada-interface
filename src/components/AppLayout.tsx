@@ -5,6 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArmadaLogo, NavBar, type NavBarItem } from '@armada/ui'
 import { WalletConnector } from './WalletConnector'
+import { SyncBanner } from './sync'
 
 const NAV: ReadonlyArray<{ label: string; path: string }> = [
   { label: 'Dashboard', path: '/' },
@@ -50,6 +51,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
         className="flex flex-1 flex-col items-center justify-center"
         style={{ paddingTop: '7rem' }}
       >
+        <div className="w-full px-6">
+          <SyncBanner />
+        </div>
         {children}
       </main>
     </div>

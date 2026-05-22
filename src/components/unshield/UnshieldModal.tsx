@@ -7,6 +7,7 @@ import { openModalAtom } from '@/state/ui'
 import { evmAddressAtom, shieldedUsdcAtom } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
+import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
 import { feeForKind } from '@/lib/relayer'
@@ -52,6 +53,10 @@ export function UnshieldModal() {
   const max = shieldedUsdc ?? 0n
   const amount = parseUsdcInput(amountStr)
   const { quote, isStale, refresh } = useFees()
+  // Gate Confirm while the initial shielded-balance sync is incomplete (or failed). Reading
+  // here so the Review step always reflects the current state — if sync completes while the
+  // user is on Review, the button un-disables on the next render.
+  const syncGate = useSpendableSyncGate()
 
   // Two hooks mounted; whichever kind we submit to gets a record. The other stays idle.
   const txLocal = useTx({ kind: 'unshield-local' })
@@ -169,6 +174,7 @@ export function UnshieldModal() {
           fee={fee}
           netAmount={netAmount}
           isXchain={computedKind === 'unshield-xchain'}
+          submitBlockedReason={syncGate.reason}
           onBack={() => setStep('input')}
           onConfirm={handleSubmit}
         />

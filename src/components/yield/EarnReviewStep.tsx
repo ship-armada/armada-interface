@@ -15,6 +15,7 @@ export interface EarnReviewStepProps {
   rate: YieldRate | null
   fee: bigint | null
   netAmount: bigint
+  submitBlockedReason?: string | null
   onBack: () => void
   onConfirm: () => void
 }
@@ -32,6 +33,7 @@ export function EarnReviewStep({
   rate,
   fee,
   netAmount,
+  submitBlockedReason,
   onBack,
   onConfirm,
 }: EarnReviewStepProps) {
@@ -59,11 +61,17 @@ export function EarnReviewStep({
         netAmount={netAmount}
         netLabel={tab === 'add' ? "You'll be earning on" : "You'll receive"}
       />
+      {submitBlockedReason ? (
+        <div className={styles.syncNotice} role="status" aria-live="polite">
+          {submitBlockedReason}
+        </div>
+      ) : null}
       <FlowFooter
         className={styles.footer}
         primary={{
           label: tab === 'add' ? 'Confirm deposit' : 'Confirm withdrawal',
           onClick: onConfirm,
+          disabled: Boolean(submitBlockedReason),
         }}
         secondary={{ label: 'Back', onClick: onBack }}
       />
