@@ -14,14 +14,13 @@ export function sharesToUsdc(shares: bigint, rate: bigint): bigint {
 }
 
 /**
- * Convert a per-second yield rate (in basis points, scaled by 1e18) to an annualized APY percentage.
+ * Convert annual yield basis points to a percentage number (e.g. 500n → 5).
  *
- * Placeholder: the actual rate source from `useYieldRate()` is per-share USDC, not a per-second growth rate.
- * Earn modal will refine this when the source is real. Exposed now so the call sites have a stable name.
+ * Input comes from `useYieldRate().rate.apyBps`, which is the spoke's gross annualYieldBps
+ * reduced by the vault's `yieldFeeBps` — i.e. the user's net realised APY. We return a plain
+ * Number because the call sites just format to "~X.XX%" for display; precision beyond two
+ * decimal places isn't meaningful for an estimate.
  */
-export function rateToApy(_secondsRate: bigint): number {
-  // TODO: implement once useYieldRate returns the per-second growth rate. Today useYieldRate is stubbed
-  // and returns null, so this helper is unused — wiring the call site without the math lets us land
-  // BalanceHero + the Earn modal scaffold without an Earn-blocker.
-  return 0
+export function rateToApy(apyBps: bigint): number {
+  return Number(apyBps) / 100
 }

@@ -22,7 +22,7 @@ export interface EarnReviewStepProps {
 
 function formatApy(rate: YieldRate | null): string {
   if (!rate) return 'syncing…'
-  const apy = rateToApy(rate.rate)
+  const apy = rateToApy(rate.apyBps)
   if (apy === 0) return 'unavailable'
   return `~${apy.toFixed(2)}%`
 }
@@ -61,6 +61,12 @@ export function EarnReviewStep({
         netAmount={netAmount}
         netLabel={tab === 'add' ? "You'll be earning on" : "You'll receive"}
       />
+      {tab === 'withdraw' ? (
+        <div className={styles.slippageNotice}>
+          The vault rate moves with each new block. Your final USDC may differ slightly from
+          this quote.
+        </div>
+      ) : null}
       {submitBlockedReason ? (
         <div className={styles.syncNotice} role="status" aria-live="polite">
           {submitBlockedReason}

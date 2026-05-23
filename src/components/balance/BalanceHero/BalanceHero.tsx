@@ -12,7 +12,7 @@ import styles from './BalanceHero.module.css'
 export function BalanceHero() {
   const shielded = useAtomValue(shieldedUsdcAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
-  const yieldRate = useYieldRate()
+  const { rate: yieldRate } = useYieldRate()
 
   const earningUsdc =
     yieldShares !== null && yieldRate !== null
