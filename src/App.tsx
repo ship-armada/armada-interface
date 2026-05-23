@@ -78,6 +78,11 @@ export function App() {
   const setShieldedWallets = useSetAtom(shieldedWalletsAtom)
   const setActiveWalletId = useSetAtom(activeRailgunWalletIdAtom)
   const [mode, setMode] = useState<GuardMode>('pre-init')
+  // Sticky flag: true when this device boot started with NO persisted walletId. Drives whether
+  // we offer the bidirectional Onboarding ↔ Unlock fork. A returning user (had a wallet at boot)
+  // never sees the "Create new" link in UnlockFlow — preventing accidental orphaning of their
+  // existing wallet. A new-device user (no persisted wallet at boot) sees both fork links.
+  const [hadPersistedWalletAtBoot, setHadPersistedWalletAtBoot] = useState(false)
 
   // Cold-boot hydration + initial mode derivation, in one pass to avoid a race between
   // separate effects (the mode effect would otherwise read a stale `wallet.status` before the
@@ -88,7 +93,7 @@ export function App() {
   // Three cases:
   //   - `wallet.status === 'unlocked'`: HMR re-mount, atoms already populated → straight to app.
   //   - persisted walletId in localStorage: returning user → seed `locked` entry → UnlockFlow.
-  //   - neither: first run → OnboardingFlow.
+  //   - neither: first run → OnboardingFlow (with Restore escape hatch — see below).
   useEffect(() => {
     if (mode !== 'pre-init') return
     if (wallet.status === 'unlocked') {
@@ -97,6 +102,7 @@ export function App() {
     }
     const persistedId = readStoredWalletId()
     if (persistedId) {
+      setHadPersistedWalletAtBoot(true)
       setShieldedWallets(prev =>
         prev[persistedId] ? prev : { ...prev, [persistedId]: { id: persistedId, status: 'locked' } },
       )
@@ -119,11 +125,22 @@ export function App() {
   }
 
   if (mode === 'onboarding') {
-    return <OnboardingFlow onDone={() => setMode('app')} />
+    // Always offer the Restore escape hatch — the onboarding flow has no way to know whether
+    // the user is genuinely new vs. arriving on a new device with an existing backup. The link
+    // is harmless for genuinely new users (they ignore it) and load-bearing for the second case.
+    return <OnboardingFlow onDone={() => setMode('app')} onRestore={() => setMode('unlock')} />
   }
 
   if (mode === 'unlock') {
-    return <UnlockFlow onUnlocked={() => setMode('app')} />
+    // Only expose the Create-new link when there's no persisted wallet on this device. A
+    // returning user (had a persisted wallet at boot) MUST go through Unlock — accidentally
+    // starting Create would orphan their existing IDB-stored wallet without recovery.
+    return (
+      <UnlockFlow
+        onUnlocked={() => setMode('app')}
+        onCreateNew={hadPersistedWalletAtBoot ? undefined : () => setMode('onboarding')}
+      />
+    )
   }
 
   return (

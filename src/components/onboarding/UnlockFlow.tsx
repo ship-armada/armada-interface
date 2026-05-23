@@ -12,6 +12,12 @@ import styles from './UnlockFlow.module.css'
 export interface UnlockFlowProps {
   /** Called when unlock succeeds. Parent flips App-level mode to "app". */
   onUnlocked: () => void
+  /**
+   * Optional escape hatch — switches to the create-new-account flow. App.tsx only passes this
+   * when there's no persisted walletId on this device, so a returning user (who has a real
+   * wallet locally) can't accidentally orphan it by starting over.
+   */
+  onCreateNew?: () => void
 }
 
 type Mode = 'backup' | 'paste'
@@ -24,7 +30,7 @@ const MODES: ReadonlyArray<{ id: Mode; label: string }> = [
   { id: 'paste', label: 'Paste secret' },
 ]
 
-export function UnlockFlow({ onUnlocked }: UnlockFlowProps) {
+export function UnlockFlow({ onUnlocked, onCreateNew }: UnlockFlowProps) {
   const { unlockByPaste, unlockByBackup } = useShieldedWallet()
   const [mode, setMode] = useState<Mode>('backup')
   const [submitting, setSubmitting] = useState(false)
@@ -179,6 +185,19 @@ export function UnlockFlow({ onUnlocked }: UnlockFlowProps) {
             />
           </form>
         )}
+
+        {onCreateNew ? (
+          <p className={styles.createNew}>
+            Don't have a backup?{' '}
+            <button
+              type="button"
+              className={styles.createNewLink}
+              onClick={onCreateNew}
+            >
+              Create a new account instead
+            </button>
+          </p>
+        ) : null}
       </div>
     </OnboardingShell>
   )

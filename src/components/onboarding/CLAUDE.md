@@ -20,8 +20,12 @@ First-run setup + returning-user unlock. Mounted by the top-level guard in `App.
 
 `App.tsx` tracks a local `mode` state (`pre-init` / `onboarding` / `unlock` / `app`). It initializes from `shieldedWalletAtom.status` on mount, then transitions explicitly:
 - `onboarding` → `app` when the user clicks Done in `CompleteStep`.
+- `onboarding` → `unlock` when the user clicks the **Restore** secondary CTA on `WelcomeStep` (escape hatch for new-device users who already have a backup).
+- `unlock` → `onboarding` when the user clicks the **Create new account** link, *only when there was no persisted walletId at boot*. App.tsx tracks this via the sticky `hadPersistedWalletAtBoot` flag so a returning user can't orphan their existing wallet by misclicking.
 - `app` → `unlock` when the atom flips to `locked` (auto-lock timer).
 - `unlock` → `app` when an unlock path resolves and `UnlockFlow` calls `onUnlocked`.
+
+The Restore CTA is offered unconditionally in onboarding — the flow can't know whether a given visitor is genuinely new or arriving on a new device. The link is inert for genuinely-new users and load-bearing for the second case.
 
 Why a local mode state instead of reading the atom directly? Because `useShieldedWallet().enroll()` writes to atoms BEFORE the user reaches Complete (the wallet is unlocked from the moment of Sign). If the guard read the atom directly, the post-sign screens would never render — the atom flip would unmount `OnboardingFlow` immediately. The local mode shields the flow until the user explicitly clicks through Complete.
 
