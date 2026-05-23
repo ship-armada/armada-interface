@@ -11,7 +11,7 @@ One concern per hook. Hooks own the React lifecycle (effects, subscriptions, tim
 | `useBalances()` | Aggregated balance view (unshielded per chain, shielded, yield shares). | Reads atoms only; shielded is now live via `useShieldedBalanceSync` |
 | `useShieldedBalanceSync()` | Subscribes to SDK balance events + drives initial scan on unlock; writes `shieldedUsdcAtom`. Mount once at App root. | Working |
 | `useRailgunEngineSync()` | Bridges `lib/railgun/init`'s lifecycle into `railgunEngineAtom`. Mount once at App root. | Working |
-| `useYieldRate()` | Polls yield vault rate via React Query (visibility-paused, 30s cadence). | Working |
+| `useYieldRate()` | Polls vault rate + net APY (gross spoke yield × vault fee) via React Query (visibility-paused, 5min cadence). Exposes `refresh()` for on-open + post-submit pulls. | Working |
 | `useFees()` | `/fees` quote via React Query — auto-refreshes near expiry, exponential cold-start backoff, dedups across consumers. | Working |
 | `useTx({ kind })` | Per-tx submit/track/retry/cancel. Multi-instance — each call owns a ulid. | Skeleton (state writes work, stage pipeline TODO) |
 | `useTxHistory()` | Hydrates `txListAtom` from IDB on mount. | Working |

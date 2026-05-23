@@ -49,9 +49,14 @@ describe('<EarnInputStep>', () => {
     expect(screen.getByText('syncing…')).toBeInTheDocument()
   })
 
-  it('shows the unavailable APY copy when rateToApy returns 0 (current stub)', () => {
-    setup({ rate: { rate: 1_000_000n, fetchedAt: 0 } })
-    expect(screen.getByText(/unavailable while vault rate syncs/)).toBeInTheDocument()
+  it('shows the unavailable APY copy when the pool currently pays no yield', () => {
+    setup({ rate: { rate: 1_000_000n, apyBps: 0n, fetchedAt: 0 } })
+    expect(screen.getByText(/unavailable — pool currently pays no yield/)).toBeInTheDocument()
+  })
+
+  it('renders the APY percentage when apyBps is populated', () => {
+    setup({ rate: { rate: 1_000_000n, apyBps: 450n, fetchedAt: 0 } })
+    expect(screen.getByText('~4.50%')).toBeInTheDocument()
   })
 
   it('disables Continue when amount exceeds max', () => {

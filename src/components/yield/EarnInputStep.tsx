@@ -33,8 +33,8 @@ export interface EarnInputStepProps {
 
 function formatApy(rate: YieldRate | null): string {
   if (!rate) return 'syncing…'
-  const apy = rateToApy(rate.rate)
-  if (apy === 0) return 'unavailable while vault rate syncs'
+  const apy = rateToApy(rate.apyBps)
+  if (apy === 0) return 'unavailable — pool currently pays no yield'
   return `~${apy.toFixed(2)}%`
 }
 

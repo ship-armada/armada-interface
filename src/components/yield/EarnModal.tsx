@@ -46,7 +46,7 @@ export function EarnModal() {
   // Source data
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
-  const yieldRate = useYieldRate()
+  const { rate: yieldRate, refresh: refreshYieldRate } = useYieldRate()
   // Earning balance (USDC) requires both shares + rate to compute.
   const earningUsdc =
     yieldShares !== null && yieldRate !== null ? sharesToUsdc(yieldShares, yieldRate.rate) : null
@@ -72,6 +72,8 @@ export function EarnModal() {
   const record = activeTx?.record ?? null
 
   // Reset on close + sync initial tab when the entry-point modal kind changes.
+  // Also pull a fresh rate on open so the APY hint + max-balance reflect current state — the
+  // background poll only ticks every 5 min and a user opening the modal expects "now" data.
   useEffect(() => {
     if (!isOpen) {
       setStep('input')
@@ -82,17 +84,24 @@ export function EarnModal() {
       return
     }
     setTab(initialTab)
+    void refreshYieldRate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
-  // Watch the submitted record for terminal transitions.
+  // Watch the submitted record for terminal transitions. On completed, refresh the rate so the
+  // post-tx balance / APY view reflects the new vault state immediately (rather than waiting up
+  // to 5 min for the next poll tick).
   useEffect(() => {
     if (!record) return
-    if (record.executionState === 'completed') setStep('complete')
+    if (record.executionState === 'completed') {
+      setStep('complete')
+      void refreshYieldRate()
+    }
     else if (record.executionState === 'failed' || record.executionState === 'expired') {
       setStep('error')
       setErrorAtStep('progress')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record])
 
   function close() {
@@ -115,12 +124,15 @@ export function EarnModal() {
         })
       } else {
         setSubmittedKind('yield-withdraw')
-        // Convert the requested USDC amount back to shares for the meta. If we have no rate yet,
-        // pass 0n shares — the executor will reject the submission when it lands; today this is moot
-        // because the stub throws regardless.
+        // Slippage protection: re-read the vault rate just before computing shares so the
+        // submitted shares reflect the freshest possible exchange ratio. The residual window
+        // (this submit-block → execution-block) is ~1 block — at any realistic APY that's well
+        // below USDC's display precision.
+        const freshRate = await refreshYieldRate()
+        const effectiveRate = freshRate ?? yieldRate
         const shares =
-          yieldRate !== null && yieldRate.rate > 0n
-            ? (amount * 1_000_000_000_000_000_000n) / yieldRate.rate
+          effectiveRate !== null && effectiveRate.rate > 0n
+            ? (amount * 1_000_000_000_000_000_000n) / effectiveRate.rate
             : 0n
         await txWithdraw.submit({
           amount,

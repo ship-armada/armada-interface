@@ -1,5 +1,4 @@
-// ABOUTME: Tests for lib/yield helpers — sharesToUsdc bigint math (zero, normal, large), APY placeholder.
-// ABOUTME: rateToApy is a TODO stub; we just lock its return type for now.
+// ABOUTME: Tests for lib/yield helpers — sharesToUsdc bigint math (zero, normal, large), rateToApy bps→percentage conversion.
 
 import { describe, it, expect } from 'vitest'
 import { sharesToUsdc, rateToApy } from './yield'
@@ -33,7 +32,24 @@ describe('sharesToUsdc', () => {
 })
 
 describe('rateToApy', () => {
-  it('returns 0 (TODO until useYieldRate is real)', () => {
+  it('returns 0 when bps is 0 (no yield being paid right now)', () => {
     expect(rateToApy(0n)).toBe(0)
+  })
+
+  it('converts 500 bps → 5 (a 5% APY)', () => {
+    expect(rateToApy(500n)).toBe(5)
+  })
+
+  it('converts 450 bps → 4.5 (5% gross × 90% after 10% fee)', () => {
+    expect(rateToApy(450n)).toBe(4.5)
+  })
+
+  it('handles fractional bps with appropriate decimal precision', () => {
+    expect(rateToApy(123n)).toBe(1.23)
+    expect(rateToApy(1n)).toBe(0.01)
+  })
+
+  it('handles large bps values (above 100% APY in extreme reward markets)', () => {
+    expect(rateToApy(50_000n)).toBe(500)
   })
 })

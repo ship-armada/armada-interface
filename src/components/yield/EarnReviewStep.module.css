@@ -68,6 +68,12 @@
   color: var(--semantic-color-text-secondary);
 }
 
+.slippageNotice {
+  color: var(--semantic-color-text-muted);
+  font-size: calc(var(--primitives-fontSize-sm) * 1px);
+  padding: 0 var(--primitives-spacing-1);
+}
+
 .footer {
   align-self: stretch;
   margin: var(--primitives-spacing-4) calc(var(--primitives-spacing-6) * -1) calc(var(--primitives-spacing-6) * -1);
