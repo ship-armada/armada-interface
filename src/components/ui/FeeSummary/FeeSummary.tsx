@@ -34,12 +34,14 @@ export function FeeSummary({
         <dd className={styles.value}>
           {fee === null ? (
             <span className={styles.loading}>Loading…</span>
+          ) : fee === 0n ? (
+            <span className={styles.zeroFee}>No fee</span>
           ) : (
             <>
               {formatUsdcAmount(fee)} <span className={styles.unit}>USDC</span>
             </>
           )}
-          {isRefreshing && fee !== null ? (
+          {isRefreshing && fee !== null && fee !== 0n ? (
             <span className={styles.refresh}> (refreshing)</span>
           ) : null}
         </dd>

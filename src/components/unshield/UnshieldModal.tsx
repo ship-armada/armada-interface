@@ -10,7 +10,7 @@ import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
-import { feeForKind } from '@/lib/relayer'
+import { userFeeForKind } from '@/lib/relayer'
 import {
   ActionFlowShell,
   ProgressStep,
@@ -65,11 +65,10 @@ export function UnshieldModal() {
   const record = activeTx?.record ?? null
 
   const computedKind: SubmittedKind = destChainId === hubChainId ? 'unshield-local' : 'unshield-xchain'
-  // Fee comes from the relayer's schedule per the resolved kind. Both unshield variants have
-  // a quoted fee; xchain enforces it on-chain as `maxFee`, local is informational today (user
-  // submits the tx themselves with no relayer leg).
-  const fee: bigint | null = quote ? feeForKind(quote, computedKind) : null
-  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
+  // Display fee is a pure function of (kind, amount). unshield-local = 0 (user submits via own
+  // wallet, gas paid in native); unshield-xchain = CCTP fast-fee estimate (~2 bps).
+  const fee: bigint = userFeeForKind(computedKind, amount)
+  const netAmount = amount > fee ? amount - fee : 0n
 
   // Pre-fill recipient from the connected EVM wallet on the modal's rising edge only,
   // so the user can clear the field afterwards without it getting repopulated.

@@ -27,7 +27,7 @@ import {
   SHIELD_SIGNATURE_MESSAGE,
 } from '@/lib/railgun/shield'
 import { extractCctpMessageFromReceipt } from '@/lib/cctp'
-import { fetchFees, feeForKind } from '@/lib/relayer'
+import { cctpMaxFeeForKind } from '@/lib/relayer'
 import { ensureChain } from '@/lib/network-switch'
 import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
 import { poll } from '@/lib/tx/poller'
@@ -232,11 +232,11 @@ async function runSubmitAndBurn(
     ? pad(hubHookRouter as `0x${string}`, { size: 32 })
     : `0x${'00'.repeat(32)}` as `0x${string}`
 
-  // 3. maxFee = relayer's quoted cross-chain shield fee, deducted at the CCTP layer from the
-  //    amount minted on the hub. Refetch at submit time so a stale modal doesn't bake in an
-  //    expired quote (same pattern as the inverse-direction handler).
-  const feeQuote = await fetchFees()
-  const maxFee = feeForKind(feeQuote, 'shield-xchain')
+  // 3. maxFee = upper bound CCTP's MessageTransmitter accepts for `feeExecuted`. Iris sets the
+  //    actual fee (1–1.3 bps depending on chain); we pass 2× the realistic estimate as headroom.
+  //    Computed locally from amount, no relayer round-trip needed (the relayer's gas-cost quote
+  //    isn't the relevant value here; CCTP's fast-transfer fee is independent of relayer ops).
+  const maxFee = cctpMaxFeeForKind('shield-xchain', record.meta.amount)
 
   // 4. minFinalityThreshold = FAST (1000) when env says fast mode (Sepolia testing), else 0 which
   //    the contract resolves to STANDARD as the safe default. CCTPHookRouter on the hub knows

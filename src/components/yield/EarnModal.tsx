@@ -10,7 +10,7 @@ import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { parseUsdcInput } from '@/lib/format'
-import { feeForKind } from '@/lib/relayer'
+import { userFeeForKind } from '@/lib/relayer'
 import { sharesToUsdc } from '@/lib/yield'
 import {
   ActionFlowShell,
@@ -57,12 +57,10 @@ export function EarnModal() {
   // Yield ops spend the user's shielded USDC (deposit) or shielded yield shares (withdraw).
   // Either way, we need a successful first sync before letting the user submit.
   const syncGate = useSpendableSyncGate()
-  // Both yield-deposit and yield-withdraw read from the relayer's crossContract fee bucket.
-  // The FeeSummary panel renders the value; the handler doesn't deduct it on the wire today
-  // (user-submitted path) but exposes it for awareness.
+  // Display fee for yield ops is 0 today — user submits via own wallet, no relayer leg.
   const yieldKind: 'yield-deposit' | 'yield-withdraw' = tab === 'add' ? 'yield-deposit' : 'yield-withdraw'
-  const fee: bigint | null = quote ? feeForKind(quote, yieldKind) : null
-  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
+  const fee: bigint = userFeeForKind(yieldKind, amount)
+  const netAmount = amount > fee ? amount - fee : 0n
 
   // Two useTx hooks; only one gets a record per flow.
   const txDeposit = useTx({ kind: 'yield-deposit' })

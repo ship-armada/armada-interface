@@ -35,10 +35,21 @@ describe('<FeeSummary>', () => {
     expect(screen.getByText("You'll deposit")).toBeInTheDocument()
   })
 
-  it('shows the refresh hint only when fee is non-null and isRefreshing is true', () => {
+  it('shows the refresh hint only when fee is non-null, non-zero, and isRefreshing is true', () => {
     const { rerender } = render(<FeeSummary fee={null} netAmount={0n} isRefreshing />)
     expect(screen.queryByText(/refreshing/)).toBeNull() // null fee → loading wins
+    rerender(<FeeSummary fee={0n} netAmount={0n} isRefreshing />)
+    expect(screen.queryByText(/refreshing/)).toBeNull() // zero fee → "No fee" wins; refresh hint is irrelevant
     rerender(<FeeSummary fee={1_000n} netAmount={0n} isRefreshing />)
     expect(screen.getByText(/refreshing/)).toBeInTheDocument()
+  })
+
+  it('renders "No fee" instead of a 0.00 USDC line when fee is exactly zero', () => {
+    // Many of today's flows (shield, unshield-local, transfer-shielded, yield ops) charge no
+    // USDC fee — the user pays gas in native via their wallet. "No fee" reads cleaner than
+    // "Fee: 0.00 USDC", which suggests a fee is being computed but happens to round to zero.
+    render(<FeeSummary fee={0n} netAmount={100_000_000n} />)
+    expect(screen.getByText('No fee')).toBeInTheDocument()
+    expect(screen.queryByText(/0\.00 USDC/)).toBeNull()
   })
 })

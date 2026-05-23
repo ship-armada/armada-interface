@@ -6,7 +6,7 @@ import { useAtom } from 'jotai'
 import { openModalAtom } from '@/state/ui'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
-import { feeForKind } from '@/lib/relayer'
+import { userFeeForKind } from '@/lib/relayer'
 import { useBalances } from '@/hooks/useBalances'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
@@ -49,18 +49,17 @@ export function ShieldModal() {
   const max = balances.unshielded[fromChainId] ?? 0n
   const amount = parseUsdcInput(amountStr)
 
+  // useFees stays plumbed in for the relayer-submit path (need cacheId at submit time even
+  // though the display fee no longer comes from the quote).
   const { quote, isStale, refresh } = useFees()
-  // Fee derives from the resolved kind. shield = 0n (direct user submit, no relayer leg).
-  // shield-xchain = quoted relayer fee for the hub-side CCTP delivery.
+  // Display fee is a pure function of (kind, amount). Today shield = 0 (user pays own gas),
+  // shield-xchain = CCTP fast-fee estimate (~2 bps of amount).
   const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
-  const fee: bigint | null = quote ? feeForKind(quote, computedKind) : null
-  // Floor at 0 — when amount < fee (e.g. user typed 1 USDC but cross-chain fee is 1.10) the raw
-  // subtraction would render as a negative figure in the FeeSummary. The contract enforces
-  // `maxFee < amount` and rejects on-chain anyway; clamping just keeps the UI honest until the
-  // user types a viable amount.
-  const netAmount = amount > 0n && fee !== null
-    ? (amount > fee ? amount - fee : 0n)
-    : amount
+  const fee: bigint = userFeeForKind(computedKind, amount)
+  // Floor at 0 — when amount < fee (e.g. user typed a value smaller than the CCTP fee) the raw
+  // subtraction would render as a negative figure in the FeeSummary. The contract rejects
+  // on-chain anyway; clamping just keeps the UI honest until the user types a viable amount.
+  const netAmount = amount > fee ? amount - fee : 0n
 
   // Two useTx hooks mounted; only one gets a record per flow. Pattern mirrors SendModal +
   // UnshieldModal where same-chain vs cross-chain are sibling kinds.

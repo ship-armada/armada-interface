@@ -19,25 +19,51 @@ export interface FeeSchedule {
 }
 
 /**
- * Map a tx kind onto the relayer's fee schedule key. Single source of truth so a future schema
- * change (e.g. splitting yield-deposit vs yield-withdraw into separate buckets) is one switch.
+ * Conservative buffer (basis points) for CCTP V2's fast-transfer fee. Mirrors the buffer used
+ * server-side in `relayer/modules/fee-calculator.ts::CCTP_FAST_FEE_BPS`. Circle charges 1 bps on
+ * Ethereum/Solana and 1.3 bps on the L2s (Arbitrum, Base, Optimism); 2 bps quoted to the user
+ * is the next round step up that holds across all supported chains. Keep in sync with the
+ * server-side constant — if the real numbers change, both move together.
  */
-export function feeForKind(quote: FeeSchedule, kind: TxKind): bigint {
+const CCTP_FAST_FEE_BPS = 2n
+
+/**
+ * Compute the USDC fee the user will actually pay for `kind` at `amount`. Today, while every
+ * stage handler submits via the user's own wallet, the only on-chain USDC fee is CCTP V2's
+ * fast-transfer fee (charged on cross-chain kinds, deducted from the minted amount at the
+ * destination). All other kinds charge $0 in USDC — the user pays gas in native token via their
+ * wallet.
+ *
+ * When the relayer-mediated submit path lands (see `submitRelay`), this function evolves to add
+ * the relayer's gas-cost reimbursement on top of the CCTP fee for hub-tx kinds. Until then,
+ * displaying the relayer's gas quote would be a lie — the relayer isn't paid by the user today.
+ *
+ * Pure function of `(kind, amount)`. The relayer's `FeeSchedule` quote is currently unused on
+ * the display path but remains plumbed through modals as `feeCacheId` so the relayer-submit
+ * wire-up doesn't require a second refactor.
+ */
+export function userFeeForKind(kind: TxKind, amount: bigint): bigint {
   switch (kind) {
-    // Direct hub shield is user-submitted — no relayer fee today. Show 0 on the Review step.
-    case 'shield': return 0n
-    // Cross-chain shield: relayer pays gas to deliver the CCTP-attested message on the hub
-    // (HookRouter.relayWithHook → MessageTransmitter.receiveMessage → PrivacyPool.shield).
-    // The user covers that gas budget via the maxFee passed to crossChainShield, deducted from
-    // the amount minted at the hub. Same fee bucket as the inverse direction (xchain unshield).
-    case 'shield-xchain': return BigInt(quote.fees.crossChainShield)
-    case 'unshield-local': return BigInt(quote.fees.unshield)
-    case 'unshield-xchain': return BigInt(quote.fees.crossChainUnshield)
-    case 'transfer-shielded': return BigInt(quote.fees.transfer)
-    // Yield ops use the cross-contract-calls fee bucket (lend/redeem-and-shield).
+    case 'shield-xchain':
+    case 'unshield-xchain':
+      return (amount * CCTP_FAST_FEE_BPS) / 10_000n
+    case 'shield':
+    case 'unshield-local':
+    case 'transfer-shielded':
     case 'yield-deposit':
-    case 'yield-withdraw': return BigInt(quote.fees.crossContract)
+    case 'yield-withdraw':
+      return 0n
   }
+}
+
+/**
+ * 2× multiple over `userFeeForKind` to use as CCTP V2's `maxFee` bound. The displayed fee is a
+ * realistic estimate (matches the server's conservative bps buffer); the on-chain bound bumps it
+ * to give Iris's `feeExecuted` headroom against per-chain variance and any future fee changes.
+ * The contract enforces `feeExecuted ≤ maxFee`, so undersized bounds silently revert.
+ */
+export function cctpMaxFeeForKind(kind: TxKind, amount: bigint): bigint {
+  return userFeeForKind(kind, amount) * 2n
 }
 
 export interface RelayRequest {

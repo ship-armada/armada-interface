@@ -15,7 +15,7 @@ import {
   type ResolvedDeployments,
 } from '@/config/deployments'
 import { parseUsdcInput } from '@/lib/format'
-import { feeForKind } from '@/lib/relayer'
+import { userFeeForKind } from '@/lib/relayer'
 import {
   ActionFlowShell,
   ProgressStep,
@@ -96,11 +96,10 @@ export function SendModal() {
 
   const computedKind: SubmittedKind = computeKind(tab, destChainId, hubChainId)
   const isXchain = computedKind === 'unshield-xchain'
-  // Fee derives from the quote per the resolved kind. transfer-shielded + unshield-xchain
-  // carry meaningful quotes; unshield-local is informational today (user-submitted, no relayer
-  // leg) but exposed for parity.
-  const fee: bigint | null = quote ? feeForKind(quote, computedKind) : null
-  const netAmount = amount > 0n && fee !== null ? amount - fee : amount
+  // Display fee is a pure function of (kind, amount). transfer-shielded + unshield-local = 0
+  // (user submits via own wallet); unshield-xchain = CCTP fast-fee estimate (~2 bps).
+  const fee: bigint = userFeeForKind(computedKind, amount)
+  const netAmount = amount > fee ? amount - fee : 0n
 
   // Reset local state on close.
   useEffect(() => {
