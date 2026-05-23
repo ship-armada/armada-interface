@@ -24,7 +24,7 @@ import {
 import {
   extractCctpMessageFromReceipt,
 } from '@/lib/cctp'
-import { fetchFees, feeForKind } from '@/lib/relayer'
+import { cctpMaxFeeForKind } from '@/lib/relayer'
 import { ensureChain } from '@/lib/network-switch'
 
 // MessageReceived event signature parsed for viem's typed log filter — accepts indexed-arg
@@ -219,12 +219,12 @@ async function runSubmitAndBurn(
     ? pad(destHookRouter as `0x${string}`, { size: 32 })
     : `0x${'00'.repeat(32)}` as `0x${string}`
 
-  // maxFee = the relayer's quoted CCTP delivery fee. We re-fetch at submit time so the value
-  // is fresh; the relayer enforces a minimum and skips messages below it. Fee is deducted from
-  // the amount minted on the destination — recipient receives (amount − maxFee). The modal's
-  // Review step shows the same fee to the user (via feeForKind on the cached quote).
-  const feeQuote = await fetchFees()
-  const maxFee = feeForKind(feeQuote, 'unshield-xchain')
+  // maxFee = upper bound CCTP's MessageTransmitter accepts for `feeExecuted`. Iris sets the
+  // actual fee (1–1.3 bps depending on chain); we pass 2× the realistic estimate as headroom.
+  // Fee is deducted from the amount minted on the destination — recipient receives
+  // (amount − feeExecuted). The modal's Review step shows `userFeeForKind` (without the bound
+  // multiplier) so the user sees what they will actually pay, not the contract bound.
+  const maxFee = cctpMaxFeeForKind('unshield-xchain', record.meta.amount)
 
   // Hub-side atomicCrossChainUnshield() — the only user-signed leg of this flow. The
   // destination-side receiveMessage is relayer-submitted, so we never need the user on the
