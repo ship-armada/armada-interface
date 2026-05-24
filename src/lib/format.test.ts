@@ -9,6 +9,7 @@ import {
   parseUsdcInput,
   truncateAddress,
   formatRelativeTime,
+  usdcInputErrorMessage,
 } from './format'
 
 describe('formatUsdc', () => {
@@ -37,20 +38,58 @@ describe('formatUsdcAmount', () => {
 })
 
 describe('parseUsdcInput', () => {
-  it('parses a decimal string to raw 6-decimal bigint', () => {
-    expect(parseUsdcInput('1')).toBe(1_000_000n)
-    expect(parseUsdcInput('0.5')).toBe(500_000n)
+  it('parses a decimal string to raw 6-decimal bigint with no error', () => {
+    expect(parseUsdcInput('1')).toEqual({ value: 1_000_000n })
+    expect(parseUsdcInput('0.5')).toEqual({ value: 500_000n })
+    expect(parseUsdcInput('1.123456')).toEqual({ value: 1_123_456n })
   })
-  it('returns 0 for invalid or negative input', () => {
-    expect(parseUsdcInput('abc')).toBe(0n)
-    expect(parseUsdcInput('-5')).toBe(0n)
+
+  it('returns { value: 0n } with no error for the empty / whitespace input (user hasn\'t typed yet)', () => {
+    // Critical: empty input is NOT an error — it's the initial state. Modals gate Continue on
+    // `value > 0n`; setting error here would surface a spurious "invalid number" before the
+    // user has even typed anything.
+    expect(parseUsdcInput('')).toEqual({ value: 0n })
+    expect(parseUsdcInput('   ')).toEqual({ value: 0n })
   })
-  it('returns 0 for non-finite values (Infinity, NaN, very large exponents)', () => {
+
+  it('reports too-many-decimals BEFORE numeric truncation would silently lose precision', () => {
+    // The whole reason for the new API: previously "1.1234567" silently parsed as 1_123_456n
+    // (loses the trailing 7). Now it surfaces an error so UI can prompt the user instead.
+    expect(parseUsdcInput('1.1234567')).toEqual({ value: 0n, error: 'too-many-decimals' })
+    expect(parseUsdcInput('0.0000001')).toEqual({ value: 0n, error: 'too-many-decimals' })
+  })
+
+  it('accepts exactly 6 decimal places (boundary)', () => {
+    expect(parseUsdcInput('1.123456')).toEqual({ value: 1_123_456n })
+    expect(parseUsdcInput('0.000001')).toEqual({ value: 1n })
+  })
+
+  it('reports invalid for non-numeric input', () => {
+    expect(parseUsdcInput('abc')).toEqual({ value: 0n, error: 'invalid' })
+    expect(parseUsdcInput('NaN')).toEqual({ value: 0n, error: 'invalid' })
+  })
+
+  it('reports negative for negative numbers', () => {
+    expect(parseUsdcInput('-5')).toEqual({ value: 0n, error: 'negative' })
+    expect(parseUsdcInput('-0.01')).toEqual({ value: 0n, error: 'negative' })
+  })
+
+  it('reports invalid for non-finite values (Infinity, very large exponents)', () => {
     // parseFloat accepts these silently; without the isFinite guard, BigInt(Infinity) throws.
-    expect(parseUsdcInput('Infinity')).toBe(0n)
-    expect(parseUsdcInput('-Infinity')).toBe(0n)
-    expect(parseUsdcInput('1e500')).toBe(0n)
-    expect(parseUsdcInput('NaN')).toBe(0n)
+    expect(parseUsdcInput('Infinity')).toEqual({ value: 0n, error: 'invalid' })
+    expect(parseUsdcInput('1e500')).toEqual({ value: 0n, error: 'invalid' })
+  })
+})
+
+describe('usdcInputErrorMessage', () => {
+  it('returns undefined for the no-error case so callers can chain `?? otherError`', () => {
+    expect(usdcInputErrorMessage(undefined)).toBeUndefined()
+  })
+
+  it('maps each error code to user-visible copy', () => {
+    expect(usdcInputErrorMessage('too-many-decimals')).toMatch(/6 decimal/)
+    expect(usdcInputErrorMessage('negative')).toMatch(/negative/i)
+    expect(usdcInputErrorMessage('invalid')).toMatch(/valid number/i)
   })
 })
 

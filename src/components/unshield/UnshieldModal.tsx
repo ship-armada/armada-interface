@@ -52,7 +52,7 @@ export function UnshieldModal() {
   // Source data.
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
   const max = shieldedUsdc ?? 0n
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount } = parseUsdcInput(amountStr)
   const { quote, isStale, refresh } = useFees()
   // Gate Confirm while the initial shielded-balance sync is incomplete (or failed). Reading
   // here so the Review step always reflects the current state — if sync completes while the

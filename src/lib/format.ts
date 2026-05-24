@@ -1,5 +1,5 @@
-// ABOUTME: Address + USDC formatters. Duplicated from @armada/crowdfund-shared/lib/format.ts.
-// ABOUTME: Extract to @armada/eth-utils when both apps need to evolve these helpers.
+// ABOUTME: Address + USDC formatters. Kept in LOCKSTEP with crowdfund-ui/packages/shared/src/lib/format.ts (parseUsdcInput, formatUsdc, formatUsdcPlain, truncateAddress) — any change to those four must land in both files in the same PR.
+// ABOUTME: Once a third consumer needs these or the apps need to diverge, extract to @armada/eth-utils per Plan §19. Tracked in .claude/ARMADA_INTERFACE_POLISH.md.
 
 /** Format a USDC raw amount (6 decimals) as a dollar string, e.g. "$1,200,000". */
 export function formatUsdc(amount: bigint): string {
@@ -25,13 +25,71 @@ export function formatUsdcAmount(amount: bigint, options?: { decimals?: number }
   })
 }
 
-/** Parse a USDC input string (e.g. "150" or "150.50") to 6-decimal raw bigint. */
-export function parseUsdcInput(input: string): bigint {
-  const num = parseFloat(input)
-  // Reject non-finite (NaN, ±Infinity, "1e500") and negatives. parseFloat accepts
-  // "Infinity" silently; without the isFinite guard, BigInt(Infinity) throws RangeError.
-  if (!Number.isFinite(num) || num < 0) return 0n
-  return BigInt(Math.floor(num * 1e6))
+/**
+ * Categorised parse error returned from {@link parseUsdcInput}. Surfaced via the result's
+ * `error` field; `value` is always present (0n on error) so the common UI gating pattern
+ * `value > 0n` still works without immediate caller changes.
+ *
+ *  'invalid'           — not a number (NaN, "abc", empty, scientific overflow like "1e500")
+ *  'negative'          — number is negative
+ *  'too-many-decimals' — input has more than 6 fractional digits; truncation would lose precision
+ */
+export type UsdcInputError = 'invalid' | 'negative' | 'too-many-decimals'
+
+export interface UsdcInputResult {
+  /** Parsed raw 6-decimal bigint. Always 0n when `error` is set. */
+  value: bigint
+  /** Categorised parse error; undefined when the input is a valid USDC amount. */
+  error?: UsdcInputError
+}
+
+/**
+ * Parse a USDC input string into a 6-decimal raw bigint with categorised errors.
+ *
+ * Unlike the previous string-truncating impl, this version distinguishes "the user hasn't typed
+ * yet" (empty/0 → `{ value: 0n }`) from "the user typed something invalid" (e.g. >6dp →
+ * `{ value: 0n, error: 'too-many-decimals' }`). UI surfaces the error via a dedicated inline
+ * message instead of silently rounding.
+ *
+ * `AmountInput`'s keystroke sanitizer should prevent invalid input from reaching here in the
+ * normal flow; this parser is the defence-in-depth layer (programmatic submission, malformed
+ * paste, future API surfaces).
+ */
+export function parseUsdcInput(input: string): UsdcInputResult {
+  const trimmed = input.trim()
+  if (trimmed === '') return { value: 0n }
+
+  // Decimal-precision check happens BEFORE numeric parse so "1.1234567" reports 'too-many-decimals'
+  // rather than silently rounding to 1.123456 via Math.floor below.
+  const dot = trimmed.indexOf('.')
+  if (dot !== -1 && trimmed.length - dot - 1 > 6) {
+    return { value: 0n, error: 'too-many-decimals' }
+  }
+
+  const num = parseFloat(trimmed)
+  // Reject non-finite (NaN, ±Infinity, "1e500"). parseFloat accepts "Infinity" silently;
+  // without the isFinite guard, BigInt(Infinity) throws RangeError.
+  if (!Number.isFinite(num)) return { value: 0n, error: 'invalid' }
+  if (num < 0) return { value: 0n, error: 'negative' }
+  return { value: BigInt(Math.floor(num * 1e6)) }
+}
+
+/**
+ * Map a {@link UsdcInputError} to the user-visible copy we surface in AmountInput. Armada-local
+ * helper — copy may differ across apps so this isn't part of the lockstep contract with
+ * crowdfund-shared. Returns undefined when no error so the caller can pass it through to
+ * AmountInput.error without an extra conditional.
+ *
+ * Defensive: AmountInput's keystroke sanitizer prevents these errors in the normal flow. Users
+ * see this copy only when bypassing the sanitizer (programmatic state injection, future surfaces).
+ */
+export function usdcInputErrorMessage(error: UsdcInputError | undefined): string | undefined {
+  switch (error) {
+    case 'too-many-decimals': return 'USDC has at most 6 decimal places.'
+    case 'negative': return 'Amount cannot be negative.'
+    case 'invalid': return 'Enter a valid number.'
+    case undefined: return undefined
+  }
 }
 
 /** Truncate an Ethereum address to "0x1234...abcd" (mockup convention: 6 chars before, 4 after). */

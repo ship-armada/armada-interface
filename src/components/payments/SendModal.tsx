@@ -58,7 +58,7 @@ export function SendModal() {
   // Source data
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
   const max = shieldedUsdc ?? 0n
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount } = parseUsdcInput(amountStr)
   const { quote, isStale, refresh } = useFees()
   // Gate Confirm while the initial shielded-balance sync is incomplete. Both Send tabs
   // (private + external) spend the user's shielded USDC, so the same gate applies.

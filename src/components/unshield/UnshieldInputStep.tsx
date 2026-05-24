@@ -3,7 +3,7 @@
 
 import { AmountInput, ChainSelect, FeeSummary, RecipientInput } from '@/components/ui'
 import { FlowFooter } from '@/components/flow/FlowFooter'
-import { parseUsdcInput } from '@/lib/format'
+import { parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { isEvmAddress } from '@/lib/address'
 import { getNetworkConfig } from '@/config/network'
 import styles from './UnshieldInputStep.module.css'
@@ -41,9 +41,11 @@ export function UnshieldInputStep({
   const hubChainId = getNetworkConfig().hub.chainId
   const isXchain = destChainId !== hubChainId
 
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > max
-  const amountError = tooMuch ? 'Amount exceeds your private balance.' : undefined
+  // Parser-side errors (too-many-decimals etc) take precedence over balance-bound errors.
+  const amountError = usdcInputErrorMessage(parseError)
+    ?? (tooMuch ? 'Amount exceeds your private balance.' : undefined)
 
   const recipientTrimmed = recipient.trim()
   // Empty recipient is allowed (no error shown); validation only kicks in once the user types something.
@@ -53,6 +55,7 @@ export function UnshieldInputStep({
   const isValid =
     amount > 0n &&
     !tooMuch &&
+    !parseError &&
     isEvmAddress(recipientTrimmed)
 
   return (

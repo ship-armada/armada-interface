@@ -16,6 +16,12 @@
   margin-top: var(--primitives-spacing-2);
 }
 
+.helperText {
+  color: var(--semantic-color-text-dim);
+  font-size: calc(var(--primitives-fontSize-xs) * 1px);
+  margin-top: var(--primitives-spacing-2);
+}
+
 /* Display variant */
 .displayRoot {
   display: flex;

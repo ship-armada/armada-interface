@@ -3,7 +3,7 @@
 
 import { AmountInput, FeeSummary, Tabs } from '@/components/ui'
 import { FlowFooter } from '@/components/flow/FlowFooter'
-import { parseUsdcInput } from '@/lib/format'
+import { parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { rateToApy } from '@/lib/yield'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import styles from './EarnInputStep.module.css'
@@ -51,15 +51,17 @@ export function EarnInputStep({
   onCancel,
   onContinue,
 }: EarnInputStepProps) {
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > max
-  const amountError = tooMuch
-    ? tab === 'add'
-      ? 'Amount exceeds your private balance.'
-      : 'Amount exceeds your earning balance.'
-    : undefined
+  const amountError =
+    usdcInputErrorMessage(parseError)
+    ?? (tooMuch
+      ? tab === 'add'
+        ? 'Amount exceeds your private balance.'
+        : 'Amount exceeds your earning balance.'
+      : undefined)
 
-  const isValid = amount > 0n && !tooMuch
+  const isValid = amount > 0n && !tooMuch && !parseError
 
   return (
     <div className={styles.root}>

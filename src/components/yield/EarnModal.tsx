@@ -53,7 +53,7 @@ export function EarnModal() {
     yieldShares !== null && yieldRate !== null ? sharesToUsdc(yieldShares, yieldRate.rate) : null
   const max = tab === 'add' ? shieldedUsdc ?? 0n : earningUsdc ?? 0n
 
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount } = parseUsdcInput(amountStr)
   const { quote, isStale, refresh } = useFees()
   // Yield ops spend the user's shielded USDC (deposit) or shielded yield shares (withdraw).
   // Either way, we need a successful first sync before letting the user submit.
