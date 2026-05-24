@@ -48,7 +48,7 @@ export function ShieldModal() {
 
   const balances = useBalances()
   const max = balances.unshielded[fromChainId] ?? 0n
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount } = parseUsdcInput(amountStr)
 
   // useFees stays plumbed in for the relayer-submit path (need cacheId at submit time even
   // though the display fee no longer comes from the quote).

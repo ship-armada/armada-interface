@@ -3,7 +3,7 @@
 
 import { AmountInput, ChainSelect, FeeSummary, RecipientInput, Tabs } from '@/components/ui'
 import { FlowFooter } from '@/components/flow/FlowFooter'
-import { parseUsdcInput } from '@/lib/format'
+import { parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { isEvmAddress, isShieldedAddress } from '@/lib/address'
 import { getNetworkConfig } from '@/config/network'
 import styles from './SendInputStep.module.css'
@@ -54,9 +54,10 @@ export function SendInputStep({
   const hubChainId = getNetworkConfig().hub.chainId
   const isXchain = tab === 'external' && destChainId !== hubChainId
 
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > max
-  const amountError = tooMuch ? 'Amount exceeds your private balance.' : undefined
+  const amountError = usdcInputErrorMessage(parseError)
+    ?? (tooMuch ? 'Amount exceeds your private balance.' : undefined)
 
   const recipientTrimmed = recipient.trim()
   const recipientValid =
@@ -68,7 +69,7 @@ export function SendInputStep({
       : 'Enter a valid EVM address (0x… 42 chars).'
     : undefined
 
-  const isValid = amount > 0n && !tooMuch && recipientValid && !destDeploymentError
+  const isValid = amount > 0n && !tooMuch && !parseError && recipientValid && !destDeploymentError
 
   return (
     <div className={styles.root}>

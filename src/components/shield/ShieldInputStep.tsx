@@ -3,7 +3,7 @@
 
 import { AmountInput, ChainSelect, FeeSummary } from '@/components/ui'
 import { FlowFooter } from '@/components/flow/FlowFooter'
-import { parseUsdcInput } from '@/lib/format'
+import { parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { getNetworkConfig } from '@/config/network'
 import styles from './ShieldInputStep.module.css'
 
@@ -35,9 +35,13 @@ export function ShieldInputStep({
 }: ShieldInputStepProps) {
   const hubChainId = getNetworkConfig().hub.chainId
   const isXchain = fromChainId !== hubChainId
-  const amount = parseUsdcInput(amountStr)
+  const { value: amount, error: amountError } = parseUsdcInput(amountStr)
   const tooMuch = amount > max
-  const isValid = amount > 0n && !tooMuch
+  // Parser-side errors (too-many-decimals etc) take precedence over balance-bound errors —
+  // a malformed value can't meaningfully be compared to max anyway. Surfaced via AmountInput.
+  const errorMessage = usdcInputErrorMessage(amountError)
+    ?? (tooMuch ? 'Amount exceeds your available balance.' : undefined)
+  const isValid = amount > 0n && !tooMuch && !amountError
 
   return (
     <div className={styles.root}>
@@ -58,7 +62,7 @@ export function ShieldInputStep({
         value={amountStr}
         onValueChange={onAmountChange}
         max={max}
-        error={tooMuch ? 'Amount exceeds your available balance.' : undefined}
+        error={errorMessage}
       />
       <FeeSummary
         fee={fee}
