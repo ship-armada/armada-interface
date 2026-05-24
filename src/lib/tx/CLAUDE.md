@@ -60,6 +60,27 @@ interface StageHandler<K extends TxKind> {
 - `run` MUST honour `ctx.signal`. Throwing on abort is fine.
 - `resumableFrom` lists stages this handler can safely re-enter on app reload — typically the same as `lifecycle.retryableStages`.
 
+### Outer try/catch contract
+
+Every handler's `async run` wraps its switch/dispatch in `try { ... } catch (err) { ... }`. The catch MUST follow this shape so cancel + dismiss work correctly:
+
+```ts
+} catch (err) {
+  // 1. If the signal aborted, abortAndMark (cancel/dismiss) already wrote the terminal state.
+  //    Returning here without upserting prevents us from clobbering the cancelled/dismissed
+  //    record with a failed one. OCC would silently drop the write anyway — explicit return
+  //    is clearer about intent and avoids a misleading telemetry event.
+  if (ctx.signal.aborted) return
+  // 2. Otherwise classify the thrown value into a typed TxError and write it via markFailed.
+  //    classifyHandlerError preserves branded TxErrors (POLL_TIMEOUT / TX_REVERTED from inner
+  //    helpers like waitForReceiptOrFail) so the category isn't lost in the outer catch.
+  const failed = markFailed(record, classifyHandlerError(err, '<kind> failed.', record.artifacts.sourceTxHash))
+  await ctx.upsert(failed)
+}
+```
+
+The abort-check-before-markFailed pattern is invariant across every handler. If you add a new handler, copy the shape rather than improvising.
+
 ## Polling adapters
 
 `poller.ts` exports a generic `poll(pollOnce, opts)`. Stage-specific adapters (one per polling type) call into `lib/cctp.ts`, `lib/relayer.ts`, or RPC directly via `lib/events`. Convention: the adapter function is named `poll<Source>Once(...)` (e.g. `pollIrisOnce`, `pollReceiptOnce`) and returns `Promise<T | null>` — null means "no result yet, keep polling".

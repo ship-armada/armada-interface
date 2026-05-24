@@ -6,8 +6,11 @@ import { encodeFunctionData, pad, parseAbiItem } from 'viem'
 import { getPublicClient } from 'wagmi/actions'
 import {
   sendTransaction,
-  waitForTransactionReceipt,
 } from 'wagmi/actions'
+import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
+import { classifyHandlerError } from '@/lib/tx/errors'
+import { lifecycleFor } from '@/lib/tx/lifecycles'
+import { track } from '@/lib/telemetry'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
 import { getNetworkConfig } from '@/config/network'
@@ -146,8 +149,8 @@ export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
         // here it's a resume from a partially-completed delivery and we're already terminal.
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'unshield-xchain handler failed'
-      const failed = markFailed(record, message)
+      if (ctx.signal.aborted) return
+      const failed = markFailed(record, classifyHandlerError(err, 'Cross-chain withdraw failed.', record.artifacts.sourceTxHash))
       await ctx.upsert(failed)
     }
   },
@@ -243,9 +246,11 @@ async function runSubmitAndBurn(
     ),
     value: 0n,
   })
+  // Persist sourceTxHash immediately so cancel/timeout/revert can carry the hash forward.
+  await ctx.upsert(patchArtifacts(record, { sourceTxHash: hash }))
   if (ctx.signal.aborted) throw new Error('cancelled')
 
-  const receipt = await waitForTransactionReceipt(wagmiConfig, { hash })
+  const receipt = await waitForReceiptOrFail({ hash, signal: ctx.signal })
 
   // Extract the CCTP message reference from the hub receipt — gives us the indexed `nonce`
   // topic to filter destination events on (unique per CCTP message, eliminates false positives
@@ -315,6 +320,27 @@ async function runWaitForDelivery(
     : 0n
   const maxLogRange = BigInt(getNetworkConfig().maxLogRange)
 
+  // Derive the inner polling timeout from the per-kind lifecycle cap, minus whatever time has
+  // already been spent on earlier stages. This keeps the inner poll honest about the global
+  // budget — previously a hardcoded 10min capped delivery polling well below the 60min xchain
+  // cap, so a slow Iris attestation timed us out even though the outer record had ~50 min left.
+  const lifecycle = lifecycleFor(record.kind)
+  const remainingBudgetMs = record.createdAt + lifecycle.maxDurationMs - Date.now()
+  // Floor at 10s so a record that's already past its cap fails fast rather than hanging on a
+  // single tick. Above 10s we trust the lifecycle's published budget. Emit telemetry when the
+  // clamp kicks in — sustained signal here means records are landing in polling with too little
+  // budget (typically a resume-after-crash close to maxDurationMs) and the lifecycle cap or
+  // resume policy may need adjustment.
+  const POLL_FLOOR_MS = 10_000
+  if (remainingBudgetMs < POLL_FLOOR_MS) {
+    track('tx.budget.tight', {
+      id: record.id,
+      kind: record.kind,
+      elapsedMs: Date.now() - record.createdAt,
+    })
+  }
+  const pollTimeoutMs = Math.max(POLL_FLOOR_MS, remainingBudgetMs)
+
   const result = await poll<`0x${string}`>(
     async (signal) => {
       if (signal.aborted) return null
@@ -349,17 +375,26 @@ async function runWaitForDelivery(
     {
       intervalMs: 3_000,
       jitter: 0.2,
-      timeoutMs: 10 * 60_000, // 10 min cap — well below the lifecycle's 60 min xchain cap
+      timeoutMs: pollTimeoutMs,
       signal: ctx.signal,
     },
   )
 
+  if (result.status === 'aborted') {
+    // Cancel/dismiss already wrote the terminal state via abortAndMark. Returning here without
+    // throwing avoids the outer catch trying to classifyHandlerError and OCC-rejecting against
+    // the already-terminal record.
+    return
+  }
   if (result.status !== 'done') {
-    throw new Error(
-      result.status === 'aborted'
-        ? 'cancelled'
-        : 'Timed out waiting for cross-chain delivery — check the destination chain manually.',
-    )
+    // Timeout: we know the sourceTxHash and that the relayer/Iris haven't delivered within the
+    // budget. The on-chain mint may still happen later — the user should check the destination
+    // explorer. POLL_TIMEOUT category surfaces that ambiguity in the UI copy.
+    throw asTxError({
+      code: 'POLL_TIMEOUT',
+      message: 'Timed out waiting for cross-chain delivery. The destination mint may still occur — check the destination chain explorer.',
+      txHash: record.artifacts.sourceTxHash,
+    })
   }
 
   // We have ONE real signal (MessageReceived observed) — the intermediate stages between hub
@@ -376,6 +411,11 @@ async function runWaitForDelivery(
   // we wrote during the scan, so each advance() composes cleanly on top of the latest seq.
   const skipStages = ['iris-attestation-ready', 'client-mint-pending', 'client-mint-confirmed'] as const
   for (let i = 0; i < skipStages.length; i++) {
+    // Cancel/dismiss may have fired since the last delay — checking BEFORE the upsert prevents
+    // us from advancing a record that abortAndMark has already moved to a terminal state.
+    // Without this guard the OCC `updatedSeq` collision would silently drop the write, but the
+    // intent is clearer when we don't even attempt it.
+    if (ctx.signal.aborted) return
     const next = skipStages[i]!
     cursor = advance(cursor, next, next === 'client-mint-confirmed' ? { destTxHash: result.value } : {})
     await ctx.upsert(cursor)

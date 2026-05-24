@@ -7,7 +7,6 @@ import {
   readContract,
   sendTransaction,
   signMessage,
-  waitForTransactionReceipt,
   writeContract,
 } from 'wagmi/actions'
 import { erc20Abi, maxUint256 } from 'viem'
@@ -31,6 +30,10 @@ import { cctpMaxFeeForKind } from '@/lib/relayer'
 import { ensureChain } from '@/lib/network-switch'
 import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
 import { poll } from '@/lib/tx/poller'
+import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
+import { classifyHandlerError } from '@/lib/tx/errors'
+import { lifecycleFor } from '@/lib/tx/lifecycles'
+import { track } from '@/lib/telemetry'
 import { scanCctpDeliveryWindow } from '../unshield-xchain/scan'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
@@ -112,8 +115,8 @@ export const shieldXchainHandler: StageHandler<'shield-xchain'> = {
         // here only if we crashed mid-walk; we're already terminal in that case.
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'shield-xchain handler failed'
-      await ctx.upsert(markFailed(record, message))
+      if (ctx.signal.aborted) return
+      await ctx.upsert(markFailed(record, classifyHandlerError(err, 'Cross-chain deposit failed.', record.artifacts.sourceTxHash)))
     }
   },
 }
@@ -220,8 +223,7 @@ async function runSubmitAndBurn(
       functionName: 'approve',
       args: [privacyPoolClientAddress as `0x${string}`, maxUint256],
     })
-    await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
-    if (ctx.signal.aborted) throw new Error('cancelled')
+    await waitForReceiptOrFail({ hash: approveHash, signal: ctx.signal, chainId: record.meta.fromChainId })
   }
 
   // 2. destinationCaller = the HUB's hookRouter, in bytes32 form. Constrains who can call
@@ -265,13 +267,16 @@ async function runSubmitAndBurn(
     value: 0n,
     chainId: record.meta.fromChainId,
   })
+  // Persist sourceTxHash before the receipt wait so any timeout / revert / cancel error carries
+  // the hash forward into the error UX (explorer link, "Stopped tracking" copy).
+  await ctx.upsert(patchArtifacts(record, { sourceTxHash: hash }))
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // Use the client chain's public client to wait for the receipt + extract the CCTP MessageSent
-  // event. wagmi's default `waitForTransactionReceipt` is chain-agnostic but we pass chainId for
-  // clarity (and so it doesn't accidentally probe the hub).
-  const receipt = await waitForTransactionReceipt(wagmiConfig, {
+  // event. We pass chainId for clarity (and so it doesn't accidentally probe the hub).
+  const receipt = await waitForReceiptOrFail({
     hash,
+    signal: ctx.signal,
     chainId: record.meta.fromChainId,
   })
 
@@ -330,6 +335,21 @@ async function runWaitForDelivery(
     : 0n
   const maxLogRange = BigInt(getNetworkConfig().maxLogRange)
 
+  // Derive the inner poll timeout from the per-kind lifecycle cap, minus elapsed time. The
+  // hardcoded 10min that lived here previously ignored the outer 60min xchain budget — a slow
+  // Iris attestation would time us out with ~50 min still on the lifecycle clock.
+  const lifecycle = lifecycleFor(record.kind)
+  const remainingBudgetMs = record.createdAt + lifecycle.maxDurationMs - Date.now()
+  const POLL_FLOOR_MS = 10_000
+  if (remainingBudgetMs < POLL_FLOOR_MS) {
+    track('tx.budget.tight', {
+      id: record.id,
+      kind: record.kind,
+      elapsedMs: Date.now() - record.createdAt,
+    })
+  }
+  const pollTimeoutMs = Math.max(POLL_FLOOR_MS, remainingBudgetMs)
+
   const result = await poll<`0x${string}`>(
     async (signal) => {
       if (signal.aborted) return null
@@ -359,17 +379,21 @@ async function runWaitForDelivery(
     {
       intervalMs: 3_000,
       jitter: 0.2,
-      timeoutMs: 10 * 60_000,
+      timeoutMs: pollTimeoutMs,
       signal: ctx.signal,
     },
   )
 
+  if (result.status === 'aborted') {
+    // Cancel/dismiss already wrote the terminal state — no-op so we don't OCC-collide.
+    return
+  }
   if (result.status !== 'done') {
-    throw new Error(
-      result.status === 'aborted'
-        ? 'cancelled'
-        : 'Timed out waiting for cross-chain delivery — check the hub chain manually.',
-    )
+    throw asTxError({
+      code: 'POLL_TIMEOUT',
+      message: 'Timed out waiting for cross-chain delivery. The hub mint may still occur — check the hub explorer.',
+      txHash: record.artifacts.sourceTxHash,
+    })
   }
 
   // Walk through the three intermediate stages with brief gaps so the stepper renders each row
@@ -378,6 +402,9 @@ async function runWaitForDelivery(
   const STAGE_VISUAL_DELAY_MS = 350
   const skipStages = ['iris-attestation-ready', 'hub-mint-pending', 'hub-mint-confirmed'] as const
   for (let i = 0; i < skipStages.length; i++) {
+    // Abort check BEFORE the upsert — cancel/dismiss may have fired during the delay below or
+    // during the upsert latency, and we don't want to clobber the already-written terminal state.
+    if (ctx.signal.aborted) return
     const next = skipStages[i]!
     cursor = advance(cursor, next, next === 'hub-mint-confirmed' ? { destTxHash: result.value } : {})
     await ctx.upsert(cursor)

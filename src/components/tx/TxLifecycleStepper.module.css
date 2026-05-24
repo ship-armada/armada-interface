@@ -175,3 +175,11 @@
 .error {
   color: var(--semantic-color-status-error);
 }
+
+.errorCode {
+  font-family: var(--primitives-fontFamily-mono);
+  background: rgba(248, 113, 113, 0.08);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-right: 2px;
+}

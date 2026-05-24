@@ -72,7 +72,7 @@ export function TxLifecycleStepper({
   return (
     <div className={cls}>
       <header className={styles.header}>
-        <TxStatusChip state={record.executionState} />
+        <TxStatusChip state={record.executionState} error={record.artifacts.error ?? null} />
         <span className={styles.eta}>Usually takes {formatDurationHint(lifecycle.estDuration.p50)}</span>
       </header>
 
@@ -183,7 +183,11 @@ export function TxLifecycleStepper({
           {record.artifacts.error ? (
             <div>
               <dt>Error</dt>
-              <dd className={styles.error}>{record.artifacts.error}</dd>
+              <dd className={styles.error}>
+                <span className={styles.errorCode}>{record.artifacts.error.code}</span>
+                {' '}
+                {record.artifacts.error.message}
+              </dd>
             </div>
           ) : null}
         </dl>

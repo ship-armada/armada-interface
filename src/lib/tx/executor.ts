@@ -4,7 +4,7 @@
 import { getDefaultStore } from 'jotai'
 import { track, trackError } from '../telemetry'
 import { lifecycleFor } from './lifecycles'
-import { markCancelled, markExpired, markRetrying, shouldResume } from './reducer'
+import { markCancelled, markDismissed, markExpired, markRetrying, shouldResume } from './reducer'
 import { loadAllTx, putTxIfFresh } from './storage'
 import type { StageFor, TxKind, TxRecord } from './types'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
@@ -173,8 +173,33 @@ export function retryTx(id: string): void {
   executeTx(id)
 }
 
-/** Abort the in-flight handler chain for a tx and mark the record `cancelled`. */
+/**
+ * Abort the in-flight handler chain for a pre-broadcast tx and mark it `cancelled`. Use this only
+ * when the tx hasn't yet produced a `sourceTxHash` — nothing on chain to worry about.
+ *
+ * For post-broadcast records, the on-chain tx will still run regardless of what we do here, so
+ * call `dismissTx` instead — it records that the user knowingly stopped tracking, preserves the
+ * txHash for explorer linking, and uses honest copy ("Stopped tracking" not "Cancelled").
+ *
+ * Internal cleanup paths (auto-lock, tab teardown) can use either depending on whether the record
+ * has broadcast. The UI's TxActions component picks the right one based on `sourceTxHash` presence.
+ */
 export function cancelTx(id: string): void {
+  abortAndMark(id, 'cancel')
+}
+
+/**
+ * Abort tracking of a post-broadcast tx without claiming we cancelled it. Marks the record
+ * `cancelled` (execution state) with a DISMISSED error code carrying the source tx hash so the
+ * UI can render "Stopped tracking — view on explorer" and the user can recover the tx hash.
+ *
+ * The on-chain tx will run to completion (or revert) independent of this call.
+ */
+export function dismissTx(id: string): void {
+  abortAndMark(id, 'dismiss')
+}
+
+function abortAndMark(id: string, kind: 'cancel' | 'dismiss'): void {
   const controller = running.get(id)
   if (controller) {
     controller.abort()
@@ -183,19 +208,18 @@ export function cancelTx(id: string): void {
   const store = getDefaultStore()
   const record = store.get(txListAtom).find(t => t.id === id)
   if (!record) return
-  // Don't clobber an already-terminal record. OCC accepts the bumped seq, so
-  // without this guard cancel() on a completed/failed/expired tx would rewrite
-  // its terminal state to `cancelled` in both the atom and IDB.
+  // Don't clobber an already-terminal record. OCC accepts the bumped seq, so without this guard
+  // a cancel on a completed/failed/expired tx would rewrite its terminal state in atom + IDB.
   if (record.executionState === 'completed'
     || record.executionState === 'failed'
     || record.executionState === 'expired'
     || record.executionState === 'cancelled') {
     return
   }
-  const cancelled = markCancelled(record)
-  store.set(upsertTxAtom, cancelled)
-  void putTxIfFresh(cancelled)
-  track('tx.cancelled', { id: cancelled.id, kind: cancelled.kind })
+  const next = kind === 'dismiss' ? markDismissed(record) : markCancelled(record)
+  store.set(upsertTxAtom, next)
+  void putTxIfFresh(next)
+  track('tx.cancelled', { id: next.id, kind: next.kind })
 }
 
 /* ----- Internals ----- */

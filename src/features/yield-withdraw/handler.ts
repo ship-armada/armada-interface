@@ -3,7 +3,6 @@
 
 import {
   sendTransaction,
-  waitForTransactionReceipt,
 } from 'wagmi/actions'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments, loadYieldDeployment } from '@/config/deployments'
@@ -17,7 +16,9 @@ import {
 import { refreshShieldedBalances } from '@/lib/railgun/sync'
 import { buildYieldAdaptTransaction } from '@/lib/railgun/yield'
 import { ensureChain } from '@/lib/network-switch'
-import { advance, markFailed } from '@/lib/tx/reducer'
+import { advance, markFailed, patchArtifacts } from '@/lib/tx/reducer'
+import { waitForReceiptOrFail } from '@/lib/tx/receipt'
+import { classifyHandlerError } from '@/lib/tx/errors'
 import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
@@ -43,8 +44,8 @@ export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
         return
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'yield-withdraw handler failed'
-      await ctx.upsert(markFailed(record, message))
+      if (ctx.signal.aborted) return
+      await ctx.upsert(markFailed(record, classifyHandlerError(err, 'Vault withdrawal failed.', record.artifacts.sourceTxHash)))
     }
   },
 }
@@ -115,9 +116,10 @@ async function runSubmitAndConfirm(
     data: yieldTx.data,
     value: BigInt(yieldTx.value),
   })
+  await ctx.upsert(patchArtifacts(record, { sourceTxHash: hash }))
   if (ctx.signal.aborted) throw new Error('cancelled')
 
-  await waitForTransactionReceipt(wagmiConfig, { hash })
+  await waitForReceiptOrFail({ hash, signal: ctx.signal })
 
   if (kmIsUnlocked()) {
     void refreshShieldedBalances(kmGetWalletId()).catch(() => {})

@@ -10,6 +10,7 @@ import { userFeeForKind } from '@/lib/relayer'
 import { useBalances } from '@/hooks/useBalances'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
+import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import {
   ActionFlowShell,
   ProgressStep,
@@ -167,7 +168,9 @@ export function ShieldModal() {
       {step === 'complete' && <ShieldCompleteStep netAmount={netAmount} onDone={close} />}
       {step === 'error' && (
         <ErrorStep
-          message={submitError ?? record?.artifacts.error ?? undefined}
+          error={record?.artifacts.error ?? null}
+          message={submitError ?? undefined}
+          explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
           onRetry={errorAtStep === 'review' ? () => setStep('review') : () => activeTx?.retry()}
         />
       )}

@@ -169,11 +169,44 @@ export type MetaFor<K extends TxKind> =
 
 /* Artifacts — opaque outputs accumulated as stages complete. */
 
+/**
+ * Categorised error codes carried on a failed/cancelled record so the UI can pick honest copy.
+ *
+ *  TX_REVERTED   — the on-chain tx was mined and reverted. Funds did not move (or moved + reverted).
+ *  POLL_TIMEOUT  — we lost track of an on-chain tx whose hash we know. It MAY still succeed; the
+ *                  user should check their wallet or the explorer. Distinct from TX_REVERTED.
+ *  RPC_ERROR     — wagmi/viem call threw before we got any tx hash. Usually safe to retry.
+ *  USER_REJECTED — the user declined a wallet signature or chain switch.
+ *  CANCELLED     — user-initiated cancel on a record that hadn't broadcast yet. Nothing on-chain.
+ *  DISMISSED     — user "stopped tracking" a record that HAD broadcast. The on-chain tx will run
+ *                  to completion; we just stopped watching it. We persist the txHash so the user
+ *                  can find it on the explorer.
+ *  OTHER         — unclassified error. Catch-all for handler bugs and unexpected throws.
+ */
+export type TxErrorCode =
+  | 'TX_REVERTED'
+  | 'POLL_TIMEOUT'
+  | 'RPC_ERROR'
+  | 'USER_REJECTED'
+  | 'CANCELLED'
+  | 'DISMISSED'
+  | 'OTHER'
+
+/**
+ * Typed error carried in `artifacts.error`. The `txHash` field is critical for POLL_TIMEOUT and
+ * DISMISSED: without it the user has no way to find their in-flight tx on the explorer.
+ */
+export interface TxError {
+  code: TxErrorCode
+  message: string
+  txHash?: `0x${string}`
+}
+
 export interface ArtifactsCommon {
-  /** Hash of the relayer-submitted transaction on the source chain. */
+  /** Hash of the user/relayer-submitted transaction on the source chain. */
   sourceTxHash?: `0x${string}`
-  /** Error message if the tx failed. */
-  error?: string
+  /** Categorised error if the record terminated unsuccessfully (failed / expired / cancelled-with-context). */
+  error?: TxError
   /**
    * ZK-proof generation progress (0–1). Set by the build-proof stage of any kind that calls
    * `generateUnshieldProof` / `generateTransferProof` / `generateProofTransactions`. Atom-only
