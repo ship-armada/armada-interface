@@ -33,6 +33,7 @@ import { poll } from '@/lib/tx/poller'
 import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
 import { classifyHandlerError } from '@/lib/tx/errors'
 import { lifecycleFor } from '@/lib/tx/lifecycles'
+import { track } from '@/lib/telemetry'
 import { scanCctpDeliveryWindow } from '../unshield-xchain/scan'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
@@ -339,7 +340,15 @@ async function runWaitForDelivery(
   // Iris attestation would time us out with ~50 min still on the lifecycle clock.
   const lifecycle = lifecycleFor(record.kind)
   const remainingBudgetMs = record.createdAt + lifecycle.maxDurationMs - Date.now()
-  const pollTimeoutMs = Math.max(10_000, remainingBudgetMs)
+  const POLL_FLOOR_MS = 10_000
+  if (remainingBudgetMs < POLL_FLOOR_MS) {
+    track('tx.budget.tight', {
+      id: record.id,
+      kind: record.kind,
+      elapsedMs: Date.now() - record.createdAt,
+    })
+  }
+  const pollTimeoutMs = Math.max(POLL_FLOOR_MS, remainingBudgetMs)
 
   const result = await poll<`0x${string}`>(
     async (signal) => {

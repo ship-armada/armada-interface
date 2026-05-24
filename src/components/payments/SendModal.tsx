@@ -16,7 +16,7 @@ import {
 } from '@/config/deployments'
 import { parseUsdcInput } from '@/lib/format'
 import { userFeeForKind } from '@/lib/relayer'
-import { txExplorerUrl } from '@/lib/explorer'
+import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import {
   ActionFlowShell,
   ProgressStep,
@@ -230,7 +230,7 @@ export function SendModal() {
         <ErrorStep
           error={record?.artifacts.error ?? null}
           message={submitError ?? undefined}
-          explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, record?.artifacts.error?.txHash ?? record?.artifacts.sourceTxHash)}
+          explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
           onRetry={errorAtStep === 'review' ? () => setStep('review') : () => activeTx?.retry()}
         />
       )}

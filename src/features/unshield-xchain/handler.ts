@@ -10,6 +10,7 @@ import {
 import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
 import { classifyHandlerError } from '@/lib/tx/errors'
 import { lifecycleFor } from '@/lib/tx/lifecycles'
+import { track } from '@/lib/telemetry'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
 import { getNetworkConfig } from '@/config/network'
@@ -326,8 +327,19 @@ async function runWaitForDelivery(
   const lifecycle = lifecycleFor(record.kind)
   const remainingBudgetMs = record.createdAt + lifecycle.maxDurationMs - Date.now()
   // Floor at 10s so a record that's already past its cap fails fast rather than hanging on a
-  // single tick. Above 10s we trust the lifecycle's published budget.
-  const pollTimeoutMs = Math.max(10_000, remainingBudgetMs)
+  // single tick. Above 10s we trust the lifecycle's published budget. Emit telemetry when the
+  // clamp kicks in — sustained signal here means records are landing in polling with too little
+  // budget (typically a resume-after-crash close to maxDurationMs) and the lifecycle cap or
+  // resume policy may need adjustment.
+  const POLL_FLOOR_MS = 10_000
+  if (remainingBudgetMs < POLL_FLOOR_MS) {
+    track('tx.budget.tight', {
+      id: record.id,
+      kind: record.kind,
+      elapsedMs: Date.now() - record.createdAt,
+    })
+  }
+  const pollTimeoutMs = Math.max(POLL_FLOOR_MS, remainingBudgetMs)
 
   const result = await poll<`0x${string}`>(
     async (signal) => {

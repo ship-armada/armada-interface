@@ -36,6 +36,11 @@ export type EventRegistry = {
   'tx.failed':                { id: string; kind: TxKind; errorCode?: string }
   'tx.expired':               { id: string; kind: TxKind }
   'tx.cancelled':             { id: string; kind: TxKind }
+  // Fired when an xchain handler enters runWaitForDelivery with less than the inner-poll floor
+  // of lifecycle budget remaining. The handler clamps to a 10s minimum (rather than failing
+  // immediately) but a sustained signal here indicates records being created with too little
+  // budget headroom — typically a resume-after-crash that landed close to maxDurationMs.
+  'tx.budget.tight':          { id: string; kind: TxKind; elapsedMs: number }
 
   'tx.engine.started':        { isLeader: boolean }
   'tx.engine.no-handler':     { kind: TxKind }
