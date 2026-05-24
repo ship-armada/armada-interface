@@ -27,9 +27,15 @@ const TOTAL_STEPS = 6
 export interface OnboardingFlowProps {
   /** Called when the user clicks Done on the final step. Parent should swap App-level mode to "app". */
   onDone: () => void
+  /**
+   * Optional escape hatch on the Welcome step — switches to the restore-from-backup flow. Parent
+   * supplies this when the user is on first-run-onboarding but might already have a wallet
+   * (e.g. new device or cleared storage).
+   */
+  onRestore?: () => void
 }
 
-export function OnboardingFlow({ onDone }: OnboardingFlowProps) {
+export function OnboardingFlow({ onDone, onRestore }: OnboardingFlowProps) {
   const { state, enroll, exportBackup } = useShieldedWallet()
   const [step, setStep] = useState<Step>('welcome')
 
@@ -45,7 +51,7 @@ export function OnboardingFlow({ onDone }: OnboardingFlowProps) {
       totalSteps={TOTAL_STEPS}
     >
       {step === 'welcome' && (
-        <WelcomeStep onContinue={() => setStep('sign')} />
+        <WelcomeStep onContinue={() => setStep('sign')} onRestore={onRestore} />
       )}
 
       {step === 'sign' && (

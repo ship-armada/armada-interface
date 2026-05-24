@@ -16,4 +16,20 @@ describe('<WelcomeStep>', () => {
     fireEvent.click(screen.getByRole('button', { name: /Create account/ }))
     expect(onContinue).toHaveBeenCalledTimes(1)
   })
+
+  it('hides the Restore secondary CTA when onRestore is not supplied', () => {
+    render(<WelcomeStep onContinue={() => {}} />)
+    expect(screen.queryByRole('button', { name: /restore/i })).toBeNull()
+  })
+
+  it('renders the Restore CTA when onRestore is supplied and fires it on click', () => {
+    // Covers the "new device / cleared storage but I already have a backup" path: App.tsx
+    // unconditionally supplies onRestore in onboarding mode, so this CTA is the escape hatch
+    // that prevents a returning-user-on-a-new-device from being forced into creating a fresh
+    // (orphaning) account.
+    const onRestore = vi.fn()
+    render(<WelcomeStep onContinue={() => {}} onRestore={onRestore} />)
+    fireEvent.click(screen.getByRole('button', { name: /restore/i }))
+    expect(onRestore).toHaveBeenCalledTimes(1)
+  })
 })

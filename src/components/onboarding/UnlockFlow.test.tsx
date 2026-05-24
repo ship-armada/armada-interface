@@ -22,12 +22,12 @@ vi.mock('@/hooks/useShieldedWallet', () => ({
   }),
 }))
 
-function renderWith() {
+function renderWith(opts?: { onCreateNew?: () => void }) {
   const store = createStore()
   const onUnlocked = vi.fn()
   render(
     <Provider store={store}>
-      <UnlockFlow onUnlocked={onUnlocked} />
+      <UnlockFlow onUnlocked={onUnlocked} onCreateNew={opts?.onCreateNew} />
     </Provider>,
   )
   return { onUnlocked }
@@ -117,5 +117,33 @@ describe('<UnlockFlow> — mode switching', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Backup file' }))
     fireEvent.click(screen.getByRole('tab', { name: 'Paste secret' }))
     expect(screen.getByLabelText(/Recovery secret/)).toHaveValue('')
+  })
+})
+
+describe('<UnlockFlow> — Create-new escape hatch', () => {
+  it('does NOT render the Create-new link when onCreateNew is not supplied', () => {
+    // The returning-user case (had a wallet on this device): we don't show the link so a
+    // misclick can't orphan their existing wallet.
+    renderWith()
+    expect(screen.queryByRole('button', { name: /create a new account/i })).toBeNull()
+  })
+
+  it('renders the Create-new link when onCreateNew is supplied and fires it on click', () => {
+    // The new-device-no-backup case: user might have arrived here via the WelcomeStep Restore
+    // CTA but then realised they don't have a backup. The link lets them switch back.
+    const onCreateNew = vi.fn()
+    renderWith({ onCreateNew })
+    const link = screen.getByRole('button', { name: /create a new account/i })
+    fireEvent.click(link)
+    expect(onCreateNew).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the Create-new link in both paste and backup tab modes', () => {
+    // The link lives outside the per-mode form so it stays visible regardless of which tab is
+    // selected — switching tabs while looking for the link shouldn't make it disappear.
+    renderWith({ onCreateNew: vi.fn() })
+    expect(screen.getByRole('button', { name: /create a new account/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Paste secret' }))
+    expect(screen.getByRole('button', { name: /create a new account/i })).toBeInTheDocument()
   })
 })

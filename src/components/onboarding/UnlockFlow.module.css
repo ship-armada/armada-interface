@@ -59,3 +59,24 @@
   align-self: stretch;
   margin: var(--primitives-spacing-6) calc(var(--primitives-spacing-6) * -1) calc(var(--primitives-spacing-6) * -1);
 }
+
+.createNew {
+  text-align: center;
+  color: var(--semantic-color-text-muted);
+  margin-top: var(--primitives-spacing-3);
+}
+
+.createNewLink {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--semantic-color-brand-lavender);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+
+.createNewLink:hover,
+.createNewLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
