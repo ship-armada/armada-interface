@@ -2,7 +2,7 @@
 // ABOUTME: Hooks call these and write the result back to the txListAtom + IDB. Every transition increments updatedSeq (OCC; see storage.ts).
 
 import { lifecycleFor } from './lifecycles'
-import type { ArtifactsFor, StageFor, TxKind, TxRecord } from './types'
+import type { ArtifactsFor, StageFor, TxError, TxKind, TxRecord } from './types'
 
 /** Reach the next stage. Sets executionState to `completed` if at terminalSuccess, else `active`. */
 export function advance<K extends TxKind>(
@@ -51,13 +51,22 @@ export function markRetrying<K extends TxKind>(record: TxRecord<K>): TxRecord<K>
   }
 }
 
-export function markFailed<K extends TxKind>(record: TxRecord<K>, error: string): TxRecord<K> {
+/**
+ * Mark a record `failed`. Accepts either a typed TxError or a plain string (auto-wrapped as
+ * `{ code: 'OTHER', message: string }`) so existing call sites that didn't categorize compile
+ * without change — new code should pass typed errors so the UI can pick honest copy.
+ */
+export function markFailed<K extends TxKind>(
+  record: TxRecord<K>,
+  error: TxError | string,
+): TxRecord<K> {
+  const errorObj: TxError = typeof error === 'string' ? { code: 'OTHER', message: error } : error
   return {
     ...record,
     executionState: 'failed',
     updatedSeq: record.updatedSeq + 1,
     updatedAt: Date.now(),
-    artifacts: { ...record.artifacts, error } as Partial<ArtifactsFor<K>>,
+    artifacts: { ...record.artifacts, error: errorObj } as Partial<ArtifactsFor<K>>,
   }
 }
 
@@ -70,12 +79,43 @@ export function markExpired<K extends TxKind>(record: TxRecord<K>): TxRecord<K> 
   }
 }
 
+/**
+ * User-initiated cancel of a pre-broadcast record. Sets a CANCELLED error so the UI can render
+ * honest copy ("Cancelled — no transaction was sent") and distinguish from auto-lock cleanup or
+ * other internal cancels.
+ *
+ * For post-broadcast records, use `markDismissed` instead — the on-chain tx still runs but we
+ * stopped watching it.
+ */
 export function markCancelled<K extends TxKind>(record: TxRecord<K>): TxRecord<K> {
+  const cancelError: TxError = { code: 'CANCELLED', message: 'Cancelled before submission.' }
   return {
     ...record,
     executionState: 'cancelled',
     updatedSeq: record.updatedSeq + 1,
     updatedAt: Date.now(),
+    artifacts: { ...record.artifacts, error: cancelError } as Partial<ArtifactsFor<K>>,
+  }
+}
+
+/**
+ * User "stopped tracking" a record that had already broadcast on chain. The tx will still run to
+ * completion (or revert) on chain — we just dropped it from our active polling. Persists the
+ * sourceTxHash in the error so the UI can link the user to the explorer.
+ */
+export function markDismissed<K extends TxKind>(record: TxRecord<K>): TxRecord<K> {
+  const sourceTxHash = (record.artifacts as { sourceTxHash?: `0x${string}` }).sourceTxHash
+  const dismissError: TxError = {
+    code: 'DISMISSED',
+    message: 'Stopped tracking — the transaction may still complete on chain.',
+    txHash: sourceTxHash,
+  }
+  return {
+    ...record,
+    executionState: 'cancelled',
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
+    artifacts: { ...record.artifacts, error: dismissError } as Partial<ArtifactsFor<K>>,
   }
 }
 

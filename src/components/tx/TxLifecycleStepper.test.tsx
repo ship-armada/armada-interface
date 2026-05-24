@@ -78,17 +78,18 @@ describe('<TxLifecycleStepper>', () => {
     expect(currentRow?.textContent).toMatch(/Waiting for cross-chain confirmation/)
   })
 
-  it('surfaces error text inside the technical details when present', () => {
+  it('surfaces the categorised error code + message inside the technical details when present', () => {
     render(
       <TxLifecycleStepper
         record={shieldRecord({
           executionState: 'failed',
-          artifacts: { error: 'Relayer returned 502' },
+          artifacts: { error: { code: 'RPC_ERROR', message: 'Relayer returned 502' } },
         })}
         technicalDetailsDefaultOpen
       />,
     )
-    expect(screen.getByText('Relayer returned 502')).toBeInTheDocument()
+    expect(screen.getByText('RPC_ERROR')).toBeInTheDocument()
+    expect(screen.getByText(/Relayer returned 502/)).toBeInTheDocument()
   })
 
   it('shows source tx hash inside the technical details', () => {

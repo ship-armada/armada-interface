@@ -10,6 +10,7 @@ import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { getNetworkConfig } from '@/config/network'
 import { parseUsdcInput } from '@/lib/format'
+import { txExplorerUrl } from '@/lib/explorer'
 import { userFeeForKind } from '@/lib/relayer'
 import {
   ActionFlowShell,
@@ -189,7 +190,9 @@ export function UnshieldModal() {
       )}
       {step === 'error' && (
         <ErrorStep
-          message={submitError ?? record?.artifacts.error ?? undefined}
+          error={record?.artifacts.error ?? null}
+          message={submitError ?? undefined}
+          explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, record?.artifacts.error?.txHash ?? record?.artifacts.sourceTxHash)}
           onRetry={errorAtStep === 'review' ? () => setStep('review') : () => activeTx?.retry()}
         />
       )}

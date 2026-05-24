@@ -31,6 +31,19 @@
   max-width: 44ch;
 }
 
+.explorerLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  color: var(--semantic-color-brand-lavender);
+  text-decoration: underline;
+}
+
+.explorerLink:hover,
+.explorerLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
 .footer {
   /* Span the dialog edges; cancel the ActionFlowShell body's 24px padding. */
   align-self: stretch;

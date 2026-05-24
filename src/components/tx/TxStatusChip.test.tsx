@@ -22,4 +22,24 @@ describe('<TxStatusChip>', () => {
     render(<TxStatusChip state={state} />)
     expect(screen.getByText(label)).toBeInTheDocument()
   })
+
+  it('renders cancelled + DISMISSED error as "Stopped tracking"', () => {
+    // The user explicitly stopped watching a post-broadcast tx. "Cancelled" would mislead them
+    // into thinking the on-chain tx didn't happen — "Stopped tracking" is the honest label.
+    render(
+      <TxStatusChip
+        state="cancelled"
+        error={{ code: 'DISMISSED', message: '', txHash: '0xabc' }}
+      />,
+    )
+    expect(screen.getByText('Stopped tracking')).toBeInTheDocument()
+    expect(screen.queryByText('Cancelled')).toBeNull()
+  })
+
+  it('still renders cancelled + CANCELLED error as "Cancelled" (pre-broadcast cancel path)', () => {
+    // When the cancel happened before broadcast (no txHash), the label is unchanged. The
+    // distinction matters only for the dismissed path.
+    render(<TxStatusChip state="cancelled" error={{ code: 'CANCELLED', message: '' }} />)
+    expect(screen.getByText('Cancelled')).toBeInTheDocument()
+  })
 })

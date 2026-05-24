@@ -79,7 +79,7 @@ export function TxRow({
         ) : null}
       </div>
       <div className={styles.meta}>
-        <TxStatusChip state={record.executionState} />
+        <TxStatusChip state={record.executionState} error={record.artifacts.error ?? null} />
         <span className={styles.time}>{formatRelativeTime(record.updatedAt)}</span>
       </div>
     </Tag>

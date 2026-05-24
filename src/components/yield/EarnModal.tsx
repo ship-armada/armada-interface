@@ -11,6 +11,7 @@ import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { parseUsdcInput } from '@/lib/format'
 import { userFeeForKind } from '@/lib/relayer'
+import { txExplorerUrl } from '@/lib/explorer'
 import { sharesToUsdc } from '@/lib/yield'
 import {
   ActionFlowShell,
@@ -195,7 +196,9 @@ export function EarnModal() {
       )}
       {step === 'error' && (
         <ErrorStep
-          message={submitError ?? record?.artifacts.error ?? undefined}
+          error={record?.artifacts.error ?? null}
+          message={submitError ?? undefined}
+          explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, record?.artifacts.error?.txHash ?? record?.artifacts.sourceTxHash)}
           onRetry={errorAtStep === 'review' ? () => setStep('review') : () => activeTx?.retry()}
         />
       )}

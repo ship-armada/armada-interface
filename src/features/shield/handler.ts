@@ -4,9 +4,10 @@
 import {
   readContract,
   signMessage,
-  waitForTransactionReceipt,
   writeContract,
 } from 'wagmi/actions'
+import { waitForReceiptOrFail } from '@/lib/tx/receipt'
+import { classifyHandlerError } from '@/lib/tx/errors'
 import { erc20Abi, maxUint256 } from 'viem'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
@@ -23,7 +24,7 @@ import {
   SHIELD_SIGNATURE_MESSAGE,
 } from '@/lib/railgun/shield'
 import { ensureChain } from '@/lib/network-switch'
-import { advance, markFailed } from '@/lib/tx/reducer'
+import { advance, markFailed, patchArtifacts } from '@/lib/tx/reducer'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -103,8 +104,11 @@ export const shieldHandler: StageHandler<'shield'> = {
         return
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'shield handler failed'
-      const failed = markFailed(record, message)
+      // If the user cancelled / auto-lock fired, abortAndMark already wrote the terminal state.
+      // The throw bubbling up here is the cooperative response to the abort signal — no-op so we
+      // don't clobber the cancelled/dismissed record with a failed one.
+      if (ctx.signal.aborted) return
+      const failed = markFailed(record, classifyHandlerError(err, 'Shield failed.', record.artifacts.sourceTxHash))
       await ctx.upsert(failed)
     }
   },
@@ -201,7 +205,7 @@ async function runSubmitAndConfirm(
       functionName: 'approve',
       args: [privacyPoolAddress as `0x${string}`, maxUint256],
     })
-    await waitForTransactionReceipt(wagmiConfig, { hash: approveHash })
+    await waitForReceiptOrFail({ hash: approveHash, signal: ctx.signal })
     if (ctx.signal.aborted) throw new Error('cancelled')
   }
 
@@ -227,12 +231,17 @@ async function runSubmitAndConfirm(
     functionName: 'shield',
     args: [[shieldRequestTuple], getIntegratorAddress()],
   })
+  // Persist the source tx hash immediately so any subsequent failure (timeout, revert, cancel)
+  // carries the hash for the explorer-link UX. Writing as a patch — not an `advance` — because
+  // we're still inside the submit-relayer stage waiting for the receipt.
+  await ctx.upsert(patchArtifacts(record, { sourceTxHash: shieldHash }))
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // 3. Wait for confirmation. The SDK's merkle scan will pick up the new commitment via the
   //    onBalanceUpdate callback — but we also kick a refresh explicitly so the UI doesn't have
-  //    to wait for the SDK's poll interval.
-  await waitForTransactionReceipt(wagmiConfig, { hash: shieldHash })
+  //    to wait for the SDK's poll interval. Timeout-and-signal-aware so a wedged RPC doesn't
+  //    pin this handler for the full 10-min lifecycle cap.
+  await waitForReceiptOrFail({ hash: shieldHash, signal: ctx.signal })
 
   if (kmIsUnlocked()) {
     // Fire-and-forget — failures here are non-fatal (the periodic refresh would catch it).

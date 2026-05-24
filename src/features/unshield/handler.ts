@@ -3,7 +3,6 @@
 
 import {
   sendTransaction,
-  waitForTransactionReceipt,
 } from 'wagmi/actions'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
@@ -19,7 +18,9 @@ import {
   generateUnshieldProofForRecipient,
   populateUnshieldTransaction,
 } from '@/lib/railgun/unshield'
-import { advance, markFailed } from '@/lib/tx/reducer'
+import { advance, markFailed, patchArtifacts } from '@/lib/tx/reducer'
+import { waitForReceiptOrFail } from '@/lib/tx/receipt'
+import { classifyHandlerError } from '@/lib/tx/errors'
 import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
@@ -52,8 +53,8 @@ export const unshieldLocalHandler: StageHandler<'unshield-local'> = {
       // hub-confirmed is terminal; advance() flips executionState to 'completed' so the executor
       // loop won't re-enter this handler. Defensive no-op for resume-on-load.
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'unshield-local handler failed'
-      const failed = markFailed(record, message)
+      if (ctx.signal.aborted) return
+      const failed = markFailed(record, classifyHandlerError(err, 'Unshield failed.', record.artifacts.sourceTxHash))
       await ctx.upsert(failed)
     }
   },
@@ -121,9 +122,12 @@ async function runSubmitAndConfirm(
     data: populated.data,
     value: populated.value,
   })
+  // Persist sourceTxHash before the receipt wait so a cancel/timeout that happens during the
+  // wait carries the hash forward into the error UX (explorer link / "stopped tracking" copy).
+  await ctx.upsert(patchArtifacts(record, { sourceTxHash: hash }))
   if (ctx.signal.aborted) throw new Error('cancelled')
 
-  await waitForTransactionReceipt(wagmiConfig, { hash })
+  await waitForReceiptOrFail({ hash, signal: ctx.signal })
 
   // Kick an immediate balance refresh — same fire-and-forget pattern as the shield handler.
   if (kmIsUnlocked()) {
