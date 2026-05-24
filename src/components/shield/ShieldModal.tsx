@@ -84,6 +84,9 @@ export function ShieldModal() {
   }, [isOpen])
 
   // Once the tx record exists and reaches a terminal state, transition step accordingly.
+  // Dep is `record?.executionState` rather than `record` so artifact patches (e.g. proofProgress
+  // ticks, log-scan cursor advances on xchain) don't re-fire the effect needlessly. The body
+  // only branches on executionState.
   useEffect(() => {
     if (!record) return
     if (record.executionState === 'completed') setStep('complete')
@@ -91,7 +94,7 @@ export function ShieldModal() {
       setStep('error')
       setErrorAtStep('progress')
     }
-  }, [record])
+  }, [record?.executionState])
 
   function close() {
     setOpenModal(null)

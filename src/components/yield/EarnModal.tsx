@@ -91,7 +91,10 @@ export function EarnModal() {
 
   // Watch the submitted record for terminal transitions. On completed, refresh the rate so the
   // post-tx balance / APY view reflects the new vault state immediately (rather than waiting up
-  // to 5 min for the next poll tick).
+  // to 5 min for the next poll tick). Dep is `record?.executionState` rather than `record` so
+  // artifact patches during proof-progress updates don't re-fire — the body only branches on
+  // executionState. The `refreshYieldRate` reference is intentionally elided from deps (same as
+  // the open-side effect above) since its identity can churn without semantic change.
   useEffect(() => {
     if (!record) return
     if (record.executionState === 'completed') {
@@ -103,7 +106,7 @@ export function EarnModal() {
       setErrorAtStep('progress')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record])
+  }, [record?.executionState])
 
   function close() {
     setOpenModal(null)
