@@ -17,6 +17,7 @@ import {
 import { parseUsdcInput } from '@/lib/format'
 import { userFeeForKind } from '@/lib/relayer'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { trackError } from '@/lib/telemetry'
 import {
   ActionFlowShell,
   ProgressStep,
@@ -72,7 +73,16 @@ export function SendModal() {
     let cancelled = false
     void loadDeployments()
       .then(d => { if (!cancelled) setDeployments(d) })
-      .catch(() => { /* leave null — gate stays neutral, submit will surface the real error */ })
+      .catch(err => {
+        // Leave `deployments` null — `destHasDeployment` below stays `true` until the manifest
+        // is known, so the user can still proceed through the form; the submit step's own
+        // error path will surface the real failure if it persists. Telemetry is the only signal
+        // we have here, since the user wouldn't otherwise know loadDeployments tried and failed.
+        trackError('SendModal.loadDeployments', err, {
+          scope: 'send.deployments',
+          message: 'failed to load deployment manifests for destination-chain check',
+        })
+      })
     return () => { cancelled = true }
   }, [isOpen])
   const destHasDeployment =
@@ -115,7 +125,9 @@ export function SendModal() {
     }
   }, [isOpen])
 
-  // Watch the submitted record for terminal transitions.
+  // Watch the submitted record for terminal transitions. Dep is `record?.executionState` rather
+  // than `record` so artifact patches during xchain polling don't re-fire this needlessly — the
+  // body only branches on executionState.
   useEffect(() => {
     if (!record) return
     if (record.executionState === 'completed') setStep('complete')
@@ -123,7 +135,7 @@ export function SendModal() {
       setStep('error')
       setErrorAtStep('progress')
     }
-  }, [record])
+  }, [record?.executionState])
 
   function close() {
     setOpenModal(null)

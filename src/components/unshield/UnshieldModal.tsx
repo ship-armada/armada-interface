@@ -93,7 +93,9 @@ export function UnshieldModal() {
     }
   }, [isOpen])
 
-  // Watch the submitted record for terminal transitions.
+  // Watch the submitted record for terminal transitions. Dep is `record?.executionState` rather
+  // than `record` so artifact patches during xchain polling don't re-fire this needlessly — the
+  // body only branches on executionState.
   useEffect(() => {
     if (!record) return
     if (record.executionState === 'completed') setStep('complete')
@@ -101,7 +103,7 @@ export function UnshieldModal() {
       setStep('error')
       setErrorAtStep('progress')
     }
-  }, [record])
+  }, [record?.executionState])
 
   function close() {
     setOpenModal(null)

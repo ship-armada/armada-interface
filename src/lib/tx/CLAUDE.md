@@ -45,6 +45,12 @@ Key behaviour:
 - **Resume on cold load.** `startEngine()` walks `txListAtom`, finds non-terminal records, calls `shouldResume(record)` (per-kind expiry cap). Either resumes (calls `executeTx(record.id)`) or marks `expired`.
 - **AbortController per running tx.** `cancelTx(id)` aborts the controller; the handler must check `ctx.signal` and propagate. Stage handlers wire `ctx.signal` into their pollers.
 
+### Stage naming caveat — `'submit-relayer'` is a framework label
+
+The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `unshield-xchain`, `shield-xchain`). The name suggests the relayer submits the tx — that's the eventual model when `submitRelay` is wired (see `lib/relayer.ts`), but **today every handler submits via the user's own wallet** through `wagmi/actions::sendTransaction` / `writeContract`. The stage name is a stable framework label for "tx-on-the-wire," not an indicator of who sends it.
+
+This matters when scoping work like fee display, ETA estimation, or stage copy — don't assume `'submit-relayer'` means we're in relayer-mediated mode. Per-kind handler is the source of truth for submission shape.
+
 ### Stage handler contract
 
 ```ts
