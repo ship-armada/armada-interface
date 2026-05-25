@@ -30,6 +30,23 @@ describe('<ErrorStep>', () => {
     expect(screen.getByText('Transaction failed on chain')).toBeInTheDocument()
   })
 
+  it('uses pre-flight-specific copy for PRE_FLIGHT_REVERT and surfaces the actual revert reason', () => {
+    // WHY: distinct from TX_REVERTED. The user's wallet was never prompted and no funds
+    // moved. The title must convey "nothing was sent" so the user doesn't believe they
+    // paid gas. The body must surface the actual contract reason (from error.message) so
+    // the user can act on it (e.g. retry to re-generate against a fresh merkle root).
+    render(
+      <ErrorStep
+        error={{
+          code: 'PRE_FLIGHT_REVERT',
+          message: 'execution reverted: MerkleRootInvalid()',
+        }}
+      />,
+    )
+    expect(screen.getByText('Pre-flight check failed — nothing was sent')).toBeInTheDocument()
+    expect(screen.getByText(/MerkleRootInvalid/)).toBeInTheDocument()
+  })
+
   it('uses category-specific copy for USER_REJECTED', () => {
     render(<ErrorStep error={{ code: 'USER_REJECTED', message: 'user denied' }} />)
     expect(screen.getByText('Action declined')).toBeInTheDocument()

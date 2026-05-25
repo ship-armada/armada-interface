@@ -172,19 +172,23 @@ export type MetaFor<K extends TxKind> =
 /**
  * Categorised error codes carried on a failed/cancelled record so the UI can pick honest copy.
  *
- *  TX_REVERTED   — the on-chain tx was mined and reverted. Funds did not move (or moved + reverted).
- *  POLL_TIMEOUT  — we lost track of an on-chain tx whose hash we know. It MAY still succeed; the
- *                  user should check their wallet or the explorer. Distinct from TX_REVERTED.
- *  RPC_ERROR     — wagmi/viem call threw before we got any tx hash. Usually safe to retry.
- *  USER_REJECTED — the user declined a wallet signature or chain switch.
- *  CANCELLED     — user-initiated cancel on a record that hadn't broadcast yet. Nothing on-chain.
- *  DISMISSED     — user "stopped tracking" a record that HAD broadcast. The on-chain tx will run
- *                  to completion; we just stopped watching it. We persist the txHash so the user
- *                  can find it on the explorer.
- *  OTHER         — unclassified error. Catch-all for handler bugs and unexpected throws.
+ *  TX_REVERTED       — the on-chain tx was mined and reverted. Funds did not move (or moved + reverted).
+ *  PRE_FLIGHT_REVERT — a handler-side `eth_call` simulation reverted BEFORE the tx was submitted.
+ *                      Distinct from TX_REVERTED: nothing was sent, no wallet prompt, no gas paid.
+ *                      The UI must communicate "nothing happened" (not "your tx failed on chain").
+ *  POLL_TIMEOUT      — we lost track of an on-chain tx whose hash we know. It MAY still succeed;
+ *                      the user should check their wallet or the explorer. Distinct from TX_REVERTED.
+ *  RPC_ERROR         — wagmi/viem call threw before we got any tx hash. Usually safe to retry.
+ *  USER_REJECTED     — the user declined a wallet signature or chain switch.
+ *  CANCELLED         — user-initiated cancel on a record that hadn't broadcast yet. Nothing on-chain.
+ *  DISMISSED         — user "stopped tracking" a record that HAD broadcast. The on-chain tx will run
+ *                      to completion; we just stopped watching it. We persist the txHash so the user
+ *                      can find it on the explorer.
+ *  OTHER             — unclassified error. Catch-all for handler bugs and unexpected throws.
  */
 export type TxErrorCode =
   | 'TX_REVERTED'
+  | 'PRE_FLIGHT_REVERT'
   | 'POLL_TIMEOUT'
   | 'RPC_ERROR'
   | 'USER_REJECTED'

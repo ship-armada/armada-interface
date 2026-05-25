@@ -121,8 +121,8 @@ async function runSubmitAndConfirm(
   // nullifier, etc.) MetaMask would otherwise discover it inside `eth_estimateGas`, fall back
   // to a hardcoded high gas limit, and the RPC would reject with the opaque "gas limit too
   // high" — hiding the actual revert reason. Running the simulate ourselves lets us surface
-  // the real reason via the typed-error pipeline (TX_REVERTED → ErrorStep) without ever
-  // popping the wallet.
+  // the real reason via the typed-error pipeline (PRE_FLIGHT_REVERT → ErrorStep) without
+  // ever popping the wallet.
   const account = record.walletContext.evmAddress as `0x${string}`
   await simulateOrThrow({
     to: populated.to,

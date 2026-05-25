@@ -18,18 +18,18 @@ export interface SimulateInput {
 }
 
 /**
- * Run an `eth_call` simulation of the tx and throw a typed `TX_REVERTED` TxError on revert.
+ * Run an `eth_call` simulation of the tx and throw a typed `PRE_FLIGHT_REVERT` TxError on revert.
  *
  * Why this exists: when the on-chain simulation reverts, MetaMask catches the failure inside
  * its own `eth_estimateGas` call, surfaces "We're unable to provide an accurate fee", then
  * falls back to a hardcoded high gas limit (usually 30M). On submit, the RPC rejects with
  * "gas limit too high" — completely obscuring the underlying revert. Running the simulation
  * ourselves before going to MetaMask lets us surface the actual contract revert reason via
- * our existing typed-error pipeline.
+ * our existing typed-error pipeline AND avoid prompting the wallet at all.
  *
- * Resolves cleanly when the simulation succeeds; otherwise throws a branded TxError that the
- * handler's outer catch routes into `markFailed` (where `classifyHandlerError` preserves the
- * TX_REVERTED brand verbatim).
+ * Resolves cleanly when the simulation succeeds; otherwise throws a branded TxError with
+ * code `PRE_FLIGHT_REVERT` so the UI can render "nothing was sent" rather than the
+ * post-mining "your tx failed on chain" copy that TX_REVERTED carries.
  */
 export async function simulateOrThrow(input: SimulateInput): Promise<void> {
   const client = getPublicClient(wagmiConfig, { chainId: input.chainId })
@@ -52,8 +52,8 @@ export async function simulateOrThrow(input: SimulateInput): Promise<void> {
     // somehow we got a non-BaseError throw.
     const reason = extractRevertReason(err)
     throw asTxError({
-      code: 'TX_REVERTED',
-      message: `On-chain simulation reverted: ${reason}. The transaction was not submitted.`,
+      code: 'PRE_FLIGHT_REVERT',
+      message: reason,
     })
   }
 }

@@ -44,12 +44,14 @@ describe('simulateOrThrow', () => {
     })
   })
 
-  it('throws a typed TX_REVERTED TxError on a BaseError-wrapped revert', async () => {
+  it('throws a typed PRE_FLIGHT_REVERT TxError on a BaseError-wrapped revert', async () => {
     // WHY: the entire point of this helper — catch the opaque viem error and re-throw as a
     // branded TxError so classifyHandlerError preserves the category and the UI shows the
-    // actual revert reason via the existing ErrorStep TX_REVERTED branch. The shortMessage
-    // must propagate verbatim so the user sees the contract's reason ("MerkleRootInvalid",
-    // "nullifier already used", etc.) rather than a generic message.
+    // actual revert reason via the ErrorStep PRE_FLIGHT_REVERT branch (distinct from
+    // TX_REVERTED — pre-flight reverts never touched the wallet, no funds moved). The
+    // shortMessage propagates verbatim into the TxError.message so the user sees the
+    // contract's reason ("MerkleRootInvalid", "nullifier already used", etc.) rather than a
+    // generic message. ErrorStep handles the "nothing was sent" framing via its title copy.
     const reverted = new BaseError('execution reverted: MerkleRootInvalid()')
     mockCall.mockRejectedValueOnce(reverted)
 
@@ -59,12 +61,8 @@ describe('simulateOrThrow', () => {
     } catch (err) {
       const tx = extractTxError(err)
       expect(tx).not.toBeNull()
-      expect(tx?.code).toBe('TX_REVERTED')
-      expect(tx?.message).toContain('On-chain simulation reverted')
+      expect(tx?.code).toBe('PRE_FLIGHT_REVERT')
       expect(tx?.message).toContain('MerkleRootInvalid')
-      // Must explicitly tell the user the wallet wasn't touched — otherwise they might think
-      // they paid gas for the failure.
-      expect(tx?.message).toContain('not submitted')
     }
   })
 
@@ -96,7 +94,7 @@ describe('simulateOrThrow', () => {
       expect.fail('should have thrown')
     } catch (err) {
       const tx = extractTxError(err)
-      expect(tx?.code).toBe('TX_REVERTED')
+      expect(tx?.code).toBe('PRE_FLIGHT_REVERT')
       expect(tx?.message).toContain('ECONNREFUSED')
     }
   })
