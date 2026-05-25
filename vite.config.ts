@@ -182,6 +182,17 @@ export default defineConfig({
     serveDeployments(),
     fundGasEndpoint(),
   ],
+  build: {
+    // Bump the browser baseline above Vite's default 'modules' target
+    // (chrome87 / edge88 / firefox78 / safari14 — early 2020). The default trips
+    // `vite-plugin-top-level-await` during bundling: the plugin emits a wrapper
+    // that uses destructuring patterns esbuild's downleveler refuses to compile
+    // for chrome87. es2022 supports both destructuring AND native top-level
+    // await — no downleveling needed, smaller bundle, faster build. Modern
+    // wallet dapps (RainbowKit, viem, wagmi) already require a similar baseline
+    // at runtime; matching it here just removes the bundler-side hoop-jumping.
+    target: 'es2022',
+  },
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
     // level-js (used by the Railgun engine's LevelDB store) references Node's `global`.

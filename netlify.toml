@@ -47,6 +47,15 @@
 [build.environment]
   NPM_FLAGS    = "--legacy-peer-deps"
   NODE_VERSION = "20"
+  # Bump V8 heap above the ~2 GB default. Vite's bundle phase OOMs around 2 GB
+  # while deduping the RainbowKit transitive graph (multiple `ox`/viem variants
+  # via WalletConnect + Coinbase Wallet SDK + Reown AppKit) plus the Railgun
+  # WASM + snarkjs payload. 4096 MB is the safe ceiling on Netlify's free-tier
+  # build container (~4 GB total, OS + npm leave Node a usable 3-3.5 GB). If
+  # the build outgrows this, options are (in order of effort): upgrade to a
+  # Pro plan for 8 GB containers and bump to 6144; code-split RainbowKit /
+  # Railgun more aggressively; or move the build off Netlify entirely.
+  NODE_OPTIONS = "--max-old-space-size=4096"
   # Switches all network-dependent decisions in the app (manifest filename
   # suffix, hub chain id + RPC, explorer URLs, poll cadence) to sepolia.
   VITE_NETWORK = "sepolia"
