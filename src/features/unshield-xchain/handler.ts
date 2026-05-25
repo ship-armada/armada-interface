@@ -2,18 +2,16 @@
 // ABOUTME: Same handler covers Withdraw modal (destination ≠ hub) and Send-External tab (destination ≠ hub) — same contract path, different UI entry.
 
 import { ethers } from 'ethers'
-import { encodeFunctionData, pad, parseAbiItem } from 'viem'
-import { getPublicClient } from 'wagmi/actions'
-import {
-  sendTransaction,
-} from 'wagmi/actions'
+import { encodeFunctionData, pad } from 'viem'
+import { getPublicClient, sendTransaction } from 'wagmi/actions'
 import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
 import { classifyHandlerError } from '@/lib/tx/errors'
 import { lifecycleFor } from '@/lib/tx/lifecycles'
 import { track } from '@/lib/telemetry'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
-import { getNetworkConfig } from '@/config/network'
+import { getChainById, getNetworkConfig } from '@/config/network'
+import { createProvider } from '@/lib/rpc'
 import {
   getSdkEncryptionKey as kmGetSdkEncryptionKey,
   getWalletId as kmGetWalletId,
@@ -26,15 +24,26 @@ import {
 } from '@/lib/railgun/unshield'
 import {
   extractCctpMessageFromReceipt,
+  messageReceivedTopic,
 } from '@/lib/cctp'
 import { cctpMaxFeeForKind } from '@/lib/relayer'
 import { ensureChain } from '@/lib/network-switch'
 
-// MessageReceived event signature parsed for viem's typed log filter — accepts indexed-arg
-// filters via `args.nonce`. Mirrors the on-chain event verbatim (see contracts/cctp/MockCCTPV2.sol).
-const MESSAGE_RECEIVED_EVENT = parseAbiItem(
+// MessageReceived ABI — used by ethers.Interface.parseLog to decode `messageBody` from a raw log.
+// We route the destination scan through ethers (rather than viem) so the app-wide bisecting
+// JsonRpcProvider patch (lib/rpc-bisecting.ts) takes effect on free-tier RPCs that cap getLogs
+// at 10 blocks (Alchemy free). Viem's HTTP transport is not covered by that patch.
+const MESSAGE_RECEIVED_IFACE = new ethers.Interface([
   'event MessageReceived(address indexed caller, uint32 sourceDomain, bytes32 indexed nonce, bytes32 sender, uint32 indexed finalityThresholdExecuted, bytes messageBody)',
-)
+])
+
+// Explicit log shape we hand scanCctpDeliveryWindow so the predicate sees `topics` + `data`.
+// Mirrors ethers' Log surface (string-typed hashes, readonly topics array).
+type EthersScanLog = {
+  transactionHash?: string | null
+  topics: readonly string[]
+  data: string
+}
 import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
 import { poll } from '@/lib/tx/poller'
 import { scanCctpDeliveryWindow } from './scan'
@@ -305,10 +314,16 @@ async function runWaitForDelivery(
   // ultimately resolve as the second delivery lands).
   const recipientBytes32 = pad(record.meta.recipient as `0x${string}`, { size: 32 })
   const uniqueMarker = recipientBytes32.slice(2).toLowerCase()
-  const destClient = getPublicClient(wagmiConfig, { chainId: record.meta.toChainId })
-  if (!destClient) {
-    throw new Error(`No wagmi public client for destination chain ${record.meta.toChainId}`)
+  // Build an ethers JsonRpcProvider for the destination chain. We deliberately bypass viem here
+  // so the app-wide bisecting `eth_getLogs` patch (lib/rpc-bisecting.ts, installed in main.tsx)
+  // applies — free-tier RPCs (Alchemy = 10-block cap) reject the configured 5_000-block window
+  // outright, and only the bisector recovers automatically.
+  const destChain = getChainById(record.meta.toChainId)
+  if (!destChain) {
+    throw new Error(`No chain config for destination chain ${record.meta.toChainId}`)
   }
+  const destProvider = createProvider(destChain.rpcUrls)
+  const destMessageReceivedTopic = messageReceivedTopic()
 
   // Park the record in 'waiting' so the stepper renders the "Waiting for cross-chain confirmation"
   // copy. The handler doesn't return here — poll() continues; the 'waiting' state is purely a
@@ -351,17 +366,30 @@ async function runWaitForDelivery(
       // Bounded per-tick scan — never queries more than maxLogRange blocks in a single getLogs
       // call. Across many ticks the cursor marches forward chunk-by-chunk; once caught up to head,
       // ticks short-circuit on `no-new-blocks` until the next block lands.
-      const outcome = await scanCctpDeliveryWindow({
-        getBlockNumber: () => destClient.getBlockNumber(),
-        getLogsForRange: (fromBlock, toBlock) => destClient.getLogs({
+      const outcome = await scanCctpDeliveryWindow<EthersScanLog>({
+        getBlockNumber: async () => BigInt(await destProvider.getBlockNumber()),
+        // Filter on the MessageReceived topic only — V2 puts an Iris-assigned `eventNonce` in
+        // the indexed `nonce` topic that we can't predict source-side. The matchPredicate below
+        // narrows by hookData content (uniqueMarker = pad32(recipient)).
+        getLogsForRange: (fromBlock, toBlock) => destProvider.getLogs({
           address: destMessageTransmitter,
-          event: MESSAGE_RECEIVED_EVENT,
+          topics: [destMessageReceivedTopic],
           fromBlock,
           toBlock,
         }),
         matchPredicate: (log) => {
-          const body = log.args.messageBody
-          return typeof body === 'string' && body.toLowerCase().includes(uniqueMarker)
+          try {
+            const parsed = MESSAGE_RECEIVED_IFACE.parseLog({
+              topics: Array.from(log.topics),
+              data: log.data,
+            })
+            const body = parsed?.args.messageBody as string | undefined
+            return typeof body === 'string' && body.toLowerCase().includes(uniqueMarker)
+          } catch {
+            // Foreign log on the same address (different ABI / unindexed topic mismatch) — skip
+            // rather than fail the whole tick. The scanner continues to the next log.
+            return false
+          }
         },
         scanFromBlock,
         maxLogRange,
