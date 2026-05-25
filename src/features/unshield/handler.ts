@@ -20,6 +20,7 @@ import {
 } from '@/lib/railgun/unshield'
 import { advance, markFailed, patchArtifacts } from '@/lib/tx/reducer'
 import { waitForReceiptOrFail } from '@/lib/tx/receipt'
+import { simulateOrThrow } from '@/lib/tx/simulate'
 import { classifyHandlerError } from '@/lib/tx/errors'
 import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
@@ -112,7 +113,24 @@ async function runSubmitAndConfirm(
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // Hub-side transact() — ensure the wallet is on the hub before signing.
-  await ensureChain(getNetworkConfig().hub.chainId)
+  const hubChainId = getNetworkConfig().hub.chainId
+  await ensureChain(hubChainId)
+  if (ctx.signal.aborted) throw new Error('cancelled')
+
+  // Pre-flight simulation. If the on-chain call reverts (stale merkle root, already-used
+  // nullifier, etc.) MetaMask would otherwise discover it inside `eth_estimateGas`, fall back
+  // to a hardcoded high gas limit, and the RPC would reject with the opaque "gas limit too
+  // high" — hiding the actual revert reason. Running the simulate ourselves lets us surface
+  // the real reason via the typed-error pipeline (TX_REVERTED → ErrorStep) without ever
+  // popping the wallet.
+  const account = record.walletContext.evmAddress as `0x${string}`
+  await simulateOrThrow({
+    to: populated.to,
+    data: populated.data,
+    value: populated.value,
+    account,
+    chainId: hubChainId,
+  })
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // Submit via the connected wallet. The populated `to` is the PrivacyPool address; `data` is
