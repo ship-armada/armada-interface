@@ -1,7 +1,7 @@
 // ABOUTME: Cross-chain shield handler — user signs PrivacyPoolClient.crossChainShield on the source client chain, which burns USDC via CCTP and carries the shield payload as hook data.
 // ABOUTME: Mirrors unshield-xchain but flipped direction: burn on CLIENT → mint on HUB. The relayer (or hookRouter) delivers the message on the hub, atomically minting USDC and calling PrivacyPool.shield.
 
-import { encodeFunctionData, pad, parseAbiItem } from 'viem'
+import { encodeFunctionData, pad } from 'viem'
 import {
   getPublicClient,
   readContract,
@@ -13,7 +13,8 @@ import { erc20Abi, maxUint256 } from 'viem'
 import { ethers } from 'ethers'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
-import { getNetworkConfig } from '@/config/network'
+import { getChainById, getNetworkConfig } from '@/config/network'
+import { createProvider } from '@/lib/rpc'
 import {
   getRailgunAddress as kmGetRailgunAddress,
   getWalletId as kmGetWalletId,
@@ -25,7 +26,7 @@ import {
   deriveShieldPrivateKey,
   SHIELD_SIGNATURE_MESSAGE,
 } from '@/lib/railgun/shield'
-import { extractCctpMessageFromReceipt } from '@/lib/cctp'
+import { extractCctpMessageFromReceipt, messageReceivedTopic } from '@/lib/cctp'
 import { cctpMaxFeeForKind } from '@/lib/relayer'
 import { ensureChain } from '@/lib/network-switch'
 import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
@@ -38,11 +39,21 @@ import { scanCctpDeliveryWindow } from '../unshield-xchain/scan'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
 
-// Same event signature the unshield-xchain handler uses for delivery detection on the destination.
-// For shield-xchain the "destination" is the HUB (where the USDC mints) — symmetric setup.
-const MESSAGE_RECEIVED_EVENT = parseAbiItem(
+// MessageReceived ABI for ethers.Interface.parseLog. We route the destination scan through
+// ethers (rather than viem) so the app-wide bisecting JsonRpcProvider patch
+// (lib/rpc-bisecting.ts) takes effect on free-tier RPCs that cap getLogs at 10 blocks
+// (Alchemy free). Viem's HTTP transport is not covered by that patch.
+const MESSAGE_RECEIVED_IFACE = new ethers.Interface([
   'event MessageReceived(address indexed caller, uint32 sourceDomain, bytes32 indexed nonce, bytes32 sender, uint32 indexed finalityThresholdExecuted, bytes messageBody)',
-)
+])
+
+// Explicit log shape we hand scanCctpDeliveryWindow so the predicate sees `topics` + `data`.
+// Mirrors ethers' Log surface (string-typed hashes, readonly topics array).
+type EthersScanLog = {
+  transactionHash?: string | null
+  topics: readonly string[]
+  data: string
+}
 
 /**
  * PrivacyPoolClient.crossChainShield ABI — the client-side entry point. Pulls USDC from the user,
@@ -326,10 +337,16 @@ async function runWaitForDelivery(
     throw new Error('Missing shieldRequest.encryptedBundle artifact — cannot identify destination delivery.')
   }
   const uniqueMarker = shieldRequest.encryptedBundle[0].slice(2).toLowerCase()
-  const hubClient = getPublicClient(wagmiConfig, { chainId: hubChainId })
-  if (!hubClient) {
-    throw new Error('No wagmi public client for hub chain')
+  // Build an ethers JsonRpcProvider for the hub chain. We deliberately bypass viem here so the
+  // app-wide bisecting `eth_getLogs` patch (lib/rpc-bisecting.ts, installed in main.tsx) applies
+  // — free-tier RPCs (Alchemy = 10-block cap) reject the configured 5_000-block window outright,
+  // and only the bisector recovers automatically.
+  const hubChain = getChainById(hubChainId)
+  if (!hubChain) {
+    throw new Error(`No chain config for hub chain ${hubChainId}`)
   }
+  const hubProvider = createProvider(hubChain.rpcUrls)
+  const hubMessageReceivedTopic = messageReceivedTopic()
 
   let cursor = markWaiting(record)
   await ctx.upsert(cursor)
@@ -357,17 +374,30 @@ async function runWaitForDelivery(
   const result = await poll<`0x${string}`>(
     async (signal) => {
       if (signal.aborted) return null
-      const outcome = await scanCctpDeliveryWindow({
-        getBlockNumber: () => hubClient.getBlockNumber(),
-        getLogsForRange: (fromBlock, toBlock) => hubClient.getLogs({
+      const outcome = await scanCctpDeliveryWindow<EthersScanLog>({
+        getBlockNumber: async () => BigInt(await hubProvider.getBlockNumber()),
+        // Filter on the MessageReceived topic only — V2 puts an Iris-assigned `eventNonce` in
+        // the indexed `nonce` topic that we can't predict source-side. The matchPredicate below
+        // narrows by hookData content (uniqueMarker = encryptedBundle[0]).
+        getLogsForRange: (fromBlock, toBlock) => hubProvider.getLogs({
           address: hubMessageTransmitter,
-          event: MESSAGE_RECEIVED_EVENT,
+          topics: [hubMessageReceivedTopic],
           fromBlock,
           toBlock,
         }),
         matchPredicate: (log) => {
-          const body = log.args.messageBody
-          return typeof body === 'string' && body.toLowerCase().includes(uniqueMarker)
+          try {
+            const parsed = MESSAGE_RECEIVED_IFACE.parseLog({
+              topics: Array.from(log.topics),
+              data: log.data,
+            })
+            const body = parsed?.args.messageBody as string | undefined
+            return typeof body === 'string' && body.toLowerCase().includes(uniqueMarker)
+          } catch {
+            // Foreign log on the same address (different ABI / unindexed topic mismatch) — skip
+            // rather than fail the whole tick. The scanner continues to the next log.
+            return false
+          }
         },
         scanFromBlock,
         maxLogRange,

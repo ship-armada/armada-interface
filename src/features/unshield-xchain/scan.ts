@@ -1,8 +1,13 @@
 // ABOUTME: Pure per-tick scan helper used by the xchain unshield handler — caps the eth_getLogs window to maxLogRange blocks and advances a cursor between ticks.
 // ABOUTME: Lifted out of handler.ts so the cursor/window math is unit-testable without dragging in wagmi, ethers, or the railgun SDK.
 
-/** Minimal log shape we need: a (possibly absent) transaction hash for the match outcome. Callers pass concrete viem-typed logs which structurally satisfy this. */
-export type ScanLog = { transactionHash?: `0x${string}` | null }
+/**
+ * Minimal log shape we need: a (possibly absent) transaction hash for the match outcome. Typed
+ * as plain `string` so both viem (`\`0x${string}\``) and ethers (`string`) Log shapes
+ * structurally satisfy it. The outcome's `txHash` re-narrows to the hex brand at the boundary
+ * since on-chain logs always carry hex-string tx hashes.
+ */
+export type ScanLog = { transactionHash?: string | null }
 
 /** Caller-supplied range query. Lets the handler keep viem's typed event filter without leaking it into this helper's signature. */
 export type GetLogsForRange<TLog extends ScanLog = ScanLog> = (
@@ -63,7 +68,10 @@ export async function scanCctpDeliveryWindow<TLog extends ScanLog>(
 
   const matched = input.matchPredicate ? logs.find(input.matchPredicate) : logs[0]
   if (matched?.transactionHash) {
-    return { kind: 'match', txHash: matched.transactionHash }
+    // Re-narrow to the hex-string brand. On-chain logs always carry a 0x-prefixed hex tx hash;
+    // the type widening on ScanLog is purely to bridge viem's branded literal and ethers' plain
+    // `string`. The cast restores the brand for callers.
+    return { kind: 'match', txHash: matched.transactionHash as `0x${string}` }
   }
 
   return { kind: 'no-match', nextScanFromBlock: toBlock + 1n, scannedTo: toBlock }
