@@ -9,11 +9,12 @@ import {
   getSdkEncryptionKey,
   getRailgunAddress,
   getChecksum,
+  getCreationBlock,
   deriveChecksum,
   clear,
 } from './keyManager'
 
-function makeState(seed = 1) {
+function makeState(seed = 1, creationBlock: number | null = 100) {
   const rootSecret = new Uint8Array(32)
   for (let i = 0; i < 32; i++) rootSecret[i] = (seed + i) & 0xff
   return {
@@ -22,6 +23,7 @@ function makeState(seed = 1) {
     sdkEncryptionKey: 'ff'.repeat(32),
     railgunAddress: '0zk1qexample…',
     checksum: 'a3f2 91c8 b7e0',
+    creationBlock,
   }
 }
 
@@ -57,8 +59,28 @@ describe('setUnlocked + getters', () => {
         sdkEncryptionKey: 'y',
         railgunAddress: 'z',
         checksum: 'cs',
+        creationBlock: 0,
       }),
     ).toThrow(/32 bytes/)
+  })
+
+  it('exposes creationBlock when set', () => {
+    // WHY: exportBackup reads getCreationBlock() to write the v2 blob. A null in-session
+    // value writes 0 (the "unknown" sentinel); a populated value preserves the true
+    // first-enrollment block so restores can fast-skip to the right tree position.
+    setUnlocked(makeState(1, 12345))
+    expect(getCreationBlock()).toBe(12345)
+  })
+
+  it('returns null from getCreationBlock when in-session value is null (paste-restore path)', () => {
+    setUnlocked(makeState(1, null))
+    expect(getCreationBlock()).toBeNull()
+  })
+
+  it('returns null from getCreationBlock when locked — does NOT throw', () => {
+    // WHY: differs from other getters (which throw when locked). exportBackup is the only
+    // caller; it needs to read defensively without crashing if a race locks mid-export.
+    expect(getCreationBlock()).toBeNull()
   })
 })
 

@@ -46,7 +46,7 @@ import {
   resetWallet,
 } from './wallet'
 import { isUnlocked, getWalletId, getRailgunAddress, clear as clearKeyManager } from './keyManager'
-import { encryptRootSecret, deriveRootSecret } from '@/lib/crypto/kdf'
+import { encryptBackup, deriveRootSecret } from '@/lib/crypto/kdf'
 
 const mockCreate = createRailgunWallet as unknown as ReturnType<typeof vi.fn>
 const mockLoad = loadWalletByID as unknown as ReturnType<typeof vi.fn>
@@ -196,7 +196,7 @@ describe('unlockFromRootSecret', () => {
 describe('unlockFromBackup', () => {
   it('decrypts the backup blob and unlocks', async () => {
     const root = deriveRootSecret(fixedSig())
-    const blob = encryptRootSecret(root, 'passphrase-here', { iterations: 1000 })
+    const blob = encryptBackup({ rootSecret: root, creationBlock: 0 }, 'passphrase-here', { iterations: 1000 })
     const state = await unlockFromBackup(blob, 'passphrase-here')
     expect(state.status).toBe('unlocked')
     expect(state.id).toBe(SAMPLE_WALLET_ID)
@@ -205,7 +205,7 @@ describe('unlockFromBackup', () => {
 
   it('propagates the authentication error when the passphrase is wrong', async () => {
     const root = deriveRootSecret(fixedSig())
-    const blob = encryptRootSecret(root, 'right-here', { iterations: 1000 })
+    const blob = encryptBackup({ rootSecret: root, creationBlock: 0 }, 'right-here', { iterations: 1000 })
     await expect(unlockFromBackup(blob, 'wrong-here')).rejects.toThrow(/authentication failed/)
   })
 })

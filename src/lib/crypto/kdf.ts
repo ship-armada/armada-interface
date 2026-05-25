@@ -184,8 +184,21 @@ export function assertEntropyFloor(name: string, key: Uint8Array): void {
  * Phase 1 uses PBKDF2-SHA-256 @ 600k. Phase 2 will add Argon2id as the preferred KDF (parsers
  * must accept all three — argon2id / scrypt / pbkdf2 — per the interop contract).
  */
+/**
+ * v2 backup envelope. The plaintext payload is 40 bytes: [0..32) rootSecret, [32..40) uint64-BE
+ * creationBlock. `creationBlock` is the hub-chain block at which the wallet was first enrolled —
+ * passed to the Railgun SDK's `creationBlockNumbers` on restore so the merkletree scan starts at
+ * the right tree position. A value of 0 means "unknown" (e.g. a backup exported after a
+ * paste-secret restore where the true creation block was never persisted); the restore path
+ * treats 0 as `undefined` and falls back to a full chain rescan (correct, slow).
+ *
+ * v1 → v2 was a breaking change driven by a silent-balance-loss bug: v1 backups had no
+ * creationBlock, so a restore-from-backup re-ran `getCurrentHubBlock()` and used the result as
+ * the SDK's scan start position — silently skipping all of the user's prior on-chain commitments.
+ * No v1 → v2 migrator is provided per the project's "testnet wallets are disposable" policy.
+ */
 export interface BackupBlob {
-  readonly format: 'armada-backup-v1'
+  readonly format: 'armada-backup-v2'
   readonly kdf: 'pbkdf2-sha256'
   readonly kdf_params: { readonly iterations: number }
   /** 32-byte salt, hex-encoded, no 0x prefix. */
@@ -193,13 +206,21 @@ export interface BackupBlob {
   readonly cipher: 'aes-256-gcm'
   /** 12-byte AES-GCM nonce, hex-encoded, no 0x prefix. */
   readonly nonce: string
-  /** Ciphertext, hex-encoded, no 0x prefix. Length matches plaintext (32 bytes for v1). */
+  /** Ciphertext, hex-encoded, no 0x prefix. Length matches plaintext (40 bytes for v2). */
   readonly ciphertext: string
   /** 16-byte AES-GCM authentication tag, hex-encoded, no 0x prefix. */
   readonly tag: string
 }
 
+/** Plaintext shape carried inside the encrypted blob. */
+export interface BackupPayload {
+  readonly rootSecret: Uint8Array
+  /** Hub block at wallet creation; 0 = unknown. See BackupBlob doc for the contract. */
+  readonly creationBlock: number
+}
+
 export const PBKDF2_ITERATIONS_V1 = 600_000
+const PAYLOAD_BYTES = 40 // 32 rootSecret + 8 creationBlock(uint64 BE)
 
 export interface EncryptOptions {
   /**
@@ -211,35 +232,63 @@ export interface EncryptOptions {
   readonly iterations?: number
 }
 
+function encodePayload(payload: BackupPayload): Uint8Array {
+  assertRootSecret(payload.rootSecret)
+  if (!Number.isInteger(payload.creationBlock) || payload.creationBlock < 0) {
+    throw new Error('encryptBackup: creationBlock must be a non-negative integer (or 0 for unknown)')
+  }
+  // uint64 max is enough for any chain head we'll ever see. Number is safe up to 2^53; refuse
+  // anything beyond that rather than silently truncating.
+  if (payload.creationBlock > Number.MAX_SAFE_INTEGER) {
+    throw new Error('encryptBackup: creationBlock exceeds Number.MAX_SAFE_INTEGER')
+  }
+  const out = new Uint8Array(PAYLOAD_BYTES)
+  out.set(payload.rootSecret, 0)
+  const view = new DataView(out.buffer, out.byteOffset, out.byteLength)
+  view.setBigUint64(32, BigInt(payload.creationBlock), false /* big-endian */)
+  return out
+}
+
+function decodePayload(plain: Uint8Array): BackupPayload {
+  if (plain.length !== PAYLOAD_BYTES) {
+    throw new Error(`decryptBackup: expected ${PAYLOAD_BYTES}-byte payload, got ${plain.length}`)
+  }
+  const rootSecret = plain.slice(0, 32)
+  const view = new DataView(plain.buffer, plain.byteOffset, plain.byteLength)
+  const creationBlockBig = view.getBigUint64(32, false /* big-endian */)
+  if (creationBlockBig > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error('decryptBackup: creationBlock exceeds Number.MAX_SAFE_INTEGER')
+  }
+  return { rootSecret, creationBlock: Number(creationBlockBig) }
+}
+
 /**
- * Encrypt a 32-byte root_secret with a user-chosen passphrase. Returns a backup blob suitable
- * for serializing to JSON and saving to disk / localStorage. The plaintext root_secret must be
- * 32 bytes (Phase 1 v1 spec — future versions may differ).
+ * Encrypt a backup payload with a user-chosen passphrase. Returns a v2 blob suitable for
+ * serializing to JSON and saving to disk.
  */
-export function encryptRootSecret(
-  rootSecret: Uint8Array,
+export function encryptBackup(
+  payload: BackupPayload,
   passphrase: string,
   options?: EncryptOptions,
 ): BackupBlob {
-  assertRootSecret(rootSecret)
   if (!passphrase || passphrase.length < 8) {
-    throw new Error('encryptRootSecret: passphrase must be at least 8 characters')
+    throw new Error('encryptBackup: passphrase must be at least 8 characters')
   }
   const iterations = options?.iterations ?? PBKDF2_ITERATIONS_V1
   if (iterations < 1) {
-    throw new Error('encryptRootSecret: iterations must be >= 1')
+    throw new Error('encryptBackup: iterations must be >= 1')
   }
   const salt = randomBytes(32)
   const nonce = randomBytes(12)
   const key = deriveBackupKey(passphrase, salt, iterations)
-  // @noble/ciphers gcm: tag is appended to the ciphertext; we split it for spec compliance.
+  const plain = encodePayload(payload)
   const cipher = gcm(key, nonce)
-  const combined = cipher.encrypt(rootSecret)
-  // combined = ciphertext (rootSecret.length) || tag (16)
-  const ciphertext = combined.slice(0, rootSecret.length)
-  const tag = combined.slice(rootSecret.length)
+  // @noble/ciphers gcm: tag is appended to the ciphertext; we split it for spec compliance.
+  const combined = cipher.encrypt(plain)
+  const ciphertext = combined.slice(0, plain.length)
+  const tag = combined.slice(plain.length)
   return {
-    format: 'armada-backup-v1',
+    format: 'armada-backup-v2',
     kdf: 'pbkdf2-sha256',
     kdf_params: { iterations },
     kdf_salt: bytesToHexNoPrefix(salt),
@@ -251,43 +300,38 @@ export function encryptRootSecret(
 }
 
 /**
- * Decrypt a backup blob with the matching passphrase. Throws on tag mismatch (wrong passphrase
- * or corrupted blob). Per spec, parsers MUST reject blobs with unknown format/kdf or unknown
- * top-level fields.
+ * Decrypt a v2 backup blob with the matching passphrase. Throws on tag mismatch (wrong
+ * passphrase or corrupted blob). v1 blobs are rejected at the format check.
  */
-export function decryptRootSecret(blob: BackupBlob, passphrase: string): Uint8Array {
-  if (blob.format !== 'armada-backup-v1') {
-    throw new Error(`decryptRootSecret: unsupported format "${blob.format}"`)
+export function decryptBackup(blob: BackupBlob, passphrase: string): BackupPayload {
+  if (blob.format !== 'armada-backup-v2') {
+    throw new Error(`decryptBackup: unsupported format "${blob.format}"`)
   }
   if (blob.kdf !== 'pbkdf2-sha256') {
-    throw new Error(`decryptRootSecret: unsupported kdf "${blob.kdf}" (Phase 1 only supports pbkdf2-sha256)`)
+    throw new Error(`decryptBackup: unsupported kdf "${blob.kdf}" (Phase 1 only supports pbkdf2-sha256)`)
   }
   if (blob.cipher !== 'aes-256-gcm') {
-    throw new Error(`decryptRootSecret: unsupported cipher "${blob.cipher}"`)
+    throw new Error(`decryptBackup: unsupported cipher "${blob.cipher}"`)
   }
   const salt = hexToBytesNoPrefix(blob.kdf_salt)
   const nonce = hexToBytesNoPrefix(blob.nonce)
   const ciphertext = hexToBytesNoPrefix(blob.ciphertext)
   const tag = hexToBytesNoPrefix(blob.tag)
-  if (tag.length !== 16) throw new Error('decryptRootSecret: tag must be 16 bytes')
-  if (nonce.length !== 12) throw new Error('decryptRootSecret: nonce must be 12 bytes')
+  if (tag.length !== 16) throw new Error('decryptBackup: tag must be 16 bytes')
+  if (nonce.length !== 12) throw new Error('decryptBackup: nonce must be 12 bytes')
 
   const key = deriveBackupKey(passphrase, salt, blob.kdf_params.iterations)
   const combined = new Uint8Array(ciphertext.length + tag.length)
   combined.set(ciphertext, 0)
   combined.set(tag, ciphertext.length)
   const cipher = gcm(key, nonce)
-  // .decrypt throws on tag mismatch; we wrap to give a friendlier message.
   let plain: Uint8Array
   try {
     plain = cipher.decrypt(combined)
   } catch {
-    throw new Error('decryptRootSecret: authentication failed (wrong passphrase or corrupted backup)')
+    throw new Error('decryptBackup: authentication failed (wrong passphrase or corrupted backup)')
   }
-  if (plain.length !== 32) {
-    throw new Error(`decryptRootSecret: expected 32-byte payload, got ${plain.length}`)
-  }
-  return plain
+  return decodePayload(plain)
 }
 
 /**
@@ -305,7 +349,13 @@ export function parseBackupBlob(json: unknown): BackupBlob {
       throw new Error(`parseBackupBlob: unknown top-level field "${k}"`)
     }
   }
-  if (o.format !== 'armada-backup-v1') {
+  // v1 backups predate the embedded creationBlock and cannot be restored without silently
+  // truncating the SDK's commitment scan — see BackupBlob doc. Loud failure forces a re-enroll;
+  // per project policy testnet wallets are disposable.
+  if (o.format === 'armada-backup-v1') {
+    throw new Error('parseBackupBlob: v1 backups are no longer supported. Re-enroll your wallet to produce a v2 backup with embedded creation block.')
+  }
+  if (o.format !== 'armada-backup-v2') {
     throw new Error(`parseBackupBlob: unsupported format "${String(o.format)}"`)
   }
   if (o.kdf !== 'pbkdf2-sha256' && o.kdf !== 'argon2id' && o.kdf !== 'scrypt') {
@@ -330,7 +380,7 @@ export function parseBackupBlob(json: unknown): BackupBlob {
     throw new Error(`parseBackupBlob: Phase 1 SDK cannot decrypt ${o.kdf} backups`)
   }
   return {
-    format: 'armada-backup-v1',
+    format: 'armada-backup-v2',
     kdf: 'pbkdf2-sha256',
     kdf_params: { iterations: iterations as number },
     kdf_salt: o.kdf_salt,

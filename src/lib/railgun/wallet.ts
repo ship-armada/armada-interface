@@ -12,7 +12,7 @@ async function railgunSdk(): Promise<RailgunSdk> {
 import {
   antiPhishChecksumBytes,
   assertEntropyFloor,
-  decryptRootSecret,
+  decryptBackup,
   deriveInternalMnemonic,
   deriveRootSecret,
   deriveSdkEncryptionKeyHex,
@@ -175,6 +175,10 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
   let walletId: string
   let railgunAddress: string
   let isFirstTime: boolean
+  // Track the creation block we hand to the SDK so we can stash it in the session for
+  // exportBackup. null = "not known in this session" — load-from-LevelDB fast-path doesn't need
+  // it (the SDK has it in walletDetails); restore-after-cache-loss can't know it.
+  let creationBlock: number | null = null
 
   if (cachedWalletId) {
     // Returning path — try to load the existing SDK wallet first. Preserves scan state + UTXOs.
@@ -186,16 +190,22 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
       isFirstTime = false
     } catch (err) {
       // Cached id but no entry in this device's IDB (cleared / new device / corrupted state).
-      // Recreate deterministically from root_secret; the walletId is stable across recreates.
+      // Recreate deterministically from root_secret. Pass `undefined` for creationBlock — the
+      // re-sign path has no way to know the true wallet creation block; using currentHead
+      // would silently truncate the SDK's commitment scan to the recent past (the bug v2
+      // backups exist to avoid). Slow full rescan is the correct fallback.
       trackError('railgun.wallet.loadByID', err, { scope: 'shielded.enroll', message: 'load failed, recreating' })
-      const recreated = await createSdkWalletFromRoot(rootSecret)
+      const recreated = await createSdkWalletFromRoot(rootSecret, undefined)
       walletId = recreated.walletId
       railgunAddress = recreated.railgunAddress
       isFirstTime = false // we had a cache; treat as returning even if load failed
     }
   } else {
-    // True first-time enrollment.
-    const fresh = await createSdkWalletFromRoot(rootSecret)
+    // True first-time enrollment — currentBlock IS the wallet's creation block. Capture and
+    // persist into the session so exportBackup can write it into the v2 blob.
+    const currentBlock = await getCurrentHubBlock()
+    creationBlock = currentBlock ?? null
+    const fresh = await createSdkWalletFromRoot(rootSecret, currentBlock ?? undefined)
     walletId = fresh.walletId
     railgunAddress = fresh.railgunAddress
     isFirstTime = true
@@ -209,6 +219,7 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
     sdkEncryptionKey,
     railgunAddress,
     checksum: derivedChecksum,
+    creationBlock,
   })
   if (isFirstTime) {
     track('shielded.created', { walletId })
@@ -232,8 +243,16 @@ export async function enrollFromSignature(signatureBytes: Uint8Array): Promise<{
  * Returning-user unlock from a 32-byte root_secret (typically pasted from clipboard / QR or
  * decrypted from an encrypted backup). Same derivation flow as enrollment; loads the SDK
  * wallet from cached walletId when possible, falls back to recreating it (idempotent).
+ *
+ * `creationBlock` is the hub block at which the wallet was originally enrolled. When supplied
+ * (i.e. came out of a decrypted v2 backup), it's threaded to the SDK so the merkletree scan
+ * starts at the correct tree position. When undefined (paste-secret path), the SDK runs a full
+ * chain rescan — slower but correct.
  */
-export async function unlockFromRootSecret(rootSecret: Uint8Array): Promise<ShieldedWalletState> {
+export async function unlockFromRootSecret(
+  rootSecret: Uint8Array,
+  creationBlock?: number,
+): Promise<ShieldedWalletState> {
   if (rootSecret.length !== 32) {
     throw new Error('unlockFromRootSecret: rootSecret must be 32 bytes')
   }
@@ -247,7 +266,8 @@ export async function unlockFromRootSecret(rootSecret: Uint8Array): Promise<Shie
   let railgunAddress: string
 
   if (walletId) {
-    // Try fast-path: existing wallet ID, just load it.
+    // Try fast-path: existing wallet ID, just load it. The SDK already has the correct
+    // creationBlock in walletDetails, so we don't need to pass our copy through here.
     try {
       const { loadWalletByID } = await railgunSdk()
       const info = await loadWalletByID(sdkEncryptionKey, walletId, false /* isViewOnlyWallet */)
@@ -256,12 +276,12 @@ export async function unlockFromRootSecret(rootSecret: Uint8Array): Promise<Shie
       // Wallet not in this device's IDB (cleared / new device / corrupted). Fall through to
       // recreate it from the deterministic mnemonic — same root_secret → same walletId.
       trackError('railgun.wallet.loadByID', err, { scope: 'shielded.unlock', message: 'load failed, recreating' })
-      const recreated = await createSdkWalletFromRoot(rootSecret)
+      const recreated = await createSdkWalletFromRoot(rootSecret, creationBlock)
       walletId = recreated.walletId
       railgunAddress = recreated.railgunAddress
     }
   } else {
-    const recreated = await createSdkWalletFromRoot(rootSecret)
+    const recreated = await createSdkWalletFromRoot(rootSecret, creationBlock)
     walletId = recreated.walletId
     railgunAddress = recreated.railgunAddress
   }
@@ -269,7 +289,17 @@ export async function unlockFromRootSecret(rootSecret: Uint8Array): Promise<Shie
   const checksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))
   storeWalletId(walletId)
   storeChecksum(checksum)
-  setUnlocked({ rootSecret, walletId, sdkEncryptionKey, railgunAddress, checksum })
+  setUnlocked({
+    rootSecret,
+    walletId,
+    sdkEncryptionKey,
+    railgunAddress,
+    checksum,
+    // Stash the creationBlock we have (if any) so exportBackup can write a useful value into
+    // the next v2 blob. Paste-secret path with no backup-sourced creationBlock yields null →
+    // a subsequent exportBackup writes 0 → that backup's restores fall back to full rescan.
+    creationBlock: creationBlock ?? null,
+  })
   track('shielded.unlock', { walletId })
 
   return {
@@ -283,11 +313,13 @@ export async function unlockFromRootSecret(rootSecret: Uint8Array): Promise<Shie
 
 /**
  * Returning-user unlock from an encrypted backup blob + the user's backup passphrase. Decrypts
- * the blob, then defers to `unlockFromRootSecret`.
+ * the blob to recover both rootSecret and creationBlock, then defers to `unlockFromRootSecret`.
+ * `creationBlock === 0` in the blob means "unknown" (set by an exportBackup that had no
+ * in-session creationBlock); convert to `undefined` so the SDK falls back to a full chain scan.
  */
 export async function unlockFromBackup(blob: BackupBlob, passphrase: string): Promise<ShieldedWalletState> {
-  const rootSecret = decryptRootSecret(blob, passphrase)
-  return unlockFromRootSecret(rootSecret)
+  const { rootSecret, creationBlock } = decryptBackup(blob, passphrase)
+  return unlockFromRootSecret(rootSecret, creationBlock > 0 ? creationBlock : undefined)
 }
 
 /**
@@ -365,21 +397,25 @@ export async function resetWallet(_id: string): Promise<void> {
  *
  * Phase 1 compromise documented in lib/crypto/CLAUDE.md.
  */
-async function createSdkWalletFromRoot(rootSecret: Uint8Array): Promise<{
+async function createSdkWalletFromRoot(
+  rootSecret: Uint8Array,
+  creationBlock: number | undefined,
+): Promise<{
   walletId: string
   railgunAddress: string
 }> {
   const sdkEncryptionKey = deriveSdkEncryptionKeyHex(rootSecret)
   const mnemonic = deriveInternalMnemonic(rootSecret)
-  // creationBlockNumbers tells the engine "this wallet was created at block N, skip
-  // decryption attempts on commitments older than that". Best-effort: if the RPC read fails
-  // we pass undefined and the engine treats the wallet as having existed since chain genesis
-  // (slower first scan but correct).
+  // creationBlockNumbers is the SDK's hint for where to begin the merkletree commitment scan.
+  // Per the engine source (abstract-wallet.js::getCreationTreeAndPosition), it resolves to a
+  // `(creationTree, creationTreeHeight)` position from which the scan walks forward. Pass the
+  // TRUE creation block when known (first-enrollment, or restored from v2 backup); pass
+  // undefined for restore paths where it's unknown (paste-secret, post-load-failure recovery)
+  // and accept the slower full-genesis rescan.
   //
-  // Important: keyed by SDK NetworkName, not chain id. We patch NETWORK_CONFIG.Hardhat to mean
-  // our hub chain (see lib/railgun/network.ts), so the key here is literally 'Hardhat'.
-  const currentBlock = await getCurrentHubBlock()
-  const creationBlockNumbers = currentBlock != null ? { Hardhat: currentBlock } : undefined
+  // Keyed by SDK NetworkName, not chain id. We patch NETWORK_CONFIG.Hardhat to mean our hub
+  // chain (see lib/railgun/network.ts), so the key here is literally 'Hardhat'.
+  const creationBlockNumbers = creationBlock != null ? { Hardhat: creationBlock } : undefined
   try {
     const { createRailgunWallet } = await railgunSdk()
     const info = await createRailgunWallet(
