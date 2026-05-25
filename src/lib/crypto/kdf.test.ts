@@ -271,6 +271,49 @@ describe('backup encryption round-trip (v2)', { timeout: 30_000 }, () => {
     const tampered: BackupBlob = { ...blob, tag: '00' + blob.tag.slice(2) }
     expect(() => decryptBackup(tampered, 'right-here')).toThrow(/authentication failed/)
   })
+
+  it('decrypts a v1 backup with synthesized creationBlock = 0', async () => {
+    // WHY: legacy read-only path for users with pre-existing v1 backups (no embedded
+    // creationBlock). The decrypt returns creationBlock = 0; the unlock layer converts that
+    // sentinel to `undefined` so the SDK runs a full chain rescan — correct, slow. Without
+    // this path, v1 users would be forced to re-enroll. We construct a v1 blob by hand by
+    // encrypting only the 32-byte rootSecret through @noble/ciphers gcm.
+    const { gcm } = await import('@noble/ciphers/aes')
+    const rootSecret = deriveRootSecret(fixedSignature())
+    const passphrase = 'right-here-now'
+    const salt = new Uint8Array(32).fill(7)
+    const nonce = new Uint8Array(12).fill(11)
+    // Mirror the same KDF the production encryptBackup uses so the round-trip works.
+    const { pbkdf2 } = await import('@noble/hashes/pbkdf2')
+    const { sha256 } = await import('@noble/hashes/sha2')
+    const key = pbkdf2(sha256, new TextEncoder().encode(passphrase), salt, { c: 1000, dkLen: 32 })
+    const cipher = gcm(key, nonce)
+    const combined = cipher.encrypt(rootSecret) // 32 bytes ciphertext + 16 bytes tag
+    const v1Blob: BackupBlob = {
+      format: 'armada-backup-v1',
+      kdf: 'pbkdf2-sha256',
+      kdf_params: { iterations: 1000 },
+      kdf_salt: Array.from(salt).map((b) => b.toString(16).padStart(2, '0')).join(''),
+      nonce: Array.from(nonce).map((b) => b.toString(16).padStart(2, '0')).join(''),
+      cipher: 'aes-256-gcm',
+      ciphertext: Array.from(combined.slice(0, 32)).map((b) => b.toString(16).padStart(2, '0')).join(''),
+      tag: Array.from(combined.slice(32)).map((b) => b.toString(16).padStart(2, '0')).join(''),
+    }
+    const payload = decryptBackup(v1Blob, passphrase)
+    expect(payload.rootSecret).toEqual(rootSecret)
+    expect(payload.creationBlock).toBe(0)
+  })
+
+  it('rejects a v1 blob whose decrypted payload is not 32 bytes', () => {
+    // WHY: belt-and-suspenders length check — a corrupted v1 blob that decrypts to a longer
+    // payload would otherwise be mistakenly accepted with a truncated rootSecret. Loud failure
+    // makes the corruption obvious.
+    const rootSecret = deriveRootSecret(fixedSignature())
+    // Encrypt as v2 (40 bytes) but flag it as v1 — synthetic corruption.
+    const v2 = encryptBackup({ rootSecret, creationBlock: 0 }, 'right-here', TEST_OPTS)
+    const mislabeled: BackupBlob = { ...v2, format: 'armada-backup-v1' }
+    expect(() => decryptBackup(mislabeled, 'right-here')).toThrow(/v1 expected 32-byte payload/)
+  })
 })
 
 describe('parseBackupBlob', { timeout: 30_000 }, () => {
@@ -292,13 +335,25 @@ describe('parseBackupBlob', { timeout: 30_000 }, () => {
     expect(() => parseBackupBlob({ format: 'armada-backup-v3' })).toThrow(/unsupported format/)
   })
 
-  it('rejects v1 backups with a re-enroll hint', () => {
-    // WHY: v1 backups predate the embedded creationBlock; restoring them through the v2 path
-    // would either silently truncate the SDK's commitment scan (the bug v2 fixes) or require
-    // a slow full rescan with no visible cue to the user. Loud rejection forces re-enroll —
-    // per project policy testnet wallets are disposable. The error message must mention
-    // "re-enroll" so the UI can match on it and surface a directed CTA.
-    expect(() => parseBackupBlob({ format: 'armada-backup-v1' })).toThrow(/Re-enroll/)
+  it('accepts a v1 backup as legacy read-only (no creationBlock)', () => {
+    // WHY: v1 backups predate the embedded creationBlock. We accept them to let users with
+    // pre-existing v1 backups still restore — the decryptBackup path synthesizes
+    // creationBlock = 0, which unlockFromBackup converts to `undefined`, which the SDK
+    // resolves as "scan from chain genesis" (correct, slow). Without this acceptance, v1
+    // users would be forced to re-enroll. The v1 → v2 promotion happens naturally the next
+    // time they exportBackup from the unlocked session.
+    const v1Shaped = {
+      format: 'armada-backup-v1',
+      kdf: 'pbkdf2-sha256',
+      kdf_params: { iterations: 1000 },
+      kdf_salt: 'aa'.repeat(32),
+      nonce: 'bb'.repeat(12),
+      cipher: 'aes-256-gcm',
+      ciphertext: 'cc'.repeat(32), // v1 is 32 bytes (rootSecret only)
+      tag: 'dd'.repeat(16),
+    }
+    const parsed = parseBackupBlob(v1Shaped)
+    expect(parsed.format).toBe('armada-backup-v1')
   })
 
   it('rejects argon2id blobs in Phase 1 (forward-compatible)', () => {

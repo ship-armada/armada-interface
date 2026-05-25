@@ -191,7 +191,8 @@ describe('unlockByBackup', () => {
       kdf_salt: 'aa'.repeat(32),
       cipher: 'aes-256-gcm',
       nonce: 'bb'.repeat(12),
-      // v2 plaintext is 40 bytes (32 rootSecret + 8 creationBlock BE) → 80 hex chars
+      // v2 plaintext is 40 bytes (32 rootSecret + 8 creationBlock BE) → 80 hex chars.
+      // (v1 with a 32-byte / 64-hex ciphertext is also accepted; see kdf.test.ts for that path.)
       ciphertext: 'cc'.repeat(40),
       tag: 'dd'.repeat(16),
     }

@@ -198,7 +198,17 @@ export function assertEntropyFloor(name: string, key: Uint8Array): void {
  * No v1 → v2 migrator is provided per the project's "testnet wallets are disposable" policy.
  */
 export interface BackupBlob {
-  readonly format: 'armada-backup-v2'
+  /**
+   * Backup envelope version.
+   *
+   * - `armada-backup-v2`: current — 40-byte plaintext payload with embedded creationBlock.
+   *   `encryptBackup` always emits v2.
+   * - `armada-backup-v1`: legacy read-only — 32-byte plaintext (rootSecret only). Decrypts
+   *   with synthesized `creationBlock = 0`, which the unlock path treats as "unknown" →
+   *   full chain rescan. Kept so users with pre-existing v1 backups can restore + run a
+   *   slow scan rather than being forced to re-enroll.
+   */
+  readonly format: 'armada-backup-v1' | 'armada-backup-v2'
   readonly kdf: 'pbkdf2-sha256'
   readonly kdf_params: { readonly iterations: number }
   /** 32-byte salt, hex-encoded, no 0x prefix. */
@@ -206,7 +216,7 @@ export interface BackupBlob {
   readonly cipher: 'aes-256-gcm'
   /** 12-byte AES-GCM nonce, hex-encoded, no 0x prefix. */
   readonly nonce: string
-  /** Ciphertext, hex-encoded, no 0x prefix. Length matches plaintext (40 bytes for v2). */
+  /** Ciphertext, hex-encoded, no 0x prefix. Length matches plaintext (40 bytes for v2; 32 bytes for v1). */
   readonly ciphertext: string
   /** 16-byte AES-GCM authentication tag, hex-encoded, no 0x prefix. */
   readonly tag: string
@@ -300,11 +310,16 @@ export function encryptBackup(
 }
 
 /**
- * Decrypt a v2 backup blob with the matching passphrase. Throws on tag mismatch (wrong
- * passphrase or corrupted blob). v1 blobs are rejected at the format check.
+ * Decrypt a backup blob with the matching passphrase. Throws on tag mismatch (wrong
+ * passphrase or corrupted blob).
+ *
+ * v2 path returns the embedded creationBlock as-is. v1 path (legacy 32-byte plaintext) returns
+ * `creationBlock: 0` — the unlock path's `creationBlock === 0` sentinel converts that to
+ * `undefined` when calling into the SDK, producing a slow full-genesis rescan. This preserves
+ * existing v1 backups as a "correct but slow" restore path rather than rejecting outright.
  */
 export function decryptBackup(blob: BackupBlob, passphrase: string): BackupPayload {
-  if (blob.format !== 'armada-backup-v2') {
+  if (blob.format !== 'armada-backup-v1' && blob.format !== 'armada-backup-v2') {
     throw new Error(`decryptBackup: unsupported format "${blob.format}"`)
   }
   if (blob.kdf !== 'pbkdf2-sha256') {
@@ -331,6 +346,15 @@ export function decryptBackup(blob: BackupBlob, passphrase: string): BackupPaylo
   } catch {
     throw new Error('decryptBackup: authentication failed (wrong passphrase or corrupted backup)')
   }
+  if (blob.format === 'armada-backup-v1') {
+    // Legacy 32-byte payload: rootSecret only. Synthesize creationBlock = 0 so the unlock
+    // path treats it as "unknown" and falls back to a slow full chain rescan — correct, just
+    // slow. The user can re-export to v2 from the unlocked session to make future restores fast.
+    if (plain.length !== 32) {
+      throw new Error(`decryptBackup: v1 expected 32-byte payload, got ${plain.length}`)
+    }
+    return { rootSecret: plain, creationBlock: 0 }
+  }
   return decodePayload(plain)
 }
 
@@ -349,15 +373,13 @@ export function parseBackupBlob(json: unknown): BackupBlob {
       throw new Error(`parseBackupBlob: unknown top-level field "${k}"`)
     }
   }
-  // v1 backups predate the embedded creationBlock and cannot be restored without silently
-  // truncating the SDK's commitment scan — see BackupBlob doc. Loud failure forces a re-enroll;
-  // per project policy testnet wallets are disposable.
-  if (o.format === 'armada-backup-v1') {
-    throw new Error('parseBackupBlob: v1 backups are no longer supported. Re-enroll your wallet to produce a v2 backup with embedded creation block.')
-  }
-  if (o.format !== 'armada-backup-v2') {
+  // v1 backups are accepted as a legacy read-only path. decryptBackup handles them by
+  // synthesizing creationBlock = 0 (treated as "unknown" → full chain rescan). See BackupBlob
+  // doc for the contract; encryption always writes v2.
+  if (o.format !== 'armada-backup-v1' && o.format !== 'armada-backup-v2') {
     throw new Error(`parseBackupBlob: unsupported format "${String(o.format)}"`)
   }
+  const format = o.format as 'armada-backup-v1' | 'armada-backup-v2'
   if (o.kdf !== 'pbkdf2-sha256' && o.kdf !== 'argon2id' && o.kdf !== 'scrypt') {
     throw new Error(`parseBackupBlob: unsupported kdf "${String(o.kdf)}"`)
   }
@@ -380,7 +402,7 @@ export function parseBackupBlob(json: unknown): BackupBlob {
     throw new Error(`parseBackupBlob: Phase 1 SDK cannot decrypt ${o.kdf} backups`)
   }
   return {
-    format: 'armada-backup-v2',
+    format,
     kdf: 'pbkdf2-sha256',
     kdf_params: { iterations: iterations as number },
     kdf_salt: o.kdf_salt,
