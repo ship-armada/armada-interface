@@ -268,8 +268,12 @@ async function runSubmitAndBurn(
     chainId: record.meta.fromChainId,
   })
   // Persist sourceTxHash before the receipt wait so any timeout / revert / cancel error carries
-  // the hash forward into the error UX (explorer link, "Stopped tracking" copy).
-  await ctx.upsert(patchArtifacts(record, { sourceTxHash: hash }))
+  // the hash forward into the error UX (explorer link, "Stopped tracking" copy). The patched
+  // record MUST be threaded into the final advance below — `record` is now stale (lower
+  // updatedSeq than the atom/IDB) so an advance from it would produce an equal-seq write that
+  // OCC silently drops, leaving the executor looping on this stage.
+  const broadcastRecord = patchArtifacts(record, { sourceTxHash: hash })
+  await ctx.upsert(broadcastRecord)
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // Use the client chain's public client to wait for the receipt + extract the CCTP MessageSent
@@ -296,7 +300,7 @@ async function runSubmitAndBurn(
   }
   const hubFromBlock = await hubClient.getBlockNumber()
 
-  await ctx.upsert(advance(record, 'client-burn-confirmed', {
+  await ctx.upsert(advance(broadcastRecord, 'client-burn-confirmed', {
     sourceTxHash: hash,
     messageHash: cctpRef.messageHash,
     cctpNonce: cctpRef.nonce,

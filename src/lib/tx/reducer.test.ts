@@ -1,7 +1,7 @@
 // ABOUTME: Reducer tests — patchArtifacts cursor pattern + typed-error mark transitions (markFailed string|TxError, markCancelled, markDismissed).
 
 import { describe, it, expect } from 'vitest'
-import { markCancelled, markDismissed, markFailed, markWaiting, patchArtifacts } from './reducer'
+import { advance, markCancelled, markDismissed, markFailed, markWaiting, patchArtifacts } from './reducer'
 import type { TxRecord } from './types'
 
 function baseXchainRecord(): TxRecord<'unshield-xchain'> {
@@ -72,6 +72,82 @@ describe('patchArtifacts', () => {
     expect(cursor.executionState).toBe('waiting')
     // Three patches after markWaiting (which itself bumped once).
     expect(cursor.updatedSeq).toBe(7 + 1 + 3)
+  })
+})
+
+describe('patchArtifacts → advance OCC chaining', () => {
+  // WHY THIS SUITE EXISTS: a regression introduced in PR #288 had every handler do
+  //   await ctx.upsert(patchArtifacts(record, { sourceTxHash }))   // writes seq N+1
+  //   await waitForReceiptOrFail(...)
+  //   const completed = advance(record, terminalStage, {...})       // built from STALE record
+  //   await ctx.upsert(completed)                                    // OCC-rejects (equal seq)
+  // The atom/IDB silently dropped the terminal advance; the executor re-read the record at
+  // executionState='active', stage='submit-relayer', and looped — re-prompting the user to
+  // sign the same tx forever. These tests pin the invariant the fix relies on: chained
+  // reducer ops MUST produce strictly-increasing updatedSeq, but ONLY when each op is built
+  // from the latest local copy. If a future refactor reverts `advance(broadcastRecord, …)`
+  // to `advance(record, …)`, the seq-collision test below fails loudly.
+
+  it('patchArtifacts → advance(patched, …) produces strictly-increasing updatedSeq', () => {
+    // Setup a shield record at 'submit-relayer' so we can advance to 'hub-confirmed'.
+    const base: TxRecord<'shield'> = {
+      id: '01TESTSHIELD0000000000',
+      kind: 'shield',
+      executionState: 'active',
+      stage: 'submit-relayer',
+      stagesCompleted: ['build-proof'],
+      updatedSeq: 5,
+      createdAt: 1_000_000,
+      updatedAt: 1_000_100,
+      meta: { amount: 1_000_000n, fromChainId: 11155111, feeCacheId: 'fee-1' },
+      artifacts: {},
+      walletContext: {
+        evmAddress: '0xeve',
+        railgunWalletId: 'wallet-1',
+        sourceChainId: 11155111,
+      },
+    }
+
+    const patched = patchArtifacts(base, { sourceTxHash: '0xdeadbeef' as `0x${string}` })
+    expect(patched.updatedSeq).toBe(6)
+
+    // CORRECT pattern — build advance from the patched record.
+    const advancedCorrectly = advance(patched, 'hub-confirmed', { sourceTxHash: '0xdeadbeef' as `0x${string}` })
+    expect(advancedCorrectly.updatedSeq).toBe(7)
+    expect(advancedCorrectly.executionState).toBe('completed')
+  })
+
+  it('patchArtifacts → advance(record, …) [the BUG pattern] produces equal updatedSeq — OCC would silently drop the advance', () => {
+    // This test demonstrates the regression that motivated the suite. If a future change
+    // reverts a handler back to passing the STALE record into the final advance, this test
+    // documents what happens: both reducer outputs share updatedSeq=6, and upsertTxAtom /
+    // putTxIfFresh would silently drop the advance — leaving the executor stuck.
+    const base: TxRecord<'shield'> = {
+      id: '01TESTSHIELD0000000001',
+      kind: 'shield',
+      executionState: 'active',
+      stage: 'submit-relayer',
+      stagesCompleted: ['build-proof'],
+      updatedSeq: 5,
+      createdAt: 1_000_000,
+      updatedAt: 1_000_100,
+      meta: { amount: 1_000_000n, fromChainId: 11155111, feeCacheId: 'fee-1' },
+      artifacts: {},
+      walletContext: {
+        evmAddress: '0xeve',
+        railgunWalletId: 'wallet-1',
+        sourceChainId: 11155111,
+      },
+    }
+
+    const patched = patchArtifacts(base, { sourceTxHash: '0xdeadbeef' as `0x${string}` })
+    const advancedFromStale = advance(base, 'hub-confirmed', { sourceTxHash: '0xdeadbeef' as `0x${string}` })
+
+    // Both end at seq 6. The atom's `existing.updatedSeq >= record.updatedSeq` check would
+    // reject the second write. This is the invariant a regression would break.
+    expect(patched.updatedSeq).toBe(6)
+    expect(advancedFromStale.updatedSeq).toBe(6)
+    expect(patched.updatedSeq).toBe(advancedFromStale.updatedSeq) // the collision
   })
 })
 
