@@ -19,6 +19,13 @@ const COPY_BY_CODE: Record<TxError['code'], { title: string; body?: string }> = 
     title: 'Transaction failed on chain',
     body: 'The network mined your transaction but the contract reverted. No funds were moved.',
   },
+  PRE_FLIGHT_REVERT: {
+    // No stock body — falls through to error.message, which carries the actual contract
+    // revert reason from the pre-flight simulate (e.g. "InvalidNullifier",
+    // "MerkleRootInvalid"). The title makes clear nothing was sent so the user doesn't
+    // think they paid gas; the message tells them WHY the simulation rejected.
+    title: 'Pre-flight check failed — nothing was sent',
+  },
   POLL_TIMEOUT: {
     title: 'Lost track of your transaction',
     body: 'We stopped watching after the time budget elapsed. The transaction may still complete — check the explorer to confirm.',
