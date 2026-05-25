@@ -116,7 +116,11 @@ async function runSubmitAndConfirm(
     data: yieldTx.data,
     value: BigInt(yieldTx.value),
   })
-  await ctx.upsert(patchArtifacts(record, { sourceTxHash: hash }))
+  // Patched record MUST be threaded forward into the final advance — `record` is now stale
+  // (lower updatedSeq than the atom/IDB) so an advance from it would produce an equal-seq
+  // write that OCC silently drops, leaving the executor looping on this stage.
+  const broadcastRecord = patchArtifacts(record, { sourceTxHash: hash })
+  await ctx.upsert(broadcastRecord)
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   await waitForReceiptOrFail({ hash, signal: ctx.signal })
@@ -125,5 +129,5 @@ async function runSubmitAndConfirm(
     void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
   }
 
-  await ctx.upsert(advance(record, 'hub-confirmed', { sourceTxHash: hash }))
+  await ctx.upsert(advance(broadcastRecord, 'hub-confirmed', { sourceTxHash: hash }))
 }

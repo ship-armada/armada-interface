@@ -233,8 +233,12 @@ async function runSubmitAndConfirm(
   })
   // Persist the source tx hash immediately so any subsequent failure (timeout, revert, cancel)
   // carries the hash for the explorer-link UX. Writing as a patch — not an `advance` — because
-  // we're still inside the submit-relayer stage waiting for the receipt.
-  await ctx.upsert(patchArtifacts(record, { sourceTxHash: shieldHash }))
+  // we're still inside the submit-relayer stage waiting for the receipt. We MUST thread the
+  // patched record forward to the final advance: `record` is now stale (updatedSeq lower than
+  // what's in the atom/IDB), so building advance from `record` would produce an equal-seq
+  // write that OCC silently drops, leaving the executor stuck re-entering this stage.
+  const broadcastRecord = patchArtifacts(record, { sourceTxHash: shieldHash })
+  await ctx.upsert(broadcastRecord)
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // 3. Wait for confirmation. The SDK's merkle scan will pick up the new commitment via the
@@ -248,7 +252,7 @@ async function runSubmitAndConfirm(
     void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
   }
 
-  const completed = advance(record, 'hub-confirmed', {
+  const completed = advance(broadcastRecord, 'hub-confirmed', {
     sourceTxHash: shieldHash,
   })
   await ctx.upsert(completed)

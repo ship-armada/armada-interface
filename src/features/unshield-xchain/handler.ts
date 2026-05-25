@@ -246,8 +246,12 @@ async function runSubmitAndBurn(
     ),
     value: 0n,
   })
-  // Persist sourceTxHash immediately so cancel/timeout/revert can carry the hash forward.
-  await ctx.upsert(patchArtifacts(record, { sourceTxHash: hash }))
+  // Persist sourceTxHash immediately so cancel/timeout/revert can carry the hash forward. The
+  // patched record MUST be threaded into the final advance below — `record` is now stale (lower
+  // updatedSeq than the atom/IDB) so an advance from it would produce an equal-seq write that
+  // OCC silently drops, leaving the executor looping on this stage.
+  const broadcastRecord = patchArtifacts(record, { sourceTxHash: hash })
+  await ctx.upsert(broadcastRecord)
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   const receipt = await waitForReceiptOrFail({ hash, signal: ctx.signal })
@@ -272,7 +276,7 @@ async function runSubmitAndBurn(
   }
   const destFromBlock = await destClient.getBlockNumber()
 
-  await ctx.upsert(advance(record, 'hub-burn-confirmed', {
+  await ctx.upsert(advance(broadcastRecord, 'hub-burn-confirmed', {
     sourceTxHash: hash,
     messageHash: cctpRef.messageHash,
     cctpNonce: cctpRef.nonce,
