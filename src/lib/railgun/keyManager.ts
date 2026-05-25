@@ -14,6 +14,19 @@ interface UnlockedState {
   checksum: string
   /** The 0zk… address returned by the SDK. */
   railgunAddress: string
+  /**
+   * Hub-chain block at which the wallet was first enrolled. Captured at true first-enrollment,
+   * preserved across backups via the encrypted payload, and threaded into the Railgun SDK's
+   * `creationBlockNumbers` on every wallet recreation so the merkletree scan starts at the
+   * correct tree position rather than at chain head (which would silently truncate the user's
+   * commitment scan to the recent past).
+   *
+   * `null` means "not known in this session" — happens on paste-secret restores and on the
+   * post-load-failure fallback paths in enroll/unlock. `exportBackup` writes 0 in the blob for
+   * a null in-session value, and the next restore from that blob will fall back to a full
+   * chain rescan (correct, slow).
+   */
+  creationBlock: number | null
 }
 
 let unlocked: UnlockedState | null = null
@@ -57,6 +70,13 @@ export function getRailgunAddress(): string {
 export function getChecksum(): string {
   if (!unlocked) throw new Error('keyManager: wallet is locked')
   return unlocked.checksum
+}
+
+/** Returns the in-session creationBlock, or null if not known. Does NOT throw when locked
+ *  by design — exportBackup needs to consult this value defensively. Callers that strictly
+ *  need a value should treat null as "scan from genesis". */
+export function getCreationBlock(): number | null {
+  return unlocked?.creationBlock ?? null
 }
 
 /**

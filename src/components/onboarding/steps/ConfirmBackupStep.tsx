@@ -6,7 +6,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { FlowFooter } from '@/components/flow/FlowFooter'
 import {
   antiPhishChecksumBytes,
-  decryptRootSecret,
+  decryptBackup,
   formatChecksumDisplay,
   parseBackupBlob,
 } from '@/lib/crypto/kdf'
@@ -43,7 +43,8 @@ export function ConfirmBackupStep({ expectedChecksum, onBack, onConfirmed }: Con
         throw new Error('Backup file is not valid JSON.')
       }
       const blob = parseBackupBlob(parsed)
-      rootSecret = decryptRootSecret(blob, passphrase)
+      const payload = decryptBackup(blob, passphrase)
+      rootSecret = payload.rootSecret
       const checksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))
       if (checksum !== expectedChecksum) {
         throw new Error(

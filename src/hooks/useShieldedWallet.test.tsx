@@ -27,6 +27,7 @@ vi.mock('@/lib/railgun/wallet', () => ({
 
 vi.mock('@/lib/railgun/keyManager', () => ({
   getRootSecret: vi.fn(),
+  getCreationBlock: vi.fn(() => null),
 }))
 
 // Mock the imperative wagmi action. The hook calls `signTypedData(wagmiConfig, args)` directly —
@@ -184,13 +185,15 @@ describe('unlockByBackup', () => {
     const capture = renderWithStore(store)
 
     const validBlob = {
-      format: 'armada-backup-v1',
+      format: 'armada-backup-v2',
       kdf: 'pbkdf2-sha256',
       kdf_params: { iterations: 600000 },
       kdf_salt: 'aa'.repeat(32),
       cipher: 'aes-256-gcm',
       nonce: 'bb'.repeat(12),
-      ciphertext: 'cc'.repeat(32),
+      // v2 plaintext is 40 bytes (32 rootSecret + 8 creationBlock BE) → 80 hex chars.
+      // (v1 with a 32-byte / 64-hex ciphertext is also accepted; see kdf.test.ts for that path.)
+      ciphertext: 'cc'.repeat(40),
       tag: 'dd'.repeat(16),
     }
     const file = new File([JSON.stringify(validBlob)], 'armada-backup.json', {
@@ -240,8 +243,8 @@ describe('exportBackup', () => {
       blob = await capture.current!.exportBackup('passphrase-here')
     })
 
-    expect(blob!.format).toBe('armada-backup-v1')
-    expect(blob!.ciphertext.length).toBe(64) // 32 bytes hex-encoded
+    expect(blob!.format).toBe('armada-backup-v2')
+    expect(blob!.ciphertext.length).toBe(80) // v2: 40-byte plaintext → 80 hex chars
     expect(mockGetRootSecret).toHaveBeenCalledTimes(1)
   })
 

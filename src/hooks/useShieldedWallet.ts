@@ -19,13 +19,16 @@ import {
   unlockFromRootSecret,
   type ShieldedWalletState,
 } from '@/lib/railgun/wallet'
-import { getRootSecret as kmGetRootSecret } from '@/lib/railgun/keyManager'
+import {
+  getCreationBlock as kmGetCreationBlock,
+  getRootSecret as kmGetRootSecret,
+} from '@/lib/railgun/keyManager'
 import {
   buildEnrollmentTypedData,
   normalizeSignature,
 } from '@/lib/crypto/eip712'
 import {
-  encryptRootSecret,
+  encryptBackup,
   parseBackupBlob,
   type BackupBlob,
 } from '@/lib/crypto/kdf'
@@ -134,13 +137,23 @@ export function useShieldedWallet() {
   }, [setWallets, setActiveId])
 
   /**
-   * Export the currently-unlocked wallet's root_secret as an encrypted backup blob. The caller is
-   * expected to JSON.stringify + download the result. Throws if no wallet is unlocked.
+   * Export the currently-unlocked wallet's root_secret + creationBlock as an encrypted v2
+   * backup blob. The caller is expected to JSON.stringify + download the result. Throws if no
+   * wallet is unlocked.
+   *
+   * `creationBlock` is read from the keyManager session — it was set at enrollment (true value)
+   * or carried in from a prior v2 backup unlock. If the session has no creationBlock (paste-
+   * secret unlock path), we write `0` into the blob — restores of that blob will fall back to a
+   * full chain rescan rather than truncate the SDK's commitment scan to a stale block. Once the
+   * paste-restored wallet has finished its full scan, re-exporting a backup remains useful for
+   * passphrase rotation; the next restore from THAT blob is still slow until the user enrolls
+   * fresh on a deterministic-signing wallet path.
    */
   const exportBackup = useCallback(async (passphrase: string): Promise<BackupBlob> => {
     try {
       const rootSecret = kmGetRootSecret() // throws when locked
-      const blob = encryptRootSecret(rootSecret, passphrase)
+      const creationBlock = kmGetCreationBlock() ?? 0
+      const blob = encryptBackup({ rootSecret, creationBlock }, passphrase)
       if (activeId) track('shielded.exported', { walletId: activeId })
       return blob
     } catch (err) {

@@ -104,6 +104,12 @@ export function UnlockFlow({ onUnlocked, onCreateNew }: UnlockFlowProps) {
             <p className={styles.body}>
               Paste your 64-character recovery secret to restore this account.
             </p>
+            <p className={styles.body}>
+              Heads up: pasting the raw secret triggers a full chain rescan to recover your
+              balances. This can take a few minutes on the first unlock. For faster restores in
+              the future, use the encrypted Backup file instead — and re-export a fresh backup
+              from Settings once this scan completes.
+            </p>
             <div className={styles.field}>
               <label htmlFor={pasteInputId} className={styles.label}>
                 Recovery secret (hex)

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { OnboardingFlow } from './OnboardingFlow'
-import { encryptRootSecret, antiPhishChecksumBytes, formatChecksumDisplay } from '@/lib/crypto/kdf'
+import { encryptBackup, antiPhishChecksumBytes, formatChecksumDisplay } from '@/lib/crypto/kdf'
 
 // Fixed root_secret so the checksum and the encrypted blob are deterministic across tests.
 const FIXED_ROOT = new Uint8Array(32)
@@ -75,7 +75,9 @@ beforeEach(() => {
       state: mockState,
     }
   })
-  mockExportBackup.mockImplementation(async (passphrase: string) => encryptRootSecret(FIXED_ROOT, passphrase, { iterations: 1000 }))
+  mockExportBackup.mockImplementation(async (passphrase: string) =>
+    encryptBackup({ rootSecret: FIXED_ROOT, creationBlock: 0 }, passphrase, { iterations: 1000 }),
+  )
 })
 
 describe('<OnboardingFlow>', () => {
@@ -160,7 +162,7 @@ describe('<OnboardingFlow>', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Continue$/ })) // backup → confirm
 
     // ConfirmBackupStep: upload an equivalent encrypted file + same passphrase.
-    const blob = encryptRootSecret(FIXED_ROOT, passphrase, { iterations: 1000 })
+    const blob = encryptBackup({ rootSecret: FIXED_ROOT, creationBlock: 0 }, passphrase, { iterations: 1000 })
     const file = new File([JSON.stringify(blob)], 'armada-backup.json', { type: 'application/json' })
     fireEvent.change(screen.getByLabelText('Backup file'), { target: { files: [file] } })
     fireEvent.change(screen.getByLabelText('Passphrase'), { target: { value: passphrase } })
@@ -206,7 +208,7 @@ describe('<OnboardingFlow>', () => {
 
     // Upload a backup for a DIFFERENT root_secret — checksum mismatch.
     const wrongRoot = new Uint8Array(32).fill(42)
-    const wrongBlob = encryptRootSecret(wrongRoot, 'pw-here-strong', { iterations: 1000 })
+    const wrongBlob = encryptBackup({ rootSecret: wrongRoot, creationBlock: 0 }, 'pw-here-strong', { iterations: 1000 })
     const wrongFile = new File([JSON.stringify(wrongBlob)], 'wrong.json', { type: 'application/json' })
     fireEvent.change(screen.getByLabelText('Backup file'), { target: { files: [wrongFile] } })
     fireEvent.change(screen.getByLabelText('Passphrase'), { target: { value: 'pw-here-strong' } })
