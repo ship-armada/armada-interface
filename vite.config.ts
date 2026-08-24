@@ -20,6 +20,21 @@ const pkg = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'),
 )
 
+// Local-devnet dev needs the poc monorepo + armada-circuits checked out as SIBLINGS of this repo.
+// This app was spun out of the monorepo, so local contract iteration is now two-repo (see
+// LOCAL_VS_DEPLOY.md). Override any location via env if your layout differs. Production builds do
+// NOT use these — Sepolia manifests are curl'd at build time and ZK artifacts are committed under
+// public/artifacts/.
+const POC_DIR = process.env.ARMADA_POC_DIR
+  ? path.resolve(process.env.ARMADA_POC_DIR)
+  : path.resolve(__dirname, '../armada-poc')
+const DEPLOYMENTS_DIR = process.env.ARMADA_DEPLOYMENTS_DIR
+  ? path.resolve(process.env.ARMADA_DEPLOYMENTS_DIR)
+  : path.resolve(POC_DIR, 'deployments')
+const CIRCUITS_DIR = process.env.ARMADA_CIRCUITS_DIR
+  ? path.resolve(process.env.ARMADA_CIRCUITS_DIR)
+  : path.resolve(__dirname, '../armada-circuits/build')
+
 /**
  * Local-mode dev endpoint: POST /api/fund-gas { address, chainId } → uses the well-known Anvil
  * deployer account to call `faucet.dripTo(address)`, sending 1 000 mockUSDC + a small ETH
@@ -81,7 +96,7 @@ function fundGasEndpoint() {
               res.end(JSON.stringify({ error: `Unknown chainId: ${chainId}` }))
               return
             }
-            const manifestPath = path.resolve(__dirname, '../../deployments', manifestName)
+            const manifestPath = path.resolve(DEPLOYMENTS_DIR, manifestName)
             if (!fs.existsSync(manifestPath)) {
               res.statusCode = 500
               res.setHeader('Content-Type', 'application/json')
@@ -146,7 +161,7 @@ function serveCircuitArtifacts() {
             return
           }
           const [shape, filetype] = parts
-          const buildDir = path.resolve(__dirname, '../../../armada-circuits/build', shape)
+          const buildDir = path.resolve(CIRCUITS_DIR, shape)
 
           let filepath: string
           let contentType: string
@@ -202,7 +217,7 @@ function serveDeployments() {
         '/api/deployments',
         (req: any, res: any, _next: any) => {
           const filename = req.url?.replace(/^\//, '') || ''
-          const deploymentsDir = path.resolve(__dirname, '../../deployments')
+          const deploymentsDir = DEPLOYMENTS_DIR
           const filepath = path.resolve(deploymentsDir, filename)
 
           if (!filepath.startsWith(deploymentsDir + path.sep) && filepath !== deploymentsDir) {
@@ -337,7 +352,8 @@ export default defineConfig({
     port: 5176,
     strictPort: true,
     fs: {
-      allow: ['../..'],
+      // Allow the app root plus the sibling poc/deployments/circuits dirs the dev middleware reads.
+      allow: [path.resolve(__dirname), POC_DIR, DEPLOYMENTS_DIR, CIRCUITS_DIR],
     },
   },
 })

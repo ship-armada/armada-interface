@@ -11,7 +11,8 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepare:artifacts": "node scripts/prepare-artifacts.mjs"
+    "prepare:artifacts": "node scripts/prepare-artifacts.mjs",
+    "postinstall": "node scripts/ensure-linux-native-modules.mjs"
   },
   "dependencies": {
     "@armada/sdk": "github:ship-armada/armada-sdk#555621f40447ff0801912d4fda891f8d2dae97e5",
