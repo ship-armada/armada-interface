@@ -1,0 +1,48 @@
+# CI for @armada/interface — typecheck, unit tests, and a production build on every PR.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast signal first: install once, then typecheck + vitest. `npm ci` builds the
+  # @armada/sdk git dependency via its prepare script; the postinstall installs the
+  # Linux native binaries (rollup/lightningcss/oxide) around npm optional-native bug #4828.
+  check:
+    name: Typecheck & Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+
+  # Production bundle must compile. Vite's bundle phase is memory-heavy (RainbowKit graph +
+  # SDK WASM + snarkjs), so raise the V8 heap; public GitHub runners have 16 GB, leaving ample
+  # headroom above the 8192 MB ceiling. prebuild verifies the committed ZK artifacts are present.
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192

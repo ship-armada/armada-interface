@@ -59,5 +59,8 @@
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0",
     "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "@swc/core": "1.15.11"
   }
 }
