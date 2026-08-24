@@ -1,9 +1,43 @@
-# ZK circuit artifacts. The root .gitignore ignores every `artifacts/` dir, so the small
-# demo-critical variants (01x02/01x03/02x02/02x03, ~48MB) are force-committed (`git add -f`) to
-# keep the app self-contained. The heavy 08x04 (~30MB) is deliberately left out — the SDK
-# fetches it from its IPFS read-through cache at runtime.
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Vite / test caches
+.vite/
+coverage/
+
+# ZK circuit artifacts. The small demo-critical variants (01x02/01x03/02x02/02x03, ~48 MB) are
+# committed to keep the app self-contained. The heavy 08x04 (~30 MB) is deliberately left out —
+# the SDK fetches it from its IPFS read-through cache at runtime.
 public/artifacts/08x04/
 
-# Personal dev overrides (copy from .env.example)
-.env.development
+# Build-time-fetched Sepolia manifests (Netlify/Vercel pull these from armada-deployments at build
+# time per netlify.toml / vercel.json; never commit them).
+public/api/
+
+# Environment / personal dev overrides (copy from .env.example). .env.example itself stays tracked.
+.env
+*.env
 .env.local
+.env.*.local
+.env.development
+
+# Logs
+*.log
+
+# Secrets and credentials
+*.key
+*.pem
+*.secret
+*.wallet
+*.keystore
+*.wallet.json
+
+# OS
+.DS_Store
+._*
+*.swp
+Thumbs.db
