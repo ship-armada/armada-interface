@@ -34,6 +34,7 @@ const sdkEntry = (over: Partial<HistoryEntry>): HistoryEntry => ({
   txid: '0xabc',
   blockNumber: 100,
   category: 'shield',
+  tokenHash: 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000',
   tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
   value: 1_000_000n,
   ...over,

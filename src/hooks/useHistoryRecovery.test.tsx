@@ -59,7 +59,7 @@ function Harness() {
 /** Build a synthesized shield TxRecord via the real SDK mapper — `txid` drives id + sourceTxHash. */
 function shieldRecord(txid: string, blockNumber: number, amount: bigint): TxRecord {
   return historyEntryToTxRecord(
-    { txid, blockNumber, category: 'shield', tokenAddress: '0xusdc', value: amount },
+    { txid, blockNumber, category: 'shield', tokenHash: 'usdchash', tokenAddress: '0xusdc', value: amount },
     'rg-1',
     { hubChainId: 31337 },
     1_700_000_000_000,
