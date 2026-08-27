@@ -2,7 +2,13 @@
 // ABOUTME: The first step of the Request flow; "Create link" advances to RequestLinkScreen. Amount-less requests copy the raw address instead.
 
 import { useId, useRef } from 'react'
-import { Button, modalStepBodyEnter, modalActionRowEnter, incompleteCtaShakeClass } from '@/design'
+import {
+  Button,
+  TextArea,
+  modalStepBodyEnter,
+  modalActionRowEnter,
+  incompleteCtaShakeClass,
+} from '@/design'
 import { SegmentedControl } from '@/components/ui'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
 import { hasActiveAmount, sanitizeAmountInput } from '@/utils/amountInput'
@@ -93,18 +99,16 @@ export function RequestReceiveScreen({
             <label className={styles.fieldLabel} htmlFor={noteInputId}>
               Note <span className={styles.fieldOptional}>(optional)</span>
             </label>
-            <textarea
+            <TextArea
               id={noteInputId}
-              className={styles.noteInput}
+              surface="frostRaised"
               value={note}
               maxLength={REQUEST_NOTE_MAX_LENGTH}
               placeholder="For invoice #123"
               rows={2}
+              showCount
               onChange={(event) => onNoteChange(event.target.value)}
             />
-            <p className={styles.noteMeta}>
-              {note.length}/{REQUEST_NOTE_MAX_LENGTH}
-            </p>
           </div>
         </div>
       </div>
