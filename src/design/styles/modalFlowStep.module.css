@@ -1,0 +1,19 @@
+/* ABOUTME: Shared modal step layout — title uses display-lg via displayLgTitle.module.css.
+   ABOUTME: Ported from the armada-app mockup; import from flow/amount steps when aligning layout. */
+
+.column {
+  width: 100%;
+  max-width: 434px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--primitives-spacing-8);
+}
+
+.title {
+  composes: displayLg from './displayLgTitle.module.css';
+  margin: 0;
+  width: 100%;
+  color: var(--semantic-color-text-primary);
+  text-align: center;
+}

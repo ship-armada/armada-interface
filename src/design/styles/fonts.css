@@ -1,0 +1,18 @@
+/* ABOUTME: Local Charis SIL — avoids Google Fonts network / CSP failures on display headlines.
+   ABOUTME: Ported from the armada-app mockup; Geist / Geist Mono still load from Google Fonts in index.html. */
+
+@font-face {
+  font-family: 'Charis SIL';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../../assets/fonts/CharisSIL-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Charis SIL';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../../assets/fonts/CharisSIL-Bold.ttf') format('truetype');
+}

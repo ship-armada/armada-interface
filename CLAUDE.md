@@ -32,6 +32,8 @@ src/
 ├── App.tsx                  installs visibility listener + hydrates tx history; renders <AppLayout>
 ├── index.css                @import tailwindcss + ./design/styles tokens.css + global.css
 ├── design/                  vendored design system (@/design) — primitives + tokens/typography CSS; severed from @armada/ui
+│   ├── tokens/              Token Studio JSON (armada-tokens.json) — edit semantic.typography here, then `npm run tokens:typography`
+│   └── styles/              tokens.css (hand-maintained colors) + generated typography.css; also fonts.css, mobileLayout.css
 ├── config/                  env-driven config — network, wagmi, deployments, relayer
 ├── lib/                     pure logic, no React (rpc, cache, format, revert, wagmi-adapter, telemetry, relayer, cctp)
 │   ├── shielded/            @armada/sdk wrappers (wallet, keyManager, sdk-read, sdk-prover, sync, balance-bus, network, artifacts) — stock engine fully removed
