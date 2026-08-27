@@ -12,6 +12,8 @@ export interface ConfirmedScreenLayoutProps {
   children: ReactNode
   onViewExplorer: () => void
   onGoToDashboard: () => void
+  /** When true, disables "View on explorer" (e.g. no explorer URL yet). */
+  viewExplorerDisabled?: boolean
 }
 
 export function ConfirmedScreenLayout({
@@ -20,6 +22,7 @@ export function ConfirmedScreenLayout({
   children,
   onViewExplorer,
   onGoToDashboard,
+  viewExplorerDisabled = false,
 }: ConfirmedScreenLayoutProps) {
   return (
     <div className={styles.column}>
@@ -41,6 +44,7 @@ export function ConfirmedScreenLayout({
           showIcon={false}
           className={styles.cancelButton}
           onClick={onViewExplorer}
+          disabled={viewExplorerDisabled}
         />
         <Button
           variant="primary"

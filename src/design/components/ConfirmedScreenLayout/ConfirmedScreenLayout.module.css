@@ -93,8 +93,10 @@
   color: var(--semantic-color-text-primary);
 }
 
-.cancelButton:hover:not(:disabled) {
-  background: var(--semantic-color-frost-hover);
+@media (hover: hover) and (pointer: fine) {
+  .cancelButton:hover:not(:disabled) {
+    background: var(--semantic-color-frost-hover);
+  }
 }
 
 @media (max-width: 479px) {
