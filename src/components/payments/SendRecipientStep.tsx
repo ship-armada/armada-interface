@@ -1,9 +1,16 @@
-// ABOUTME: Send/Withdraw recipient step — a frost card (title + address input with Clear + a paste row that
+// ABOUTME: Send/Withdraw recipient step — a frost card (title + address TextField with Clear + a paste row that
 // ABOUTME: previews a valid 0zk/0x on the clipboard + public-only chain selector + privacy badge once valid) over an always-visible Cancel / Continue action row + a recent-recipients list.
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { XMarkIcon, GlobeAltIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
-import { ArmadaLogo, Button, modalStepBodyEnter, modalActionRowEnter, incompleteCtaShakeClass } from '@/design'
+import { GlobeAltIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
+import {
+  ArmadaLogo,
+  Button,
+  TextField,
+  modalStepBodyEnter,
+  modalActionRowEnter,
+  incompleteCtaShakeClass,
+} from '@/design'
 import iconButtonStyles from '@/design/components/IconButton/IconButton.module.css'
 import { ChainSelect } from '@/components/ui'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
@@ -140,37 +147,29 @@ export function SendRecipientStep({
             visible={Boolean(recipientError)}
             message={recipientError ?? ''}
           >
-            <div className={styles.addressField}>
-              <input
-                ref={inputRef}
-                className={styles.addressInput}
-                type="text"
-                value={inputDisplayValue}
-                title={recipientTrimmed || undefined}
-                onChange={(e) => onRecipientChange(e.target.value)}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                placeholder="Enter address"
-                spellCheck={false}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                aria-label="Recipient address"
-                aria-invalid={recipientInvalid || undefined}
-                aria-describedby={recipientError ? recipientErrorId : undefined}
-              />
-              {hasInput ? (
-                <button
-                  type="button"
-                  className={styles.clearButton}
-                  aria-label="Clear address"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => onRecipientChange('')}
-                >
-                  <XMarkIcon className={styles.clearIcon} strokeWidth={2} aria-hidden />
-                </button>
-              ) : null}
-            </div>
+            <TextField
+              ref={inputRef}
+              type="text"
+              size="lg"
+              surface="frostRaised"
+              valueFont="mono"
+              value={inputDisplayValue}
+              title={recipientTrimmed || undefined}
+              onChange={(e) => onRecipientChange(e.target.value)}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              placeholder="Enter address"
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              aria-label="Recipient address"
+              aria-invalid={recipientInvalid || undefined}
+              aria-describedby={recipientError ? recipientErrorId : undefined}
+              clearable={hasInput}
+              clearAriaLabel="Clear address"
+              onClear={() => onRecipientChange('')}
+            />
           </AmountFieldWarning>
 
           {/* Empty state only: a paste row shown whenever the clipboard has content. A valid 0zk/0x is

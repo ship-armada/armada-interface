@@ -47,75 +47,6 @@
   width: 100%;
 }
 
-.addressField {
-  display: flex;
-  align-items: center;
-  gap: var(--primitives-spacing-3);
-  width: 100%;
-  height: calc(var(--primitives-spacing-12) + var(--primitives-spacing-2));
-  min-height: calc(var(--primitives-spacing-12) + var(--primitives-spacing-2));
-  padding: 0 var(--primitives-spacing-5);
-  border-radius: calc(var(--primitives-borderRadius-xl) * 1px);
-  background: var(--semantic-color-frost-raised);
-  box-sizing: border-box;
-}
-
-.addressInput {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  font-family: var(--primitives-fontFamily-mono), ui-monospace, monospace;
-  font-size: calc(var(--primitives-fontSize-base) * 1px);
-  font-weight: var(--primitives-fontWeight-medium);
-  color: var(--semantic-color-text-primary);
-  outline: none;
-  letter-spacing: 0;
-  height: 100%;
-  overflow: hidden;
-  text-overflow: clip;
-}
-
-.addressInput::placeholder {
-  font-family: var(--primitives-fontFamily-ui), sans-serif;
-  font-weight: var(--primitives-fontWeight-regular);
-  color: var(--semantic-color-text-muted);
-}
-
-.clearButton {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--primitives-spacing-8);
-  height: var(--primitives-spacing-8);
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: calc(var(--primitives-borderRadius-full) * 1px);
-  background: var(--semantic-color-surface-hover);
-  color: var(--semantic-color-text-secondary);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.clearButton:hover {
-  color: var(--semantic-color-text-primary);
-  background: var(--semantic-color-surface-raised);
-}
-
-.clearButton:active {
-  transform: translateY(1px);
-}
-
-.clearIcon {
-  width: var(--primitives-spacing-4);
-  height: var(--primitives-spacing-4);
-  display: block;
-}
-
 /* Click-to-read paste row — frosted clipboard glyph + label; empty state only. */
 .clipboardPaste {
   display: flex;
@@ -318,9 +249,5 @@
 @media (max-width: 479px) {
   .card {
     padding: var(--primitives-spacing-5);
-  }
-
-  .addressInput {
-    font-size: calc(var(--primitives-fontSize-lg) * 1px);
   }
 }

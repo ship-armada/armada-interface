@@ -91,40 +91,6 @@
   font-weight: var(--primitives-fontWeight-regular);
 }
 
-.noteInput {
-  width: 100%;
-  min-height: var(--primitives-spacing-16);
-  padding: var(--primitives-spacing-4) var(--primitives-spacing-5);
-  border: none;
-  border-radius: calc(var(--primitives-borderRadius-xl) * 1px);
-  background: var(--semantic-color-frost-raised);
-  box-sizing: border-box;
-  resize: vertical;
-  font-family: var(--primitives-fontFamily-ui), sans-serif;
-  font-size: calc(var(--primitives-fontSize-base) * 1px);
-  font-weight: var(--primitives-fontWeight-regular);
-  line-height: var(--primitives-lineHeight-normal);
-  color: var(--semantic-color-text-primary);
-}
-
-.noteInput:focus {
-  outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
-  outline-offset: calc(var(--primitives-spacing-1) * 1px);
-}
-
-.noteInput::placeholder {
-  color: var(--semantic-color-text-muted);
-}
-
-.noteMeta {
-  margin: 0;
-  font-family: var(--primitives-fontFamily-ui), sans-serif;
-  font-size: calc(var(--primitives-fontSize-xs) * 1px);
-  line-height: var(--primitives-lineHeight-tight);
-  color: var(--semantic-color-text-muted);
-  text-align: right;
-}
-
 .amountRow {
   display: flex;
   justify-content: flex-start;
