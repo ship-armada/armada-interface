@@ -1,0 +1,14 @@
+/* ABOUTME: Shared mobile layout tokens — safe-area insets + min touch target.
+   ABOUTME: Keep in sync with MOBILE_LAYOUT_MAX_WIDTH_PX (479) in useMobileLayout.
+   ABOUTME: Ported from the armada-app mockup; import once from src/index.css after tokens.css. */
+
+:root {
+  --mobile-safe-area-top: env(safe-area-inset-top, 0px);
+  --mobile-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-touch-target-min: var(--primitives-spacing-11);
+  --mobile-flow-footer-height: calc(
+    var(--primitives-spacing-12) + var(--mobile-safe-area-bottom)
+  );
+}
+
+/* Hover fills stay on fine pointers (mouse). Touch uses :active / tap-to-open tooltips. */

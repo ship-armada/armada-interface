@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepare:artifacts": "node scripts/prepare-artifacts.mjs",
+    "tokens:typography": "node scripts/build-typography.mjs",
     "postinstall": "node scripts/ensure-linux-native-modules.mjs"
   },
   "dependencies": {
