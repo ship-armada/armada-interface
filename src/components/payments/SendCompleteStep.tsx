@@ -1,12 +1,11 @@
-// ABOUTME: Send/Withdraw complete step — frost card with left-aligned "USDC send/unshield confirmed" title + big mono amount, shared TransferReviewSummary (with date/time), and explorer/dashboard CTAs.
-// ABOUTME: Mirrors ShieldCompleteStep — no divider between the summary card and the button row.
+// ABOUTME: Send/Withdraw complete step — confirm layout with TransferReviewSummary + explorer/dashboard CTAs.
+// ABOUTME: Presentation via design ConfirmedScreenLayout (armada-app SendConfirmedScreen parity).
 
-import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
+import { ConfirmedScreenLayout } from '@/design'
 import { TransferReviewSummary } from './TransferReviewSummary'
 import { formatUsdcPlain } from '@/lib/format'
 import { isShieldedAddress } from '@/lib/address'
 import type { SendFlowVariant } from './SendRecipientStep'
-import styles from './SendCompleteStep.module.css'
 
 export interface SendCompleteStepProps {
   variant: SendFlowVariant
@@ -53,46 +52,23 @@ export function SendCompleteStep({
         : 'USDC sent successfully'
 
   return (
-    <div className={styles.root}>
-      <div className={`${styles.body} ${modalStepBodyEnter}`}>
-        <div className={styles.titleBlock}>
-          <h1 className={styles.title}>{title}</h1>
-          <div className={styles.amountRow}>
-            <span className={styles.amountValue}>{formatUsdcPlain(amount)}</span>
-          </div>
-        </div>
-
-        <TransferReviewSummary
-          recipient={recipient}
-          armadaAddress={armadaAddress}
-          fee={fee}
-          totalDeducted={totalDeducted}
-          variant={variant}
-          networkName={networkName}
-          recipientWalletProvider={recipientWalletProvider}
-          confirmedAt={confirmedAt}
-        />
-      </div>
-
-      <div className={`${styles.buttonRow} ${modalActionRowEnter}`}>
-        <Button
-          variant="secondary"
-          size="lg"
-          label="View on explorer"
-          showIcon={false}
-          className={styles.cancelButton}
-          onClick={onViewExplorer}
-          disabled={!explorerUrl}
-        />
-        <Button
-          variant="primary"
-          size="lg"
-          label="Go to dashboard"
-          showIcon={false}
-          className={styles.confirmButton}
-          onClick={onGoToDashboard}
-        />
-      </div>
-    </div>
+    <ConfirmedScreenLayout
+      title={title}
+      amountLabel={formatUsdcPlain(amount)}
+      onViewExplorer={onViewExplorer}
+      onGoToDashboard={onGoToDashboard}
+      viewExplorerDisabled={!explorerUrl}
+    >
+      <TransferReviewSummary
+        recipient={recipient}
+        armadaAddress={armadaAddress}
+        fee={fee}
+        totalDeducted={totalDeducted}
+        variant={variant}
+        networkName={networkName}
+        recipientWalletProvider={recipientWalletProvider}
+        confirmedAt={confirmedAt}
+      />
+    </ConfirmedScreenLayout>
   )
 }
