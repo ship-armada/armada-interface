@@ -18,6 +18,20 @@ export type { ButtonProps, ButtonVariant, ButtonSize, ButtonIcon } from './compo
 export { Text } from './components/Text'
 export type { TextProps, TypographyVariant } from './components/Text'
 
+export { TextField } from './components/TextField'
+export type {
+  TextFieldProps,
+  TextFieldSize,
+  TextFieldSurface,
+  TextFieldValueFont,
+} from './components/TextField'
+
+export { TextArea } from './components/TextArea'
+export type { TextAreaProps, TextAreaSurface } from './components/TextArea'
+
+export { ConfirmedScreenLayout } from './components/ConfirmedScreenLayout'
+export type { ConfirmedScreenLayoutProps } from './components/ConfirmedScreenLayout'
+
 export { NavItem } from './components/NavItem'
 export type { NavItemProps } from './components/NavItem'
 
