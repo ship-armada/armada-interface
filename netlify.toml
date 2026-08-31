@@ -30,14 +30,16 @@
     REF="${DEPLOYMENT_REF:-main}" && \
     BASE="https://raw.githubusercontent.com/ship-armada/armada-deployments/${REF}/testnet/${INSTANCE}" && \
     echo "Fetching deployment manifests from instance: ${INSTANCE} (ref: ${REF})" && \
-    curl -sfL -o public/api/deployments/hub-sepolia-v3.json               "${BASE}/sepolia/cctp.json" && \
-    curl -sfL -o public/api/deployments/client-sepolia-v3.json            "${BASE}/base-sepolia/cctp.json" && \
-    curl -sfL -o public/api/deployments/clientB-sepolia-v3.json           "${BASE}/arbitrum-sepolia/cctp.json" && \
-    curl -sfL -o public/api/deployments/privacy-pool-hub-sepolia.json     "${BASE}/sepolia/privacy-pool.json" && \
-    curl -sfL -o public/api/deployments/privacy-pool-client-sepolia.json  "${BASE}/base-sepolia/privacy-pool.json" && \
-    curl -sfL -o public/api/deployments/privacy-pool-clientB-sepolia.json "${BASE}/arbitrum-sepolia/privacy-pool.json" && \
-    curl -sfL -o public/api/deployments/yield-hub-sepolia.json            "${BASE}/sepolia/yield.json" && \
-    curl -sfL -o public/api/deployments/fee-module-hub-sepolia.json       "${BASE}/sepolia/fee-module.json" && \
+    curl -sfL -o public/api/deployments/hub-sepolia-v3.json                "${BASE}/sepolia/cctp.json" && \
+    curl -sfL -o public/api/deployments/client1-sepolia-v3.json            "${BASE}/base-sepolia/cctp.json" && \
+    curl -sfL -o public/api/deployments/client2-sepolia-v3.json            "${BASE}/arbitrum-sepolia/cctp.json" && \
+    curl -sfL -o public/api/deployments/privacy-pool-hub-sepolia.json      "${BASE}/sepolia/privacy-pool.json" && \
+    curl -sfL -o public/api/deployments/privacy-pool-client1-sepolia.json  "${BASE}/base-sepolia/privacy-pool.json" && \
+    curl -sfL -o public/api/deployments/privacy-pool-client2-sepolia.json  "${BASE}/arbitrum-sepolia/privacy-pool.json" && \
+    curl -sfL -o public/api/deployments/yield-hub-sepolia.json             "${BASE}/sepolia/yield.json" && \
+    curl -sfL -o public/api/deployments/fee-module-hub-sepolia.json        "${BASE}/sepolia/fee-module.json" && \
+    (curl -sfL -o public/api/deployments/client3-sepolia-v3.json             "${BASE}/optimism-sepolia/cctp.json" || true) && \
+    (curl -sfL -o public/api/deployments/privacy-pool-client3-sepolia.json   "${BASE}/optimism-sepolia/privacy-pool.json" || true) && \
     npm run prepare:artifacts && \
     npm run build
   """
