@@ -61,7 +61,7 @@ src/
 
 ```bash
 # From repo root
-npm install --legacy-peer-deps        # if dependencies changed
+npm install                           # if dependencies changed
 npm run armada:interface              # → http://localhost:5176
 
 # Or equivalently:
