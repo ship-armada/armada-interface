@@ -1,7 +1,7 @@
 // ABOUTME: Loads privacy-pool deployment manifests for hub + each client chain at app start.
 // ABOUTME: Schema typed against actual manifest shapes; fetched via the serveDeployments() Vite dev plugin.
 
-import { getNetworkConfig, type ChainIdentity } from './network'
+import { getNetworkConfig, getDeploymentPrefix, type ChainIdentity } from './network'
 
 /** Hub privacy-pool deployment shape (privacy-pool-hub*.json). */
 export interface PrivacyPoolHubDeployment {
@@ -73,16 +73,22 @@ export interface ResolvedDeployments {
 }
 
 /**
- * Manifest naming convention per `config/networks.ts`:
- *   local:    privacy-pool-hub.json, privacy-pool-client.json, privacy-pool-clientB.json
- *   sepolia:  privacy-pool-hub-sepolia.json, etc.
+ * Privacy-pool manifest filename for a chain, matching armada-poc's
+ * `getPrivacyPoolDeploymentFile`: `privacy-pool-<prefix>[-sepolia].json`, where `<prefix>` is the
+ * chain's deployment prefix (`hub`, `client1`, `client2`, … — 1-based, N clients). The prefix comes
+ * from `network.ts::getDeploymentPrefix`, which resolves it from the full client registry so the
+ * name is stable regardless of which clients are enabled.
  *
- * The 2nd client uses the suffix "clientB" (not "client2"); this is historical.
+ *   local:    privacy-pool-hub.json, privacy-pool-client1.json, privacy-pool-client2.json, …
+ *   sepolia:  privacy-pool-hub-sepolia.json, privacy-pool-client1-sepolia.json, …
  */
-function manifestName(role: 'hub' | 'client' | 'clientB'): string {
-  const cfg = getNetworkConfig()
-  const suffix = cfg.mode === 'sepolia' ? '-sepolia' : ''
-  return `privacy-pool-${role}${suffix}.json`
+function manifestNameForChain(chainId: number): string {
+  const prefix = getDeploymentPrefix(chainId)
+  if (!prefix) {
+    throw new Error(`No privacy-pool deployment manifest mapping for chain ${chainId}.`)
+  }
+  const suffix = getNetworkConfig().mode === 'sepolia' ? '-sepolia' : ''
+  return `privacy-pool-${prefix}${suffix}.json`
 }
 
 async function fetchManifest<T>(name: string): Promise<T> {
@@ -106,13 +112,13 @@ export async function loadDeployments(): Promise<ResolvedDeployments> {
   if (pendingDeployments) return pendingDeployments
   const p: Promise<ResolvedDeployments> = (async (): Promise<ResolvedDeployments> => {
     const cfg = getNetworkConfig()
-    const hub = await fetchManifest<PrivacyPoolHubDeployment>(manifestName('hub'))
+    const hub = await fetchManifest<PrivacyPoolHubDeployment>(manifestNameForChain(cfg.hub.chainId))
 
-    // Two clients today (clientA + clientB). Mapped to the network config's `clients[]` order.
-    const clientNames: ReadonlyArray<'client' | 'clientB'> = ['client', 'clientB']
+    // One manifest per enabled client, in `cfg.clients[]` order. Each name is derived from the
+    // client's stable deployment prefix (client1, client2, …), so N clients need no per-count code.
     const clients: PrivacyPoolClientDeployment[] = []
-    for (const role of clientNames.slice(0, cfg.clients.length)) {
-      clients.push(await fetchManifest<PrivacyPoolClientDeployment>(manifestName(role)))
+    for (const client of cfg.clients) {
+      clients.push(await fetchManifest<PrivacyPoolClientDeployment>(manifestNameForChain(client.chainId)))
     }
 
     cached = { hub, clients }

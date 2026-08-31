@@ -1,5 +1,5 @@
 // ABOUTME: Network configuration for armada-interface — hub + client chain identities, RPC URLs, indexer/relayer/Iris endpoints.
-// ABOUTME: Driven by VITE_NETWORK env var (local | sepolia). All multi-chain config flows from here.
+// ABOUTME: VITE_NETWORK picks the mode (local | sepolia); VITE_ENABLED_CLIENTS selects clients from the registry. All multi-chain config flows from here.
 
 export type NetworkMode = 'local' | 'sepolia'
 
@@ -12,6 +12,36 @@ export interface ChainIdentity {
   readonly rpcUrls: readonly string[]
   /** Block explorer base URL. Undefined for local Anvil. */
   readonly explorerUrl?: string
+}
+
+/**
+ * A single client chain in the per-mode client registry. The registry holds *every* known client;
+ * an operator selects a subset at boot via `VITE_ENABLED_CLIENTS` (see `resolveEnabledClients`).
+ * Adding a new client is one new entry here — no positional/count assumptions elsewhere.
+ */
+export interface ClientEntry {
+  /**
+   * Human-friendly stable id used by `VITE_ENABLED_CLIENTS` to enable/disable this client at boot
+   * (e.g. `base-sepolia`). Distinct from `deploymentPrefix` — operators enable by chain, not by
+   * the deploy tooling's positional role.
+   */
+  readonly key: string
+  readonly identity: ChainIdentity
+  /**
+   * The armada-poc deploy-manifest prefix for this client (`client1`, `client2`, … — 1-based, per
+   * `armada-poc/config/networks.ts`). Drives the `privacy-pool-<prefix>.json` manifest filename in
+   * `deployments.ts`. Stable per client and independent of the enable-list, so a client's manifest
+   * name never shifts when other clients are disabled. Adding a client here must match the prefix
+   * `armada-poc add_client` assigns it.
+   */
+  readonly deploymentPrefix: string
+  /**
+   * Whether this client is active when `VITE_ENABLED_CLIENTS` is unset. Defaults to `true` (omit for
+   * the common case). Set `false` to catalog a client that isn't ready to run by default — e.g. its
+   * deployment manifest isn't published yet — so it exists in the registry and can be turned on
+   * explicitly via `VITE_ENABLED_CLIENTS` without breaking the default build.
+   */
+  readonly enabledByDefault?: boolean
 }
 
 export interface NetworkConfig {
@@ -112,17 +142,109 @@ const LOCAL_CLIENT_B: ChainIdentity = {
   rpcUrls: ['http://localhost:8547'],
 } as const
 
-function sepoliaConfig(): NetworkConfig {
-  const sepoliaRpcPrimary = (import.meta.env.VITE_SEPOLIA_RPC as string | undefined)
-    ?? 'https://ethereum-sepolia-rpc.publicnode.com'
-  const sepoliaRpcFallback = import.meta.env.VITE_SEPOLIA_RPC_FALLBACK as string | undefined
+function localClientRegistry(): readonly ClientEntry[] {
+  return [
+    { key: 'anvil-client-a', identity: LOCAL_CLIENT_A, deploymentPrefix: 'client1' },
+    { key: 'anvil-client-b', identity: LOCAL_CLIENT_B, deploymentPrefix: 'client2' },
+  ]
+}
 
-  // Base Sepolia + Arbitrum Sepolia are the production-style client chains per CCTP docs;
-  // the exact pairing matches what the relayer + deployments expect.
+function sepoliaClientRegistry(): readonly ClientEntry[] {
+  // Base Sepolia + Arbitrum Sepolia are the production-style client chains per CCTP docs; the exact
+  // pairing matches what the relayer + deployments expect. Per-client RPC overrides via env.
   const baseSepoliaRpc = (import.meta.env.VITE_BASE_SEPOLIA_RPC as string | undefined)
     ?? 'https://sepolia.base.org'
   const arbSepoliaRpc = (import.meta.env.VITE_ARB_SEPOLIA_RPC as string | undefined)
     ?? 'https://sepolia-rollup.arbitrum.io/rpc'
+  const opSepoliaRpc = (import.meta.env.VITE_OP_SEPOLIA_RPC as string | undefined)
+    ?? 'https://sepolia.optimism.io'
+  return [
+    {
+      key: 'base-sepolia',
+      identity: {
+        chainId: 84532,
+        domain: 6,
+        name: 'Base Sepolia',
+        rpcUrls: [baseSepoliaRpc],
+        explorerUrl: 'https://sepolia.basescan.org',
+      },
+      deploymentPrefix: 'client1',
+    },
+    {
+      key: 'arbitrum-sepolia',
+      identity: {
+        chainId: 421614,
+        domain: 3,
+        name: 'Arbitrum Sepolia',
+        rpcUrls: [arbSepoliaRpc],
+        explorerUrl: 'https://sepolia.arbiscan.io',
+      },
+      deploymentPrefix: 'client2',
+    },
+    {
+      key: 'optimism-sepolia',
+      identity: {
+        chainId: 11155420,
+        domain: 2,
+        name: 'Optimism Sepolia',
+        rpcUrls: [opSepoliaRpc],
+        explorerUrl: 'https://sepolia-optimism.etherscan.io',
+      },
+      deploymentPrefix: 'client3',
+      // Off by default: no privacy-pool deployment is published for optimism-sepolia yet. Enable via
+      // VITE_ENABLED_CLIENTS once its `privacy-pool-client3-sepolia.json` manifest exists, then flip
+      // this to remove the opt-in requirement.
+      enabledByDefault: false,
+    },
+  ]
+}
+
+/** The full client registry for a mode — every known client, before the enable-list filter. */
+export function getClientRegistry(mode: NetworkMode): readonly ClientEntry[] {
+  return mode === 'sepolia' ? sepoliaClientRegistry() : localClientRegistry()
+}
+
+/**
+ * Resolve the active client identities from a registry given the raw `VITE_ENABLED_CLIENTS` value:
+ *   - unset / empty / whitespace → the default-active clients (every entry except those marked
+ *     `enabledByDefault: false`), in registry order (backward compatible for all-default registries).
+ *   - a comma-separated subset of `key`s → those clients, in *registry* order (deterministic,
+ *     independent of the order the operator listed them), including entries that are off by default.
+ *     Surrounding whitespace + blank entries are ignored.
+ *   - any unknown key → throws a descriptive boot error listing the valid keys. Fail-fast beats
+ *     silently dropping a client the operator asked for.
+ */
+export function resolveEnabledClients(
+  registry: readonly ClientEntry[],
+  enabledCsv: string | undefined,
+): readonly ChainIdentity[] {
+  const keys = (enabledCsv ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  if (keys.length === 0) {
+    return registry.filter(e => e.enabledByDefault !== false).map(e => e.identity)
+  }
+  const validKeys = registry.map(e => e.key)
+  for (const k of keys) {
+    if (!validKeys.includes(k)) {
+      throw new Error(
+        `VITE_ENABLED_CLIENTS: unknown client key "${k}". Valid keys: ${validKeys.join(', ')}.`,
+      )
+    }
+  }
+  return registry.filter(e => keys.includes(e.key)).map(e => e.identity)
+}
+
+/** Active client identities for a mode: the mode registry filtered by `VITE_ENABLED_CLIENTS`. */
+function resolveClientsForMode(mode: NetworkMode): readonly ChainIdentity[] {
+  return resolveEnabledClients(
+    getClientRegistry(mode),
+    import.meta.env.VITE_ENABLED_CLIENTS as string | undefined,
+  )
+}
+
+function sepoliaConfig(): NetworkConfig {
+  const sepoliaRpcPrimary = (import.meta.env.VITE_SEPOLIA_RPC as string | undefined)
+    ?? 'https://ethereum-sepolia-rpc.publicnode.com'
+  const sepoliaRpcFallback = import.meta.env.VITE_SEPOLIA_RPC_FALLBACK as string | undefined
 
   return {
     mode: 'sepolia',
@@ -133,22 +255,7 @@ function sepoliaConfig(): NetworkConfig {
       rpcUrls: sepoliaRpcFallback ? [sepoliaRpcPrimary, sepoliaRpcFallback] : [sepoliaRpcPrimary],
       explorerUrl: 'https://sepolia.etherscan.io',
     },
-    clients: [
-      {
-        chainId: 84532,
-        domain: 6,
-        name: 'Base Sepolia',
-        rpcUrls: [baseSepoliaRpc],
-        explorerUrl: 'https://sepolia.basescan.org',
-      },
-      {
-        chainId: 421614,
-        domain: 3,
-        name: 'Arbitrum Sepolia',
-        rpcUrls: [arbSepoliaRpc],
-        explorerUrl: 'https://sepolia.arbiscan.io',
-      },
-    ],
+    clients: resolveClientsForMode('sepolia'),
     // NO localhost fallback on sepolia (P0-10): a missing VITE_RELAYER_URL must yield '' so
     // `isRelayerConfigured()` is honestly false — not silently point the DEPLOYED app at the
     // visitor's own machine (and an http:// URL from an https:// page is blocked as mixed content
@@ -170,7 +277,7 @@ function localConfig(): NetworkConfig {
   return {
     mode: 'local',
     hub: LOCAL_HUB,
-    clients: [LOCAL_CLIENT_A, LOCAL_CLIENT_B],
+    clients: resolveClientsForMode('local'),
     relayerUrl: (import.meta.env.VITE_RELAYER_URL as string | undefined) ?? 'http://localhost:3001',
     // Iris URL is unused in local mode (CCTP relays via mock module), but populate for type completeness.
     irisUrl: 'https://iris-api-sandbox.circle.com',
@@ -205,4 +312,20 @@ export function getChainById(chainId: number): ChainIdentity | undefined {
 
 export function getChainByDomain(domain: number): ChainIdentity | undefined {
   return getAllChainIdentities().find(c => c.domain === domain)
+}
+
+/** Manifest prefix for the hub's privacy-pool deployment file (`privacy-pool-hub.json`). */
+const HUB_DEPLOYMENT_PREFIX = 'hub'
+
+/**
+ * The deployment-manifest prefix for a chain — matches armada-poc's `deploymentPrefix`
+ * (`hub`, `client1`, `client2`, …). Used by `deployments.ts` to build `privacy-pool-<prefix>.json`
+ * names. Resolved from the FULL client registry (not the enable-filtered `clients[]`) so a client's
+ * manifest name is stable regardless of which clients are enabled. Returns undefined for an unknown
+ * chain id.
+ */
+export function getDeploymentPrefix(chainId: number): string | undefined {
+  const cfg = getNetworkConfig()
+  if (cfg.hub.chainId === chainId) return HUB_DEPLOYMENT_PREFIX
+  return getClientRegistry(cfg.mode).find(e => e.identity.chainId === chainId)?.deploymentPrefix
 }
