@@ -4,34 +4,51 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { fallback, http } from 'viem'
 import type { Transport } from 'viem'
-import { sepolia, baseSepolia, arbitrumSepolia, hardhat } from 'wagmi/chains'
+import { sepolia, baseSepolia, arbitrumSepolia, optimismSepolia, hardhat } from 'wagmi/chains'
 import type { Chain } from 'wagmi/chains'
-import { getNetworkConfig, isLocalMode, type ChainIdentity } from './network'
+import { getAllChainIdentities, type ChainIdentity } from './network'
 
-const ANVIL_HUB: Chain = {
-  ...hardhat,
-  id: 31337,
-  name: 'Anvil Hub',
-  rpcUrls: { default: { http: ['http://localhost:8545'] } },
+/**
+ * Canonical viem `Chain` objects keyed by chainId. These carry richer metadata (multicall3
+ * address, native currency, block explorers) than we'd synthesize by hand, so we prefer them when
+ * available. Purely ADDITIVE: which chains exist is driven by the network config — a chain absent
+ * from this map still registers, built from its `ChainIdentity` by `synthesizeChain`. Add an entry
+ * here only to attach canonical metadata for a new public chain; it's never the source of truth for
+ * the chain set.
+ */
+const KNOWN_VIEM_CHAINS: Readonly<Record<number, Chain>> = {
+  [sepolia.id]: sepolia,
+  [baseSepolia.id]: baseSepolia,
+  [arbitrumSepolia.id]: arbitrumSepolia,
+  [optimismSepolia.id]: optimismSepolia,
 }
 
-const ANVIL_CLIENT_A: Chain = {
-  ...hardhat,
-  id: 31338,
-  name: 'Anvil Client A',
-  rpcUrls: { default: { http: ['http://localhost:8546'] } },
+/**
+ * Build a minimal viem `Chain` from a `ChainIdentity` for chains with no canonical object (local
+ * Anvil, or a freshly-added client before it's in `KNOWN_VIEM_CHAINS`). Bases on `hardhat` for the
+ * ETH/18 native currency + testnet flag; RPC + explorer come from the identity.
+ */
+function synthesizeChain(identity: ChainIdentity): Chain {
+  return {
+    ...hardhat,
+    id: identity.chainId,
+    name: identity.name,
+    rpcUrls: { default: { http: [...identity.rpcUrls] } },
+    ...(identity.explorerUrl
+      ? { blockExplorers: { default: { name: 'Explorer', url: identity.explorerUrl } } }
+      : {}),
+  }
 }
 
-const ANVIL_CLIENT_B: Chain = {
-  ...hardhat,
-  id: 31339,
-  name: 'Anvil Client B',
-  rpcUrls: { default: { http: ['http://localhost:8547'] } },
+function chainForIdentity(identity: ChainIdentity): Chain {
+  return KNOWN_VIEM_CHAINS[identity.chainId] ?? synthesizeChain(identity)
 }
 
-function resolveChainsForMode(): readonly [Chain, ...Chain[]] {
-  if (isLocalMode()) return [ANVIL_HUB, ANVIL_CLIENT_A, ANVIL_CLIENT_B]
-  return [sepolia, baseSepolia, arbitrumSepolia]
+// Exported for unit tests. Derives one wagmi `Chain` per active chain identity (hub + enabled
+// clients), so N clients register N+1 chains with no per-count code.
+export function resolveChainsForMode(): readonly [Chain, ...Chain[]] {
+  const chains = getAllChainIdentities().map(chainForIdentity)
+  return chains as unknown as readonly [Chain, ...Chain[]]
 }
 
 // Exported for unit tests (single vs fallback transport selection). App code uses `wagmiConfig`.
@@ -56,12 +73,11 @@ export function buildTransports(chains: readonly Chain[], chainIdentities: reado
 }
 
 const chains = resolveChainsForMode()
-const cfg = getNetworkConfig()
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'Armada',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'armada-dev-placeholder',
   chains: chains as unknown as readonly [Chain, ...Chain[]],
-  transports: buildTransports(chains, [cfg.hub, ...cfg.clients]),
+  transports: buildTransports(chains, getAllChainIdentities()),
   ssr: false,
 })

@@ -73,7 +73,7 @@ npm run typecheck --workspace=@armada/interface
 
 For local mode (`VITE_NETWORK=local` — default), three Anvil chains must be running on `:8545` / `:8546` / `:8547`. Use the existing `npm run chains` + `npm run setup` from the repo root.
 
-For Sepolia, set `VITE_NETWORK=sepolia` and ensure manifest files exist in `deployments/` (`privacy-pool-hub-sepolia.json`, `privacy-pool-client-sepolia.json`, `privacy-pool-clientB-sepolia.json`).
+For Sepolia, set `VITE_NETWORK=sepolia` and ensure manifest files exist in `deployments/` (`privacy-pool-hub-sepolia.json`, `privacy-pool-client1-sepolia.json`, `privacy-pool-client2-sepolia.json`).
 
 ## Duplicated utilities
 

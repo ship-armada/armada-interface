@@ -12,7 +12,7 @@ import { useWallet } from '@/hooks/useWallet'
 import { useShieldedWallet } from '@/hooks/useShieldedWallet'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
 import { loadDeployments, type ResolvedDeployments } from '@/config/deployments'
-import { getNetworkConfig, isLocalMode, isRelayerConfigured, type ChainIdentity } from '@/config/network'
+import { getNetworkConfig, getDeploymentPrefix, isLocalMode, isRelayerConfigured, type ChainIdentity } from '@/config/network'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { formatUsdcAmount, truncateAddress } from '@/lib/format'
 import styles from './Debug.module.css'
@@ -76,7 +76,7 @@ function AddressRow({ label, value, truncate = false }: {
 
 const ERC20_BALANCE_ABI = ['function balanceOf(address) view returns (uint256)']
 
-/** Secondary manifest shape (hub-v3.json / client-v3.json / clientB-v3.json). */
+/** Secondary CCTP/faucet manifest shape (hub-v3.json / client1-v3.json / client2-v3.json). */
 interface FaucetManifest {
   chainId: number
   contracts: {
@@ -85,16 +85,16 @@ interface FaucetManifest {
   }
 }
 
-/** Manifest filename per role; mirrors the convention in deployments/ at the repo root. */
-const FAUCET_MANIFEST_NAMES: Record<'hub' | 'clientA' | 'clientB', string> = {
-  hub: 'hub-v3.json',
-  clientA: 'client-v3.json',
-  clientB: 'clientB-v3.json',
-}
-
-async function loadFaucetManifest(role: 'hub' | 'clientA' | 'clientB'): Promise<FaucetManifest | null> {
+/**
+ * Faucet manifest filename for a chain: `<deploymentPrefix>-v3.json` (hub-v3.json, client1-v3.json,
+ * …), matching armada-poc's `getCCTPDeploymentFile`. Faucet contracts exist only on local Anvil, so
+ * there's no network suffix. Returns null for a chain with no known deployment prefix.
+ */
+async function loadFaucetManifest(chainId: number): Promise<FaucetManifest | null> {
+  const prefix = getDeploymentPrefix(chainId)
+  if (!prefix) return null
   try {
-    const res = await fetch(`/api/deployments/${FAUCET_MANIFEST_NAMES[role]}`)
+    const res = await fetch(`/api/deployments/${prefix}-v3.json`)
     if (!res.ok) return null
     return (await res.json()) as FaucetManifest
   } catch {
@@ -200,19 +200,18 @@ export function Debug() {
 
   // One-time bootstrap: pull the privacy-pool deployments + (local mode only) the secondary
   // faucet manifests. The faucet manifests (hub-v3.json etc.) only exist for the local Anvil
-  // deployment; skipping the fetch on Sepolia avoids three 404s in the network panel.
+  // deployment; skipping the fetch on Sepolia avoids 404s in the network panel. Iterates hub + all
+  // enabled clients, so N clients need no per-count code.
   useEffect(() => {
     void (async () => {
       const resolved = await loadDeployments()
       setDeployments(resolved)
       if (!isLocalMode()) return
-      const [hubFaucet, clientFaucet, clientBFaucet] = await Promise.all([
-        loadFaucetManifest('hub'),
-        loadFaucetManifest('clientA'),
-        loadFaucetManifest('clientB'),
-      ])
+      const cfg = getNetworkConfig()
+      const chainIds = [cfg.hub.chainId, ...cfg.clients.map(c => c.chainId)]
+      const manifests = await Promise.all(chainIds.map(loadFaucetManifest))
       const map: Record<number, string> = {}
-      for (const m of [hubFaucet, clientFaucet, clientBFaucet]) {
+      for (const m of manifests) {
         if (m?.contracts.faucet) map[m.chainId] = m.contracts.faucet
       }
       setFaucetByChainId(map)

@@ -47,17 +47,20 @@ function fundGasEndpoint() {
   // The standard Anvil "test test ..." mnemonic account #0 — publicly known. Has 10 000 ETH on
   // every fresh Anvil instance. Safe to hardcode in dev config; never used outside local mode.
   const ANVIL_DEPLOYER_PK = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-  const RPC_BY_CHAIN_ID: Record<number, string> = {
-    31337: 'http://localhost:8545',
-    31338: 'http://localhost:8546',
-    31339: 'http://localhost:8547',
-  }
-  // Maps chainId → secondary manifest filename (the file that carries the faucet address).
-  // Mirrors the deployment naming convention; if it changes, update this map too.
-  const MANIFEST_BY_CHAIN_ID: Record<number, string> = {
-    31337: 'hub-v3.json',
-    31338: 'client-v3.json',
-    31339: 'clientB-v3.json',
+  // Local devnet layout (armada-poc/config/networks.ts): hub is chainId 31337 on :8545, and client i
+  // (1-based) is chainId 31337+i on port 8545+i, with CCTP/faucet manifest `client<i>-v3.json`.
+  // Derive both from the chainId so the faucet works for N local clients with no per-chain map to
+  // drift out of sync (the earlier hardcoded map is what broke client drips after the client1..N
+  // manifest rename). Returns null for anything outside the local band.
+  const LOCAL_HUB_CHAIN_ID = 31337
+  const LOCAL_HUB_PORT = 8545
+  function localFaucetTarget(chainId: number): { rpcUrl: string; manifestName: string } | null {
+    const offset = chainId - LOCAL_HUB_CHAIN_ID
+    if (offset < 0 || offset > 64) return null
+    return {
+      rpcUrl: `http://localhost:${LOCAL_HUB_PORT + offset}`,
+      manifestName: offset === 0 ? 'hub-v3.json' : `client${offset}-v3.json`,
+    }
   }
   const FAUCET_ABI = ['function dripTo(address recipient) external']
 
@@ -88,14 +91,14 @@ function fundGasEndpoint() {
               res.end(JSON.stringify({ error: 'Missing address or chainId' }))
               return
             }
-            const rpcUrl = RPC_BY_CHAIN_ID[chainId]
-            const manifestName = MANIFEST_BY_CHAIN_ID[chainId]
-            if (!rpcUrl || !manifestName) {
+            const target = localFaucetTarget(chainId)
+            if (!target) {
               res.statusCode = 400
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ error: `Unknown chainId: ${chainId}` }))
               return
             }
+            const { rpcUrl, manifestName } = target
             const manifestPath = path.resolve(DEPLOYMENTS_DIR, manifestName)
             if (!fs.existsSync(manifestPath)) {
               res.statusCode = 500
