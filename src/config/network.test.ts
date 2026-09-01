@@ -87,18 +87,25 @@ describe('resolveEnabledClients — enabledByDefault (catalog vs. active)', () =
   })
 })
 
-describe('getClientRegistry — sepolia catalog includes optimism-sepolia (opt-in)', () => {
-  it('catalogs optimism-sepolia, off by default', () => {
+describe('getClientRegistry — sepolia default set matches the canonical instance (demo3: Base + Optimism)', () => {
+  it('catalogs optimism-sepolia and includes it in the default set', () => {
     const op = getClientRegistry('sepolia').find(e => e.key === 'optimism-sepolia')
     expect(op).toBeDefined()
     expect(op!.identity.chainId).toBe(11155420)
     expect(op!.identity.domain).toBe(2)
-    expect(op!.enabledByDefault).toBe(false)
+    expect(op!.enabledByDefault).not.toBe(false) // on by default
   })
 
-  it('leaves base + arbitrum sepolia active by default; optimism is opt-in', () => {
+  it('catalogs arbitrum-sepolia as the opt-in entry (off by default)', () => {
+    const arb = getClientRegistry('sepolia').find(e => e.key === 'arbitrum-sepolia')
+    expect(arb).toBeDefined()
+    expect(arb!.identity.chainId).toBe(421614)
+    expect(arb!.enabledByDefault).toBe(false)
+  })
+
+  it('activates Base + Optimism by default; Arbitrum is opt-in', () => {
     const active = resolveEnabledClients(getClientRegistry('sepolia'), undefined).map(c => c.chainId)
-    expect(active).toEqual([84532, 421614]) // base, arb — NOT optimism (11155420)
+    expect(active).toEqual([84532, 11155420]) // base, optimism — NOT arbitrum (421614)
   })
 })
 

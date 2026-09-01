@@ -126,7 +126,8 @@ Open **http://localhost:5176**. The app talks to public Sepolia RPCs and reads t
 | Variable | Purpose |
 |---|---|
 | `VITE_WALLETCONNECT_PROJECT_ID` | Enables the WalletConnect modal (recommended) |
-| `VITE_SEPOLIA_RPC`, `VITE_BASE_SEPOLIA_RPC`, `VITE_ARB_SEPOLIA_RPC` | Override the default public RPCs |
+| `VITE_SEPOLIA_RPC`, `VITE_BASE_SEPOLIA_RPC`, `VITE_OP_SEPOLIA_RPC`, `VITE_ARB_SEPOLIA_RPC` | Override the default public RPCs |
+| `VITE_ENABLED_CLIENTS` | Comma-separated client keys to activate (unset ⇒ default set: `base-sepolia`, `optimism-sepolia`). e.g. `base-sepolia,arbitrum-sepolia` for an Arbitrum instance |
 | `VITE_RELAYER_URL` | A public HTTPS relayer origin, if one is running |
 | `VITE_INDEXER_URL` | Watcher quick-sync endpoint — hydrates cold wallets fast instead of a full log scan |
 

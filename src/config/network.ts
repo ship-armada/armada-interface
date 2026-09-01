@@ -169,6 +169,9 @@ function sepoliaClientRegistry(): readonly ClientEntry[] {
         rpcUrls: [arbSepoliaRpc],
         explorerUrl: 'https://sepolia.arbiscan.io',
       },
+      // Off by default: the canonical instance (demo3) ships Base + Optimism, not Arbitrum. Enable it
+      // for an Arbitrum-bearing instance with VITE_ENABLED_CLIENTS=base-sepolia,arbitrum-sepolia.
+      enabledByDefault: false,
     },
     {
       key: 'optimism-sepolia',
@@ -179,10 +182,8 @@ function sepoliaClientRegistry(): readonly ClientEntry[] {
         rpcUrls: [opSepoliaRpc],
         explorerUrl: 'https://sepolia-optimism.etherscan.io',
       },
-      // Off by default: enable via VITE_ENABLED_CLIENTS for an instance that deploys Optimism (e.g.
-      // demo3). The manifest is bound by embedded chainId, so it works whatever client<i> slot the
-      // deployment assigns it.
-      enabledByDefault: false,
+      // On by default — part of the canonical demo3 client set (Base + Optimism). The manifest is
+      // bound by embedded chainId, so it resolves whatever client<i> slot the deployment assigns it.
     },
   ]
 }

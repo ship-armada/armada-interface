@@ -25,10 +25,10 @@ another and everything still resolves. Everything downstream iterates `getNetwor
 looks up by `getChainById` / `getChainByDomain` — no positional/count assumptions.
 
 A client can be **catalogued but off by default** with `enabledByDefault: false` — it exists in the
-registry (selectable via `VITE_ENABLED_CLIENTS`) but isn't active when the enable-list is unset. Use
-this for a client not present in every instance, so the default build doesn't warn about a chain the
-target deployment omits. Example: `optimism-sepolia` is catalogued off-by-default; enable it for an
-instance that deploys it (e.g. demo3) with `VITE_ENABLED_CLIENTS=base-sepolia,optimism-sepolia`.
+registry (selectable via `VITE_ENABLED_CLIENTS`) but isn't active when the enable-list is unset. The
+default set mirrors the canonical deployment instance (`demo3` = **Base + Optimism**), so
+`arbitrum-sepolia` is the catalog/opt-in entry: enable it for an Arbitrum-bearing instance with
+`VITE_ENABLED_CLIENTS=base-sepolia,arbitrum-sepolia`.
 
 ## Conventions
 
