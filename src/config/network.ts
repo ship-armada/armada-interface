@@ -22,19 +22,10 @@ export interface ChainIdentity {
 export interface ClientEntry {
   /**
    * Human-friendly stable id used by `VITE_ENABLED_CLIENTS` to enable/disable this client at boot
-   * (e.g. `base-sepolia`). Distinct from `deploymentPrefix` — operators enable by chain, not by
-   * the deploy tooling's positional role.
+   * (e.g. `base-sepolia`). Operators enable by chain, not by the deploy tooling's positional role.
    */
   readonly key: string
   readonly identity: ChainIdentity
-  /**
-   * The armada-poc deploy-manifest prefix for this client (`client1`, `client2`, … — 1-based, per
-   * `armada-poc/config/networks.ts`). Drives the `privacy-pool-<prefix>.json` manifest filename in
-   * `deployments.ts`. Stable per client and independent of the enable-list, so a client's manifest
-   * name never shifts when other clients are disabled. Adding a client here must match the prefix
-   * `armada-poc add_client` assigns it.
-   */
-  readonly deploymentPrefix: string
   /**
    * Whether this client is active when `VITE_ENABLED_CLIENTS` is unset. Defaults to `true` (omit for
    * the common case). Set `false` to catalog a client that isn't ready to run by default — e.g. its
@@ -144,8 +135,8 @@ const LOCAL_CLIENT_B: ChainIdentity = {
 
 function localClientRegistry(): readonly ClientEntry[] {
   return [
-    { key: 'anvil-client-a', identity: LOCAL_CLIENT_A, deploymentPrefix: 'client1' },
-    { key: 'anvil-client-b', identity: LOCAL_CLIENT_B, deploymentPrefix: 'client2' },
+    { key: 'anvil-client-a', identity: LOCAL_CLIENT_A },
+    { key: 'anvil-client-b', identity: LOCAL_CLIENT_B },
   ]
 }
 
@@ -168,7 +159,6 @@ function sepoliaClientRegistry(): readonly ClientEntry[] {
         rpcUrls: [baseSepoliaRpc],
         explorerUrl: 'https://sepolia.basescan.org',
       },
-      deploymentPrefix: 'client1',
     },
     {
       key: 'arbitrum-sepolia',
@@ -179,7 +169,9 @@ function sepoliaClientRegistry(): readonly ClientEntry[] {
         rpcUrls: [arbSepoliaRpc],
         explorerUrl: 'https://sepolia.arbiscan.io',
       },
-      deploymentPrefix: 'client2',
+      // Off by default: the canonical instance (demo3) ships Base + Optimism, not Arbitrum. Enable it
+      // for an Arbitrum-bearing instance with VITE_ENABLED_CLIENTS=base-sepolia,arbitrum-sepolia.
+      enabledByDefault: false,
     },
     {
       key: 'optimism-sepolia',
@@ -190,11 +182,8 @@ function sepoliaClientRegistry(): readonly ClientEntry[] {
         rpcUrls: [opSepoliaRpc],
         explorerUrl: 'https://sepolia-optimism.etherscan.io',
       },
-      deploymentPrefix: 'client3',
-      // Off by default: no privacy-pool deployment is published for optimism-sepolia yet. Enable via
-      // VITE_ENABLED_CLIENTS once its `privacy-pool-client3-sepolia.json` manifest exists, then flip
-      // this to remove the opt-in requirement.
-      enabledByDefault: false,
+      // On by default — part of the canonical demo3 client set (Base + Optimism). The manifest is
+      // bound by embedded chainId, so it resolves whatever client<i> slot the deployment assigns it.
     },
   ]
 }
@@ -312,20 +301,4 @@ export function getChainById(chainId: number): ChainIdentity | undefined {
 
 export function getChainByDomain(domain: number): ChainIdentity | undefined {
   return getAllChainIdentities().find(c => c.domain === domain)
-}
-
-/** Manifest prefix for the hub's privacy-pool deployment file (`privacy-pool-hub.json`). */
-const HUB_DEPLOYMENT_PREFIX = 'hub'
-
-/**
- * The deployment-manifest prefix for a chain — matches armada-poc's `deploymentPrefix`
- * (`hub`, `client1`, `client2`, …). Used by `deployments.ts` to build `privacy-pool-<prefix>.json`
- * names. Resolved from the FULL client registry (not the enable-filtered `clients[]`) so a client's
- * manifest name is stable regardless of which clients are enabled. Returns undefined for an unknown
- * chain id.
- */
-export function getDeploymentPrefix(chainId: number): string | undefined {
-  const cfg = getNetworkConfig()
-  if (cfg.hub.chainId === chainId) return HUB_DEPLOYMENT_PREFIX
-  return getClientRegistry(cfg.mode).find(e => e.identity.chainId === chainId)?.deploymentPrefix
 }

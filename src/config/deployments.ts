@@ -1,7 +1,7 @@
 // ABOUTME: Loads privacy-pool deployment manifests for hub + each client chain at app start.
 // ABOUTME: Schema typed against actual manifest shapes; fetched via the serveDeployments() Vite dev plugin.
 
-import { getNetworkConfig, getDeploymentPrefix, type ChainIdentity } from './network'
+import { getNetworkConfig, type ChainIdentity } from './network'
 
 /** Hub privacy-pool deployment shape (privacy-pool-hub*.json). */
 export interface PrivacyPoolHubDeployment {
@@ -72,24 +72,17 @@ export interface ResolvedDeployments {
   clients: PrivacyPoolClientDeployment[]
 }
 
-/**
- * Privacy-pool manifest filename for a chain, matching armada-poc's
- * `getPrivacyPoolDeploymentFile`: `privacy-pool-<prefix>[-sepolia].json`, where `<prefix>` is the
- * chain's deployment prefix (`hub`, `client1`, `client2`, … — 1-based, N clients). The prefix comes
- * from `network.ts::getDeploymentPrefix`, which resolves it from the full client registry so the
- * name is stable regardless of which clients are enabled.
- *
- *   local:    privacy-pool-hub.json, privacy-pool-client1.json, privacy-pool-client2.json, …
- *   sepolia:  privacy-pool-hub-sepolia.json, privacy-pool-client1-sepolia.json, …
- */
-function manifestNameForChain(chainId: number): string {
-  const prefix = getDeploymentPrefix(chainId)
-  if (!prefix) {
-    throw new Error(`No privacy-pool deployment manifest mapping for chain ${chainId}.`)
-  }
-  const suffix = getNetworkConfig().mode === 'sepolia' ? '-sepolia' : ''
-  return `privacy-pool-${prefix}${suffix}.json`
+/** `-sepolia` on testnet, empty locally — matches armada-poc's manifest filename suffix. */
+function modeSuffix(): string {
+  return getNetworkConfig().mode === 'sepolia' ? '-sepolia' : ''
 }
+
+/**
+ * Upper bound on client manifests probed at startup. Deployments write a contiguous `client1..N`
+ * sequence (armada-poc `CLIENT_COUNT`), so probing stops at the first gap; this is only a safety cap
+ * so a misconfigured server can't drive an unbounded probe loop.
+ */
+const MAX_CLIENT_MANIFESTS = 32
 
 async function fetchManifest<T>(name: string): Promise<T> {
   const res = await fetch(`/api/deployments/${name}`)
@@ -98,6 +91,13 @@ async function fetchManifest<T>(name: string): Promise<T> {
       `Deployment manifest not found: ${name}. Run \`npm run setup\` from the project root first.`,
     )
   }
+  return (await res.json()) as T
+}
+
+/** Like fetchManifest but returns null on a 404 instead of throwing — used to probe for client files. */
+async function tryFetchManifest<T>(name: string): Promise<T | null> {
+  const res = await fetch(`/api/deployments/${name}`)
+  if (!res.ok) return null
   return (await res.json()) as T
 }
 
@@ -112,13 +112,31 @@ export async function loadDeployments(): Promise<ResolvedDeployments> {
   if (pendingDeployments) return pendingDeployments
   const p: Promise<ResolvedDeployments> = (async (): Promise<ResolvedDeployments> => {
     const cfg = getNetworkConfig()
-    const hub = await fetchManifest<PrivacyPoolHubDeployment>(manifestNameForChain(cfg.hub.chainId))
+    const suffix = modeSuffix()
+    // Hub is the unique chain, so its manifest name is stable + required.
+    const hub = await fetchManifest<PrivacyPoolHubDeployment>(`privacy-pool-hub${suffix}.json`)
 
-    // One manifest per enabled client, in `cfg.clients[]` order. Each name is derived from the
-    // client's stable deployment prefix (client1, client2, …), so N clients need no per-count code.
+    // Discover client manifests WITHOUT assuming which ordinal maps to which chain: probe the
+    // contiguous `privacy-pool-client<i>` files and index each by its EMBEDDED `chainId` (the stable
+    // identifier). A chain can be `client1` in one deployment and `client2` in another, and some
+    // instances omit a chain entirely — binding by chainId is robust to both.
+    const manifestByChainId = new Map<number, PrivacyPoolClientDeployment>()
+    for (let i = 1; i <= MAX_CLIENT_MANIFESTS; i++) {
+      const m = await tryFetchManifest<PrivacyPoolClientDeployment>(`privacy-pool-client${i}${suffix}.json`)
+      if (!m) break // contiguous client1..N — the first gap marks the end of the list
+      manifestByChainId.set(m.chainId, m)
+    }
+
+    // Keep the enabled clients that are actually deployed in this instance, in registry order. An
+    // enabled-but-undeployed client is skipped (not a hard failure) so the app adapts to whatever the
+    // target deployment ships (e.g. an instance with Base + Optimism but no Arbitrum).
     const clients: PrivacyPoolClientDeployment[] = []
     for (const client of cfg.clients) {
-      clients.push(await fetchManifest<PrivacyPoolClientDeployment>(manifestNameForChain(client.chainId)))
+      const m = manifestByChainId.get(client.chainId)
+      if (m) clients.push(m)
+      else console.warn(
+        `[deployments] enabled client ${client.name} (chainId ${client.chainId}) has no deployment manifest in this instance — skipping`,
+      )
     }
 
     cached = { hub, clients }
