@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import { Loader2, LogIn } from 'lucide-react'
+import { AlertTriangle, Loader2, LogIn } from 'lucide-react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useDisconnect } from 'wagmi'
 import { Button, WalletButton } from '@/design'
@@ -79,12 +79,27 @@ export function WalletConnector() {
         }
 
         if (chain.unsupported) {
+          // Wrong-network pill wears the same `secondary md` + `styles.trigger` chrome as the
+          // connected `WalletMenu` trigger and the disconnected "Connect Wallet" button, so it reads
+          // as the same control in an error state rather than a swap to a different component. The
+          // error-tinted warning glyph carries the "switch network" signal; clicking opens
+          // RainbowKit's chain modal. "Wrong network" is the button's accessible name.
           return (
-            <WalletButton
+            <Button
+              variant="secondary"
+              size="md"
               label="Wrong network"
-              variant="destructive"
+              showIcon={false}
+              leadingIcon={
+                <AlertTriangle
+                  className={styles.wrongNetworkIcon}
+                  aria-hidden="true"
+                  width={16}
+                  height={16}
+                />
+              }
               onClick={openChainModal}
-              ariaLabel="Wrong network — click to switch"
+              className={styles.trigger}
             />
           )
         }

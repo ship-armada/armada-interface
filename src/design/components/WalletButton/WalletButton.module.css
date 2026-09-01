@@ -59,26 +59,3 @@
 .text {
   white-space: nowrap;
 }
-
-/* `default` variant is the mockup-as-shipped gradient-border look (rules above). */
-/* `destructive` variant — urgent state like wrong-network. Solid status.error
-   border, dark bg, error-tint icon circle, error text. Not in the mockup. */
-.destructive {
-  border: 1px solid var(--semantic-color-status-error);
-  color: var(--semantic-color-status-error);
-  background:
-    linear-gradient(var(--semantic-component-navbar-bg), var(--semantic-component-navbar-bg)) padding-box,
-    var(--semantic-color-status-error) border-box;
-}
-
-.destructive:hover {
-  background:
-    linear-gradient(var(--semantic-component-navitem-default-bg-hover), var(--semantic-component-navitem-default-bg-hover)) padding-box,
-    var(--semantic-color-status-error) border-box;
-}
-
-.destructive .icon {
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.28), rgba(255,255,255,0) 55%),
-    color-mix(in srgb, var(--semantic-color-status-error) 28%, transparent);
-}
