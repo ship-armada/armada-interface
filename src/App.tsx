@@ -17,7 +17,6 @@ import { usePayViaLinkIntent } from '@/hooks/usePayViaLinkIntent'
 import { useHistoryRecovery } from '@/hooks/useHistoryRecovery'
 import { useIncomingTransferDetector } from '@/hooks/useIncomingTransferDetector'
 import { useNowTicker } from '@/hooks/useNowTicker'
-import { useFees } from '@/hooks/useFees'
 import { useShieldedBalanceSync } from '@/hooks/useShieldedBalanceSync'
 import { useShieldedSyncPoll } from '@/hooks/useShieldedSyncPoll'
 import { useNullifierCrossCheck } from '@/hooks/useNullifierCrossCheck'
@@ -82,10 +81,10 @@ export function App() {
   // Poll the connected wallet's hub USDC balance into usdcBalancesAtom so the ShieldModal's
   // MAX is populated and the user can shield without typing an arbitrary number.
   useUsdcBalances()
-  // Fetch the relayer's fee schedule on mount + auto-refresh near expiry. Modals all share the
-  // same cached quote via feeQuoteAtom; mounting at root ensures it's warm by the time any
-  // modal opens (otherwise the first modal sees `quote=null` briefly).
-  useFees()
+  // NOTE: the relayer fee schedule is intentionally NOT fetched here. Each fee-consuming flow
+  // (`useShieldFlow`, `useUnshieldFlow`, `SendModal`, `EarnModal`) mounts its own `useFees()`, so
+  // `/fees` is only hit while such a modal is open — not on the sign-in screen or the idle
+  // dashboard. React Query dedups across a flow's consumers.
 
   const setDevMockBalance = useSetAtom(devMockBalanceAtom)
 
