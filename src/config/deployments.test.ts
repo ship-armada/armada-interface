@@ -1,31 +1,46 @@
-// ABOUTME: Tests for the deployment manifest loaders — single-flight dedup of concurrent calls (one
-// ABOUTME: fetch per burst) and preserved retry-on-transient-failure semantics.
+// ABOUTME: Tests for the deployment manifest loaders — single-flight dedup, retry-on-transient-failure,
+// ABOUTME: and client-manifest discovery that binds by embedded chainId (robust to ordinal/instance changes).
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// Mutable network stub driven per-test. `config` is what getNetworkConfig() returns; `prefixes` maps
-// a chainId → its deployment prefix (mirrors network.ts::getDeploymentPrefix). Default: a minimal
-// local config with no clients → loadDeployments fetches just the hub manifest (clean single-flight
-// assertions). vi.hoisted so the mock factory (hoisted above imports) can close over it safely.
+// Mutable network stub driven per-test. `config` is what getNetworkConfig() returns. Default: a
+// minimal local config with no clients → loadDeployments fetches the hub manifest then probes for a
+// (missing) client1. vi.hoisted so the mock factory (hoisted above imports) can close over it safely.
 const h = vi.hoisted(() => ({
   state: {
-    config: { mode: 'local' as string, hub: { chainId: 31337 }, clients: [] as Array<{ chainId: number }> },
-    prefixes: { 31337: 'hub' } as Record<number, string>,
+    config: {
+      mode: 'local' as string,
+      hub: { chainId: 31337 },
+      clients: [] as Array<{ chainId: number; name?: string }>,
+    },
   },
 }))
 
 vi.mock('./network', () => ({
   getNetworkConfig: () => h.state.config,
-  getDeploymentPrefix: (chainId: number) => h.state.prefixes[chainId],
 }))
 
 const okJson = (body: unknown) => ({ ok: true, json: async () => body })
+const notFound = () => ({ ok: false, status: 404, json: async () => ({}) })
+
+/** URL-aware fetch stub: maps a manifest filename → body. A name absent from the map returns 404. */
+function stubFetchByName(byName: Record<string, unknown | undefined>) {
+  const fetchMock = vi.fn(async (url: string) => {
+    const name = String(url).replace('/api/deployments/', '')
+    const body = byName[name]
+    return body === undefined ? notFound() : okJson(body)
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+const namesFetched = (fetchMock: ReturnType<typeof stubFetchByName>) =>
+  fetchMock.mock.calls.map(([u]) => String(u))
 
 beforeEach(() => {
   vi.resetModules() // fresh module-level cache/pending state per test
   // Reset the network stub to the default hub-only local config so tests don't leak into each other.
   h.state.config = { mode: 'local', hub: { chainId: 31337 }, clients: [] }
-  h.state.prefixes = { 31337: 'hub' }
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -60,86 +75,97 @@ describe('loadYieldDeployment — single-flight', () => {
 })
 
 describe('loadDeployments — single-flight', () => {
-  it('coalesces concurrent calls (hub manifest fetched once, not per caller)', async () => {
-    const fetchMock = vi.fn(async () => okJson({ contracts: {}, deployBlock: 1 }))
-    vi.stubGlobal('fetch', fetchMock)
+  it('coalesces concurrent calls onto one load (hub fetched once, not per caller)', async () => {
+    const fetchMock = stubFetchByName({ 'privacy-pool-hub.json': { chainId: 31337, contracts: {} } })
     const { loadDeployments } = await import('./deployments')
 
     const [a, b, c] = await Promise.all([loadDeployments(), loadDeployments(), loadDeployments()])
 
-    expect(fetchMock).toHaveBeenCalledTimes(1) // clients: [] → only the hub manifest, once
     expect(a).toBe(b)
     expect(b).toBe(c)
+    // Single-flight: the hub manifest is requested once across the 3 concurrent callers, not 3×.
+    const hubCalls = namesFetched(fetchMock).filter(u => u.includes('privacy-pool-hub.json'))
+    expect(hubCalls).toHaveLength(1)
   })
 })
 
-describe('loadDeployments — n-client manifest naming', () => {
-  // Capture the URLs fetched, in order, so we can assert on names + sequence.
-  const stubFetchCapturing = (urls: string[]) =>
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) => {
-        urls.push(url)
-        return okJson({ contracts: {} })
-      }),
-    )
-
-  it('fetches privacy-pool-<prefix>.json for hub + each client, in registry order (N=3)', async () => {
+describe('loadDeployments — binds client manifests by embedded chainId', () => {
+  it('binds each client by its embedded chainId, independent of the ordinal file position', async () => {
+    // Registry order is [Base 84532, Arb 421614], but the deployment put Arb in the client1 slot and
+    // Base in client2. Binding must follow the embedded chainId, not the ordinal — the reordering case.
     h.state.config = {
       mode: 'local',
       hub: { chainId: 31337 },
-      clients: [{ chainId: 31338 }, { chainId: 31339 }, { chainId: 31340 }],
+      clients: [{ chainId: 84532, name: 'Base' }, { chainId: 421614, name: 'Arb' }],
     }
-    h.state.prefixes = { 31337: 'hub', 31338: 'client1', 31339: 'client2', 31340: 'client3' }
-    const urls: string[] = []
-    stubFetchCapturing(urls)
+    stubFetchByName({
+      'privacy-pool-hub.json': { chainId: 31337, contracts: {} },
+      'privacy-pool-client1.json': { chainId: 421614, contracts: {} },
+      'privacy-pool-client2.json': { chainId: 84532, contracts: {} },
+    })
     const { loadDeployments } = await import('./deployments')
 
     const result = await loadDeployments()
 
-    expect(urls).toEqual([
-      '/api/deployments/privacy-pool-hub.json',
-      '/api/deployments/privacy-pool-client1.json',
-      '/api/deployments/privacy-pool-client2.json',
-      '/api/deployments/privacy-pool-client3.json',
-    ])
-    expect(result.clients).toHaveLength(3)
+    expect(result.clients.map(c => c.chainId)).toEqual([84532, 421614]) // registry order, correct binding
   })
 
-  it('keys manifests by stable prefix, not the post-enable-list array index', async () => {
-    // client1 disabled via VITE_ENABLED_CLIENTS → cfg.clients holds only client2 + client3.
-    // Manifest names must follow the prefixes (client2/client3), NOT array positions (client1/client2).
+  it('skips an enabled client with no deployed manifest instead of failing the whole load', async () => {
+    // demo3-like: Base + Optimism deployed, Arbitrum enabled in the registry but absent from this instance.
     h.state.config = {
       mode: 'local',
       hub: { chainId: 31337 },
-      clients: [{ chainId: 31339 }, { chainId: 31340 }],
+      clients: [
+        { chainId: 84532, name: 'Base' },
+        { chainId: 421614, name: 'Arb' },
+        { chainId: 11155420, name: 'Optimism' },
+      ],
     }
-    h.state.prefixes = { 31337: 'hub', 31339: 'client2', 31340: 'client3' }
-    const urls: string[] = []
-    stubFetchCapturing(urls)
+    stubFetchByName({
+      'privacy-pool-hub.json': { chainId: 31337, contracts: {} },
+      'privacy-pool-client1.json': { chainId: 84532, contracts: {} },
+      'privacy-pool-client2.json': { chainId: 11155420, contracts: {} },
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { loadDeployments } = await import('./deployments')
 
-    await loadDeployments()
+    const result = await loadDeployments()
 
-    expect(urls).toEqual([
-      '/api/deployments/privacy-pool-hub.json',
-      '/api/deployments/privacy-pool-client2.json',
-      '/api/deployments/privacy-pool-client3.json',
-    ])
+    expect(result.clients.map(c => c.chainId)).toEqual([84532, 11155420]) // Arb (421614) skipped, no throw
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('421614'))
+    warn.mockRestore()
   })
 
-  it('applies the -sepolia suffix in sepolia mode', async () => {
-    h.state.config = { mode: 'sepolia', hub: { chainId: 11155111 }, clients: [{ chainId: 84532 }] }
-    h.state.prefixes = { 11155111: 'hub', 84532: 'client1' }
-    const urls: string[] = []
-    stubFetchCapturing(urls)
+  it('probes contiguous client<i> files and stops at the first gap', async () => {
+    h.state.config = { mode: 'local', hub: { chainId: 31337 }, clients: [{ chainId: 84532 }] }
+    const fetchMock = stubFetchByName({
+      'privacy-pool-hub.json': { chainId: 31337, contracts: {} },
+      'privacy-pool-client1.json': { chainId: 84532, contracts: {} },
+      // client2 missing → probing stops; client3 exists but must never be reached past the gap.
+      'privacy-pool-client3.json': { chainId: 99999, contracts: {} },
+    })
     const { loadDeployments } = await import('./deployments')
 
     await loadDeployments()
 
-    expect(urls).toEqual([
-      '/api/deployments/privacy-pool-hub-sepolia.json',
-      '/api/deployments/privacy-pool-client1-sepolia.json',
-    ])
+    const names = namesFetched(fetchMock)
+    expect(names.some(u => u.includes('privacy-pool-client1.json'))).toBe(true)
+    expect(names.some(u => u.includes('privacy-pool-client2.json'))).toBe(true) // the probed gap
+    expect(names.some(u => u.includes('privacy-pool-client3.json'))).toBe(false) // not probed past the gap
+  })
+
+  it('probes -sepolia suffixed names in sepolia mode', async () => {
+    h.state.config = { mode: 'sepolia', hub: { chainId: 11155111 }, clients: [{ chainId: 84532 }] }
+    const fetchMock = stubFetchByName({
+      'privacy-pool-hub-sepolia.json': { chainId: 11155111, contracts: {} },
+      'privacy-pool-client1-sepolia.json': { chainId: 84532, contracts: {} },
+    })
+    const { loadDeployments } = await import('./deployments')
+
+    await loadDeployments()
+
+    const names = namesFetched(fetchMock)
+    expect(names).toContain('/api/deployments/privacy-pool-hub-sepolia.json')
+    expect(names).toContain('/api/deployments/privacy-pool-client1-sepolia.json')
   })
 })

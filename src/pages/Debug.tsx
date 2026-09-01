@@ -12,7 +12,7 @@ import { useWallet } from '@/hooks/useWallet'
 import { useShieldedWallet } from '@/hooks/useShieldedWallet'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
 import { loadDeployments, type ResolvedDeployments } from '@/config/deployments'
-import { getNetworkConfig, getDeploymentPrefix, isLocalMode, isRelayerConfigured, type ChainIdentity } from '@/config/network'
+import { getNetworkConfig, isLocalMode, isRelayerConfigured, type ChainIdentity } from '@/config/network'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { formatUsdcAmount, truncateAddress } from '@/lib/format'
 import styles from './Debug.module.css'
@@ -85,21 +85,33 @@ interface FaucetManifest {
   }
 }
 
+/** Safety cap on probed client faucet manifests (contiguous client1..N). */
+const MAX_FAUCET_MANIFESTS = 32
+
 /**
- * Faucet manifest filename for a chain: `<deploymentPrefix>-v3.json` (hub-v3.json, client1-v3.json,
- * …), matching armada-poc's `getCCTPDeploymentFile`. Faucet contracts exist only on local Anvil, so
- * there's no network suffix. Returns null for a chain with no known deployment prefix.
+ * Discover the local faucet manifests (hub-v3.json + client<i>-v3.json), binding each by its EMBEDDED
+ * chainId rather than assuming an ordinal → chain mapping. Faucet contracts exist only on local Anvil
+ * so there's no network suffix. Returns a chainId → faucet-manifest map.
  */
-async function loadFaucetManifest(chainId: number): Promise<FaucetManifest | null> {
-  const prefix = getDeploymentPrefix(chainId)
-  if (!prefix) return null
-  try {
-    const res = await fetch(`/api/deployments/${prefix}-v3.json`)
-    if (!res.ok) return null
-    return (await res.json()) as FaucetManifest
-  } catch {
-    return null
+async function loadFaucetManifests(): Promise<Record<number, FaucetManifest>> {
+  const tryLoad = async (name: string): Promise<FaucetManifest | null> => {
+    try {
+      const res = await fetch(`/api/deployments/${name}`)
+      if (!res.ok) return null
+      return (await res.json()) as FaucetManifest
+    } catch {
+      return null
+    }
   }
+  const out: Record<number, FaucetManifest> = {}
+  const hub = await tryLoad('hub-v3.json')
+  if (hub) out[hub.chainId] = hub
+  for (let i = 1; i <= MAX_FAUCET_MANIFESTS; i++) {
+    const m = await tryLoad(`client${i}-v3.json`)
+    if (!m) break // contiguous client1..N — first gap ends the list
+    out[m.chainId] = m
+  }
+  return out
 }
 
 interface ChainBalance {
@@ -200,19 +212,17 @@ export function Debug() {
 
   // One-time bootstrap: pull the privacy-pool deployments + (local mode only) the secondary
   // faucet manifests. The faucet manifests (hub-v3.json etc.) only exist for the local Anvil
-  // deployment; skipping the fetch on Sepolia avoids 404s in the network panel. Iterates hub + all
-  // enabled clients, so N clients need no per-count code.
+  // deployment; skipping the fetch on Sepolia avoids 404s in the network panel. Faucets are keyed by
+  // the chainId embedded in each manifest, so N clients need no per-count code.
   useEffect(() => {
     void (async () => {
       const resolved = await loadDeployments()
       setDeployments(resolved)
       if (!isLocalMode()) return
-      const cfg = getNetworkConfig()
-      const chainIds = [cfg.hub.chainId, ...cfg.clients.map(c => c.chainId)]
-      const manifests = await Promise.all(chainIds.map(loadFaucetManifest))
+      const manifests = await loadFaucetManifests()
       const map: Record<number, string> = {}
-      for (const m of manifests) {
-        if (m?.contracts.faucet) map[m.chainId] = m.contracts.faucet
+      for (const m of Object.values(manifests)) {
+        if (m.contracts.faucet) map[m.chainId] = m.contracts.faucet
       }
       setFaucetByChainId(map)
     })()
@@ -232,13 +242,17 @@ export function Debug() {
       setDripError(null)
       setDrippingChainId(chainId)
       try {
+        // The dev endpoint drips against a local Anvil node; tell it which RPC to hit (from the
+        // registry) so it doesn't need its own chainId → RPC map.
+        const cfg = getNetworkConfig()
+        const rpcUrl = [cfg.hub, ...cfg.clients].find(c => c.chainId === chainId)?.rpcUrls[0]
         // POST to the dev-server endpoint — uses the Anvil deployer to call dripTo(address),
         // sending USDC + sponsor ETH to the user. Sidesteps the chicken-and-egg of needing
         // gas to call drip() directly. The endpoint is local-mode only (503 on sepolia).
         const res = await fetch('/api/fund-gas', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address: evmAddress, chainId }),
+          body: JSON.stringify({ address: evmAddress, chainId, rpcUrl }),
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))

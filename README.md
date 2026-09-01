@@ -100,13 +100,13 @@ A brand-new wallet can fund itself from the in-app faucet (local mode only).
 
 ## Mode 2 — Local dev against a Sepolia deployment
 
-Run the dev server against a live Sepolia deployment — no Anvil, no `armada-poc`, no `armada-circuits` needed. Deployments are published as named **instances** in [`armada-deployments`](https://github.com/ship-armada/armada-deployments/tree/main/testnet) (e.g. `demo1`, `demo2`, `medi1`…).
+Run the dev server against a live Sepolia deployment — no Anvil, no `armada-poc`, no `armada-circuits` needed. Deployments are published as named **instances** in [`armada-deployments`](https://github.com/ship-armada/armada-deployments/tree/main/testnet) (e.g. `demo3`, `demo2`, `medi1`…).
 
 ### 1. Fetch the instance's manifests
 
 ```bash
-# from the armada-interface repo root
-DEPLOYMENT_INSTANCE=demo1 bash scripts/fetch-sepolia-deployments.sh
+# from the armada-interface repo root (defaults to instance demo3)
+DEPLOYMENT_INSTANCE=demo3 node scripts/fetch-sepolia-deployments.mjs
 ```
 
 This downloads the instance's contract manifests into `public/api/deployments/`. Pin a specific commit with `DEPLOYMENT_REF=<sha>` (defaults to the `main` branch of `armada-deployments`).
@@ -135,7 +135,7 @@ Open **http://localhost:5176**. The app talks to public Sepolia RPCs and reads t
 To serve the exact static bundle that deploys to production:
 
 ```bash
-DEPLOYMENT_INSTANCE=demo1 bash scripts/fetch-sepolia-deployments.sh
+DEPLOYMENT_INSTANCE=demo3 node scripts/fetch-sepolia-deployments.mjs
 VITE_NETWORK=sepolia npm run build
 npm run preview        # serves the built dist/ on :4173
 ```

@@ -34,9 +34,9 @@ describe('getNetworkConfig', () => {
 
 // A synthetic 3-client registry — exercises N>2 without depending on the real local/sepolia entries.
 const REGISTRY: readonly ClientEntry[] = [
-  { key: 'client-a', deploymentPrefix: 'client1', identity: { chainId: 1001, domain: 101, name: 'A', rpcUrls: ['http://a'] } },
-  { key: 'client-b', deploymentPrefix: 'client2', identity: { chainId: 1002, domain: 102, name: 'B', rpcUrls: ['http://b'] } },
-  { key: 'client-c', deploymentPrefix: 'client3', identity: { chainId: 1003, domain: 103, name: 'C', rpcUrls: ['http://c'] } },
+  { key: 'client-a', identity: { chainId: 1001, domain: 101, name: 'A', rpcUrls: ['http://a'] } },
+  { key: 'client-b', identity: { chainId: 1002, domain: 102, name: 'B', rpcUrls: ['http://b'] } },
+  { key: 'client-c', identity: { chainId: 1003, domain: 103, name: 'C', rpcUrls: ['http://c'] } },
 ]
 
 describe('resolveEnabledClients — boot-time enable-list', () => {
@@ -68,10 +68,9 @@ describe('resolveEnabledClients — boot-time enable-list', () => {
 
 describe('resolveEnabledClients — enabledByDefault (catalog vs. active)', () => {
   const REG: readonly ClientEntry[] = [
-    { key: 'a', deploymentPrefix: 'client1', identity: { chainId: 1, domain: 1, name: 'A', rpcUrls: ['x'] } },
+    { key: 'a', identity: { chainId: 1, domain: 1, name: 'A', rpcUrls: ['x'] } },
     {
       key: 'b',
-      deploymentPrefix: 'client2',
       enabledByDefault: false,
       identity: { chainId: 2, domain: 2, name: 'B', rpcUrls: ['x'] },
     },
@@ -89,10 +88,9 @@ describe('resolveEnabledClients — enabledByDefault (catalog vs. active)', () =
 })
 
 describe('getClientRegistry — sepolia catalog includes optimism-sepolia (opt-in)', () => {
-  it('catalogs optimism-sepolia as client3, off by default', () => {
+  it('catalogs optimism-sepolia, off by default', () => {
     const op = getClientRegistry('sepolia').find(e => e.key === 'optimism-sepolia')
     expect(op).toBeDefined()
-    expect(op!.deploymentPrefix).toBe('client3')
     expect(op!.identity.chainId).toBe(11155420)
     expect(op!.identity.domain).toBe(2)
     expect(op!.enabledByDefault).toBe(false)
