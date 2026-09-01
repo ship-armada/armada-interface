@@ -12,3 +12,10 @@
 .trigger:active:not(:disabled) {
   background: color-mix(in srgb, var(--semantic-color-brand-lavender) 20%, var(--semantic-color-surface-main));
 }
+
+/* Wrong-network pill: reuses the `.trigger` chrome above (matching the main wallet pill), so the
+   only wrong-network affordance is the leading warning glyph carrying the error color — signals
+   "switch network" without the legacy red-bordered pill treatment. */
+.wrongNetworkIcon {
+  color: var(--semantic-color-status-error);
+}

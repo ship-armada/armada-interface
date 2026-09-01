@@ -4,8 +4,6 @@
 import type { ReactNode } from 'react'
 import styles from './WalletButton.module.css'
 
-export type WalletButtonVariant = 'default' | 'destructive'
-
 export interface WalletButtonProps {
   /** Wallet address or label shown on the right (e.g. "0x63c2…84c6", "Connect Wallet"). */
   label: string
@@ -18,10 +16,6 @@ export interface WalletButtonProps {
   /** When true, the button is non-interactive (opacity dim + cursor: not-allowed).
    *  Useful for transient states like wallet-stack hydration. Not in the mockup. */
   disabled?: boolean
-  /** "default" = brand gradient border (mockup-as-shipped).
-   *  "destructive" = solid status.error border + tint, for urgent states
-   *  like wrong-network. Not in the mockup. */
-  variant?: WalletButtonVariant
   className?: string
 }
 
@@ -31,13 +25,12 @@ export function WalletButton({
   onClick,
   ariaLabel = 'Wallet',
   disabled = false,
-  variant = 'default',
   className,
 }: WalletButtonProps) {
   return (
     <button
       type="button"
-      className={[styles.btn, styles[variant], className].filter(Boolean).join(' ')}
+      className={[styles.btn, className].filter(Boolean).join(' ')}
       onClick={onClick}
       aria-label={ariaLabel}
       disabled={disabled}
