@@ -11,8 +11,10 @@ import { Button } from '@/design'
 import { useWallet } from '@/hooks/useWallet'
 import { useShieldedWallet } from '@/hooks/useShieldedWallet'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
+import { useIndexerHealth } from '@/hooks/useIndexerHealth'
 import { loadDeployments, type ResolvedDeployments } from '@/config/deployments'
 import { getNetworkConfig, isLocalMode, isRelayerConfigured, type ChainIdentity } from '@/config/network'
+import { isIndexerConfigured } from '@/lib/indexer'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { formatUsdcAmount, truncateAddress } from '@/lib/format'
 import styles from './Debug.module.css'
@@ -184,6 +186,7 @@ export function Debug() {
   // hosted builds without VITE_RELAYER_URL set `isRelayerConfigured()` to false and would
   // otherwise hit `fetch('')` every 60s for no benefit.
   const relayerHealth = useRelayerHealth({ enabled: isRelayerConfigured() })
+  const indexerHealth = useIndexerHealth({ enabled: isIndexerConfigured() })
 
   // Refresh chain balances against the currently-connected EVM address. Called on mount,
   // after a successful faucet drip, and via the "Refresh" button.
@@ -284,6 +287,11 @@ export function Debug() {
           <dd>
             <code>{getNetworkConfig().relayerUrl || '—'}</code>
             {isRelayerConfigured() ? <RelayerHealthPill state={relayerHealth} /> : null}
+          </dd>
+          <dt>Indexer URL</dt>
+          <dd>
+            <code>{getNetworkConfig().indexerUrl ?? '— (RPC-only sync)'}</code>
+            {isIndexerConfigured() ? <IndexerHealthPill state={indexerHealth} /> : null}
           </dd>
         </dl>
       </Card>
@@ -423,6 +431,32 @@ function RelayerHealthPill({ state }: { state: ReturnType<typeof useRelayerHealt
 
   return (
     <span className={styles.healthPill} aria-label={`Relayer health: ${label}`}>
+      <span className={dotClass} aria-hidden />
+      {label}
+    </span>
+  )
+}
+
+// Indexer health pill — reachability only (the /health endpoint carries no status body). Green =
+// reachable, red = unreachable (query error), gray = in-flight first probe. Gated on
+// isIndexerConfigured() at the call site so it only renders when a watcher URL is set.
+function IndexerHealthPill({ state }: { state: ReturnType<typeof useIndexerHealth> }) {
+  const { error, isLoading, isReachable } = state
+
+  let dotClass = styles.healthDot
+  let label: string
+  if (error) {
+    dotClass = `${styles.healthDot} ${styles.healthDotUnreachable}`
+    label = 'unreachable'
+  } else if (isLoading || !isReachable) {
+    label = 'checking…'
+  } else {
+    dotClass = `${styles.healthDot} ${styles.healthDotHealthy}`
+    label = 'reachable'
+  }
+
+  return (
+    <span className={styles.healthPill} aria-label={`Indexer health: ${label}`}>
       <span className={dotClass} aria-hidden />
       {label}
     </span>
