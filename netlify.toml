@@ -1,4 +1,12 @@
-# Netlify build config — armada-interface deploy (standalone repo; app is at the repo root).
+# Netlify config — armada-interface deploy (standalone repo; app is at the repo root).
+#
+# HOW THIS SITE DEPLOYS: the production bundle exceeds Netlify's standard build-container memory and
+# OOM-kills there (SIGKILL, exit 137). So the build runs in GitHub Actions (.github/workflows/deploy.yml)
+# on a 16 GB runner and the prebuilt dist/ is pushed here via the Netlify CLI — free-plan friendly, no
+# Netlify build minutes used. **Disable Netlify's own continuous deployment for this site** (Site config
+# → Build & deploy → stop/lock builds) so only the workflow publishes. The [build] block below is kept
+# for reference / `netlify build` locally; Netlify does not run it in the CI-deploy model. The
+# [[redirects]] + [[headers]] blocks ARE still applied — the CLI reads them from this file on deploy.
 #
 # Env vars set in the Netlify UI (not committed):
 #   VITE_WALLETCONNECT_PROJECT_ID  required for WalletConnect modal

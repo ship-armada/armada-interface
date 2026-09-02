@@ -1,0 +1,91 @@
+# Build @armada/interface on a GitHub runner and deploy the prebuilt dist/ to Netlify.
+#
+# WHY THIS EXISTS: the production Vite/rollup phase peaks above ~4 GB of heap (RainbowKit + viem +
+# WalletConnect/Reown/Coinbase + @armada/sdk WASM + snarkjs). Netlify's standard build container
+# (~4 GB) OOM-kills it (SIGKILL, exit 137). Public GitHub runners have 16 GB, so we build here and
+# deploy the prebuilt dist/ — which uses NO Netlify build minutes and works on the Netlify free plan.
+# Disable Netlify's own continuous deployment for the site so only this workflow publishes (a stray
+# Netlify auto-build would just OOM and fail — it cannot overwrite a good deploy, but it's noise).
+#
+# One-time GitHub setup — Settings → Secrets and variables → Actions:
+#   Secrets (encrypted):
+#     NETLIFY_AUTH_TOKEN   Netlify personal access token (Netlify → User settings → Applications)
+#     NETLIFY_SITE_ID      the site's API ID (Netlify → Site config → General → Site ID)
+#     SENTRY_AUTH_TOKEN    optional — enables Sentry source-map upload
+#   Variables (plain; these end up in the public client bundle anyway):
+#     VITE_RELAYER_URL     e.g. https://relayer.knowable.run       (optional → wallet-submit only)
+#     VITE_INDEXER_URL     e.g. https://relayer.knowable.run/indexer (optional → RPC-only sync)
+#     VITE_WALLETCONNECT_PROJECT_ID   WalletConnect Cloud id       (optional; MetaMask works without)
+#     DEPLOYMENT_REF       armada-deployments commit SHA to pin manifests (optional → floats on main)
+#     DEPLOYMENT_INSTANCE  defaults to demo3 (optional)
+#     Optional overrides: VITE_SEPOLIA_RPC, VITE_BASE_SEPOLIA_RPC, VITE_OP_SEPOLIA_RPC,
+#       VITE_SENTRY_DSN, VITE_SENTRY_ENVIRONMENT, SENTRY_ORG, SENTRY_PROJECT
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & Deploy to Netlify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Mirrors netlify.toml's [build.environment]. Sepolia drives the manifest suffix + hub RPC/chain.
+      VITE_NETWORK: sepolia
+      VITE_RELAYER_URL: ${{ vars.VITE_RELAYER_URL }}
+      VITE_INDEXER_URL: ${{ vars.VITE_INDEXER_URL }}
+      VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}
+      # Optional RPC overrides — fall back to the public defaults in config/network.ts when unset.
+      VITE_SEPOLIA_RPC: ${{ vars.VITE_SEPOLIA_RPC }}
+      VITE_BASE_SEPOLIA_RPC: ${{ vars.VITE_BASE_SEPOLIA_RPC }}
+      VITE_OP_SEPOLIA_RPC: ${{ vars.VITE_OP_SEPOLIA_RPC }}
+      # Optional Sentry — inert unless VITE_SENTRY_DSN / SENTRY_AUTH_TOKEN are set.
+      VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+      VITE_SENTRY_ENVIRONMENT: ${{ vars.VITE_SENTRY_ENVIRONMENT }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+      # Build-step manifest fetch (non-VITE). Pin DEPLOYMENT_REF to a SHA for production.
+      DEPLOYMENT_INSTANCE: ${{ vars.DEPLOYMENT_INSTANCE || 'demo3' }}
+      DEPLOYMENT_REF: ${{ vars.DEPLOYMENT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      # Mirror netlify.toml's build flow: fetch the instance's manifests into public/api/deployments/,
+      # verify the committed ZK artifacts, then bundle. 16 GB runner → 8192 MB heap has ample headroom.
+      - name: Fetch deployment manifests
+        run: node scripts/fetch-sepolia-deployments.mjs
+      - name: Prepare ZK artifacts
+        run: npm run prepare:artifacts
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+      # Deploy the prebuilt dist/. netlify.toml (SPA redirect + security headers) is read from the repo
+      # root and applied to the deploy. Production on main; a draft preview URL on same-repo PRs.
+      - name: Deploy to Netlify (production)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npx --yes netlify-cli deploy --dir=dist --prod --message "GH Actions ${{ github.sha }}"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      - name: Deploy to Netlify (PR preview)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: npx --yes netlify-cli deploy --dir=dist --message "GH Actions PR #${{ github.event.number }} (${{ github.sha }})"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
