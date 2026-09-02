@@ -88,7 +88,9 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       - name: Deploy to Netlify (PR preview)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: npx --yes netlify-cli deploy --no-build --dir=dist --message "GH Actions PR #${{ github.event.number }} (${{ github.sha }})"
+        # No literal '#' in the message: in an unquoted YAML plain scalar a ' #' starts a comment,
+        # which would truncate this run value mid-string. "PR <n>" keeps it '#'-free.
+        run: npx --yes netlify-cli deploy --no-build --dir=dist --message "GH Actions PR ${{ github.event.number }} (${{ github.sha }})"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
