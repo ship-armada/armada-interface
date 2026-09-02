@@ -50,8 +50,12 @@ export type EventRegistry = {
   // SDK's `sync.quicksync` telemetry via `sdk-telemetry.ts`. Block numbers + booleans only.
   //   'served'                — the indexer batch verified against the on-chain root (tailCovered =
   //                             the indexer lagged head and RPC covered the remainder)
-  //   'root-mismatch-fallback'— the indexer batch failed root-verify → discarded, range RPC-rescanned
-  'sdk.quicksync':            { outcome: 'served' | 'root-mismatch-fallback'; fromBlock: number; head: number; tailCovered: boolean }
+  //   'root-mismatch-fallback'— the indexer batch was discarded → range RPC-rescanned. `outcome` keeps
+  //                             its two historical values; `reason` disambiguates WHY it was discarded
+  //                             (the label conflated ≥4 causes — see @armada/sdk QuickSyncReason). Set
+  //                             only on fallback; `status` carries the non-OK HTTP code for the
+  //                             `indexer-http-error` cause. Both omitted on the served path.
+  'sdk.quicksync':            { outcome: 'served' | 'root-mismatch-fallback'; fromBlock: number; head: number; tailCovered: boolean; reason?: 'indexer-http-error' | 'schema-mismatch' | 'root-mismatch' | 'position-gap' | 'unknown'; status?: number }
 
   'tx.submitted':             { id: string; kind: TxKind }
   'tx.transition':            { id: string; kind: TxKind; from: TxStage; to: TxStage; executionState: TxRecord['executionState'] }
