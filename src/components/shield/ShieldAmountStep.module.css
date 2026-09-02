@@ -3,6 +3,13 @@
   flex-direction: column;
   gap: var(--primitives-spacing-8);
   width: 100%;
+  /* The modal enter animation holds `transform: translateY(0)` (a non-none transform) on both this
+     content zone and the footer buttons, so each is a permanent stacking context. Without an explicit
+     z-index the later-in-DOM footer buttons paint over this zone — which draws the ChainSelect
+     dropdown behind them. Lifting the zone into the parent's positive-z layer keeps the dropdown on
+     top. Mirrors the same fix in SendRecipientStep. */
+  position: relative;
+  z-index: 1;
 }
 
 /* Serif display title for the shield amount step (matches the deposit-flow mockup). */
