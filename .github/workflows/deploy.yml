@@ -75,17 +75,20 @@ jobs:
         run: npm run build
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-      # Deploy the prebuilt dist/. netlify.toml (SPA redirect + security headers) is read from the repo
-      # root and applied to the deploy. Production on main; a draft preview URL on same-repo PRs.
+      # Deploy the prebuilt dist/. `--no-build` is REQUIRED: `netlify deploy` otherwise runs its own
+      # build (it reads netlify.toml's [build] command and re-runs it), which both wastes work and
+      # fails here — we've already built above. With --no-build it just uploads --dir; netlify.toml's
+      # SPA redirect + security headers are still read from the repo root and applied to the deploy.
+      # Production on main; a draft preview URL on same-repo PRs.
       - name: Deploy to Netlify (production)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: npx --yes netlify-cli deploy --dir=dist --prod --message "GH Actions ${{ github.sha }}"
+        run: npx --yes netlify-cli deploy --no-build --dir=dist --prod --message "GH Actions ${{ github.sha }}"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       - name: Deploy to Netlify (PR preview)
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: npx --yes netlify-cli deploy --dir=dist --message "GH Actions PR #${{ github.event.number }} (${{ github.sha }})"
+        run: npx --yes netlify-cli deploy --no-build --dir=dist --message "GH Actions PR #${{ github.event.number }} (${{ github.sha }})"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
