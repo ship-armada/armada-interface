@@ -20,8 +20,12 @@ vi.mock('./network', () => ({
   getNetworkConfig: () => h.state.config,
 }))
 
-const okJson = (body: unknown) => ({ ok: true, json: async () => body })
-const notFound = () => ({ ok: false, status: 404, json: async () => ({}) })
+// Response stubs expose BOTH text() and json(): loadDeployments reads text() (so it can detect an
+// HTML SPA fallback), while loadYieldDeployment reads json() directly.
+const okJson = (body: unknown) => ({ ok: true, text: async () => JSON.stringify(body), json: async () => body })
+const notFound = () => ({ ok: false, status: 404, text: async () => '', json: async () => ({}) })
+/** A 200 response whose body is the SPA index.html — what a prod host serves for a missing manifest. */
+const htmlFallback = () => ({ ok: true, text: async () => '<!doctype html><html lang="en"></html>' })
 
 /** URL-aware fetch stub: maps a manifest filename → body. A name absent from the map returns 404. */
 function stubFetchByName(byName: Record<string, unknown | undefined>) {
@@ -152,6 +156,35 @@ describe('loadDeployments — binds client manifests by embedded chainId', () =>
     expect(names.some(u => u.includes('privacy-pool-client1.json'))).toBe(true)
     expect(names.some(u => u.includes('privacy-pool-client2.json'))).toBe(true) // the probed gap
     expect(names.some(u => u.includes('privacy-pool-client3.json'))).toBe(false) // not probed past the gap
+  })
+
+  it('stops the client probe when the gap returns a 200 HTML SPA fallback (not a 404)', async () => {
+    // Prod repro: a host like Netlify rewrites unknown paths to index.html with a 200, so the missing
+    // client2 arrives as HTML, not a 404. The probe must treat that as the end of the list — NOT throw.
+    h.state.config = { mode: 'sepolia', hub: { chainId: 11155111 }, clients: [{ chainId: 84532 }] }
+    const fetchMock = vi.fn(async (url: string) => {
+      const name = String(url).replace('/api/deployments/', '')
+      if (name === 'privacy-pool-hub-sepolia.json') return okJson({ chainId: 11155111, contracts: {} })
+      if (name === 'privacy-pool-client1-sepolia.json') return okJson({ chainId: 84532, contracts: {} })
+      return htmlFallback() // every other probe (client2, client3, …) is the SPA 200 HTML fallback
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const { loadDeployments } = await import('./deployments')
+
+    const result = await loadDeployments()
+
+    expect(result.clients.map(c => c.chainId)).toEqual([84532]) // client1 bound, HTML-200 gap stops the loop
+    const names = fetchMock.mock.calls.map(([u]) => String(u))
+    expect(names.some(u => u.includes('privacy-pool-client2-sepolia.json'))).toBe(true) // probed the gap
+    expect(names.some(u => u.includes('privacy-pool-client3-sepolia.json'))).toBe(false) // stopped after it
+  })
+
+  it('throws a clear error when the required hub manifest returns a 200 HTML SPA fallback', async () => {
+    h.state.config = { mode: 'sepolia', hub: { chainId: 11155111 }, clients: [] }
+    vi.stubGlobal('fetch', vi.fn(async () => htmlFallback()))
+    const { loadDeployments } = await import('./deployments')
+
+    await expect(loadDeployments()).rejects.toThrow(/non-JSON body|SPA fallback|missing/)
   })
 
   it('probes -sepolia suffixed names in sepolia mode', async () => {
