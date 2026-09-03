@@ -2,6 +2,7 @@
 // ABOUTME: A beforeSend scrubber redacts 0zk addresses + long hex so shielded data can't leak to the sink (privacy app).
 
 import * as Sentry from '@sentry/react'
+import { cleanEnv } from '@/config/network'
 
 let initialized = false
 
@@ -50,15 +51,15 @@ export function scrubEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
  */
 export function initSentry(): void {
   if (initialized) return
-  const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined
+  const dsn = cleanEnv(import.meta.env.VITE_SENTRY_DSN as string | undefined)
   if (!dsn) return
   Sentry.init({
     dsn,
     environment:
-      (import.meta.env.VITE_SENTRY_ENVIRONMENT as string | undefined) ??
+      cleanEnv(import.meta.env.VITE_SENTRY_ENVIRONMENT as string | undefined) ??
       import.meta.env.MODE ??
       'production',
-    release: import.meta.env.VITE_SENTRY_RELEASE as string | undefined,
+    release: cleanEnv(import.meta.env.VITE_SENTRY_RELEASE as string | undefined),
     // Error tracking only — performance/replay incur per-event cost we don't need.
     tracesSampleRate: 0,
     // Privacy app: never attach IP/cookies. The beforeSend scrubber handles the rest.

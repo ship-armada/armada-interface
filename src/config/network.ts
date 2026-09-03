@@ -78,6 +78,21 @@ export interface NetworkConfig {
   readonly finalityThreshold: number
 }
 
+/**
+ * Read an env var value, treating an empty or whitespace-only string as ABSENT (returns undefined).
+ *
+ * CI passes an unset repo variable to the build as `''` (an empty string, not undefined — see
+ * `.github/workflows/deploy.yml`, `VITE_x: ${{ vars.VITE_x }}`). An empty string satisfies a
+ * `?? default` / `?? null` fallback, so without this the value gets pinned to `''` — e.g. an empty RPC
+ * URL that makes ethers' JsonRpcProvider fail to detect its network. Trimming also drops accidental
+ * surrounding whitespace. Call with a STATIC `import.meta.env.VITE_x` member access (not a computed
+ * key) so Vite still inlines the value at build time.
+ */
+export function cleanEnv(value: string | undefined): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : undefined
+}
+
 export function getNetworkMode(): NetworkMode {
   return import.meta.env.VITE_NETWORK === 'sepolia' ? 'sepolia' : 'local'
 }
@@ -143,11 +158,11 @@ function localClientRegistry(): readonly ClientEntry[] {
 function sepoliaClientRegistry(): readonly ClientEntry[] {
   // Base Sepolia + Arbitrum Sepolia are the production-style client chains per CCTP docs; the exact
   // pairing matches what the relayer + deployments expect. Per-client RPC overrides via env.
-  const baseSepoliaRpc = (import.meta.env.VITE_BASE_SEPOLIA_RPC as string | undefined)
+  const baseSepoliaRpc = cleanEnv(import.meta.env.VITE_BASE_SEPOLIA_RPC as string | undefined)
     ?? 'https://sepolia.base.org'
-  const arbSepoliaRpc = (import.meta.env.VITE_ARB_SEPOLIA_RPC as string | undefined)
+  const arbSepoliaRpc = cleanEnv(import.meta.env.VITE_ARB_SEPOLIA_RPC as string | undefined)
     ?? 'https://sepolia-rollup.arbitrum.io/rpc'
-  const opSepoliaRpc = (import.meta.env.VITE_OP_SEPOLIA_RPC as string | undefined)
+  const opSepoliaRpc = cleanEnv(import.meta.env.VITE_OP_SEPOLIA_RPC as string | undefined)
     ?? 'https://sepolia.optimism.io'
   return [
     {
@@ -231,9 +246,9 @@ function resolveClientsForMode(mode: NetworkMode): readonly ChainIdentity[] {
 }
 
 function sepoliaConfig(): NetworkConfig {
-  const sepoliaRpcPrimary = (import.meta.env.VITE_SEPOLIA_RPC as string | undefined)
+  const sepoliaRpcPrimary = cleanEnv(import.meta.env.VITE_SEPOLIA_RPC as string | undefined)
     ?? 'https://ethereum-sepolia-rpc.publicnode.com'
-  const sepoliaRpcFallback = import.meta.env.VITE_SEPOLIA_RPC_FALLBACK as string | undefined
+  const sepoliaRpcFallback = cleanEnv(import.meta.env.VITE_SEPOLIA_RPC_FALLBACK as string | undefined)
 
   return {
     mode: 'sepolia',
@@ -249,9 +264,9 @@ function sepoliaConfig(): NetworkConfig {
     // `isRelayerConfigured()` is honestly false — not silently point the DEPLOYED app at the
     // visitor's own machine (and an http:// URL from an https:// page is blocked as mixed content
     // anyway). Set VITE_RELAYER_URL to the public HTTPS relayer for sepolia builds.
-    relayerUrl: (import.meta.env.VITE_RELAYER_URL as string | undefined) ?? '',
-    irisUrl: (import.meta.env.VITE_IRIS_URL as string | undefined) ?? 'https://iris-api-sandbox.circle.com',
-    indexerUrl: (import.meta.env.VITE_INDEXER_URL as string | undefined) ?? null,
+    relayerUrl: cleanEnv(import.meta.env.VITE_RELAYER_URL as string | undefined) ?? '',
+    irisUrl: cleanEnv(import.meta.env.VITE_IRIS_URL as string | undefined) ?? 'https://iris-api-sandbox.circle.com',
+    indexerUrl: cleanEnv(import.meta.env.VITE_INDEXER_URL as string | undefined) ?? null,
     pollIntervalMs: 15_000,
     maxLogRange: 5_000,
     // Scan all the way to head (no hold-back): a note is visible the moment the SDK scans its block —
@@ -275,12 +290,12 @@ function localConfig(): NetworkConfig {
     mode: 'local',
     hub: LOCAL_HUB,
     clients: resolveClientsForMode('local'),
-    relayerUrl: (import.meta.env.VITE_RELAYER_URL as string | undefined) ?? 'http://localhost:3001',
+    relayerUrl: cleanEnv(import.meta.env.VITE_RELAYER_URL as string | undefined) ?? 'http://localhost:3001',
     // Iris URL is unused in local mode (CCTP relays via mock module), but populate for type completeness.
     irisUrl: 'https://iris-api-sandbox.circle.com',
     // Honor VITE_INDEXER_URL so the watcher quick-sync path can be exercised against a locally-run
     // indexer (see the F5 local-testing recipe). Unset → null → engine slow scan (B4 invariant).
-    indexerUrl: (import.meta.env.VITE_INDEXER_URL as string | undefined) ?? null,
+    indexerUrl: cleanEnv(import.meta.env.VITE_INDEXER_URL as string | undefined) ?? null,
     pollIntervalMs: 5_000,
     maxLogRange: 100_000,
     confirmationDepth: 0, // Anvil: instant finality, no reorgs
