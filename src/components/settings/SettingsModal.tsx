@@ -21,10 +21,10 @@ import {
 } from '@/state/wallet'
 import { historyRecoveryAtom, historyRecoveryTriggerAtom } from '@/state/history'
 import { clearHistoryCheckpoint } from '@/lib/shielded/history-checkpoint'
-import { getNetworkMode } from '@/config/network'
+import { cleanEnv, getNetworkMode } from '@/config/network'
 import styles from './SettingsModal.module.css'
 
-const APP_VERSION = import.meta.env.VITE_APP_VERSION as string | undefined
+const APP_VERSION = cleanEnv(import.meta.env.VITE_APP_VERSION as string | undefined)
 
 const AUTO_LOCK_OPTIONS: ReadonlyArray<AutoLockMinutes> = [5, 15, 30]
 

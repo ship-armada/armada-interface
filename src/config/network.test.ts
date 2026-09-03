@@ -2,6 +2,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
+  cleanEnv,
   getNetworkConfig,
   resolveEnabledClients,
   getClientRegistry,
@@ -129,6 +130,55 @@ describe('getClientRegistry', () => {
     }
     const chainIds = local.map(e => e.identity.chainId)
     expect(new Set(chainIds).size).toBe(chainIds.length)
+  })
+})
+
+describe('cleanEnv — empty/whitespace env vars coerce to undefined', () => {
+  // Guards the CI footgun: an unset `${{ vars.VITE_x }}` reaches the build as '' (not undefined), which
+  // would otherwise satisfy a `?? default` fallback and pin the value to '' (e.g. an empty RPC URL).
+  it('returns undefined for undefined, empty, and whitespace-only values', () => {
+    expect(cleanEnv(undefined)).toBeUndefined()
+    expect(cleanEnv('')).toBeUndefined()
+    expect(cleanEnv('   ')).toBeUndefined()
+  })
+
+  it('returns the trimmed value for non-empty input', () => {
+    expect(cleanEnv('https://rpc.example')).toBe('https://rpc.example')
+    expect(cleanEnv('  https://rpc.example  ')).toBe('https://rpc.example')
+  })
+})
+
+describe('getNetworkConfig — empty-string env vars fall back to defaults (CI passes unset vars as "")', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('falls back to the public Sepolia hub RPC when VITE_SEPOLIA_RPC is empty', async () => {
+    vi.stubEnv('VITE_NETWORK', 'sepolia')
+    vi.stubEnv('VITE_SEPOLIA_RPC', '') // an unset `${{ vars.VITE_SEPOLIA_RPC }}` expands to '' in CI
+    vi.resetModules()
+    const { getNetworkConfig: freshGetConfig } = await import('./network')
+    expect(freshGetConfig().hub.rpcUrls).toEqual(['https://ethereum-sepolia-rpc.publicnode.com'])
+  })
+
+  it('coerces an empty VITE_INDEXER_URL to null (not ""), keeping quick-sync disabled', async () => {
+    vi.stubEnv('VITE_NETWORK', 'sepolia')
+    vi.stubEnv('VITE_INDEXER_URL', '')
+    vi.resetModules()
+    const { getNetworkConfig: freshGetConfig } = await import('./network')
+    expect(freshGetConfig().indexerUrl).toBeNull()
+  })
+
+  it('falls back to public client RPCs when VITE_BASE/OP_SEPOLIA_RPC are empty', async () => {
+    vi.stubEnv('VITE_NETWORK', 'sepolia')
+    vi.stubEnv('VITE_BASE_SEPOLIA_RPC', '')
+    vi.stubEnv('VITE_OP_SEPOLIA_RPC', '')
+    vi.resetModules()
+    const { getNetworkConfig: freshGetConfig } = await import('./network')
+    const cfg = freshGetConfig()
+    expect(cfg.clients.find(c => c.chainId === 84532)?.rpcUrls).toEqual(['https://sepolia.base.org'])
+    expect(cfg.clients.find(c => c.chainId === 11155420)?.rpcUrls).toEqual(['https://sepolia.optimism.io'])
   })
 })
 
