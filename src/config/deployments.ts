@@ -91,14 +91,37 @@ async function fetchManifest<T>(name: string): Promise<T> {
       `Deployment manifest not found: ${name}. Run \`npm run setup\` from the project root first.`,
     )
   }
-  return (await res.json()) as T
+  const parsed = await parseManifestBody<T>(res)
+  if (parsed === null) {
+    // A production SPA host (Netlify/Vercel) rewrites unknown paths to index.html with a 200 instead
+    // of a 404, so a missing manifest arrives as HTML. Surface a clear error rather than letting an
+    // opaque JSON parse failure bubble up as a "network hiccup".
+    throw new Error(
+      `Deployment manifest ${name} returned a non-JSON body (likely a 200 SPA fallback) — the file is missing from the deployed bundle.`,
+    )
+  }
+  return parsed
 }
 
-/** Like fetchManifest but returns null on a 404 instead of throwing — used to probe for client files. */
+/** Like fetchManifest but returns null when the manifest is absent — used to probe for client files. */
 async function tryFetchManifest<T>(name: string): Promise<T | null> {
   const res = await fetch(`/api/deployments/${name}`)
   if (!res.ok) return null
-  return (await res.json()) as T
+  // A production SPA host (Netlify/Vercel) rewrites unknown paths to index.html with a 200 instead of
+  // a 404, so a missing client manifest arrives as HTML. This is the client-probe loop's stop
+  // condition — a real 404 in dev, but an HTML 200 in prod — so treat an unparseable body as absent.
+  return parseManifestBody<T>(res)
+}
+
+/** Parse a manifest response body as JSON; returns null if the body isn't valid JSON (e.g. an HTML
+ *  SPA fallback served with a 200). Callers decide whether an absent manifest is fatal. */
+async function parseManifestBody<T>(res: Response): Promise<T | null> {
+  const text = await res.text()
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return null
+  }
 }
 
 let cached: ResolvedDeployments | null = null
