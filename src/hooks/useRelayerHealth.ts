@@ -14,6 +14,21 @@ export interface UseRelayerHealthOptions {
 }
 
 /**
+ * Retries per /health poll before a failed poll is believed (→ isDegraded). Smooths transient
+ * network blips / a momentarily slow (>10s) relayer so the "can't find a relayer" banner reflects
+ * a sustained failure rather than a single dropped request — the previous `retry: 1` (2 attempts,
+ * ~1s apart) tripped the banner on any dip that outlasted a second or two. 2 retries = 3 attempts,
+ * spread over ~9s by `retryDelay` below: long enough to outlast a brief dip, short enough that a
+ * genuine outage still surfaces within the same 60s poll (every attempt keeps failing).
+ *
+ * NOTE: React Query resets `failureCount` at the start of each poll, so this smoothing is
+ * per-poll (across the attempts of one fetch), NOT a cross-poll counter. That's why we can't
+ * mirror `useFees`'s `failureCount >= N` threshold here — `useFees` relies on infinite `retry`
+ * keeping a single fetch alive across all its attempts.
+ */
+const HEALTH_POLL_RETRIES = 2
+
+/**
  * Subscribe to the relayer's /health snapshot. Returns the parsed response + a `isDegraded`
  * convenience derived value — `true` when the relayer reports `stale` or `unhealthy`. Modals use
  * `isDegraded` to surface the wallet-override banner.
@@ -31,14 +46,19 @@ export function useRelayerHealth(opts: UseRelayerHealthOptions = {}) {
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
     enabled: opts.enabled !== false && isConfigured,
-    // Don't aggressively retry — if the relayer is down, the banner should reflect that and the
-    // user opts into the wallet path. A 30-second retry would mask a real outage.
-    retry: 1,
+    // Retry a failed poll a few times before believing the relayer is unreachable, so a single
+    // dropped request / cold-VPS hiccup / momentarily slow response doesn't trip the banner on the
+    // next render. See HEALTH_POLL_RETRIES — retries are spaced (3s, 6s, capped 8s) so they ride
+    // out a brief dip without masking a sustained outage (which fails every attempt).
+    retry: HEALTH_POLL_RETRIES,
+    retryDelay: attemptIndex => Math.min(3_000 * (attemptIndex + 1), 8_000),
     staleTime: 30_000,
   })
 
   const data = query.data
   const isDegraded =
+    // `query.error` is only set once a poll's retries are exhausted (see HEALTH_POLL_RETRIES), so
+    // this reflects a sustained unreachable relayer, not a single dropped request.
     !!query.error || // unreachable → degrade
     (data ? data.status === 'stale' || data.status === 'unhealthy' : false)
 
