@@ -254,11 +254,19 @@ function sepoliaConfig(): NetworkConfig {
     indexerUrl: (import.meta.env.VITE_INDEXER_URL as string | undefined) ?? null,
     pollIntervalMs: 15_000,
     maxLogRange: 5_000,
-    confirmationDepth: 2, // small buffer for Sepolia's rare, shallow reorgs
-    // Equal to confirmationDepth: a note is spendable as soon as it's persisted (≥ 2 blocks deep), so
-    // there's no separate visible "pending" window today. Raise it above confirmationDepth to surface
-    // recent notes as pending before they're spendable — the spendable/pending split already supports it.
-    finalityThreshold: 2,
+    // Scan all the way to head (no hold-back): a note is visible the moment the SDK scans its block —
+    // as fast as quick-sync + the post-tx catch-up poll deliver it (~seconds), the snappiest option for
+    // the demo. Correctness does not depend on this value: the SDK self-heals any reorg that removes a
+    // persisted leaf via a rescan from creationBlock. The cost of 0 (vs a 1-block buffer) is that on
+    // Sepolia's common single-slot wobbles a note can briefly appear then vanish, and head instability
+    // can trigger spurious root-mismatch → full-rescan churn. Raise to 1 if that churn/flicker shows.
+    confirmationDepth: 0,
+    // Equal to confirmationDepth: a note is spendable as soon as it's visible — no separate `pending`
+    // window (the split still exists; the window is just zero-width). Raise above confirmationDepth to
+    // surface freshly-scanned notes as `pending` before they're spendable, keeping the spendable subset
+    // (MAX / fee-on-top guard) conservative for shallow, still-reorgable notes — at the cost of delaying
+    // when a just-shielded note is re-spendable. Must stay ≥ confirmationDepth.
+    finalityThreshold: 0,
   }
 }
 

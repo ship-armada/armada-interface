@@ -30,6 +30,16 @@ describe('getNetworkConfig', () => {
     const cfg = getNetworkConfig()
     expect(cfg.indexerUrl).toBeNull()
   })
+
+  // Invariant across all modes: a note can only be SPENDABLE once it is at least as deep as it is
+  // VISIBLE (persisted), i.e. finalityThreshold >= confirmationDepth. A finalityThreshold BELOW the
+  // confirmation depth would mark notes spendable before they're even scanned in — nonsensical. When
+  // strictly greater, freshly-scanned notes surface as `pending` in the gap. (Sepolia's exact values
+  // are verified at deploy-time review, per the maxLogRange note above; local pins both to 0.)
+  it('keeps finalityThreshold at or above confirmationDepth', () => {
+    const cfg = getNetworkConfig()
+    expect(cfg.finalityThreshold).toBeGreaterThanOrEqual(cfg.confirmationDepth)
+  })
 })
 
 // A synthetic 3-client registry — exercises N>2 without depending on the real local/sepolia entries.
