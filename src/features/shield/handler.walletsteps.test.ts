@@ -97,6 +97,9 @@ describe('shieldHandler direct submit wallet steps (S-M4)', () => {
     expect(wOrder).toBeDefined()
     // ...before the shield broadcast prompt.
     expect(wOrder!).toBeLessThan(wagmi.writeContract.mock.invocationCallOrder[0]!)
+    // The confirmation wait runs on the dedicated `hub-pending` stage (the "Shielding" step), not on
+    // submit-relayer — so the stepper advances off "Submitting transaction" once broadcast.
+    expect(upserts.some(u => u.stage === 'hub-pending' && u.executionState === 'active')).toBe(true)
     // Still finalizes correctly.
     expect(upserts.at(-1)?.stage).toBe('hub-confirmed')
     expect(upserts.at(-1)?.executionState).toBe('completed')

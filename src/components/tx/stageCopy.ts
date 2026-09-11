@@ -17,6 +17,7 @@ const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
   shield: {
     'build-proof': 'Preparing transaction',
     'submit-relayer': { waiting: 'Confirm in your wallet', active: 'Submitting transaction' },
+    'hub-pending': 'Shielding',
     'hub-confirmed': 'Shielded',
   },
   'shield-xchain': {
