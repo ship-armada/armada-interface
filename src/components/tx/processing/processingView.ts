@@ -14,6 +14,18 @@ interface StageCopyEntry {
   subtitle: StageSubtitle
   /** Shown on the final stage once the flow completes (else `label` is used). */
   completedLabel?: string
+  /** Collapses consecutive stages sharing this key into ONE display row (see `GROUP_COPY`). */
+  group?: string
+}
+
+/**
+ * Copy for collapsed display groups. Consecutive stages tagged with the same `group` render as a
+ * single timeline row: `label` is that row's heading; `subtitle` shows while the row is upcoming or
+ * done, and is replaced by the LIVE sub-stage's own subtitle while the record sits inside the group
+ * (so a single "Bridging" step advances its subheading through the underlying CCTP stages).
+ */
+const GROUP_COPY: Record<string, { label: string; subtitle: string }> = {
+  bridging: { label: 'Bridging', subtitle: 'Moving funds across chains' },
 }
 
 /** Resolve a stage's subtitle. The `waiting` variant applies only to the CURRENT stage while the
@@ -48,9 +60,9 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   'shield-xchain': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting on source chain', subtitle: 'Confirm in your wallet' },
-    'client-burn-confirmed': { label: 'Bridging', subtitle: 'Confirmed on source chain' },
-    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Waiting for cross-chain confirmation' },
-    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Cross-chain confirmation ready' },
+    'client-burn-confirmed': { label: 'Bridging', subtitle: 'Confirmed on source chain', group: 'bridging' },
+    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Waiting for cross-chain confirmation', group: 'bridging' },
+    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Cross-chain confirmation ready', group: 'bridging' },
     'hub-mint-pending': { label: 'Shielding', subtitle: 'Delivering to your private balance' },
     'hub-mint-confirmed': { label: 'Shielding', subtitle: 'Confirming on chain', completedLabel: 'Shielded' },
   },
@@ -66,9 +78,9 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   'unshield-xchain': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting transaction', subtitle: 'Relaying to public chain' },
-    'hub-burn-confirmed': { label: 'Bridging', subtitle: 'Confirmed on hub' },
-    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Waiting for cross-chain confirmation' },
-    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Cross-chain confirmation ready' },
+    'hub-burn-confirmed': { label: 'Bridging', subtitle: 'Confirmed on hub', group: 'bridging' },
+    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Waiting for cross-chain confirmation', group: 'bridging' },
+    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Cross-chain confirmation ready', group: 'bridging' },
     'client-mint-pending': { label: 'Delivering', subtitle: 'Delivering on the destination chain' },
     'client-mint-confirmed': { label: 'Delivering', subtitle: 'Confirming on chain', completedLabel: 'Funds delivered' },
   },
@@ -180,23 +192,63 @@ export function buildProcessingView(
   record: TxRecord,
   opts?: { sendVariant?: SendVariant },
 ): ProcessingView {
-  const stageIds = lifecycleFor(record.kind).stages as ReadonlyArray<string>
+  const lifecycle = lifecycleFor(record.kind)
+  const stageIds = lifecycle.stages as ReadonlyArray<string>
   const copyMap = STAGE_COPY[record.kind]
-  const stages: TxProgressStage[] = stageIds.map((id) => {
-    const entry = copyMap[id]
+
+  // The terminal-success stage is NOT drawn as its own row — it's the completed form of the last
+  // action row (e.g. "Shielding" → "Shielded"), so the timeline doesn't render a redundant
+  // "confirming" + "confirmed" pair. Its `completedLabel` is folded onto the last rendered row.
+  // Single-stage kinds (the synthetic `received`) have nothing preceding the terminal, so keep it.
+  const terminalStage = lifecycle.terminalSuccess as string
+  const renderedIds =
+    stageIds.length > 1 ? stageIds.filter((id) => id !== terminalStage) : stageIds
+  const foldedCompletedLabel =
+    copyMap[terminalStage]?.completedLabel ?? copyMap[terminalStage]?.label
+
+  // Collapse consecutive rendered stages sharing a `group` into one display row (e.g. the three
+  // cross-chain "Bridging" stages become a single row). Non-grouped stages each get their own row.
+  const rows: { id: string; group?: string; stageIds: string[] }[] = []
+  for (const id of renderedIds) {
+    const group = copyMap[id]?.group
+    const prev = rows[rows.length - 1]
+    if (group !== undefined && prev?.group === group) {
+      prev.stageIds.push(id)
+    } else {
+      rows.push({ id: group ?? id, group, stageIds: [id] })
+    }
+  }
+
+  const stages: TxProgressStage[] = rows.map((row, index) => {
+    // The last rendered row carries the folded terminal `completedLabel` so it flips to the done
+    // state on completion; earlier rows keep their own (usually none).
+    const foldedLabel = index === rows.length - 1 ? foldedCompletedLabel : undefined
+    if (row.group !== undefined) {
+      // Grouped row: show the LIVE sub-stage's subtitle while the record is inside the group, else
+      // the group's neutral subtitle (upcoming / done).
+      const groupCopy = GROUP_COPY[row.group]
+      const activeSubId = row.stageIds.find((sid) => sid === record.stage)
+      const subtitle = activeSubId
+        ? resolveSubtitle(copyMap[activeSubId]?.subtitle ?? '', true, record.executionState)
+        : groupCopy?.subtitle ?? ''
+      return { id: row.id, label: groupCopy?.label ?? row.id, subtitle, completedLabel: foldedLabel }
+    }
+    const entry = copyMap[row.id]
     return {
-      id,
-      label: entry?.label ?? id,
-      subtitle: entry ? resolveSubtitle(entry.subtitle, id === record.stage, record.executionState) : '',
-      completedLabel: entry?.completedLabel,
+      id: row.id,
+      label: entry?.label ?? row.id,
+      subtitle: entry ? resolveSubtitle(entry.subtitle, row.id === record.stage, record.executionState) : '',
+      completedLabel: foldedLabel ?? entry?.completedLabel,
     }
   })
 
   const completed = record.executionState === 'completed'
-  const currentIndex = stageIds.indexOf(record.stage as string)
+  // Active row = the display row containing `record.stage`. On completion the stage is the (unrendered)
+  // terminal one → not found → snap to the last rendered row, which carries the folded completedLabel.
+  const currentRowIndex = rows.findIndex((row) => row.stageIds.includes(record.stage as string))
   const activeStageIndex = completed
     ? Math.max(0, stages.length - 1)
-    : Math.max(0, currentIndex)
+    : Math.max(0, currentRowIndex)
 
   // Only promise "safe to close" once the tx has broadcast on chain — before that, leaving the tab
   // would abort it (nothing was submitted yet). Pre-broadcast keeps the neutral per-kind subtitle.

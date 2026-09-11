@@ -18,11 +18,12 @@ function rec(
 describe('buildProcessingView', () => {
   it('maps a shield record to its real lifecycle stages + active index', () => {
     const view = buildProcessingView(rec('shield', 'submit-relayer', 'active'))
+    // The terminal `hub-confirmed` stage is folded into the last rendered row (it's not drawn as a
+    // separate "confirmed" step); the row order stops at the `hub-pending` action row.
     expect(view.stages.map((s) => s.id)).toEqual([
       'build-proof',
       'submit-relayer',
       'hub-pending',
-      'hub-confirmed',
     ])
     expect(view.activeStageIndex).toBe(1)
     expect(view.completed).toBe(false)
@@ -66,20 +67,41 @@ describe('buildProcessingView', () => {
     expect(withdraw.cardCopy.titleLines).toEqual(['Unshielding your', 'USDC'])
   })
 
-  it('snaps to the final stage and exposes the completedLabel when completed', () => {
+  it('snaps to the last rendered row and folds the terminal completedLabel onto it when completed', () => {
     const view = buildProcessingView(rec('shield', 'hub-confirmed', 'completed'))
     expect(view.completed).toBe(true)
+    // hub-confirmed is folded, so the last rendered row is hub-pending — and it carries the
+    // terminal 'Shielded' completedLabel.
+    expect(view.stages.some((s) => s.id === 'hub-confirmed')).toBe(false)
     expect(view.activeStageIndex).toBe(view.stages.length - 1)
-    expect(view.stages.find((s) => s.id === 'hub-confirmed')?.completedLabel).toBe('Shielded')
+    expect(view.stages.at(-1)?.id).toBe('hub-pending')
+    expect(view.stages.at(-1)?.completedLabel).toBe('Shielded')
   })
 
-  it('renders the real (granular) xchain stages, not a fixed 3', () => {
-    const view = buildProcessingView(rec('unshield-xchain', 'iris-attestation-pending', 'active'))
-    expect(view.stages.length).toBeGreaterThan(3)
-    expect(view.stages.some((s) => s.id === 'iris-attestation-pending')).toBe(true)
-    expect(view.activeStageIndex).toBe(
-      view.stages.findIndex((s) => s.id === 'iris-attestation-pending'),
-    )
+  it('collapses the cross-chain bridging stages into one row whose subtitle tracks the live sub-stage', () => {
+    const atPending = buildProcessingView(rec('unshield-xchain', 'iris-attestation-pending', 'active'))
+    // The three bridging stages (hub-burn-confirmed, iris-*) render as a single "bridging" row.
+    expect(atPending.stages.map((s) => s.id)).toEqual([
+      'build-proof',
+      'submit-relayer',
+      'bridging',
+      'client-mint-pending',
+    ])
+    const bridgeIdx = atPending.stages.findIndex((s) => s.id === 'bridging')
+    expect(atPending.activeStageIndex).toBe(bridgeIdx)
+    expect(atPending.stages[bridgeIdx]?.label).toBe('Bridging')
+    // While inside the group, the row shows the LIVE sub-stage subtitle...
+    expect(atPending.stages[bridgeIdx]?.subtitle).toBe('Waiting for cross-chain confirmation')
+
+    // ...and it advances as the underlying stage moves on.
+    const atReady = buildProcessingView(rec('unshield-xchain', 'iris-attestation-ready', 'active'))
+    expect(atReady.stages.find((s) => s.id === 'bridging')?.subtitle).toBe('Cross-chain confirmation ready')
+  })
+
+  it('shows the neutral bridging subtitle when the group is not the active step', () => {
+    // Still submitting — bridging is upcoming, so it shows the group's neutral line, not a sub-stage.
+    const view = buildProcessingView(rec('unshield-xchain', 'submit-relayer', 'active'))
+    expect(view.stages.find((s) => s.id === 'bridging')?.subtitle).toBe('Moving funds across chains')
   })
 
   it('falls back to index 0 for an unknown stage', () => {
