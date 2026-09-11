@@ -2,14 +2,29 @@
 // ABOUTME: Drives TxProcessingLayout from our REAL lifecycle stages (lifecycleFor + record state), styled like the mockup.
 
 import { lifecycleFor } from '@/lib/tx/lifecycles'
-import type { TxKind, TxRecord } from '@/lib/tx/types'
+import type { TxExecutionState, TxKind, TxRecord } from '@/lib/tx/types'
 import type { TxProgressCardCopy, TxProgressStage } from './processingCopy'
+
+/** Subtitle for a stage — either static, or split by executionState (`waiting` = a wallet prompt is
+ *  open) so a direct-submit prompt and a gasless relay POST on the same stage read correctly. */
+type StageSubtitle = string | { active: string; waiting: string }
 
 interface StageCopyEntry {
   label: string
-  subtitle: string
+  subtitle: StageSubtitle
   /** Shown on the final stage once the flow completes (else `label` is used). */
   completedLabel?: string
+}
+
+/** Resolve a stage's subtitle. The `waiting` variant applies only to the CURRENT stage while the
+ *  record is `waiting` (a wallet prompt is open); done/pending rows and all other states use `active`. */
+function resolveSubtitle(
+  subtitle: StageSubtitle,
+  isCurrent: boolean,
+  executionState: TxExecutionState,
+): string {
+  if (typeof subtitle === 'string') return subtitle
+  return isCurrent && executionState === 'waiting' ? subtitle.waiting : subtitle.active
 }
 
 /**
@@ -20,7 +35,13 @@ interface StageCopyEntry {
 const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   shield: {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
-    'submit-relayer': { label: 'Submitting transaction', subtitle: 'Confirm in your wallet' },
+    // Direct-submit path: the wallet prompt is open at submit-relayer (`waiting`) → "Confirm in your
+    // wallet". Gasless (default): the prompts happened in build-proof, so submit-relayer is just the
+    // relay POST (`active`) → "Submitting to the relayer", not a stale "confirm" message.
+    'submit-relayer': {
+      label: 'Submitting transaction',
+      subtitle: { waiting: 'Confirm in your wallet', active: 'Submitting to the relayer' },
+    },
     'hub-pending': { label: 'Shielding', subtitle: 'Confirming on chain' },
     'hub-confirmed': { label: 'Shielded', subtitle: 'Confirming on chain', completedLabel: 'Shielded' },
   },
@@ -166,7 +187,7 @@ export function buildProcessingView(
     return {
       id,
       label: entry?.label ?? id,
-      subtitle: entry?.subtitle ?? '',
+      subtitle: entry ? resolveSubtitle(entry.subtitle, id === record.stage, record.executionState) : '',
       completedLabel: entry?.completedLabel,
     }
   })

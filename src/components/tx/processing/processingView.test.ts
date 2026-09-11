@@ -29,6 +29,18 @@ describe('buildProcessingView', () => {
     expect(view.cardCopy.title).toBe('Your USDC is being shielded')
   })
 
+  it('resolves the shield submit-relayer subtitle by state: confirm-in-wallet (direct) vs relayer (gasless)', () => {
+    // Direct-submit path — the wallet prompt is open at submit-relayer (`waiting`).
+    const direct = buildProcessingView(rec('shield', 'submit-relayer', 'waiting'))
+    const directSubmit = direct.stages.find((s) => s.id === 'submit-relayer')
+    expect(directSubmit?.subtitle).toBe('Confirm in your wallet')
+
+    // Gasless (default) — prompts happened in build-proof; submit-relayer is just the relay POST.
+    const gasless = buildProcessingView(rec('shield', 'submit-relayer', 'active'))
+    const gaslessSubmit = gasless.stages.find((s) => s.id === 'submit-relayer')
+    expect(gaslessSubmit?.subtitle).toBe('Submitting to the relayer')
+  })
+
   it('surfaces a distinct "Shielding / Confirming on chain" step during the confirmation wait', () => {
     // Post-broadcast, pre-confirmation: the record sits on `hub-pending` for the whole on-chain
     // wait, so the stepper must show the confirming step — not hold on "Submitting transaction".
