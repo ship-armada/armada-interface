@@ -44,7 +44,7 @@ type EthersScanLog = {
 }
 import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
-import { poll, pollBudgetMs, pollRelayStatusOnce } from '@/lib/tx/poller'
+import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { scanCctpDeliveryWindow, matchesXchainDelivery } from './scan'
 import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
@@ -284,7 +284,7 @@ async function runSubmitAndBurn(
   // loop handles jittered backoff + abort propagation.
   const pollResult = await poll(
     (signal) => pollRelayStatusOnce(txHash, signal, hubChainId),
-    { signal: ctx.signal, timeoutMs: pollBudgetMs(record) },
+    { signal: ctx.signal, timeoutMs: pollBudgetMs(record), intervalMs: RELAYER_STATUS_POLL_INTERVAL_MS },
   )
 
   if (pollResult.status === 'aborted') throw new Error('cancelled')

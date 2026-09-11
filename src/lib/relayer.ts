@@ -501,8 +501,16 @@ export async function fetchHealth(signal?: AbortSignal): Promise<RelayerHealthRe
 }
 
 /** Poll a previously-submitted relay tx's status. */
-export async function pollStatus(txHash: string, signal?: AbortSignal): Promise<StatusResponse> {
-  const res = await fetchWithTimeout(`${relayerEndpoint(RELAYER_ENDPOINTS.status)}/${txHash}`, {
+export async function pollStatus(
+  txHash: string,
+  signal?: AbortSignal,
+  chainId?: number,
+): Promise<StatusResponse> {
+  // Scope the lookup to the tx's chain. Omitting chainId makes the relayer fan out an
+  // eth_getTransactionReceipt across every configured chain sequentially (§9.1) — extra round-trips
+  // and worst-case latency when the tx is on the last chain checked. The caller always knows its chain.
+  const query = chainId !== undefined ? `?chainId=${chainId}` : ''
+  const res = await fetchWithTimeout(`${relayerEndpoint(RELAYER_ENDPOINTS.status)}/${txHash}${query}`, {
     method: 'GET',
     headers: { Accept: 'application/json' },
   }, signal, 15_000)

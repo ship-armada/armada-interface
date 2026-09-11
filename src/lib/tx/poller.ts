@@ -35,6 +35,12 @@ const DEFAULTS = {
 
 const POLL_BUDGET_FLOOR_MS = 10_000
 
+// Poll cadence for relayer `/status` on same-chain relayer-mediated submits. Tighter than the generic
+// 10s default so the Pending→Complete transition surfaces within a few seconds of on-chain inclusion
+// (the balance itself already updates off the faster shielded scan poll). Well under the relayer's
+// 60/min GET rate limit: one tx at 4s ≈ 15/min. Cross-chain delivery polls keep the generic default.
+export const RELAYER_STATUS_POLL_INTERVAL_MS = 4_000
+
 /**
  * Derive an inner poll timeout from a record's per-kind lifecycle cap minus elapsed wall-clock.
  * Without this, same-chain relayer status polls inherit poller's 30-min default — 3× past their
@@ -130,24 +136,27 @@ export async function poll<T>(
  * Network / 5xx errors from `pollStatus` propagate as throws — the poll loop's exponential backoff
  * + error-streak counter handles transient relayer hiccups.
  *
+ * `chainId` scopes the `/status` lookup to the tx's chain (avoids the relayer's sequential
+ * cross-chain receipt fan-out) AND is the chain used by the 404 fallback below.
+ *
  * Relayer-404 fallback (P1-25): a 404 means the relayer doesn't know this hash — almost always
  * because it restarted and lost its in-memory status map. The tx is already on chain (we hold its
  * hash), so rather than poll the relayer's memory to a lifecycle timeout, we fall back to the RPC
- * receipt on `fallbackChainId` and translate it into a terminal StatusResponse. 5xx / network
+ * receipt on `chainId` and translate it into a terminal StatusResponse. 5xx / network
  * errors are NOT treated this way — they rethrow so the poll loop backs off and retries.
  */
 export async function pollRelayStatusOnce(
   txHash: string,
   signal: AbortSignal,
-  fallbackChainId?: number,
+  chainId?: number,
 ): Promise<StatusResponse | null> {
   try {
-    const status = await pollStatus(txHash, signal)
+    const status = await pollStatus(txHash, signal, chainId)
     return status.status === 'pending' ? null : status
   } catch (err) {
     if (!(err instanceof RelayerError) || err.httpStatus !== 404) throw err
     try {
-      await waitForReceiptOrFail({ hash: txHash as `0x${string}`, signal, chainId: fallbackChainId })
+      await waitForReceiptOrFail({ hash: txHash as `0x${string}`, signal, chainId })
       return { status: 'confirmed' }
     } catch (receiptErr) {
       const tx = extractTxError(receiptErr)
