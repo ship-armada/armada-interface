@@ -18,7 +18,7 @@ import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { advance, markFailed } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
-import { poll, pollBudgetMs, pollRelayStatusOnce } from '@/lib/tx/poller'
+import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { classifyHandlerError } from '@/lib/tx/errors'
 import { throwIfForcedError } from '@/lib/tx/devForce'
 import { createProofProgressWriter } from '@/lib/tx/progress'
@@ -201,7 +201,7 @@ async function runSubmitAndConfirm(
 
   const pollResult = await poll(
     (signal) => pollRelayStatusOnce(txHash, signal, hubChainId),
-    { signal: ctx.signal, timeoutMs: pollBudgetMs(record) },
+    { signal: ctx.signal, timeoutMs: pollBudgetMs(record), intervalMs: RELAYER_STATUS_POLL_INTERVAL_MS },
   )
 
   if (pollResult.status === 'aborted') throw new Error('cancelled')

@@ -10,6 +10,7 @@ import {
   computeFeeBreakdown,
   feeModelForKind,
   submitRelay,
+  pollStatus,
   fetchFees,
   fetchCctpDeliveryStatus,
   RelayerError,
@@ -690,5 +691,38 @@ describe('fetchFees — relayer wire-field normalization', () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(wireBody('somethingElse')), { status: 200 }))
     const schedule = await fetchFees()
     expect(schedule.broadcasterShieldedAddress).toBe('')
+  })
+})
+
+describe('pollStatus', () => {
+  const fetchMock = vi.fn()
+  const ORIGINAL_FETCH = globalThis.fetch
+  const HASH = '0xdeadbeef0000000000000000000000000000000000000000000000000000beef'
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ status: 'confirmed' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+  })
+
+  afterAll(() => {
+    globalThis.fetch = ORIGINAL_FETCH
+  })
+
+  it('appends ?chainId= so the relayer scopes the receipt lookup to one chain (no cross-chain fan-out)', async () => {
+    await pollStatus(HASH, undefined, 11155111)
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toBe(`${relayerEndpoint(RELAYER_ENDPOINTS.status)}/${HASH}?chainId=11155111`)
+  })
+
+  it('omits the query when no chainId is given (back-compat: relayer falls back to fan-out)', async () => {
+    await pollStatus(HASH)
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toBe(`${relayerEndpoint(RELAYER_ENDPOINTS.status)}/${HASH}`)
   })
 })
