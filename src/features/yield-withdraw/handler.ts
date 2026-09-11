@@ -34,7 +34,7 @@ import type { TxError, TxRecord } from '@/lib/tx/types'
  */
 export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
   kind: 'yield-withdraw',
-  resumableFrom: ['submit-relayer'],
+  resumableFrom: ['submit-relayer', 'hub-pending'],
 
   async run(record, ctx) {
     try {
@@ -42,7 +42,10 @@ export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
         await runBuildProof(record, ctx)
         return
       }
-      if (record.stage === 'submit-relayer') {
+      if (record.stage === 'submit-relayer' || record.stage === 'hub-pending') {
+        // `submit-relayer` broadcasts (then advances to `hub-pending`); `hub-pending` is the
+        // resume/retry entry for an already-broadcast tx — re-entry is idempotent (sourceTxHash
+        // present → skips the broadcast, re-waits for confirmation).
         await runSubmitAndConfirm(record, ctx)
         return
       }
@@ -156,6 +159,12 @@ async function runSubmitAndConfirm(
       if (broadcast.dismissed) return
       broadcastRecord = broadcast.record
     }
+    // Enter the on-chain confirmation stage before waiting (idempotent for resume), so the stepper
+    // shows the confirming step instead of holding on "Submitting transaction".
+    if (broadcastRecord.stage !== 'hub-pending') {
+      broadcastRecord = advance(broadcastRecord, 'hub-pending')
+      await ctx.upsert(broadcastRecord)
+    }
     await waitForReceiptOrFail({ hash, signal: ctx.signal, chainId: hubChainId })
     if (kmIsUnlocked()) {
       void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
@@ -196,6 +205,13 @@ async function runSubmitAndConfirm(
     const broadcast = await recordBroadcastHash(record, txHash, ctx)
     if (broadcast.dismissed) return
     broadcastRecord = broadcast.record
+  }
+
+  // Enter the on-chain confirmation stage before polling (idempotent for resume/retry), so the
+  // stepper shows the confirming step instead of holding on "Submitting transaction".
+  if (broadcastRecord.stage !== 'hub-pending') {
+    broadcastRecord = advance(broadcastRecord, 'hub-pending')
+    await ctx.upsert(broadcastRecord)
   }
 
   const pollResult = await poll(

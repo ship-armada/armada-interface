@@ -24,9 +24,10 @@ const shield: TxLifecycle<'shield'> = {
 
 const unshieldLocal: TxLifecycle<'unshield-local'> = {
   kind: 'unshield-local',
-  stages: ['build-proof', 'submit-relayer', 'hub-confirmed'],
+  // `hub-pending` = broadcast, awaiting on-chain confirmation (see the shield lifecycle above).
+  stages: ['build-proof', 'submit-relayer', 'hub-pending', 'hub-confirmed'],
   terminalSuccess: 'hub-confirmed',
-  retryableStages: ['submit-relayer'],
+  retryableStages: ['submit-relayer', 'hub-pending'],
   estDuration: { p50: 8_000, p90: 25_000 },
   maxDurationMs: SHORT_CAP,
 }
@@ -68,9 +69,10 @@ const shieldXchain: TxLifecycle<'shield-xchain'> = {
 
 const transferShielded: TxLifecycle<'transfer-shielded'> = {
   kind: 'transfer-shielded',
-  stages: ['build-proof', 'submit-relayer', 'hub-confirmed'],
+  // `hub-pending` = broadcast, awaiting on-chain confirmation (see the shield lifecycle above).
+  stages: ['build-proof', 'submit-relayer', 'hub-pending', 'hub-confirmed'],
   terminalSuccess: 'hub-confirmed',
-  retryableStages: ['submit-relayer'],
+  retryableStages: ['submit-relayer', 'hub-pending'],
   estDuration: { p50: 8_000, p90: 25_000 },
   maxDurationMs: SHORT_CAP,
 }
@@ -92,18 +94,20 @@ const transferShieldedReceived: TxLifecycle<'transfer-shielded-received'> = {
 
 const yieldDeposit: TxLifecycle<'yield-deposit'> = {
   kind: 'yield-deposit',
-  stages: ['build-proof', 'submit-relayer', 'hub-confirmed'],
+  // `hub-pending` = broadcast, awaiting on-chain confirmation (see the shield lifecycle above).
+  stages: ['build-proof', 'submit-relayer', 'hub-pending', 'hub-confirmed'],
   terminalSuccess: 'hub-confirmed',
-  retryableStages: ['submit-relayer'],
+  retryableStages: ['submit-relayer', 'hub-pending'],
   estDuration: { p50: 10_000, p90: 30_000 },
   maxDurationMs: YIELD_CAP,
 }
 
 const yieldWithdraw: TxLifecycle<'yield-withdraw'> = {
   kind: 'yield-withdraw',
-  stages: ['build-proof', 'submit-relayer', 'hub-confirmed'],
+  // `hub-pending` = broadcast, awaiting on-chain confirmation (see the shield lifecycle above).
+  stages: ['build-proof', 'submit-relayer', 'hub-pending', 'hub-confirmed'],
   terminalSuccess: 'hub-confirmed',
-  retryableStages: ['submit-relayer'],
+  retryableStages: ['submit-relayer', 'hub-pending'],
   estDuration: { p50: 10_000, p90: 30_000 },
   maxDurationMs: YIELD_CAP,
 }
