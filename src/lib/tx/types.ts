@@ -70,6 +70,7 @@ export function historySortTime(record: {
 export type StageShield =
   | 'build-proof'
   | 'submit-relayer'
+  | 'hub-pending'
   | 'hub-confirmed'
 
 /**

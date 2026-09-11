@@ -47,8 +47,8 @@ function xchainRecord(overrides?: Partial<TxRecord<'unshield-xchain'>>): TxRecor
 describe('<TxLifecycleStepper>', () => {
   it('renders one row per stage in the lifecycle', () => {
     const { container } = render(<TxLifecycleStepper record={shieldRecord()} />)
-    // shield has 3 stages
-    expect(container.querySelectorAll('li').length).toBe(3)
+    // shield has 4 stages: build-proof → submit-relayer → hub-pending → hub-confirmed
+    expect(container.querySelectorAll('li').length).toBe(4)
   })
 
   it('renders the TxStatusChip reflecting executionState', () => {

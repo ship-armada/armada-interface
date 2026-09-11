@@ -95,4 +95,21 @@ describe('shieldHandler submit idempotency (P0-1 direct path)', () => {
     expect(last?.executionState).toBe('completed')
     expect(last?.artifacts.sourceTxHash).toBe('0xfeed')
   })
+
+  it('resumes from hub-pending (already broadcast) without re-broadcasting and finalizes', async () => {
+    const { ctx, upserts } = makeCtx()
+    // A record persisted mid-confirmation: broadcast happened, stage advanced to hub-pending.
+    const resumed: TxRecord<'shield'> = { ...shieldRecordWithHash(), stage: 'hub-pending' }
+    await shieldHandler.run(resumed, ctx)
+
+    // Same funds-critical guarantee — no re-broadcast on the confirmation-stage resume entry.
+    expect(wagmi.writeContract).not.toHaveBeenCalled()
+    expect(wagmi.sendTransaction).not.toHaveBeenCalled()
+    expect(ensureChainMock).not.toHaveBeenCalled()
+    expect(waitForReceiptMock).toHaveBeenCalledOnce()
+    const last = upserts.at(-1)
+    expect(last?.stage).toBe('hub-confirmed')
+    expect(last?.executionState).toBe('completed')
+    expect(last?.artifacts.sourceTxHash).toBe('0xfeed')
+  })
 })

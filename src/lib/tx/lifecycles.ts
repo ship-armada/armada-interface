@@ -10,9 +10,14 @@ const XCHAIN_CAP = 60 * 60_000  // 60 min — Iris standard finality can take ~2
 
 const shield: TxLifecycle<'shield'> = {
   kind: 'shield',
-  stages: ['build-proof', 'submit-relayer', 'hub-confirmed'],
+  // `submit-relayer` = broadcasting (wallet prompt / relay POST); `hub-pending` = broadcast, awaiting
+  // on-chain confirmation. Splitting them lets the stepper show a distinct "Shielding / Confirming on
+  // chain" step for the confirmation wait instead of sitting on "Submitting" the whole time.
+  stages: ['build-proof', 'submit-relayer', 'hub-pending', 'hub-confirmed'],
   terminalSuccess: 'hub-confirmed',
-  retryableStages: ['submit-relayer'],
+  // `hub-pending` is retryable too: a POLL_TIMEOUT / receipt-wait failure lands there post-broadcast,
+  // and re-entry is idempotent (sourceTxHash present → never re-broadcasts, just re-waits).
+  retryableStages: ['submit-relayer', 'hub-pending'],
   estDuration: { p50: 8_000, p90: 25_000 },
   maxDurationMs: SHORT_CAP,
 }

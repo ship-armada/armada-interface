@@ -21,7 +21,8 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   shield: {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting transaction', subtitle: 'Confirm in your wallet' },
-    'hub-confirmed': { label: 'Shielding', subtitle: 'Confirming on chain', completedLabel: 'Shielded' },
+    'hub-pending': { label: 'Shielding', subtitle: 'Confirming on chain' },
+    'hub-confirmed': { label: 'Shielded', subtitle: 'Confirming on chain', completedLabel: 'Shielded' },
   },
   'shield-xchain': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },

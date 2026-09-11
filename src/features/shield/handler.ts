@@ -108,7 +108,7 @@ const PRIVACY_POOL_SHIELD_ABI = [
  */
 export const shieldHandler: StageHandler<'shield'> = {
   kind: 'shield',
-  resumableFrom: ['submit-relayer'],
+  resumableFrom: ['submit-relayer', 'hub-pending'],
 
   async run(record, ctx) {
     try {
@@ -116,7 +116,10 @@ export const shieldHandler: StageHandler<'shield'> = {
         await runBuildProof(record, ctx)
         return
       }
-      if (record.stage === 'submit-relayer') {
+      if (record.stage === 'submit-relayer' || record.stage === 'hub-pending') {
+        // `submit-relayer` broadcasts (then advances to `hub-pending`); `hub-pending` is the
+        // resume/retry entry for an already-broadcast tx — `runSubmitAndConfirm` is idempotent
+        // (sourceTxHash present → skips the broadcast, re-waits for confirmation).
         await runSubmitAndConfirm(record, ctx)
         return
       }
@@ -460,12 +463,18 @@ async function runDirectSubmit(
     // (whose upserts moved the seq forward) so the hash write isn't OCC-dropped.
     const broadcast = await recordBroadcastHash(working, shieldHash, ctx)
     if (broadcast.dismissed) return
-    // Prompt confirmed → active ("Submitting transaction") for the receipt wait below.
-    broadcastRecord = advance(broadcast.record, 'submit-relayer')
+    broadcastRecord = broadcast.record
+  }
+
+  // 3. Enter the on-chain confirmation stage. Idempotent: also runs on resume-from-submit-relayer
+  //    (a record persisted mid-broadcast), so the stepper shows "Shielding / Confirming on chain"
+  //    for the whole receipt wait instead of holding on "Submitting transaction".
+  if (broadcastRecord.stage !== 'hub-pending') {
+    broadcastRecord = advance(broadcastRecord, 'hub-pending')
     await ctx.upsert(broadcastRecord)
   }
 
-  // 3. Wait for confirmation. The SDK's merkle scan will pick up the new commitment via the
+  // 4. Wait for confirmation. The SDK's merkle scan will pick up the new commitment via the
   //    onBalanceUpdate callback — but we also kick a refresh explicitly so the UI doesn't have
   //    to wait for the SDK's poll interval. Timeout-and-signal-aware so a wedged RPC doesn't
   //    pin this handler for the full 10-min lifecycle cap.
@@ -594,6 +603,14 @@ async function runGaslessSubmit(
     const broadcast = await recordBroadcastHash(record, txHash, ctx)
     if (broadcast.dismissed) return
     broadcastRecord = broadcast.record
+  }
+
+  // Enter the on-chain confirmation stage before polling (idempotent for resume/retry from
+  // hub-pending), so the stepper shows "Shielding / Confirming on chain" for the relayer-status wait
+  // instead of holding on "Submitting transaction".
+  if (broadcastRecord.stage !== 'hub-pending') {
+    broadcastRecord = advance(broadcastRecord, 'hub-pending')
+    await ctx.upsert(broadcastRecord)
   }
 
   const pollResult = await poll(

@@ -21,11 +21,23 @@ describe('buildProcessingView', () => {
     expect(view.stages.map((s) => s.id)).toEqual([
       'build-proof',
       'submit-relayer',
+      'hub-pending',
       'hub-confirmed',
     ])
     expect(view.activeStageIndex).toBe(1)
     expect(view.completed).toBe(false)
     expect(view.cardCopy.title).toBe('Your USDC is being shielded')
+  })
+
+  it('surfaces a distinct "Shielding / Confirming on chain" step during the confirmation wait', () => {
+    // Post-broadcast, pre-confirmation: the record sits on `hub-pending` for the whole on-chain
+    // wait, so the stepper must show the confirming step — not hold on "Submitting transaction".
+    const view = buildProcessingView(rec('shield', 'hub-pending', 'active', { sourceTxHash: '0xabc' }))
+    const idx = view.stages.findIndex((s) => s.id === 'hub-pending')
+    expect(view.activeStageIndex).toBe(idx)
+    expect(view.stages[idx]?.label).toBe('Shielding')
+    expect(view.stages[idx]?.subtitle).toBe('Confirming on chain')
+    expect(view.completed).toBe(false)
   })
 
   it('picks the send-flow title from the variant for the shared unshield-* kinds', () => {
