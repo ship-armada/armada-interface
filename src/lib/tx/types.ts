@@ -94,6 +94,7 @@ export type StageShieldXchain =
 export type StageUnshieldLocal =
   | 'build-proof'
   | 'submit-relayer'
+  | 'hub-pending'
   | 'hub-confirmed'
 
 export type StageUnshieldXchain =
@@ -108,6 +109,7 @@ export type StageUnshieldXchain =
 export type StageTransferShielded =
   | 'build-proof'
   | 'submit-relayer'
+  | 'hub-pending'
   | 'hub-confirmed'
 
 /**
@@ -122,11 +124,13 @@ export type StageReceived = 'observed'
 export type StageYieldDeposit =
   | 'build-proof'
   | 'submit-relayer'
+  | 'hub-pending'
   | 'hub-confirmed'
 
 export type StageYieldWithdraw =
   | 'build-proof'
   | 'submit-relayer'
+  | 'hub-pending'
   | 'hub-confirmed'
 
 export type TxStage =

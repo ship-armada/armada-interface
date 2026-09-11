@@ -39,7 +39,8 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
     // One kind-keyed entry serves both external-send and withdraw (accepted limitation): the mockup
     // splits these by mode. We use the external-send subtitle (neutral — a withdraw also lands in an
     // external wallet) + the unshield completedLabel (accurate for both).
-    'hub-confirmed': { label: 'Unshielding', subtitle: 'Sending USDC to external wallet', completedLabel: 'Unshielded' },
+    'hub-pending': { label: 'Unshielding', subtitle: 'Sending USDC to external wallet' },
+    'hub-confirmed': { label: 'Unshielded', subtitle: 'Sending USDC to external wallet', completedLabel: 'Unshielded' },
   },
   'unshield-xchain': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
@@ -53,7 +54,8 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   'transfer-shielded': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting transaction', subtitle: 'Relaying privately to recipient' },
-    'hub-confirmed': { label: 'Sending', subtitle: 'Delivering privately to recipient', completedLabel: 'Sent' },
+    'hub-pending': { label: 'Sending', subtitle: 'Delivering privately to recipient' },
+    'hub-confirmed': { label: 'Sent', subtitle: 'Delivering privately to recipient', completedLabel: 'Sent' },
   },
   'transfer-shielded-received': {
     observed: { label: 'Received', subtitle: 'Payment received', completedLabel: 'Received' },
@@ -61,12 +63,14 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   'yield-deposit': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting privately', subtitle: 'Relaying to shielded vault' },
-    'hub-confirmed': { label: 'Adding to shielded vault', subtitle: 'USDC is entering the shielded vault', completedLabel: 'Earning' },
+    'hub-pending': { label: 'Adding to shielded vault', subtitle: 'USDC is entering the shielded vault' },
+    'hub-confirmed': { label: 'Earning', subtitle: 'USDC is entering the shielded vault', completedLabel: 'Earning' },
   },
   'yield-withdraw': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting privately', subtitle: 'Relaying to shielded vault' },
-    'hub-confirmed': { label: 'Withdrawing', subtitle: 'USDC is returning to your balance', completedLabel: 'Returned to balance' },
+    'hub-pending': { label: 'Withdrawing', subtitle: 'USDC is returning to your balance' },
+    'hub-confirmed': { label: 'Returned to balance', subtitle: 'USDC is returning to your balance', completedLabel: 'Returned to balance' },
   },
 }
 

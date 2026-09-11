@@ -97,4 +97,20 @@ describe('unshieldLocalHandler submit idempotency (P0-1 relayer path)', () => {
     expect(last?.executionState).toBe('completed')
     expect(last?.artifacts.sourceTxHash).toBe('0xfeed')
   })
+
+  it('resumes from hub-pending (already broadcast) without re-POSTing and finalizes via the poll', async () => {
+    const { ctx, upserts } = makeCtx()
+    // A record persisted mid-confirmation: relayer accepted the POST, stage advanced to hub-pending.
+    const resumed: TxRecord<'unshield-local'> = { ...unshieldRecordWithHash(), stage: 'hub-pending' }
+    await unshieldLocalHandler.run(resumed, ctx)
+
+    expect(submitRelayMock).not.toHaveBeenCalled()
+    expect(sendTransactionMock).not.toHaveBeenCalled()
+    expect(buildUnshieldMock).not.toHaveBeenCalled()
+    expect(pollMock).toHaveBeenCalledOnce()
+    const last = upserts.at(-1)
+    expect(last?.stage).toBe('hub-confirmed')
+    expect(last?.executionState).toBe('completed')
+    expect(last?.artifacts.sourceTxHash).toBe('0xfeed')
+  })
 })

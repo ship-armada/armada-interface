@@ -32,6 +32,7 @@ const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
   'unshield-local': {
     'build-proof': 'Preparing transaction',
     'submit-relayer': 'Submitting privately',
+    'hub-pending': 'Unshielding',
     'hub-confirmed': 'Unshielded',
   },
   'unshield-xchain': {
@@ -46,6 +47,7 @@ const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
   'transfer-shielded': {
     'build-proof': 'Preparing transaction',
     'submit-relayer': 'Submitting privately',
+    'hub-pending': 'Sending',
     'hub-confirmed': 'Sent',
   },
   'transfer-shielded-received': {
@@ -54,11 +56,13 @@ const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
   'yield-deposit': {
     'build-proof': 'Preparing transaction',
     'submit-relayer': 'Submitting privately',
+    'hub-pending': 'Adding to shielded vault',
     'hub-confirmed': 'Earning',
   },
   'yield-withdraw': {
     'build-proof': 'Preparing transaction',
     'submit-relayer': 'Submitting privately',
+    'hub-pending': 'Withdrawing',
     'hub-confirmed': 'Returned to balance',
   },
 }
