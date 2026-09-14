@@ -114,7 +114,10 @@ export function ShieldModal() {
       currentStep={currentStep}
       status={status}
     >
-      <RelayerStatusBanner isOpen={isOpen} />
+      <RelayerStatusBanner
+        isOpen={isOpen}
+        crossChain={(isShield ? shieldFlow.fromChainId : unshieldFlow.toChainId) !== hubChainId}
+      />
       {step === 'input' && (
         <>
           <ShieldAmountStepContent

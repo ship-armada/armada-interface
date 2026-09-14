@@ -137,18 +137,18 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
 
   // Relayer-side health. Only consult to flip the gasless toggle off when the relayer is in a
   // state that can't safely accept submits; the banner itself is rendered at the bottom of the
-  // shell for user-visible context, same as the unshield flow. `isDegraded` covers both `stale`/
-  // `unhealthy` AND total unreachability — anything outside that is safe to route through.
-  const { data: healthData, isDegraded } = useRelayerHealth({ enabled: isOpen })
-  // Require a positive health signal (not just absence of degradation) so the still-loading
-  // state defaults to direct-submit rather than optimistically advertising a gasless fee that
-  // the relayer might immediately reject.
-  const relayerAvailable = !isDegraded && healthData !== undefined
+  // Gate the gasless/relayer path on the actor being REACHABLE — not on `/health`'s freshness
+  // `status`. A `stale`/`unhealthy` indexer doesn't stop the relayer accepting + broadcasting a
+  // shield, so it must not silently flip the user to direct wallet-submit. Only a sustained
+  // unreachable actor (`isUnreachable`) does. Still require a positive `healthData` so the
+  // still-loading state defaults to direct-submit rather than advertising a gasless fee prematurely.
+  const { data: healthData, isUnreachable } = useRelayerHealth({ enabled: isOpen })
+  const relayerAvailable = !isUnreachable && healthData !== undefined
 
   const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
 
   // Phase B3/B4 — gasless path is available when the wrapper for the source chain is deployed,
-  // the relayer reports healthy/degraded, and the user hasn't opted into wallet-override.
+  // the relayer is reachable, and the user hasn't opted into wallet-override.
   //   - `shield` (hub):           reads `deployments.hub.contracts.gaslessShieldWrapper`.
   //   - `shield-xchain` (client): reads the per-client `gaslessShieldWrapperClient`.
   const hubWrapperAddress = deployments.data?.hub.contracts.gaslessShieldWrapper

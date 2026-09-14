@@ -1,5 +1,5 @@
-// ABOUTME: Tests for useRelayerHealth — retry hardening so a brief blip doesn't trip isDegraded, plus the definitive degraded / unreachable / healthy states.
-// ABOUTME: Spies on fetchHealth to drive per-poll retry behaviour under fake timers.
+// ABOUTME: Tests for useRelayerHealth — retry hardening so a brief blip doesn't trip isUnreachable,
+// ABOUTME: plus the reachability vs indexer-freshness split (stale is NOT an availability signal).
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, act, waitFor } from '@testing-library/react'
@@ -40,10 +40,9 @@ describe('useRelayerHealth', () => {
     vi.restoreAllMocks()
   })
 
-  it('rides out a brief blip: two failed attempts then success is NOT degraded', async () => {
-    // WHY: the core fix. A dip that fails the first two attempts but recovers on the third must
-    // NOT surface the "can't find a relayer" banner. Under the old retry:1 (2 attempts) this
-    // dip exhausted retries and tripped isDegraded — the fickleness the user reported.
+  it('rides out a brief blip: two failed attempts then success is NOT unreachable', async () => {
+    // WHY: the retry-hardening fix. A dip that fails the first two attempts but recovers on the
+    // third must NOT surface the "can't find a relayer" banner.
     const spy = vi
       .spyOn(relayer, 'fetchHealth')
       .mockRejectedValueOnce(new Error('blip'))
@@ -58,15 +57,15 @@ describe('useRelayerHealth', () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
       expect(spy).toHaveBeenCalledTimes(3)
       expect(results.at(-1)?.data?.status).toBe('healthy')
-      expect(results.at(-1)?.isDegraded).toBe(false)
+      expect(results.at(-1)?.isUnreachable).toBe(false)
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('flags degraded once every retry of a poll fails (sustained outage)', async () => {
-    // WHY: retries smooth blips, they must not MASK a real outage. When all attempts fail the
-    // poll settles to error and isDegraded surfaces within the one poll.
+  it('flags unreachable once every retry of a poll fails (sustained outage)', async () => {
+    // WHY: retries smooth blips, they must not MASK a real outage. When all attempts fail the poll
+    // settles to error and isUnreachable surfaces within the one poll.
     vi.spyOn(relayer, 'fetchHealth').mockRejectedValue(new Error('down'))
 
     const { results } = renderHarness()
@@ -74,29 +73,43 @@ describe('useRelayerHealth', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       await act(async () => { await vi.advanceTimersByTimeAsync(20_000) })
-      expect(results.at(-1)?.isDegraded).toBe(true)
+      expect(results.at(-1)?.isUnreachable).toBe(true)
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('treats a `stale` self-report as degraded immediately (no retry smoothing)', async () => {
-    // WHY: a 200/503 self-report is a definitive answer from the relayer, not a transport blip —
-    // no retry threshold applies. It flips isDegraded on the first successful poll.
+  it('does NOT treat a `stale` self-report as unreachable or indexer-stalled (routine watcher lag)', async () => {
+    // WHY: the core semantic fix. `stale` is indexer freshness lag, not a relay-availability signal
+    // — the relayer can still broadcast, so neither the banner nor the delivery advisory should trip.
     vi.spyOn(relayer, 'fetchHealth').mockResolvedValue(makeHealth('stale'))
 
     const { results } = renderHarness()
 
     await waitFor(() => expect(results.at(-1)?.data?.status).toBe('stale'))
-    expect(results.at(-1)?.isDegraded).toBe(true)
+    expect(results.at(-1)?.isUnreachable).toBe(false)
+    expect(results.at(-1)?.isIndexerStalled).toBe(false)
   })
 
-  it('is not degraded when the relayer reports healthy', async () => {
+  it('flags indexer-stalled (not unreachable) on an `unhealthy` self-report', async () => {
+    // WHY: an `unhealthy` indexer is badly behind → cross-chain delivery may lag, but broadcast is
+    // still fine. So `isIndexerStalled` trips (xchain advisory) while `isUnreachable` stays false.
+    vi.spyOn(relayer, 'fetchHealth').mockResolvedValue(makeHealth('unhealthy'))
+
+    const { results } = renderHarness()
+
+    await waitFor(() => expect(results.at(-1)?.data?.status).toBe('unhealthy'))
+    expect(results.at(-1)?.isIndexerStalled).toBe(true)
+    expect(results.at(-1)?.isUnreachable).toBe(false)
+  })
+
+  it('is neither unreachable nor indexer-stalled when the relayer reports healthy', async () => {
     vi.spyOn(relayer, 'fetchHealth').mockResolvedValue(makeHealth('healthy'))
 
     const { results } = renderHarness()
 
     await waitFor(() => expect(results.at(-1)?.data?.status).toBe('healthy'))
-    expect(results.at(-1)?.isDegraded).toBe(false)
+    expect(results.at(-1)?.isUnreachable).toBe(false)
+    expect(results.at(-1)?.isIndexerStalled).toBe(false)
   })
 })

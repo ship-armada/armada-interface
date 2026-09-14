@@ -437,7 +437,7 @@ export function SendModal() {
       currentStep={currentStep}
       status={status}
     >
-      <RelayerStatusBanner isOpen={isOpen} />
+      <RelayerStatusBanner isOpen={isOpen} crossChain={computedKind === 'unshield-xchain'} />
       {step === 'recipient' && (
         <SendRecipientStep
           variant={variant}
