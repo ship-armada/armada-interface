@@ -10,63 +10,88 @@ import styles from './RelayerStatusBanner.module.css'
 export interface RelayerStatusBannerProps {
   /** Match the parent modal's open state so the query pauses while closed. */
   isOpen: boolean
+  /**
+   * True when the CURRENT flow selection is cross-chain (shield-xchain / unshield-xchain). Gates the
+   * delivery advisory, which only applies to the CCTP delivery leg — same-chain flows never show it.
+   */
+  crossChain?: boolean
 }
 
 /**
- * Renders nothing when the relayer is healthy or the user already has the wallet-override
- * preference enabled. When `/health` is degraded AND the preference is off, surfaces a banner
- * with a one-click "submit from my wallet for this session" toggle. The toggle writes back to
- * `preferencesAtom` — same source of truth as the Settings page — so a single click persists.
+ * Surfaces relayer-state banners inside relayer-mediated modals. Three cases:
  *
- * The banner does NOT decide the submit path itself; it just nudges the user. The handlers
- * read `preferencesAtom.submitFromWallet` directly at submit-time.
+ *  1. No relayer configured for this build (P0-10) → steer to wallet-submit.
+ *  2. Relayer unreachable → "can't broadcast" nudge to wallet-submit.
+ *  3. Cross-chain flow + the indexer is badly behind → an advisory that delivery may be delayed
+ *     (informational; NOT a broadcast block, and wallet-submit wouldn't help — the CCTP delivery
+ *     leg is relayer-driven either way).
+ *
+ * Cases 1–2 are broadcast-path nudges, so they're suppressed once the user has opted into
+ * wallet-submit (`preferencesAtom.submitFromWallet`, `atomWithStorage` → persisted). Case 3 shows
+ * regardless. The banner does NOT decide the submit path — it nudges; handlers read the pref at
+ * submit-time.
+ *
+ * Deliberately does NOT trip on `/health` `status: 'stale'`: that's routine watcher-indexer lag,
+ * not a relay-availability signal — `/relay` and `/status` work regardless (see `useRelayerHealth`).
  */
-export function RelayerStatusBanner({ isOpen }: RelayerStatusBannerProps) {
-  const { isDegraded, isConfigured } = useRelayerHealth({ enabled: isOpen })
-  // preferencesAtom is `atomWithStorage` → persisted to localStorage. The action button's flip
-  // therefore SURVIVES page reload + session restart; reverting requires the Settings toggle.
+export function RelayerStatusBanner({ isOpen, crossChain = false }: RelayerStatusBannerProps) {
+  const { isUnreachable, isIndexerStalled, isConfigured } = useRelayerHealth({ enabled: isOpen })
   const [prefs, setPrefs] = useAtom(preferencesAtom)
 
-  // Already opted in? No nudge needed — handler will use the wallet path regardless of relayer state.
-  if (prefs.submitFromWallet) return null
+  // Broadcast-path nudges (not-configured / unreachable) steer to wallet-submit, so they're moot
+  // once the user has already opted in.
+  if (!prefs.submitFromWallet) {
+    if (!isConfigured) {
+      return (
+        <div className={styles.root} role="status" aria-live="polite">
+          <div className={styles.message}>
+            No relayer is configured for this site. You can still submit transactions from your own
+            wallet (you'll pay network gas).
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Submit from my wallet"
+            showIcon={false}
+            className={styles.action}
+            onClick={() => setPrefs({ ...prefs, submitFromWallet: true })}
+          />
+        </div>
+      )
+    }
 
-  // No relayer configured for this build (P0-10) — distinct from "degraded". Be explicit and steer
-  // the user to the wallet-submit path, which works without a relayer.
-  if (!isConfigured) {
+    if (isUnreachable) {
+      return (
+        <div className={styles.root} role="status" aria-live="polite">
+          <div className={styles.message}>
+            Can't find an available relayer. Your transaction may not be broadcast promptly.
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Submit from my wallet instead"
+            showIcon={false}
+            className={styles.action}
+            onClick={() => setPrefs({ ...prefs, submitFromWallet: true })}
+          />
+        </div>
+      )
+    }
+  }
+
+  // Cross-chain delivery advisory — the indexer that feeds CCTP delivery discovery is badly behind.
+  // Delivery still completes (a direct-RPC fallback engages) but may lag. Informational only — no
+  // wallet-override CTA, since wallet-submit doesn't change the relayer-driven delivery leg. Shown
+  // even under wallet-submit because it's independent of the broadcast path.
+  if (crossChain && isIndexerStalled && !isUnreachable) {
     return (
       <div className={styles.root} role="status" aria-live="polite">
         <div className={styles.message}>
-          No relayer is configured for this site. You can still submit transactions from your own
-          wallet (you'll pay network gas).
+          Cross-chain delivery may be delayed while the network catches up.
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          label="Submit from my wallet"
-          showIcon={false}
-          className={styles.action}
-          onClick={() => setPrefs({ ...prefs, submitFromWallet: true })}
-        />
       </div>
     )
   }
 
-  // Relayer's fine — no banner, default relayer-mediated path proceeds.
-  if (!isDegraded) return null
-
-  return (
-    <div className={styles.root} role="status" aria-live="polite">
-      <div className={styles.message}>
-        Can't find an available relayer. Your transaction may not be broadcast promptly.
-      </div>
-      <Button
-        variant="secondary"
-        size="sm"
-        label="Submit from my wallet instead"
-        showIcon={false}
-        className={styles.action}
-        onClick={() => setPrefs({ ...prefs, submitFromWallet: true })}
-      />
-    </div>
-  )
+  return null
 }
