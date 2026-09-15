@@ -23,7 +23,7 @@ const hoisted = vi.hoisted(() => ({
   })),
   putTxIfFresh: vi.fn<(record: unknown) => Promise<boolean>>(async () => true),
   loadDeployments: vi.fn(async () => ({
-    hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK },
+    hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK, cctp: { usdc: '0xusdc' } },
     clients: [],
   })),
 }))
@@ -44,15 +44,10 @@ vi.mock('@/lib/tx/storage', () => ({
   loadAllTx: vi.fn(async () => []),
 }))
 
-vi.mock('@/config/deployments', () => ({
-  loadDeployments: hoisted.loadDeployments,
-}))
-
-// The recovery hook resolves the USDC token-hash gate from sdk-read; stub it so the mapper's USDC
-// filter has a value without standing up a real SDK config (deployments aren't cached in tests).
-vi.mock('@/lib/shielded/sdk-read', () => ({
-  readUsdcTokenHash: vi.fn(async () => 'usdc-hash'),
-}))
+vi.mock('@/config/deployments', async () => {
+  const actual = await vi.importActual<typeof import('@/config/deployments')>('@/config/deployments')
+  return { ...actual, loadDeployments: hoisted.loadDeployments }
+})
 
 import { useHistoryRecovery } from './useHistoryRecovery'
 import { historyEntryToTxRecord } from '@/lib/shielded/history'
@@ -67,7 +62,7 @@ function shieldRecord(txid: string, blockNumber: number, amount: bigint): TxReco
   return historyEntryToTxRecord(
     { txid, blockNumber, category: 'shield', tokenHash: 'usdchash', tokenAddress: '0xusdc', value: amount },
     'rg-1',
-    { hubChainId: 31337, usdcTokenHash: 'usdchash' },
+    { hubChainId: 31337, usdcAddress: '0xusdc' },
     1_700_000_000_000,
   )!
 }

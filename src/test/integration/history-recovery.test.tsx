@@ -41,7 +41,7 @@ const hoisted = vi.hoisted(() => {
       }
     },
     loadDeployments: vi.fn(async () => ({
-      hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK },
+      hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK, cctp: { usdc: '0xusdc' } },
       clients: [],
     })),
     loadYieldDeployment: vi.fn(async () => null),
@@ -68,16 +68,12 @@ vi.mock('@/lib/shielded/sync', () => ({
   subscribeBalanceUpdates: hoisted.subscribe,
 }))
 
-// The recovery hook resolves the USDC token-hash gate from sdk-read; stub it so the mapper's
-// USDC filter has a value without standing up a real SDK config (deployments aren't cached in tests).
-vi.mock('@/lib/shielded/sdk-read', () => ({
-  readUsdcTokenHash: vi.fn(async () => 'usdc-hash'),
-}))
-
-vi.mock('@/config/deployments', () => ({
-  loadDeployments: hoisted.loadDeployments,
-  loadYieldDeployment: hoisted.loadYieldDeployment,
-}))
+// Keep the real getUsdcAddress/findDeploymentForChain (used to resolve the mapper's USDC gate) while
+// overriding the manifest loaders with the in-memory fixtures above.
+vi.mock('@/config/deployments', async () => {
+  const actual = await vi.importActual<typeof import('@/config/deployments')>('@/config/deployments')
+  return { ...actual, loadDeployments: hoisted.loadDeployments, loadYieldDeployment: hoisted.loadYieldDeployment }
+})
 
 import { useHistoryRecovery } from '@/hooks/useHistoryRecovery'
 import { useIncomingTransferDetector } from '@/hooks/useIncomingTransferDetector'
@@ -95,21 +91,21 @@ function Harness() {
 function shieldRecord(txid: string, blockNumber: number, amount: bigint): TxRecord {
   return historyEntryToTxRecord(
     { txid, blockNumber, category: 'shield', tokenAddress: '0xusdc', value: amount },
-    'rg-1', { hubChainId: 31337 }, blockNumber * 1000,
+    'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, blockNumber * 1000,
   )!
 }
 
 function receiveRecord(txid: string, blockNumber: number, amount: bigint): TxRecord {
   return historyEntryToTxRecord(
     { txid, blockNumber, category: 'transfer-received', tokenAddress: '0xusdc', value: amount },
-    'rg-1', { hubChainId: 31337 }, blockNumber * 1000,
+    'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, blockNumber * 1000,
   )!
 }
 
 function unshieldRecord(txid: string, blockNumber: number, amount: bigint): TxRecord {
   return historyEntryToTxRecord(
     { txid, blockNumber, category: 'unshield', tokenAddress: '0xusdc', value: -amount, recipient: '0xrecipient' },
-    'rg-1', { hubChainId: 31337 }, blockNumber * 1000,
+    'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, blockNumber * 1000,
   )!
 }
 

@@ -297,16 +297,6 @@ export async function readSdkHistory(sinceBlock?: number): Promise<HistoryEntry[
   return wallet.history(sinceBlock !== undefined ? { sinceBlock } : {})
 }
 
-/**
- * The canonical 32-byte USDC token hash (no `0x`) the SDK stamps on every `HistoryEntry.tokenHash` —
- * the gate history recovery uses to keep USDC entries and drop the SDK's now-ERC20-agnostic non-USDC
- * ones (armada-sdk #91). Pure config read (no instance / sync); safe to call before the first scan.
- */
-export async function readUsdcTokenHash(): Promise<string> {
-  const cfg = await readPathConfig()
-  return getTokenDataHash(getTokenDataERC20(cfg.pool.usdcAddress))
-}
-
 /** Close the persistent instance (call on wallet lock). Idempotent. */
 export async function closeSdkRead(): Promise<void> {
   // Supersede any in-flight build (bump the generation) and drop the pending marker, so a lock landing

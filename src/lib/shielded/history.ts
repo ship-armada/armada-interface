@@ -13,21 +13,23 @@ import type { HistoryEntry } from '@armada/sdk'
  *
  *  - `hubChainId` — used to stamp `walletContext.sourceChainId` on synthesized records. We only
  *    scan hub history today; cross-chain unshield destination correlation is a later pass.
- *  - `usdcTokenHash` — the canonical 32-byte USDC token hash (no `0x`) the SDK stamps on every
- *    `HistoryEntry.tokenHash`. This app is USDC-centric, but the SDK's history is ERC20-agnostic
- *    (armada-sdk #91) and returns an entry for every token the wallet holds (vault shares,
- *    arbitrary receives). Entries in any other token are filtered out of recovery so they never
- *    render mis-denominated as USDC. This gate also resolves the two-leg yield collision (#40):
- *    a yield op emits a USDC leg + a share leg sharing one `(txid, category)`; the USDC leg passes,
- *    the share leg is dropped, so only one synthetic id per op survives.
+ *  - `usdcAddress` — the hub USDC token address (`0x…`). This app is USDC-centric, but the SDK's
+ *    history is ERC20-agnostic (armada-sdk #91) and returns an entry for every token the wallet holds
+ *    (vault shares, arbitrary receives). Entries in any other token are filtered out of recovery so
+ *    they never render mis-denominated as USDC. This gate also resolves the two-leg yield collision
+ *    (#40): a yield op emits a USDC leg + a share leg sharing one `(txid, category)`; the USDC leg
+ *    passes, the share leg is dropped, so only one synthetic id per op survives. Matched by ADDRESS
+ *    (not token-hash string) so it's immune to hash-formatting differences, and FAIL-OPEN: when the
+ *    address can't be resolved the entry is kept (assumed USDC), never silently dropped.
  */
 export interface HistoryMapContext {
   hubChainId: number
-  usdcTokenHash: string
+  usdcAddress: string
 }
 
-/** Empty default — convenient for tests + the no-yield-detection path. */
-export const EMPTY_HISTORY_CONTEXT: HistoryMapContext = { hubChainId: 0, usdcTokenHash: '' }
+/** Empty default — convenient for tests + the no-yield-detection path. Empty `usdcAddress` makes the
+ *  USDC gate fail open (keep everything), so a mis-wired context never wipes recovered history. */
+export const EMPTY_HISTORY_CONTEXT: HistoryMapContext = { hubChainId: 0, usdcAddress: '' }
 
 /**
  * Deterministic synthetic-record id. Encoded as `synth:${txid}:${category}` so re-running the
@@ -124,10 +126,14 @@ export function historyEntryToTxRecord(
   const artifacts = { sourceTxHash }
   const times = { updatedSeq: 0, createdAt: timestampMs, updatedAt: timestampMs } as const
 
-  // USDC-only recovery gate (see HistoryMapContext.usdcTokenHash): drop entries in any other token
-  // so they never render mis-denominated as USDC (#41), and drop the share leg of a two-leg yield op
-  // so only the USDC leg's synthetic id survives (#40). Every SDK history entry carries `tokenHash`.
-  if (entry.tokenHash !== ctx.usdcTokenHash) return null
+  // USDC-only recovery gate (see HistoryMapContext.usdcAddress): drop entries in any other token so
+  // they never render mis-denominated as USDC (#41), and drop the share leg of a two-leg yield op so
+  // only the USDC leg's synthetic id survives (#40). Matched by token ADDRESS (robust to token-hash
+  // string formatting) and FAIL-OPEN — an entry with no resolvable token address, or an unresolved
+  // USDC address, is kept (assumed USDC / pre-#91 behavior) rather than silently dropping the history.
+  const usdcAddress = (ctx.usdcAddress ?? '').toLowerCase()
+  const entryToken = (entry.tokenAddress ?? '').toLowerCase()
+  if (usdcAddress !== '' && entryToken !== '' && entryToken !== usdcAddress) return null
 
   switch (entry.category) {
     case 'shield': {

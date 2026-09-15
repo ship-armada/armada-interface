@@ -29,18 +29,17 @@ describe('syntheticTxId / isSyntheticTxId', () => {
   })
 })
 
-// Canonical USDC token hash (address padded to 32 bytes, no 0x) — the value the SDK stamps on every
-// USDC HistoryEntry.tokenHash and the gate the mapper filters recovery against.
-const USDC_HASH = 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000'
-// A distinct (non-USDC) token hash — e.g. the yield-vault share token — used to exercise the filter.
-const SHARE_HASH = 'b1c97aa2d7329c47d2e2ae5b3f7fc1df4717fc59000000000000000000000000'
-const SDK_CTX = { hubChainId: 31337, usdcTokenHash: USDC_HASH }
+// The mapper's USDC gate matches by token ADDRESS. USDC_ADDR is the fixture default; SHARE_ADDR is a
+// distinct (non-USDC) token — e.g. the yield-vault share token — used to exercise the filter.
+const USDC_ADDR = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+const SHARE_ADDR = '0x5ba1e12693dc8f9c48aad8770482f4739beed696'
+const SDK_CTX = { hubChainId: 31337, usdcAddress: USDC_ADDR }
 const sdkEntry = (over: Partial<HistoryEntry>): HistoryEntry => ({
   txid: '0xabc',
   blockNumber: 100,
   category: 'shield',
-  tokenHash: USDC_HASH,
-  tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+  tokenHash: 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000',
+  tokenAddress: USDC_ADDR,
   value: 1_000_000n,
   ...over,
 })
@@ -108,8 +107,8 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     // Post-armada-sdk #91 a yield op emits a USDC leg + a share leg sharing one (txid, category).
     // Both would collide on the same synthetic id; the USDC gate drops the share leg so the surviving
     // record is the USDC one (a deposit could otherwise display `+shares` as its amount).
-    const usdcLeg = historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: -500_000n, tokenHash: USDC_HASH }), 'w', SDK_CTX, 5000)
-    const shareLeg = historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: 12_000n, tokenHash: SHARE_HASH }), 'w', SDK_CTX, 5000)
+    const usdcLeg = historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: -500_000n, tokenAddress: USDC_ADDR }), 'w', SDK_CTX, 5000)
+    const shareLeg = historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: 12_000n, tokenAddress: SHARE_ADDR }), 'w', SDK_CTX, 5000)
     expect(usdcLeg).toMatchObject({ kind: 'yield-deposit', meta: { amount: 500_000n } })
     expect(shareLeg).toBeNull()
   })
@@ -130,9 +129,18 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
 
   it('filters non-USDC entries so they never render mis-denominated as USDC (#41)', () => {
     // A plain receive of a non-USDC token (e.g. vault shares sent directly) must not map to a USDC row.
-    expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenHash: SHARE_HASH }), 'w', SDK_CTX, 5000)).toBeNull()
+    expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: SHARE_ADDR }), 'w', SDK_CTX, 5000)).toBeNull()
     // USDC still maps.
-    expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenHash: USDC_HASH }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'transfer-shielded-received' })
+    expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: USDC_ADDR }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'transfer-shielded-received' })
+  })
+
+  it('matches USDC case-insensitively and fails open when the USDC address is unresolved (#41)', () => {
+    // A checksummed entry address must still match the lowercase config address.
+    const mixed = historyEntryToTxRecord(sdkEntry({ category: 'shield', tokenAddress: USDC_ADDR.toUpperCase() as `0x${string}` }), 'w', SDK_CTX, 5000)
+    expect(mixed).toMatchObject({ kind: 'shield' })
+    // FAIL-OPEN: an unresolved USDC address (ctx '') keeps everything rather than wiping history.
+    const failOpen = historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: SHARE_ADDR }), 'w', { hubChainId: 31337, usdcAddress: '' }, 5000)
+    expect(failOpen).toMatchObject({ kind: 'transfer-shielded-received' })
   })
 
   it('stamps walletContext: shieldedWalletId + hub chain, undefined evmAddress', () => {

@@ -20,8 +20,8 @@ import {
   readHistoryCheckpoint,
   writeHistoryCheckpoint,
 } from '@/lib/shielded/history-checkpoint'
-import { readUsdcTokenHash } from '@/lib/shielded/sdk-read'
-import { loadDeployments } from '@/config/deployments'
+import { loadDeployments, getUsdcAddress } from '@/config/deployments'
+import { getNetworkConfig } from '@/config/network'
 import { track, trackError } from '@/lib/telemetry'
 
 /**
@@ -149,8 +149,9 @@ async function resolveScanInputs(): Promise<{
       ctx: {
         hubChainId: deployments.hub.chainId,
         // USDC gate for the mapper — keeps recovery USDC-only now that the SDK's history is
-        // ERC20-agnostic (armada-sdk #91). Resolved from the same deployment config the scan uses.
-        usdcTokenHash: await readUsdcTokenHash(),
+        // ERC20-agnostic (armada-sdk #91). Read straight from the hub manifest (no SDK config round-trip
+        // that could throw and skip the whole scan); '' when absent makes the gate fail open.
+        usdcAddress: getUsdcAddress(deployments, getNetworkConfig().hub) ?? '',
       },
       hubDeployBlock: deployments.hub.deployBlock,
     }
