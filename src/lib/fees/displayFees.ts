@@ -53,6 +53,22 @@ export function relayerGasFeeForKind(_kind: TxKind, _quote: FeeSchedule | null):
   return 0n
 }
 
+/**
+ * The base the protocol shield fee (PrivacyPool's ~50 bps take) is charged on. A gasless shield
+ * carves the relayer fee out first as its OWN shielded note, so the pool charges the fee on
+ * `(amount - relayerFee)`, not the full deposit — estimating it on the full amount double-counts the
+ * fee on the relayer's fee-note portion and under-reports what the user receives. Direct shield
+ * (relayer fee 0) and shield-xchain (CCTP carve-out handled separately) use the full `amount`.
+ */
+export function shieldProtocolFeeBase(
+  kind: TxKind,
+  amount: bigint,
+  relayerFee: bigint,
+  gasless: boolean,
+): bigint {
+  return kind === 'shield' && gasless && amount > relayerFee ? amount - relayerFee : amount
+}
+
 /** Base display fees; shield protocol fee is overridden in useDisplayFees via fee module. */
 export function computeDisplayFees(
   kind: TxKind,

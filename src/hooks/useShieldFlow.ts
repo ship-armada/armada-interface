@@ -26,7 +26,7 @@ import {
   type WalletStep,
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
-import type { DisplayFees } from '@/lib/fees/displayFees'
+import { shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -179,11 +179,18 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // below as `protocolFee` so recipientReceives reflects the TRUE shielded value the user gets,
   // not just `amount - broadcasterFee`. nativeGas is also surfaced for the wallet-submit fallback
   // (gasless path doesn't pay native gas — Phase 6 hides that row).
+  // A gasless same-chain shield carves the relayer fee out first as its OWN shielded note, so the
+  // pool charges the 50 bps protocol fee on `(amount - relayerFee)` — not the full deposit. Estimate
+  // the shield fee on that reduced base so "You'll shield" matches the note that actually lands
+  // (billing the protocol fee on the full amount double-counts it on the relayer's fee-note portion,
+  // under-reporting what the user receives by ~0.5% of the relayer fee).
+  const shieldFeeBase = shieldProtocolFeeBase(computedKind, amount, fee, useGasless)
   const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
     computedKind,
     amount,
     fromChainId,
     quote,
+    shieldFeeBase,
   )
   const protocolFee = displayFees.protocolFee
   // CCTP fast-fee — applies to BOTH direct and gasless cross-chain shield (CCTP V2 always

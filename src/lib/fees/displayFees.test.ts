@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { computeDisplayFees, relayerGasFeeForKind } from './displayFees'
-import type { FeeSchedule } from '@/lib/relayer'
+import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase } from './displayFees'
+import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'
 
 const quote: FeeSchedule = {
   cacheId: 'test',
@@ -43,5 +43,39 @@ describe('computeDisplayFees', () => {
 describe('relayerGasFeeForKind', () => {
   it('returns 0 without a quote', () => {
     expect(relayerGasFeeForKind('transfer-shielded', null)).toBe(0n)
+  })
+})
+
+describe('shieldProtocolFeeBase', () => {
+  it('carves the relayer fee out first on a gasless shield (the pool charges 50 bps on the remainder)', () => {
+    // WHY: the wrapper shields the relayer fee as its OWN note, so the pool takes the shield fee on
+    // (amount - relayerFee). Billing it on the full amount double-counts the fee on the relayer note.
+    expect(shieldProtocolFeeBase('shield', 5_000_000n, 726_475n, true)).toBe(4_273_525n)
+  })
+
+  it('uses the full amount for a direct (non-gasless) shield — no relayer note carved out', () => {
+    expect(shieldProtocolFeeBase('shield', 5_000_000n, 0n, false)).toBe(5_000_000n)
+  })
+
+  it('uses the full amount for shield-xchain (CCTP carve-out handled separately)', () => {
+    expect(shieldProtocolFeeBase('shield-xchain', 5_000_000n, 726_475n, true)).toBe(5_000_000n)
+  })
+
+  it('never underflows if the relayer fee exceeds the amount', () => {
+    expect(shieldProtocolFeeBase('shield', 100n, 200n, true)).toBe(100n)
+  })
+
+  it('the reduced base makes "you receive" match the on-chain shielded note (the 4.252158 case)', () => {
+    // The real tx: shield 5 USDC gasless, relayer fee 0.726475, 50 bps shield fee. The base fix makes
+    // the estimate land on the note that actually landed on chain (4.252158), not the old 4.248525
+    // that double-counted the shield fee on the relayer's fee note.
+    const base = shieldProtocolFeeBase('shield', 5_000_000n, 726_475n, true)
+    const protocolFee = (base * 50n) / 10_000n // 50 bps, matching the fee module fallback
+    expect(protocolFee).toBe(21_367n)
+    const { recipientReceives } = computeFeeBreakdown('shield', 5_000_000n, 726_475n, 5_000_000n, {
+      protocolFee,
+      gasless: true,
+    })
+    expect(recipientReceives).toBe(4_252_158n)
   })
 })
