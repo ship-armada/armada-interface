@@ -5,6 +5,7 @@ import { lifecycleFor } from '@/lib/tx/lifecycles'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
 import { getHubBlockTimestamps } from './network'
 import { readSdkHistory } from './sdk-read'
+import { decodeTxSelfMetadata } from './selfMetadata'
 import type { HistoryEntry } from '@armada/sdk'
 
 /**
@@ -12,13 +13,21 @@ import type { HistoryEntry } from '@armada/sdk'
  *
  *  - `hubChainId` — used to stamp `walletContext.sourceChainId` on synthesized records. We only
  *    scan hub history today; cross-chain unshield destination correlation is a later pass.
+ *  - `usdcTokenHash` — the canonical 32-byte USDC token hash (no `0x`) the SDK stamps on every
+ *    `HistoryEntry.tokenHash`. This app is USDC-centric, but the SDK's history is ERC20-agnostic
+ *    (armada-sdk #91) and returns an entry for every token the wallet holds (vault shares,
+ *    arbitrary receives). Entries in any other token are filtered out of recovery so they never
+ *    render mis-denominated as USDC. This gate also resolves the two-leg yield collision (#40):
+ *    a yield op emits a USDC leg + a share leg sharing one `(txid, category)`; the USDC leg passes,
+ *    the share leg is dropped, so only one synthetic id per op survives.
  */
 export interface HistoryMapContext {
   hubChainId: number
+  usdcTokenHash: string
 }
 
 /** Empty default — convenient for tests + the no-yield-detection path. */
-export const EMPTY_HISTORY_CONTEXT: HistoryMapContext = { hubChainId: 0 }
+export const EMPTY_HISTORY_CONTEXT: HistoryMapContext = { hubChainId: 0, usdcTokenHash: '' }
 
 /**
  * Deterministic synthetic-record id. Encoded as `synth:${txid}:${category}` so re-running the
@@ -105,8 +114,20 @@ export function historyEntryToTxRecord(
   const walletContext = walletContextFor(walletId, ctx.hubChainId)
   const abs = entry.value < 0n ? -entry.value : entry.value
   const broadcasterFee = entry.broadcasterFee ?? 0n
+  const broadcasterShieldedAddress = entry.broadcasterShieldedAddress ?? ''
+  // Bucket-C fields the SDK recovers from the spend's self-owned change-note memo (#44) — the relayer
+  // quote id + submission mode, which a chain scan can't otherwise reconstruct. Empty for entries that
+  // carried no self-metadata (older records, receives, shields). `wo` overlays useWalletOverride below.
+  const recovered = decodeTxSelfMetadata(entry.selfMetadata)
+  const recoveredFeeCacheId = recovered.feeCacheId ?? ''
+  const wo = recovered.useWalletOverride ? { useWalletOverride: true as const } : {}
   const artifacts = { sourceTxHash }
   const times = { updatedSeq: 0, createdAt: timestampMs, updatedAt: timestampMs } as const
+
+  // USDC-only recovery gate (see HistoryMapContext.usdcTokenHash): drop entries in any other token
+  // so they never render mis-denominated as USDC (#41), and drop the share leg of a two-leg yield op
+  // so only the USDC leg's synthetic id survives (#40). Every SDK history entry carries `tokenHash`.
+  if (entry.tokenHash !== ctx.usdcTokenHash) return null
 
   switch (entry.category) {
     case 'shield': {
@@ -114,7 +135,29 @@ export function historyEntryToTxRecord(
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'shield', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: { amount: entry.value + (entry.shieldFee ?? 0n), feeCacheId: '', fromChainId: ctx.hubChainId },
+        meta: {
+          amount: entry.value + (entry.shieldFee ?? 0n), feeCacheId: '', fromChainId: ctx.hubChainId,
+          // A recovered shield carrying a broadcaster fee note was a gasless (relayer-submitted)
+          // shield — surface the relayer fee so the recovered total matches the note + fee (#43).
+          ...(broadcasterFee > 0n ? { useGasless: true, feeAmount: broadcasterFee, broadcasterShieldedAddress } : {}),
+        },
+      }
+    }
+    case 'self-transfer': {
+      // A shielded send to the wallet's own 0zk (a consolidation/rebalance) — the principal comes
+      // straight back, so the only real cost is the fee. Recorded as a `transfer-shielded` whose
+      // amount IS the fee (issue #39): this keeps the balance-from-history fallback correct (it
+      // debits `meta.amount`) and shows a small fee-sized row instead of the old phantom "−194"
+      // outgoing that the pre-#88 SDK misclassified as a `transfer-sent`.
+      const stages = terminalizeStages('transfer-shielded')
+      return {
+        id: syntheticTxId(entry.txid, entry.category), kind: 'transfer-shielded', executionState: 'completed',
+        stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
+        meta: {
+          amount: abs, feeCacheId: recoveredFeeCacheId,
+          recipient: entry.sentOutputs?.[0]?.recipientShieldedAddress ?? 'self',
+          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
+        },
       }
     }
     case 'transfer-received': {
@@ -132,9 +175,9 @@ export function historyEntryToTxRecord(
         id: syntheticTxId(entry.txid, entry.category), kind: 'transfer-shielded', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
         meta: {
-          amount: recipientAmount, feeCacheId: '',
+          amount: recipientAmount, feeCacheId: recoveredFeeCacheId,
           recipient: entry.sentOutputs?.[0]?.recipientShieldedAddress ?? 'unknown',
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress: '',
+          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
         },
       }
     }
@@ -144,9 +187,9 @@ export function historyEntryToTxRecord(
         id: syntheticTxId(entry.txid, entry.category), kind: 'unshield-local', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
         meta: {
-          amount: abs - broadcasterFee - (entry.unshieldFee ?? 0n), feeCacheId: '',
+          amount: abs - broadcasterFee - (entry.unshieldFee ?? 0n), feeCacheId: recoveredFeeCacheId,
           recipient: entry.recipient ?? 'unknown',
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress: '',
+          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
         },
       }
     }
@@ -155,7 +198,7 @@ export function historyEntryToTxRecord(
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'yield-deposit', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: { amount: abs, feeCacheId: '', broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress: '' },
+        meta: { amount: abs, feeCacheId: recoveredFeeCacheId, broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo },
       }
     }
     case 'yield-withdraw': {
@@ -163,7 +206,7 @@ export function historyEntryToTxRecord(
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'yield-withdraw', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: { amount: entry.value, feeCacheId: '', shares: 0n, broadcasterFeeAmount: 0n, broadcasterShieldedAddress: '' },
+        meta: { amount: entry.value, feeCacheId: recoveredFeeCacheId, shares: 0n, broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo },
       }
     }
     default:

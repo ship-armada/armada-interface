@@ -20,6 +20,8 @@ import {
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildXchainUnshieldSdk } from '@/lib/shielded/unshield-xchain-sdk'
+import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
+import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
 import {
   extractCctpMessageFromReceipt,
   messageReceivedTopic,
@@ -159,6 +161,12 @@ async function runBuildProof(
   // atomicCrossChainUnshield, and stash the calldata so submit-relayer dispatches it without
   // re-proving. Survives a reload (persisted in the record). The CCTP destinationCaller is pinned to
   // remoteHookRouters[destinationDomain] by PrivacyPool (issue #64) — it is not passed here.
+  // Persist the recoverable bucket-C fields (#44) in the spend's change note so a fresh scan recovers
+  // them even after local storage is cleared.
+  const selfMetadata = encodeTxSelfMetadata({
+    feeCacheId: record.meta.feeCacheId,
+    useWalletOverride: record.meta.useWalletOverride,
+  })
   const { to, data } = await buildXchainUnshieldSdk({
     amount: record.meta.amount,
     broadcasterFee: broadcasterFeeFromRecord(record),
@@ -168,6 +176,9 @@ async function runBuildProof(
     maxFee,
     uniqueNonce: deliveryNonce(record.id), // issue #287 — unique per-tx marker echoed into the CCTP hookData
     onProgress: progress.write,
+    // `recordId` lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
+    recordId: record.id,
+    ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
   await ctx.upsert(advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } }))
@@ -221,6 +232,9 @@ async function runSubmitAndBurn(
       const broadcast = await recordBroadcastHash(record, userHash, ctx)
       if (broadcast.dismissed) return
       broadcastRecord = broadcast.record
+      // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
+      // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
+      void markSpendPendingForRecord(record.id, userHash)
     }
     await waitForReceiptOrFail({ hash: userHash, signal: ctx.signal, chainId: hubChainId })
     await extractCctpRefAndAdvance({
@@ -278,6 +292,9 @@ async function runSubmitAndBurn(
     const broadcast = await recordBroadcastHash(record, txHash, ctx)
     if (broadcast.dismissed) return
     broadcastRecord = broadcast.record
+    // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
+    // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
+    void markSpendPendingForRecord(record.id, txHash)
   }
 
   // Poll the relayer's /status until terminal. Same shape as unshield-local — the generic poll
@@ -305,6 +322,9 @@ async function runSubmitAndBurn(
   }
   if (final.status === 'failed') {
     track('tx.relayer.rejected', { id: record.id, kind: record.kind, errorCode: 'EXECUTION_FAILED' })
+    // #55: the hub burn reverted → its inputs were NOT nullified on-chain, so release the optimistic
+    // hold now instead of waiting out the TTL, freeing the notes for the next spend.
+    void clearSpendPendingForTx(txHash)
     const error: TxError = {
       code: 'TX_REVERTED',
       message: final.error ?? 'Relayer-broadcast hub burn reverted on chain.',

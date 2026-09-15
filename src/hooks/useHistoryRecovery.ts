@@ -20,6 +20,7 @@ import {
   readHistoryCheckpoint,
   writeHistoryCheckpoint,
 } from '@/lib/shielded/history-checkpoint'
+import { readUsdcTokenHash } from '@/lib/shielded/sdk-read'
 import { loadDeployments } from '@/config/deployments'
 import { track, trackError } from '@/lib/telemetry'
 
@@ -147,6 +148,9 @@ async function resolveScanInputs(): Promise<{
     return {
       ctx: {
         hubChainId: deployments.hub.chainId,
+        // USDC gate for the mapper — keeps recovery USDC-only now that the SDK's history is
+        // ERC20-agnostic (armada-sdk #91). Resolved from the same deployment config the scan uses.
+        usdcTokenHash: await readUsdcTokenHash(),
       },
       hubDeployBlock: deployments.hub.deployBlock,
     }

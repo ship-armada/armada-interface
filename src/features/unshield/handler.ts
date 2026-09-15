@@ -14,6 +14,8 @@ import {
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildUnshieldSdk } from '@/lib/shielded/unshield-sdk'
+import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
+import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { advance, markFailed } from '@/lib/tx/reducer'
@@ -103,14 +105,23 @@ async function runBuildProof(
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   const progress = createProofProgressWriter(record, ctx.signal)
+  // Persist the recoverable bucket-C fields (#44) in the spend's change note so a fresh scan recovers
+  // them even after local storage is cleared.
+  const selfMetadata = encodeTxSelfMetadata({
+    feeCacheId: record.meta.feeCacheId,
+    useWalletOverride: record.meta.useWalletOverride,
+  })
   // Build (plan → prove off-thread → serialize) the transact calldata and stash it, so submit-relayer
-  // dispatches it without re-proving — and, persisted in the record, it survives a reload.
+  // dispatches it without re-proving — and, persisted in the record, it survives a reload. `recordId`
+  // lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
   const { to, data } = await buildUnshieldSdk({
     recipient: record.meta.recipient as `0x${string}`,
     amount: record.meta.amount,
     broadcasterFee: bf,
     poolAddress: deployments.hub.contracts.privacyPool as `0x${string}`,
     onProgress: progress.write,
+    recordId: record.id,
+    ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
   await ctx.upsert(advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } }))
@@ -172,6 +183,9 @@ async function runSubmitAndConfirm(
       const broadcast = await recordBroadcastHash(record, hash, ctx)
       if (broadcast.dismissed) return
       broadcastRecord = broadcast.record
+      // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
+      // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
+      void markSpendPendingForRecord(record.id, hash)
     }
     // Enter the on-chain confirmation stage before waiting (idempotent for resume), so the stepper
     // shows the confirming step instead of holding on "Submitting transaction".
@@ -234,6 +248,9 @@ async function runSubmitAndConfirm(
     const broadcast = await recordBroadcastHash(record, txHash, ctx)
     if (broadcast.dismissed) return
     broadcastRecord = broadcast.record
+    // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
+    // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
+    void markSpendPendingForRecord(record.id, txHash)
   }
 
   // Enter the on-chain confirmation stage before polling (idempotent for resume/retry), so the
@@ -273,6 +290,9 @@ async function runSubmitAndConfirm(
 
   if (final.status === 'failed') {
     track('tx.relayer.rejected', { id: record.id, kind: record.kind, errorCode: 'EXECUTION_FAILED' })
+    // #55: the tx reverted → its inputs were NOT nullified on-chain, so release the optimistic hold
+    // now instead of waiting out the TTL, freeing the notes for the next spend.
+    void clearSpendPendingForTx(txHash)
     const error: TxError = {
       code: 'TX_REVERTED',
       message: final.error ?? 'Relayer-broadcast tx reverted on chain.',

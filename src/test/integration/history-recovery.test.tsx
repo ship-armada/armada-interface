@@ -68,6 +68,12 @@ vi.mock('@/lib/shielded/sync', () => ({
   subscribeBalanceUpdates: hoisted.subscribe,
 }))
 
+// The recovery hook resolves the USDC token-hash gate from sdk-read; stub it so the mapper's
+// USDC filter has a value without standing up a real SDK config (deployments aren't cached in tests).
+vi.mock('@/lib/shielded/sdk-read', () => ({
+  readUsdcTokenHash: vi.fn(async () => 'usdc-hash'),
+}))
+
 vi.mock('@/config/deployments', () => ({
   loadDeployments: hoisted.loadDeployments,
   loadYieldDeployment: hoisted.loadYieldDeployment,
