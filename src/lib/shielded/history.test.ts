@@ -45,9 +45,11 @@ const sdkEntry = (over: Partial<HistoryEntry>): HistoryEntry => ({
 })
 
 describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
-  it('shield → shield, amount includes the shield fee', () => {
+  it('shield → shield, amount includes the shield fee; protocolFee captured for the receipt', () => {
     const r = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w', SDK_CTX, 5000)
-    expect(r).toMatchObject({ kind: 'shield', id: 'synth:0xabc:shield', createdAt: 5000, meta: { amount: 1_000_000n } })
+    // amount = value + shieldFee (+ broadcasterFee, 0 here); protocolFee = shieldFee so the receipt's
+    // `amount - feeAmount - protocolFee` lands on entry.value (995_000).
+    expect(r).toMatchObject({ kind: 'shield', id: 'synth:0xabc:shield', createdAt: 5000, meta: { amount: 1_000_000n, protocolFee: 5_000n } })
   })
 
   it('transfer-sent → transfer-shielded, recipient + broadcaster fee split from sentOutputs', () => {
@@ -74,16 +76,22 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     })
   })
 
-  it('gasless shield surfaces the recovered broadcaster fee (#43)', () => {
+  it('gasless shield reconstructs the deposit total; receipt nets to entry.value (#43)', () => {
     const r = historyEntryToTxRecord(
       sdkEntry({ category: 'shield', value: 990_000n, shieldFee: 5_000n, broadcasterFee: 5_000n, broadcasterShieldedAddress: '0zk_relayer' }),
       'w', SDK_CTX, 5000,
     )
-    expect(r).toMatchObject({ kind: 'shield', meta: { amount: 995_000n, useGasless: true, feeAmount: 5_000n, broadcasterShieldedAddress: '0zk_relayer' } })
+    // amount = value + shieldFee + broadcasterFee = 1_000_000; the receipt subtracts feeAmount +
+    // protocolFee → 1_000_000 - 5_000 - 5_000 = 990_000 = entry.value (the user's net note).
+    expect(r).toMatchObject({
+      kind: 'shield',
+      meta: { amount: 1_000_000n, useGasless: true, feeAmount: 5_000n, protocolFee: 5_000n, broadcasterShieldedAddress: '0zk_relayer' },
+    })
   })
 
-  it('a direct (non-gasless) shield carries no feeAmount / useGasless (#43)', () => {
+  it('a direct (non-gasless) shield carries no feeAmount / useGasless but keeps protocolFee (#43)', () => {
     const r = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w', SDK_CTX, 5000)
+    expect(r!.meta).toMatchObject({ protocolFee: 5_000n })
     expect(r!.meta).not.toHaveProperty('feeAmount')
     expect(r!.meta).not.toHaveProperty('useGasless')
   })

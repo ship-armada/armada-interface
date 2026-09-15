@@ -138,13 +138,20 @@ export function historyEntryToTxRecord(
   switch (entry.category) {
     case 'shield': {
       const stages = terminalizeStages('shield')
+      const shieldFee = entry.shieldFee ?? 0n
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'shield', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
         meta: {
-          amount: entry.value + (entry.shieldFee ?? 0n), feeCacheId: '', fromChainId: ctx.hubChainId,
+          // Reconstruct the deposit total so the receipt's `amount - feeAmount - protocolFee` lands on
+          // the user's net note (entry.value): user note + its protocol shield fee + the gasless relayer
+          // fee note. NOTE: from the user's wallet the relayer note's OWN shield fee isn't attributable
+          // (the wallet doesn't own that note), so the recovered total runs ~that fee short of the true
+          // deposit — an SDK-side limitation; the recovered received amount is exact.
+          amount: entry.value + shieldFee + broadcasterFee, feeCacheId: '', fromChainId: ctx.hubChainId,
+          ...(shieldFee > 0n ? { protocolFee: shieldFee } : {}),
           // A recovered shield carrying a broadcaster fee note was a gasless (relayer-submitted)
-          // shield — surface the relayer fee so the recovered total matches the note + fee (#43).
+          // shield — surface the relayer fee so the recovered total matches note + fee (#43).
           ...(broadcasterFee > 0n ? { useGasless: true, feeAmount: broadcasterFee, broadcasterShieldedAddress } : {}),
         },
       }

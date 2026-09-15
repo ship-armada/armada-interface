@@ -205,6 +205,13 @@ export interface MetaShield extends MetaCommon {
    * the old public-USDC fee. Only set when `useGasless` is true.
    */
   broadcasterShieldedAddress?: string
+  /**
+   * On-chain protocol shield fee (PrivacyPool's ~50 bps armadaTake) charged on the shielded note.
+   * Captured at submit-time from `useDisplayFees` so the receipt can subtract it — the note that
+   * lands is `amount - feeAmount - protocolFee`. Absent on records pre-dating this capture (the
+   * receipt treats absent as 0 and under-reports the fee for those, as it did before).
+   */
+  protocolFee?: bigint
 }
 
 export interface MetaShieldXchain extends MetaCommon {
@@ -246,6 +253,13 @@ export interface MetaShieldXchain extends MetaCommon {
    * hub at full value). Only set when `useGasless` is true.
    */
   broadcasterShieldedAddress?: string
+  /**
+   * On-chain protocol shield fee (PrivacyPool's ~50 bps armadaTake) charged on the hub-minted note.
+   * Captured at submit-time so the receipt can subtract it — the note that lands is
+   * `amount - feeAmount - protocolFee`. Absent on records pre-dating this capture. (Excludes the
+   * CCTP fast-fee, which is a separate line item.)
+   */
+  protocolFee?: bigint
 }
 
 export interface MetaUnshieldLocal extends MetaCommon, MetaBroadcaster {

@@ -327,12 +327,17 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
             wrapperAddress: hubWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            // Freeze the protocol shield fee so the receipt subtracts it too (matches what "You'll
+            // shield" showed in review — the note that lands is `amount - feeAmount - protocolFee`).
+            protocolFee,
           })
         } else {
           submittedId = await txShield.submit({
             amount,
             feeCacheId: activeQuote.cacheId,
             fromChainId,
+            // The pool takes its ~50 bps shield fee even on a direct submit — freeze it for the receipt.
+            protocolFee,
           })
         }
       } else {
@@ -363,12 +368,16 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
             wrapperAddress: clientWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
+            protocolFee,
           })
         } else {
           submittedId = await txShieldXchain.submit({
             amount,
             feeCacheId: activeQuote.cacheId,
             fromChainId,
+            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
+            protocolFee,
           })
         }
       }
