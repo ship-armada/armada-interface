@@ -29,29 +29,71 @@ describe('syntheticTxId / isSyntheticTxId', () => {
   })
 })
 
-const SDK_CTX = { hubChainId: 31337 }
+// The mapper's USDC gate matches by token ADDRESS. USDC_ADDR is the fixture default; SHARE_ADDR is a
+// distinct (non-USDC) token — e.g. the yield-vault share token — used to exercise the filter.
+const USDC_ADDR = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+const SHARE_ADDR = '0x5ba1e12693dc8f9c48aad8770482f4739beed696'
+const SDK_CTX = { hubChainId: 31337, usdcAddress: USDC_ADDR }
 const sdkEntry = (over: Partial<HistoryEntry>): HistoryEntry => ({
   txid: '0xabc',
   blockNumber: 100,
   category: 'shield',
   tokenHash: 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000',
-  tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+  tokenAddress: USDC_ADDR,
   value: 1_000_000n,
   ...over,
 })
 
 describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
-  it('shield → shield, amount includes the shield fee', () => {
+  it('shield → shield, amount includes the shield fee; protocolFee captured for the receipt', () => {
     const r = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w', SDK_CTX, 5000)
-    expect(r).toMatchObject({ kind: 'shield', id: 'synth:0xabc:shield', createdAt: 5000, meta: { amount: 1_000_000n } })
+    // amount = value + shieldFee (+ broadcasterFee, 0 here); protocolFee = shieldFee so the receipt's
+    // `amount - feeAmount - protocolFee` lands on entry.value (995_000).
+    expect(r).toMatchObject({ kind: 'shield', id: 'synth:0xabc:shield', createdAt: 5000, meta: { amount: 1_000_000n, protocolFee: 5_000n } })
   })
 
   it('transfer-sent → transfer-shielded, recipient + broadcaster fee split from sentOutputs', () => {
     const r = historyEntryToTxRecord(
-      sdkEntry({ category: 'transfer-sent', value: -500_000n, broadcasterFee: 20_000n, sentOutputs: [{ recipientShieldedAddress: '0zk_bob', value: 480_000n }] }),
+      sdkEntry({ category: 'transfer-sent', value: -500_000n, broadcasterFee: 20_000n, broadcasterShieldedAddress: '0zk_relayer', sentOutputs: [{ recipientShieldedAddress: '0zk_bob', value: 480_000n }] }),
       'w', SDK_CTX, 5000,
     )
-    expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { amount: 480_000n, broadcasterFeeAmount: 20_000n, recipient: '0zk_bob' } })
+    // #42: the recovered broadcaster 0zk address is threaded through (was hardcoded '').
+    expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { amount: 480_000n, broadcasterFeeAmount: 20_000n, recipient: '0zk_bob', broadcasterShieldedAddress: '0zk_relayer' } })
+  })
+
+  it('self-transfer → transfer-shielded with amount = fee, not a phantom outgoing (#39)', () => {
+    // The pre-#88 SDK misclassified a send-to-self as a big negative transfer-sent (the "−194" bug).
+    // Now it is a distinct `self-transfer` (value = −fee); the record must NOT be dropped and its
+    // amount is the fee (net cost), so the balance-from-history fallback debits the fee only.
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'self-transfer', value: -1_500n, broadcasterFee: 1_500n, broadcasterShieldedAddress: '0zk_relayer', sentOutputs: [{ recipientShieldedAddress: '0zk_self', value: 0n }] }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({
+      kind: 'transfer-shielded',
+      id: 'synth:0xabc:self-transfer',
+      meta: { amount: 1_500n, recipient: '0zk_self', broadcasterFeeAmount: 1_500n, broadcasterShieldedAddress: '0zk_relayer' },
+    })
+  })
+
+  it('gasless shield reconstructs the deposit total; receipt nets to entry.value (#43)', () => {
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'shield', value: 990_000n, shieldFee: 5_000n, broadcasterFee: 5_000n, broadcasterShieldedAddress: '0zk_relayer' }),
+      'w', SDK_CTX, 5000,
+    )
+    // amount = value + shieldFee + broadcasterFee = 1_000_000; the receipt subtracts feeAmount +
+    // protocolFee → 1_000_000 - 5_000 - 5_000 = 990_000 = entry.value (the user's net note).
+    expect(r).toMatchObject({
+      kind: 'shield',
+      meta: { amount: 1_000_000n, useGasless: true, feeAmount: 5_000n, protocolFee: 5_000n, broadcasterShieldedAddress: '0zk_relayer' },
+    })
+  })
+
+  it('a direct (non-gasless) shield carries no feeAmount / useGasless but keeps protocolFee (#43)', () => {
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w', SDK_CTX, 5000)
+    expect(r!.meta).toMatchObject({ protocolFee: 5_000n })
+    expect(r!.meta).not.toHaveProperty('feeAmount')
+    expect(r!.meta).not.toHaveProperty('useGasless')
   })
 
   it('transfer-received → received, memo passed through', () => {
@@ -67,6 +109,46 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
   it('yield deposit + withdraw map natively (no adapter heuristic)', () => {
     expect(historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: -900_000n }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'yield-deposit', meta: { amount: 900_000n } })
     expect(historyEntryToTxRecord(sdkEntry({ category: 'yield-withdraw', value: 950_000n }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'yield-withdraw', meta: { amount: 950_000n } })
+  })
+
+  it('drops the share leg of a two-leg yield op, keeping only the USDC leg (#40)', () => {
+    // Post-armada-sdk #91 a yield op emits a USDC leg + a share leg sharing one (txid, category).
+    // Both would collide on the same synthetic id; the USDC gate drops the share leg so the surviving
+    // record is the USDC one (a deposit could otherwise display `+shares` as its amount).
+    const usdcLeg = historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: -500_000n, tokenAddress: USDC_ADDR }), 'w', SDK_CTX, 5000)
+    const shareLeg = historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: 12_000n, tokenAddress: SHARE_ADDR }), 'w', SDK_CTX, 5000)
+    expect(usdcLeg).toMatchObject({ kind: 'yield-deposit', meta: { amount: 500_000n } })
+    expect(shareLeg).toBeNull()
+  })
+
+  it('repopulates recoverable meta (feeCacheId + useWalletOverride) from entry.selfMetadata (#44)', () => {
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'unshield', value: -500_000n, recipient: '0xrecipient', selfMetadata: JSON.stringify({ v: 1, c: 'quote-77', w: 1 }) }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({ kind: 'unshield-local', meta: { feeCacheId: 'quote-77', useWalletOverride: true } })
+  })
+
+  it('leaves feeCacheId empty + omits useWalletOverride when no selfMetadata was recovered (#44)', () => {
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'unshield', value: -500_000n, recipient: '0xr' }), 'w', SDK_CTX, 5000)
+    expect(r!.meta).toMatchObject({ feeCacheId: '' })
+    expect(r!.meta).not.toHaveProperty('useWalletOverride')
+  })
+
+  it('filters non-USDC entries so they never render mis-denominated as USDC (#41)', () => {
+    // A plain receive of a non-USDC token (e.g. vault shares sent directly) must not map to a USDC row.
+    expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: SHARE_ADDR }), 'w', SDK_CTX, 5000)).toBeNull()
+    // USDC still maps.
+    expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: USDC_ADDR }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'transfer-shielded-received' })
+  })
+
+  it('matches USDC case-insensitively and fails open when the USDC address is unresolved (#41)', () => {
+    // A checksummed entry address must still match the lowercase config address.
+    const mixed = historyEntryToTxRecord(sdkEntry({ category: 'shield', tokenAddress: USDC_ADDR.toUpperCase() as `0x${string}` }), 'w', SDK_CTX, 5000)
+    expect(mixed).toMatchObject({ kind: 'shield' })
+    // FAIL-OPEN: an unresolved USDC address (ctx '') keeps everything rather than wiping history.
+    const failOpen = historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: SHARE_ADDR }), 'w', { hubChainId: 31337, usdcAddress: '' }, 5000)
+    expect(failOpen).toMatchObject({ kind: 'transfer-shielded-received' })
   })
 
   it('stamps walletContext: shieldedWalletId + hub chain, undefined evmAddress', () => {

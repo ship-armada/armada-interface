@@ -5,6 +5,7 @@ import { encodeFunctionData } from 'viem'
 import { transactionToTuple, encodeCctpBinding } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
+import { stashSpendPlan } from './pending-spend'
 
 /**
  * PrivacyPool.atomicCrossChainUnshield ABI — the proved Transaction struct wrapped with the CCTP
@@ -83,6 +84,12 @@ export interface SdkXchainUnshieldInputs {
   readonly uniqueNonce: `0x${string}`
   /** ZK-proof progress (0–1); the worker prover emits coarse start/end phases. */
   readonly onProgress?: (fraction: number) => void
+  /** Tx `record.id` — when set, the built Plan is stashed so the handler can `markSpendPending`
+   *  its inputs after broadcast (armada-sdk #55 in-flight double-spend guard). */
+  readonly recordId?: string
+  /** Opaque metadata blob persisted in the spend's change note (armada-sdk #88 lever 3), recovered
+   *  on a fresh chain scan. Encoded by the handler via `lib/shielded/selfMetadata`. */
+  readonly selfMetadata?: string
 }
 
 /**
@@ -115,10 +122,13 @@ export async function buildXchainUnshieldSdk(
   // Pre-proof gate: reject a stale root / already-spent input in <1s instead of proving for ~30s and
   // reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
   await assertSpendPreflight(wallet, plan)
-  const handle = await wallet.prove(
-    plan,
-    inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : undefined,
-  )
+  // Stash the plan so the handler can mark its inputs pending after broadcast (#55). After preflight
+  // so an already-spent-input build never leaves a stale hold.
+  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plan)
+  const handle = await wallet.prove(plan, {
+    ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
+    ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
+  })
   const data = encodeFunctionData({
     abi: PRIVACY_POOL_XCHAIN_UNSHIELD_ABI,
     functionName: 'atomicCrossChainUnshield',

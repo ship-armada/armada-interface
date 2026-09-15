@@ -35,6 +35,24 @@ describe('<ActivityReceipt>', () => {
     expect(screen.getByText('Date and time')).toBeInTheDocument()
   })
 
+  it('nets a gasless shield by BOTH the relayer fee and the protocol shield fee', () => {
+    // The real 4-USDC gasless shield: relayer fee 0.742317, protocol shield fee 0.016288. The receipt
+    // must show received = 4 - 0.742317 - 0.016288 = 3.241395 (→ "3.24"), NOT 4 - relayerFee = 3.257683
+    // ("3.26", the bug where the protocol fee was omitted).
+    const record = {
+      ...shieldRecord(),
+      meta: {
+        amount: 4_000_000n, feeAmount: 742_317n, protocolFee: 16_288n, useGasless: true,
+        fromChainId: 31337, feeCacheId: 'x',
+      },
+    } as unknown as TxRecord
+    render(<ActivityReceipt record={record} open onClose={vi.fn()} />)
+    expect(screen.getByText('3.241395 USDC')).toBeInTheDocument()
+    expect(screen.queryByText('3.257683 USDC')).toBeNull()
+    // Fees row shows the combined 0.758605, not the relayer-only 0.742317.
+    expect(screen.getByText('0.758605 USDC')).toBeInTheDocument()
+  })
+
   it('disables View on explorer without a source tx hash', () => {
     render(<ActivityReceipt record={shieldRecord()} open onClose={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'View on explorer' })).toBeDisabled()

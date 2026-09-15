@@ -23,7 +23,7 @@ const hoisted = vi.hoisted(() => ({
   })),
   putTxIfFresh: vi.fn<(record: unknown) => Promise<boolean>>(async () => true),
   loadDeployments: vi.fn(async () => ({
-    hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK },
+    hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK, cctp: { usdc: '0xusdc' } },
     clients: [],
   })),
 }))
@@ -44,9 +44,10 @@ vi.mock('@/lib/tx/storage', () => ({
   loadAllTx: vi.fn(async () => []),
 }))
 
-vi.mock('@/config/deployments', () => ({
-  loadDeployments: hoisted.loadDeployments,
-}))
+vi.mock('@/config/deployments', async () => {
+  const actual = await vi.importActual<typeof import('@/config/deployments')>('@/config/deployments')
+  return { ...actual, loadDeployments: hoisted.loadDeployments }
+})
 
 import { useHistoryRecovery } from './useHistoryRecovery'
 import { historyEntryToTxRecord } from '@/lib/shielded/history'
@@ -61,7 +62,7 @@ function shieldRecord(txid: string, blockNumber: number, amount: bigint): TxReco
   return historyEntryToTxRecord(
     { txid, blockNumber, category: 'shield', tokenHash: 'usdchash', tokenAddress: '0xusdc', value: amount },
     'rg-1',
-    { hubChainId: 31337 },
+    { hubChainId: 31337, usdcAddress: '0xusdc' },
     1_700_000_000_000,
   )!
 }

@@ -67,8 +67,14 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'shield':
     case 'shield-xchain': {
       const meta = (record as TxRecord<'shield' | 'shield-xchain'>).meta
-      const fee = meta.feeAmount ?? null
-      const netAmount = fee ? meta.amount - fee : meta.amount
+      // The note that lands is `amount - relayerFee - protocolFee`: the wrapper carves the relayer
+      // fee out first (gasless) and the pool takes its ~50 bps shield fee on the remainder. Include
+      // BOTH so the receipt matches the shielded balance (omitting the protocol fee over-reports the
+      // received amount — the bug this fixes). `protocolFee` is absent on pre-capture records → 0.
+      const relayerFee = meta.feeAmount ?? 0n
+      const totalFee = relayerFee + (meta.protocolFee ?? 0n)
+      const fee = totalFee > 0n ? totalFee : null
+      const netAmount = meta.amount > totalFee ? meta.amount - totalFee : meta.amount
       return {
         flowLabel: 'Shield',
         steps: DEPOSIT_STEPS,

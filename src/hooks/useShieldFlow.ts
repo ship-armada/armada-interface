@@ -26,7 +26,7 @@ import {
   type WalletStep,
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
-import type { DisplayFees } from '@/lib/fees/displayFees'
+import { shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -179,11 +179,18 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // below as `protocolFee` so recipientReceives reflects the TRUE shielded value the user gets,
   // not just `amount - broadcasterFee`. nativeGas is also surfaced for the wallet-submit fallback
   // (gasless path doesn't pay native gas — Phase 6 hides that row).
+  // A gasless same-chain shield carves the relayer fee out first as its OWN shielded note, so the
+  // pool charges the 50 bps protocol fee on `(amount - relayerFee)` — not the full deposit. Estimate
+  // the shield fee on that reduced base so "You'll shield" matches the note that actually lands
+  // (billing the protocol fee on the full amount double-counts it on the relayer's fee-note portion,
+  // under-reporting what the user receives by ~0.5% of the relayer fee).
+  const shieldFeeBase = shieldProtocolFeeBase(computedKind, amount, fee, useGasless)
   const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
     computedKind,
     amount,
     fromChainId,
     quote,
+    shieldFeeBase,
   )
   const protocolFee = displayFees.protocolFee
   // CCTP fast-fee — applies to BOTH direct and gasless cross-chain shield (CCTP V2 always
@@ -320,12 +327,17 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
             wrapperAddress: hubWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            // Freeze the protocol shield fee so the receipt subtracts it too (matches what "You'll
+            // shield" showed in review — the note that lands is `amount - feeAmount - protocolFee`).
+            protocolFee,
           })
         } else {
           submittedId = await txShield.submit({
             amount,
             feeCacheId: activeQuote.cacheId,
             fromChainId,
+            // The pool takes its ~50 bps shield fee even on a direct submit — freeze it for the receipt.
+            protocolFee,
           })
         }
       } else {
@@ -356,12 +368,16 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
             wrapperAddress: clientWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
+            protocolFee,
           })
         } else {
           submittedId = await txShieldXchain.submit({
             amount,
             feeCacheId: activeQuote.cacheId,
             fromChainId,
+            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
+            protocolFee,
           })
         }
       }
