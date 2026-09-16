@@ -124,6 +124,16 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(historyEntryToTxRecord(sdkEntry({ category: 'yield-withdraw', value: 950_000n }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'yield-withdraw', meta: { amount: 950_000n } })
   })
 
+  it('gasless yield-deposit: amount is the vault principal (relayer fee is on-top, not in principal)', () => {
+    // Fee-on-top: the shielded USDC delta (abs) = principal + relayer fee. `amount` must be the
+    // principal (matches the authored record); the receipt re-adds the fee as total-deducted.
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'yield-deposit', value: -905_000n, broadcasterFee: 5_000n }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({ kind: 'yield-deposit', meta: { amount: 900_000n, broadcasterFeeAmount: 5_000n } })
+  })
+
   it('drops the share leg of a two-leg yield op, keeping only the USDC leg (#40)', () => {
     // Post-armada-sdk #91 a yield op emits a USDC leg + a share leg sharing one (txid, category).
     // Both would collide on the same synthetic id; the USDC gate drops the share leg so the surviving

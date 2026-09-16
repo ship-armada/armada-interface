@@ -215,10 +215,15 @@ export function historyEntryToTxRecord(
     }
     case 'yield-deposit': {
       const stages = terminalizeStages('yield-deposit')
+      // A gasless deposit spends the relayer fee ON TOP of the vault principal (fee-on-top), so the
+      // shielded USDC delta (abs) = principal + relayer fee. Subtract the fee so `amount` is the vault
+      // principal — matching the authored record (recipientReceives = amount). The receipt re-adds it
+      // as `amount + fee` = total deducted. (Absent a relayer fee this is abs, unchanged.)
+      const principal = abs > broadcasterFee ? abs - broadcasterFee : abs
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'yield-deposit', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: { amount: abs, feeCacheId: recoveredFeeCacheId, broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo },
+        meta: { amount: principal, feeCacheId: recoveredFeeCacheId, broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo },
       }
     }
     case 'yield-withdraw': {
