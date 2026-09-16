@@ -138,6 +138,16 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r).toMatchObject({ kind: 'yield-withdraw', meta: { amount: 1_000_000n, shares: 980_000n, broadcasterFeeAmount: 50_000n } })
   })
 
+  it('recovers the yield APY from selfMetadata onto both yield kinds (Tier 4)', () => {
+    const apyBlob = JSON.stringify({ v: 1, y: '450' })
+    const dep = historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: -500_000n, selfMetadata: apyBlob }), 'w', SDK_CTX, 5000)
+    const wd = historyEntryToTxRecord(sdkEntry({ category: 'yield-withdraw', value: 500_000n, selfMetadata: apyBlob }), 'w', SDK_CTX, 5000)
+    expect(dep).toMatchObject({ kind: 'yield-deposit', meta: { apyBps: 450n } })
+    expect(wd).toMatchObject({ kind: 'yield-withdraw', meta: { apyBps: 450n } })
+    // Absent selfMetadata → no apyBps (receipt keeps the APY row hidden).
+    expect(historyEntryToTxRecord(sdkEntry({ category: 'yield-deposit', value: -1n }), 'w', SDK_CTX, 5000)!.meta).not.toHaveProperty('apyBps')
+  })
+
   it('gasless yield-deposit: amount is the vault principal (relayer fee is on-top, not in principal)', () => {
     // Fee-on-top: the shielded USDC delta (abs) = principal + relayer fee. `amount` must be the
     // principal (matches the authored record); the receipt re-adds the fee as total-deducted.

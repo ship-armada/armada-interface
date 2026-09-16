@@ -271,6 +271,8 @@ export function EarnModal() {
           broadcasterFeeAmount,
           broadcasterShieldedAddress,
           useWalletOverride: effectiveUseWalletOverride,
+          // Freeze the reviewed net APY so the receipt can show it (persisted for rescan via selfMetadata).
+          ...(yieldRate !== null ? { apyBps: yieldRate.apyBps } : {}),
         })
       } else {
         setSubmittedKind('yield-withdraw')
@@ -291,6 +293,8 @@ export function EarnModal() {
           broadcasterFeeAmount,
           broadcasterShieldedAddress,
           useWalletOverride: effectiveUseWalletOverride,
+          // Freeze the reviewed net APY so the receipt can show it (persisted for rescan via selfMetadata).
+          ...(effectiveRate !== null ? { apyBps: effectiveRate.apyBps } : {}),
         })
       }
       if (submittedId === null) return

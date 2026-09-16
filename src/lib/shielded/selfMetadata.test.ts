@@ -15,6 +15,13 @@ describe('encodeTxSelfMetadata / decodeTxSelfMetadata', () => {
     expect(decodeTxSelfMetadata(blob)).toEqual({ feeCacheId: 'q', useGasless: true })
   })
 
+  it('round-trips the yield APY (bigint bps via a decimal string)', () => {
+    const blob = encodeTxSelfMetadata({ yieldApyBps: 450n })
+    expect(decodeTxSelfMetadata(blob)).toEqual({ yieldApyBps: 450n })
+    // 0% APY is a valid value (Aave reserve paying nothing) — must still round-trip, not be dropped.
+    expect(decodeTxSelfMetadata(encodeTxSelfMetadata({ yieldApyBps: 0n }))).toEqual({ yieldApyBps: 0n })
+  })
+
   it('returns undefined when nothing is worth persisting (skips the change memo)', () => {
     // WHY: an empty blob would still write a change memo — calldata gas + a metadata-presence signal
     // for no recovered value. The caller skips prove({ selfMetadata }) when this is undefined.

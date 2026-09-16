@@ -8,6 +8,7 @@ import { useFlowExit } from '@/components/flow/useFlowExit'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
+import type { YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { getChainById, getNetworkConfig } from '@/config/network'
@@ -136,6 +137,10 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
       const netAmount = tab === 'add' ? meta.amount + fee : meta.amount - fee
       const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
+      // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
+      // the "Estimated APY" row shows the historical value. `EarnReviewSummary` reads only `apyBps`.
+      // Absent on pre-capture records → keep the row hidden (unknown, not a fabricated 0%).
+      const rate: YieldRate | null = meta.apyBps !== undefined ? { rate: 0n, apyBps: meta.apyBps, fetchedAt: 0 } : null
       return {
         flowLabel: 'Earn',
         steps: DEPOSIT_STEPS,
@@ -145,16 +150,15 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         status,
         errorCopy,
         summary: (
-          // APY row hidden — a historical tx's rate isn't stored, so it can't be shown accurately.
           <EarnReviewSummary
             tab={tab}
             amount={meta.amount}
-            rate={null}
+            rate={rate}
             fee={fee}
             netAmount={netAmount}
             netLabel={netLabel}
             confirmedAt={confirmedAt}
-            showApy={false}
+            showApy={rate !== null}
           />
         ),
       }

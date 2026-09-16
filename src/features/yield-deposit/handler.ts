@@ -107,6 +107,8 @@ async function runBuildProof(
   const selfMetadata = encodeTxSelfMetadata({
     feeCacheId: record.meta.feeCacheId,
     useWalletOverride: record.meta.useWalletOverride,
+    // Persist the reviewed net APY (Tier 4) so the recovered receipt can show the APY row.
+    yieldApyBps: record.meta.apyBps,
   })
   const { to, data } = await buildYieldAdaptSdk({
     mode: 'lend',

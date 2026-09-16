@@ -325,8 +325,13 @@ export interface MetaTransferShieldedReceived {
   senderShieldedAddress?: string
 }
 
-export type MetaYieldDeposit = MetaCommon & MetaBroadcaster
-export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster {
+/** Net vault APY (basis points) at submit-time — surfaces the "Estimated APY" row on the receipt.
+ *  Recovered on rescan via the spend's self-metadata (armada-sdk #88 lever 3). */
+interface MetaYieldApy {
+  apyBps?: bigint
+}
+export type MetaYieldDeposit = MetaCommon & MetaBroadcaster & MetaYieldApy
+export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster, MetaYieldApy {
   /** Yield share amount to redeem; `amount` is the expected USDC output. */
   shares: bigint
 }
