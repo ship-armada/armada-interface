@@ -124,6 +124,16 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(historyEntryToTxRecord(sdkEntry({ category: 'yield-withdraw', value: 950_000n }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'yield-withdraw', meta: { amount: 950_000n } })
   })
 
+  it('yield-withdraw: surfaces redeemed shares + reconstructs gross amount (net + relayer fee) (#93)', () => {
+    // entry.value = user's owned USDC (NET received); the redeem's relayer fee is a separate re-shield
+    // (broadcasterFee). Gross redeemed = value + fee = the authored amount; shares come from the SDK.
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'yield-withdraw', value: 950_000n, broadcasterFee: 50_000n, shares: 980_000n }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({ kind: 'yield-withdraw', meta: { amount: 1_000_000n, shares: 980_000n, broadcasterFeeAmount: 50_000n } })
+  })
+
   it('gasless yield-deposit: amount is the vault principal (relayer fee is on-top, not in principal)', () => {
     // Fee-on-top: the shielded USDC delta (abs) = principal + relayer fee. `amount` must be the
     // principal (matches the authored record); the receipt re-adds the fee as total-deducted.

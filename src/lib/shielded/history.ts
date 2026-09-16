@@ -228,10 +228,18 @@ export function historyEntryToTxRecord(
     }
     case 'yield-withdraw': {
       const stages = terminalizeStages('yield-withdraw')
+      // The SDK (#93) now surfaces the redeemed `shares` + the redeem's relayer fee on this leg.
+      // `entry.value` is the user's OWNED USDC note = the NET received (the relayer fee note is a
+      // separate re-shield the user doesn't own), so the GROSS redeemed = value + fee — matching the
+      // authored `amount` (gross), and the receipt's `amount - fee` then renders the net received.
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'yield-withdraw', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: { amount: entry.value, feeCacheId: recoveredFeeCacheId, shares: 0n, broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo },
+        meta: {
+          amount: entry.value + broadcasterFee, feeCacheId: recoveredFeeCacheId,
+          shares: entry.shares ?? 0n,
+          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
+        },
       }
     }
     default:
