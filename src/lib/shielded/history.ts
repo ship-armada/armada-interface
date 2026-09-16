@@ -178,7 +178,12 @@ export function historyEntryToTxRecord(
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'transfer-shielded-received', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: { amount: entry.value, ...(entry.memo ? { memoText: entry.memo } : {}) },
+        meta: {
+          amount: entry.value,
+          ...(entry.memo ? { memoText: entry.memo } : {}),
+          // Present only when the sender chose to disclose their 0zk (otherwise anonymous by design).
+          ...(entry.senderShieldedAddress ? { senderShieldedAddress: entry.senderShieldedAddress } : {}),
+        },
       }
     }
     case 'transfer-sent': {
@@ -191,6 +196,8 @@ export function historyEntryToTxRecord(
           amount: recipientAmount, feeCacheId: recoveredFeeCacheId,
           recipient: entry.sentOutputs?.[0]?.recipientShieldedAddress ?? 'unknown',
           broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
+          // Recover the memo the sender attached to the recipient's note (`sentOutputs[].memo`).
+          ...(entry.sentOutputs?.[0]?.memo ? { memoText: entry.sentOutputs[0].memo } : {}),
         },
       }
     }

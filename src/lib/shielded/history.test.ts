@@ -61,6 +61,14 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { amount: 480_000n, broadcasterFeeAmount: 20_000n, recipient: '0zk_bob', broadcasterShieldedAddress: '0zk_relayer' } })
   })
 
+  it('transfer-sent recovers the memo the sender attached to the recipient note', () => {
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'transfer-sent', value: -500_000n, sentOutputs: [{ recipientShieldedAddress: '0zk_bob', value: 500_000n, memo: 'gm' }] }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { memoText: 'gm' } })
+  })
+
   it('self-transfer → transfer-shielded with amount = fee, not a phantom outgoing (#39)', () => {
     // The pre-#88 SDK misclassified a send-to-self as a big negative transfer-sent (the "−194" bug).
     // Now it is a distinct `self-transfer` (value = −fee); the record must NOT be dropped and its
@@ -96,9 +104,14 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r!.meta).not.toHaveProperty('useGasless')
   })
 
-  it('transfer-received → received, memo passed through', () => {
-    const r = historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 250_000n, memo: 'hi' }), 'w', SDK_CTX, 5000)
-    expect(r).toMatchObject({ kind: 'transfer-shielded-received', meta: { amount: 250_000n, memoText: 'hi' } })
+  it('transfer-received → received, memo + disclosed sender 0zk passed through', () => {
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 250_000n, memo: 'hi', senderShieldedAddress: '0zk_alice' }), 'w', SDK_CTX, 5000)
+    expect(r).toMatchObject({ kind: 'transfer-shielded-received', meta: { amount: 250_000n, memoText: 'hi', senderShieldedAddress: '0zk_alice' } })
+  })
+
+  it('transfer-received omits the sender when not disclosed (anonymous by design)', () => {
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 250_000n }), 'w', SDK_CTX, 5000)
+    expect(r!.meta).not.toHaveProperty('senderShieldedAddress')
   })
 
   it('unshield → unshield-local, recipient + net amount (minus fees)', () => {

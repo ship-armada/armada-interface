@@ -302,19 +302,27 @@ interface MetaBroadcaster {
 export interface MetaTransferShielded extends MetaCommon, MetaBroadcaster {
   /** 0zk recipient. */
   recipient: string
+  /**
+   * Plaintext memo the sender attached to the recipient's note. Recovered from the sent output on a
+   * chain rescan (`sentOutputs[].memo`); absent when no memo was sent (or on pre-capture records).
+   */
+  memoText?: string
 }
 
 /**
  * Meta for a synthetic received transfer. Deliberately does NOT extend `MetaCommon` — a received
  * transfer carries no fee (we didn't author it, so there's no `feeCacheId` to attach). The sender
- * is private by Railgun's design and not recoverable, so we only keep the amount + any plaintext
- * memo the sender chose to attach.
+ * is private by Railgun's design unless they CHOSE to disclose their 0zk, in which case the SDK
+ * recovers it (`senderShieldedAddress`); otherwise only the amount + any plaintext memo survive.
  */
 export interface MetaTransferShieldedReceived {
   /** USDC raw amount (6 decimals) credited to our shielded balance. */
   amount: bigint
   /** Optional plaintext memo the sender attached (`memoText` on the SDK history item). */
   memoText?: string
+  /** Sender's 0zk address — present only when the sender opted to disclose it (SDK
+   *  `entry.senderShieldedAddress`); the sender is otherwise anonymous by design. */
+  senderShieldedAddress?: string
 }
 
 export type MetaYieldDeposit = MetaCommon & MetaBroadcaster
