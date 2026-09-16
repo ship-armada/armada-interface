@@ -57,8 +57,15 @@ describe('shieldProtocolFeeBase', () => {
     expect(shieldProtocolFeeBase('shield', 5_000_000n, 0n, false)).toBe(5_000_000n)
   })
 
-  it('uses the full amount for shield-xchain (CCTP carve-out handled separately)', () => {
-    expect(shieldProtocolFeeBase('shield-xchain', 5_000_000n, 726_475n, true)).toBe(5_000_000n)
+  it('carves out the CCTP fee AND the relayer fee for shield-xchain (B2)', () => {
+    // WHY: the CCTP mint deducts its fee before the deposit reaches the pool, then the gasless wrapper
+    // carves the relayer fee as its own note — so the pool takes 50 bps on (amount - cctpFee - relayerFee).
+    expect(shieldProtocolFeeBase('shield-xchain', 3_000_000n, 0n, true, 25_000n)).toBe(2_975_000n)
+    expect(shieldProtocolFeeBase('shield-xchain', 3_000_000n, 10_000n, true, 25_000n)).toBe(2_965_000n)
+  })
+
+  it('never underflows shield-xchain if the carve-outs exceed the amount', () => {
+    expect(shieldProtocolFeeBase('shield-xchain', 100n, 200n, true, 50n)).toBe(100n)
   })
 
   it('never underflows if the relayer fee exceeds the amount', () => {

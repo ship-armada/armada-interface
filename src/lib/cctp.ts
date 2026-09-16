@@ -130,13 +130,27 @@ export function readCctpMessage(message: `0x${string}`): CctpMessageInfo | null 
   }
 }
 
+/**
+ * Parse a CCTP V2 `BurnMessage` body → the original burn `amount` (the true cross-chain deposit,
+ * pre-fee) + `feeExecuted` (the CCTP fee actually charged). Body layout:
+ * `version(4) | burnToken(32) | mintRecipient(32) | amount(32) | messageSender(32) | maxFee(32) |
+ * feeExecuted(32) | expirationBlock(32) | hookData(…)`. Returns null if the body is too short.
+ */
+export function readBurnMessage(body: `0x${string}`): { amount: bigint; feeExecuted: bigint } | null {
+  const raw = body.slice(2)
+  if (raw.length < 392) return null // needs feeExecuted at byte 164 → hex [328, 392)
+  const word = (byteOffset: number): bigint => BigInt(`0x${raw.slice(byteOffset * 2, (byteOffset + 32) * 2)}`)
+  return { amount: word(68), feeExecuted: word(164) }
+}
+
 /** Cross-chain markers found in a hub tx's logs — the outbound send (xchain unshield) and/or the
  *  inbound mint (xchain shield), keyed off the CCTP MessageTransmitter events. */
 export interface CctpReceiptInfo {
   /** From an outbound `MessageSent` (e.g. a cross-chain unshield): destination + final recipient. */
   sent?: { destinationDomain: number; mintRecipient: `0x${string}` }
-  /** From an inbound `MessageReceived` (e.g. a cross-chain shield's hub mint): the origin domain. */
-  receivedSourceDomain?: number
+  /** From an inbound `MessageReceived` (e.g. a cross-chain shield's hub mint): the origin domain, plus
+   *  the true deposit (`burnAmount`) + CCTP fee (`cctpFee`) recovered from the message's BurnMessage. */
+  received?: { sourceDomain: number; burnAmount?: bigint; cctpFee?: bigint }
 }
 
 /**
@@ -159,10 +173,15 @@ export function readCctpFromLogs(opts: {
         const info = readCctpMessage((decoded.args as { message: `0x${string}` }).message)
         if (info) out.sent = { destinationDomain: info.destinationDomain, mintRecipient: info.mintRecipient }
       } catch { /* decoder mismatch — skip */ }
-    } else if (log.topics[0] === MESSAGE_RECEIVED_TOPIC && out.receivedSourceDomain === undefined) {
+    } else if (log.topics[0] === MESSAGE_RECEIVED_TOPIC && out.received === undefined) {
       try {
         const decoded = decodeEventLog({ abi: CCTP_MESSAGE_TRANSMITTER_ABI, data: log.data, topics: log.topics })
-        out.receivedSourceDomain = Number((decoded.args as { sourceDomain: number | bigint }).sourceDomain)
+        const args = decoded.args as { sourceDomain: number | bigint; messageBody: `0x${string}` }
+        const burn = readBurnMessage(args.messageBody)
+        out.received = {
+          sourceDomain: Number(args.sourceDomain),
+          ...(burn !== null ? { burnAmount: burn.amount, cctpFee: burn.feeExecuted } : {}),
+        }
       } catch { /* decoder mismatch — skip */ }
     }
   }

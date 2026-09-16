@@ -196,6 +196,23 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r).toMatchObject({ kind: 'shield-xchain', meta: { fromChainId: src.chainId, amount: 1_000_000n } })
   })
 
+  it('shield-xchain headline uses the recovered CCTP burn amount + carries the actual cctpFee (Fix A)', () => {
+    const src = getChainByDomain(101)!
+    // The reconstructed hub amount (value + shieldFee = 3_000_000) is short by the CCTP fee the mint
+    // deducted; the recovered burnAmount (3_025_000) is the true pre-fee deposit, and cctpFee (25_000)
+    // is threaded so the receipt can net burn − cctp − shield to the landed note.
+    const ctx = {
+      ...SDK_CTX,
+      poolAddress: POOL,
+      xchainByTxid: new Map([['0xabc', { sourceDomain: 101, burnAmount: 3_025_000n, cctpFee: 25_000n }]]),
+    }
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 2_995_000n, shieldFee: 5_000n }), 'w', ctx, 5000)
+    expect(r).toMatchObject({
+      kind: 'shield-xchain',
+      meta: { fromChainId: src.chainId, amount: 3_025_000n, cctpFee: 25_000n, protocolFee: 5_000n },
+    })
+  })
+
   it('keeps a shield same-chain when no CCTP source is recovered', () => {
     const r = historyEntryToTxRecord(sdkEntry({ category: 'shield' }), 'w', SDK_CTX, 5000)
     expect(r).toMatchObject({ kind: 'shield', meta: { fromChainId: 31337 } })

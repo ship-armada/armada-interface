@@ -25,7 +25,8 @@ import {
   type ShieldRequestData,
 } from '@/lib/shielded/shield'
 import { createShieldRequestSdk } from '@/lib/shielded/shield-sdk'
-import { extractCctpMessageFromReceipt, messageReceivedTopic } from '@/lib/cctp'
+import { extractCctpMessageFromReceipt, messageReceivedTopic, readCctpFromLogs } from '@/lib/cctp'
+import type { Log } from 'viem'
 import { cctpMaxFeeForKind, submitRelay, fetchCctpDeliveryStatus } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { signUsdcPermit } from '@/lib/wallet/permit'
@@ -38,7 +39,7 @@ import {
   type ShieldDataStruct,
 } from '@/lib/wallet/shield-intent'
 import { ensureChain } from '@/lib/network-switch'
-import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
+import { advance, markFailed, markWaiting, patchArtifacts, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
 import { poll, pollBudgetMs } from '@/lib/tx/poller'
 import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
@@ -774,6 +775,21 @@ async function runWaitForDelivery(
     })
   }
 
+  // Fix C — reconcile the ACTUAL CCTP fee from the hub delivery so the confirmed receipt matches the
+  // note that landed (the submit-time value is an estimate; Circle sets `feeExecuted` at execution).
+  // Best-effort: a failed fetch just leaves the estimate, which a later rescan corrects.
+  let reconciledCctpFee: bigint | undefined
+  try {
+    const deliveryReceipt = result.value ? await hubProvider.getTransactionReceipt(result.value) : null
+    if (deliveryReceipt) {
+      const info = readCctpFromLogs({
+        logs: deliveryReceipt.logs as unknown as ReadonlyArray<Log>,
+        messageTransmitterAddress: hubMessageTransmitter,
+      })
+      reconciledCctpFee = info.received?.cctpFee
+    }
+  } catch { /* best-effort — keep the submit-time estimate */ }
+
   // Walk through the three intermediate stages with brief gaps so the stepper renders each row
   // as "current" rather than flashing through transitions in a single frame. Same pattern as the
   // inverse-direction handler — see its docstring for the visual-delay rationale.
@@ -793,6 +809,14 @@ async function runWaitForDelivery(
       })
       if (ctx.signal.aborted) return
     }
+  }
+
+  // Persist the reconciled actual CCTP fee onto the (now terminal) record so the receipt's
+  // `amount − cctpFee − relayer − protocol` matches the note that landed. Terminal→terminal meta
+  // patch — OCC-safe via the bumped seq; skipped on abort so we don't resurrect a cancelled record.
+  if (reconciledCctpFee !== undefined && !ctx.signal.aborted) {
+    cursor = patchMeta(cursor, { cctpFee: reconciledCctpFee })
+    await ctx.upsert(cursor)
   }
 
   // The shield commitment is now on the hub merkle tree — refresh balances so the UI ticks up.

@@ -179,12 +179,17 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // below as `protocolFee` so recipientReceives reflects the TRUE shielded value the user gets,
   // not just `amount - broadcasterFee`. nativeGas is also surfaced for the wallet-submit fallback
   // (gasless path doesn't pay native gas — Phase 6 hides that row).
-  // A gasless same-chain shield carves the relayer fee out first as its OWN shielded note, so the
-  // pool charges the 50 bps protocol fee on `(amount - relayerFee)` — not the full deposit. Estimate
-  // the shield fee on that reduced base so "You'll shield" matches the note that actually lands
-  // (billing the protocol fee on the full amount double-counts it on the relayer's fee-note portion,
-  // under-reporting what the user receives by ~0.5% of the relayer fee).
-  const shieldFeeBase = shieldProtocolFeeBase(computedKind, amount, fee, useGasless)
+  // CCTP fast-fee — applies to BOTH direct and gasless cross-chain shield (CCTP V2 always
+  // charges its fast-fee on a cross-chain mint regardless of how the burn was initiated).
+  // Routed through its own channel rather than the broadcaster slot so the tooltip can label it
+  // "CCTP fee" instead of "Relayer fee" (which would be misleading on the direct path where
+  // there's no broadcaster). Zero on any same-chain shield.
+  const cctpFee: bigint = computedKind === 'shield-xchain' ? cctpFastFeeForAmount(amount) : 0n
+  // The pool shields only what reaches it after upstream carve-outs, so estimate the 50 bps protocol
+  // fee on that reduced base — not the full deposit — so "You'll shield" matches the note that lands:
+  //  - same-chain gasless shield: relayer fee carved out first → `amount - relayerFee`.
+  //  - shield-xchain: CCTP mint fee, then (gasless) relayer fee → `amount - relayerFee - cctpFee`.
+  const shieldFeeBase = shieldProtocolFeeBase(computedKind, amount, fee, useGasless, cctpFee)
   const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
     computedKind,
     amount,
@@ -193,12 +198,6 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     shieldFeeBase,
   )
   const protocolFee = displayFees.protocolFee
-  // CCTP fast-fee — applies to BOTH direct and gasless cross-chain shield (CCTP V2 always
-  // charges its fast-fee on a cross-chain mint regardless of how the burn was initiated).
-  // Routed through its own channel rather than the broadcaster slot so the tooltip can label it
-  // "CCTP fee" instead of "Relayer fee" (which would be misleading on the direct path where
-  // there's no broadcaster). Zero on any same-chain shield.
-  const cctpFee: bigint = computedKind === 'shield-xchain' ? cctpFastFeeForAmount(amount) : 0n
   // Per-kind fee math (recipient receives / user is debited / how much they can type) lives in
   // the shared `computeFeeBreakdown` helper. Both gasless paths use `fee-from-recipient` so
   // the entered `amount` IS what's deducted from the user's USDC balance, and the shielded

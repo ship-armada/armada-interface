@@ -14,6 +14,10 @@ export interface XchainCctp {
   destinationDomain?: number
   /** Final EVM recipient on the destination chain (cross-chain unshield). */
   recipient?: `0x${string}`
+  /** Cross-chain shield: the true deposit (CCTP burn amount, pre-fee) from the hub MessageReceived. */
+  burnAmount?: bigint
+  /** Cross-chain shield: the actual CCTP fee (`feeExecuted`) charged on the mint. */
+  cctpFee?: bigint
 }
 
 // How many receipt fetches to run at once. Cross-chain candidates are a minority of history, but a
@@ -59,7 +63,11 @@ export async function buildXchainCctpMap(opts: {
           messageTransmitterAddress: opts.transmitterAddress,
         })
         const entry: XchainCctp = {}
-        if (info.receivedSourceDomain !== undefined) entry.sourceDomain = info.receivedSourceDomain
+        if (info.received !== undefined) {
+          entry.sourceDomain = info.received.sourceDomain
+          if (info.received.burnAmount !== undefined) entry.burnAmount = info.received.burnAmount
+          if (info.received.cctpFee !== undefined) entry.cctpFee = info.received.cctpFee
+        }
         if (info.sent !== undefined) {
           entry.destinationDomain = info.sent.destinationDomain
           entry.recipient = info.sent.mintRecipient

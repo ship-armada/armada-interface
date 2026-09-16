@@ -73,7 +73,10 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       // BOTH so the receipt matches the shielded balance (omitting the protocol fee over-reports the
       // received amount — the bug this fixes). `protocolFee` is absent on pre-capture records → 0.
       const relayerFee = meta.feeAmount ?? 0n
-      const totalFee = relayerFee + (meta.protocolFee ?? 0n)
+      // shield-xchain also pays a CCTP fee (deducted from the mint before the hub shield); MetaShield
+      // has no such field. `amount` is the true deposit, so received = amount − relayer − protocol − cctp.
+      const cctpFee = 'cctpFee' in meta ? (meta.cctpFee ?? 0n) : 0n
+      const totalFee = relayerFee + (meta.protocolFee ?? 0n) + cctpFee
       const fee = totalFee > 0n ? totalFee : null
       const netAmount = meta.amount > totalFee ? meta.amount - totalFee : meta.amount
       return {

@@ -166,14 +166,21 @@ export function historyEntryToTxRecord(
       }
       // A hub shield whose tx carried a CCTP `MessageReceived` was a cross-chain shield — recover the
       // source chain from the event's domain (Tier 2). `getChainByDomain` maps CCTP domain → chain.
-      const sourceDomain = ctx.xchainByTxid?.get(entry.txid)?.sourceDomain
-      const sourceChainId = sourceDomain !== undefined ? getChainByDomain(sourceDomain)?.chainId : undefined
+      const x = ctx.xchainByTxid?.get(entry.txid)
+      const sourceChainId = x?.sourceDomain !== undefined ? getChainByDomain(x.sourceDomain)?.chainId : undefined
       if (sourceChainId !== undefined) {
         const stages = terminalizeStages('shield-xchain')
         return {
           id: syntheticTxId(entry.txid, entry.category), kind: 'shield-xchain', executionState: 'completed',
           stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-          meta: { amount, fromChainId: sourceChainId, ...shieldMeta },
+          // Headline = the TRUE deposit (CCTP burn amount) when recovered — the reconstructed hub amount
+          // is short by the CCTP fee, which the mint deducted before the hub shield. The receipt then
+          // subtracts `cctpFee` too, so received = burn − cctp − relayer − shield = the user's net note.
+          meta: {
+            amount: x?.burnAmount ?? amount, fromChainId: sourceChainId,
+            ...(x?.cctpFee !== undefined ? { cctpFee: x.cctpFee } : {}),
+            ...shieldMeta,
+          },
         }
       }
       const stages = terminalizeStages('shield')

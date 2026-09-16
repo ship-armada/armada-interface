@@ -168,6 +168,7 @@ export function ShieldModal() {
             isSubmitting={shieldFlow.isSubmitting}
             duplicateWarning={shieldFlow.duplicateWarning}
             feeUpdated={shieldFlow.feeChanged}
+            estimated={shieldFlow.fromChainId !== hubChainId}
             onBack={shieldFlow.onBackToInput}
             onConfirm={shieldFlow.submit}
           />

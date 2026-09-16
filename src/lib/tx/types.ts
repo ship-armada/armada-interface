@@ -257,9 +257,15 @@ export interface MetaShieldXchain extends MetaCommon {
    * On-chain protocol shield fee (PrivacyPool's ~50 bps armadaTake) charged on the hub-minted note.
    * Captured at submit-time so the receipt can subtract it — the note that lands is
    * `amount - feeAmount - protocolFee`. Absent on records pre-dating this capture. (Excludes the
-   * CCTP fast-fee, which is a separate line item.)
+   * CCTP fast-fee, which is a separate line item — see `cctpFee`.)
    */
   protocolFee?: bigint
+  /**
+   * CCTP fee deducted from the cross-chain mint on the hub — an estimate at submit-time, reconciled
+   * to the actual `feeExecuted` on confirmation (and on rescan, recovered from the hub MessageReceived).
+   * The note that lands is `amount - cctpFee - feeAmount - protocolFee`; `amount` is the true deposit.
+   */
+  cctpFee?: bigint
 }
 
 export interface MetaUnshieldLocal extends MetaCommon, MetaBroadcaster {

@@ -28,6 +28,9 @@ export interface DepositReviewSummaryProps {
   shieldedAddress?: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row for confirmations. */
   confirmedAt?: number
+  /** When true, the "You'll receive" total is an estimate (a cross-chain shield's final amount depends
+   *  on the CCTP fee set at delivery) — renders with a `≈` and a caption. */
+  estimated?: boolean
 }
 
 export function DepositReviewSummary({
@@ -38,6 +41,7 @@ export function DepositReviewSummary({
   walletProvider,
   shieldedAddress,
   confirmedAt,
+  estimated,
 }: DepositReviewSummaryProps) {
   const fromChain = getChainById(fromChainId)
   const feeValue = fee ?? 0n
@@ -93,9 +97,14 @@ export function DepositReviewSummary({
           {confirmedAt !== undefined ? 'You received' : "You'll receive"}
         </span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
-          {formatUsdcAmount(netAmount)} USDC
+          {estimated ? '≈ ' : ''}{formatUsdcAmount(netAmount)} USDC
         </span>
       </div>
+      {estimated ? (
+        <div className={styles.summaryEstimateNote}>
+          Estimate — the final amount depends on the CCTP fee charged at delivery.
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -21,7 +21,7 @@ beforeEach(() => {
   hoisted.getTransactionReceipt.mockImplementation(async (hash: string) => ({ logs: [{ hash }] }))
   hoisted.readCctpFromLogs.mockImplementation(({ logs }: { logs: Array<{ hash: string }> }) => {
     const hash = logs[0]!.hash
-    if (hash === '0xshieldtx') return { receivedSourceDomain: 101 }
+    if (hash === '0xshieldtx') return { received: { sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n } }
     if (hash === '0xunshieldtx') return { sent: { destinationDomain: 102, mintRecipient: '0xrec' } }
     return {}
   })
@@ -40,7 +40,8 @@ describe('buildXchainCctpMap', () => {
       transmitterAddress: '0xtransmitter',
       hubRpcUrl: 'http://hub',
     })
-    expect(map.get('shieldtx')).toEqual({ sourceDomain: 101 })
+    // Shield candidate carries the true deposit (burnAmount) + actual CCTP fee recovered from the mint.
+    expect(map.get('shieldtx')).toEqual({ sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n })
     expect(map.get('unshieldtx')).toEqual({ destinationDomain: 102, recipient: '0xrec' })
     expect(map.has('unshieldeoa')).toBe(false)
     expect(map.has('transfertx')).toBe(false)
