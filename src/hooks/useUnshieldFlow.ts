@@ -177,7 +177,12 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     totalDeducted,
     recipientLabel: "You'll receive",
   }
-  const feeInclusive = fee + displayFees.protocolFee + cctpFee
+  // The "fees" line pairs with "total deducted", so it must be exactly `totalDeducted - amount` —
+  // the broadcaster fee charged ON TOP of the user's debit. The protocol fee + CCTP fee are
+  // recipient-side (they reduce `recipientReceives`, not the user's debit; see the
+  // `fee-on-top-and-from-recipient` model), so folding them into this line double-counts them and
+  // makes fees ≠ total − amount. They still surface in `flowBreakdown` (the amount-card tooltip).
+  const feeInclusive = totalDeducted > amount ? totalDeducted - amount : 0n
 
   // Reset local state on close so re-opening starts fresh.
   useEffect(() => {
