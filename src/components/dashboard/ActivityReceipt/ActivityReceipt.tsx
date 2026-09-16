@@ -18,6 +18,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
+import { shieldReceiptFromMeta } from '@/lib/fees/displayFees'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -68,29 +69,21 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'shield':
     case 'shield-xchain': {
       const meta = (record as TxRecord<'shield' | 'shield-xchain'>).meta
-      // The note that lands is `amount - relayerFee - protocolFee`: the wrapper carves the relayer
-      // fee out first (gasless) and the pool takes its ~50 bps shield fee on the remainder. Include
-      // BOTH so the receipt matches the shielded balance (omitting the protocol fee over-reports the
-      // received amount — the bug this fixes). `protocolFee` is absent on pre-capture records → 0.
-      const relayerFee = meta.feeAmount ?? 0n
-      // shield-xchain also pays a CCTP fee (deducted from the mint before the hub shield); MetaShield
-      // has no such field. `amount` is the true deposit, so received = amount − relayer − protocol − cctp.
-      const cctpFee = 'cctpFee' in meta ? (meta.cctpFee ?? 0n) : 0n
-      const totalFee = relayerFee + (meta.protocolFee ?? 0n) + cctpFee
-      const fee = totalFee > 0n ? totalFee : null
-      const netAmount = meta.amount > totalFee ? meta.amount - totalFee : meta.amount
+      // received = amount − relayerFee − protocolFee − cctpFee — the single receipt-math source shared
+      // with the completion screen so a completed shield reads identically wherever it's shown.
+      const { amount, fee, netAmount } = shieldReceiptFromMeta(meta)
       return {
         flowLabel: 'Shield',
         steps: DEPOSIT_STEPS,
         title: 'USDC shield',
-        amount: meta.amount,
+        amount,
         explorerUrl,
         status,
         errorCopy,
         summary: (
           <DepositReviewSummary
             fromChainId={meta.fromChainId}
-            amount={meta.amount}
+            amount={amount}
             fee={fee}
             netAmount={netAmount}
             confirmedAt={confirmedAt}

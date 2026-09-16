@@ -26,7 +26,7 @@ import {
   type WalletStep,
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
-import { shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
+import { shieldProtocolFeeBase, shieldReceiptFromMeta, type DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -60,9 +60,12 @@ export interface ShieldFlow {
   displayFees: DisplayFees
   feeLoading: boolean
   flowBreakdown: FlowFeeBreakdown
-  /** Inclusive fee (broadcaster + on-chain protocol + CCTP) shown on the review/complete cards. */
+  /** Inclusive fee (broadcaster + on-chain protocol + CCTP) shown on the review card (an estimate). */
   feeInclusive: bigint
   netAmount: bigint
+  /** Completion-screen figures — record-derived actuals once a record exists (the handler reconciles
+   *  amount/protocolFee/cctpFee to the on-chain values at delivery), else the pre-submit estimate. */
+  completeReceipt: { amount: bigint; fee: bigint | null; netAmount: bigint }
   inputMax: bigint
   minAmount: bigint
   useGasless: boolean
@@ -434,6 +437,13 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     flowBreakdown,
     feeInclusive: fee + protocolFee + cctpFee,
     netAmount,
+    // Completion-screen figures. Once a record exists its meta is authoritative — the handler
+    // reconciles amount/protocolFee/cctpFee to the ACTUAL on-chain values at delivery, so "Confirm"
+    // shows the real numbers (identical to the activity receipt), not the pre-submit estimate. Falls
+    // back to the estimate before a record exists (never rendered — Complete only shows post-submit).
+    completeReceipt: record
+      ? shieldReceiptFromMeta((record as ShieldRecord).meta)
+      : { amount, fee: fee + protocolFee + cctpFee, netAmount },
     inputMax,
     minAmount,
     useGasless,

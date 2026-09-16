@@ -201,9 +201,9 @@ export function ShieldModal() {
         (isShield ? (
           <ShieldCompleteStep
             fromChainId={shieldFlow.fromChainId}
-            amount={shieldFlow.amount}
-            fee={shieldFlow.feeInclusive}
-            netAmount={shieldFlow.netAmount}
+            amount={shieldFlow.completeReceipt.amount}
+            fee={shieldFlow.completeReceipt.fee}
+            netAmount={shieldFlow.completeReceipt.netAmount}
             walletAddress={shieldFlow.evmAddress}
             walletProvider={shieldFlow.walletProvider}
             shieldedAddress={shieldFlow.shieldedAddress}

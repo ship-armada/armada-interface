@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase } from './displayFees'
+import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, shieldReceiptFromMeta } from './displayFees'
 import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'
+import type { MetaShield, MetaShieldXchain } from '@/lib/tx/types'
 
 const quote: FeeSchedule = {
   cacheId: 'test',
@@ -43,6 +44,38 @@ describe('computeDisplayFees', () => {
 describe('relayerGasFeeForKind', () => {
   it('returns 0 without a quote', () => {
     expect(relayerGasFeeForKind('transfer-shielded', null)).toBe(0n)
+  })
+})
+
+describe('shieldReceiptFromMeta', () => {
+  it('nets a gasless same-chain shield by relayer + protocol fee (no cctp leg on MetaShield)', () => {
+    const meta = {
+      amount: 4_000_000n, feeCacheId: 'x', fromChainId: 31337,
+      feeAmount: 742_317n, protocolFee: 16_288n, useGasless: true,
+    } as MetaShield
+    expect(shieldReceiptFromMeta(meta)).toEqual({
+      amount: 4_000_000n, fee: 758_605n, netAmount: 3_241_395n,
+    })
+  })
+
+  it('nets a shield-xchain by relayer + protocol + CCTP fee', () => {
+    const meta = {
+      amount: 3_000_000n, feeCacheId: 'x', fromChainId: 84532,
+      protocolFee: 14_873n, cctpFee: 25_388n,
+    } as MetaShieldXchain
+    expect(shieldReceiptFromMeta(meta)).toEqual({
+      amount: 3_000_000n, fee: 40_261n, netAmount: 2_959_739n,
+    })
+  })
+
+  it('reports fee=null (renders "—") when nothing was charged (direct shield, no fees captured)', () => {
+    const meta = { amount: 5_000_000n, feeCacheId: 'x', fromChainId: 31337 } as MetaShield
+    expect(shieldReceiptFromMeta(meta)).toEqual({ amount: 5_000_000n, fee: null, netAmount: 5_000_000n })
+  })
+
+  it('never underflows netAmount if the fees somehow exceed the amount', () => {
+    const meta = { amount: 100n, feeCacheId: 'x', fromChainId: 31337, protocolFee: 500n } as MetaShield
+    expect(shieldReceiptFromMeta(meta)).toEqual({ amount: 100n, fee: 500n, netAmount: 100n })
   })
 })
 

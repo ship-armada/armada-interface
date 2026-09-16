@@ -3,7 +3,7 @@
 
 import type { FeeSchedule } from '@/lib/relayer'
 import { userFeeForKind } from '@/lib/relayer'
-import type { TxKind } from '@/lib/tx/types'
+import type { MetaShield, MetaShieldXchain, TxKind } from '@/lib/tx/types'
 
 export interface NativeGasEstimate {
   wei: bigint
@@ -76,6 +76,27 @@ export function shieldProtocolFeeBase(
     return amount > carved ? amount - carved : amount
   }
   return amount
+}
+
+/**
+ * Derive a shield's confirmed receipt figures (gross amount, total fee, net received) from its stored
+ * `meta`. The note that lands = `amount − relayerFee − protocolFee − cctpFee`: the gasless wrapper
+ * carves the relayer fee as its own note, the pool takes its ~50 bps shield fee, and (cross-chain) the
+ * CCTP mint deducts its fee. `cctpFee` is only present on shield-xchain; both fee legs default to 0 on
+ * pre-capture records. The SINGLE source of receipt math — used by both the completion screen and the
+ * activity receipt so a completed shield reads identically wherever it's shown. Fee is `null` (renders
+ * "—") when nothing was charged.
+ */
+export function shieldReceiptFromMeta(meta: MetaShield | MetaShieldXchain): {
+  amount: bigint
+  fee: bigint | null
+  netAmount: bigint
+} {
+  const relayerFee = meta.feeAmount ?? 0n
+  const cctpFee = 'cctpFee' in meta ? (meta.cctpFee ?? 0n) : 0n
+  const totalFee = relayerFee + (meta.protocolFee ?? 0n) + cctpFee
+  const netAmount = meta.amount > totalFee ? meta.amount - totalFee : meta.amount
+  return { amount: meta.amount, fee: totalFee > 0n ? totalFee : null, netAmount }
 }
 
 /** Base display fees; shield protocol fee is overridden in useDisplayFees via fee module. */
