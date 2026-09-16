@@ -152,6 +152,8 @@ async function resolveScanInputs(): Promise<{
         // ERC20-agnostic (armada-sdk #91). Read straight from the hub manifest (no SDK config round-trip
         // that could throw and skip the whole scan); '' when absent makes the gate fail open.
         usdcAddress: getUsdcAddress(deployments, getNetworkConfig().hub) ?? '',
+        // Hub PrivacyPool address — lets recovery detect an unshield-to-pool as a cross-chain exit (Tier 2).
+        poolAddress: deployments.hub.contracts.privacyPool,
       },
       hubDeployBlock: deployments.hub.deployBlock,
     }

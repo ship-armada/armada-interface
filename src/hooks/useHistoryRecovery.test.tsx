@@ -23,7 +23,7 @@ const hoisted = vi.hoisted(() => ({
   })),
   putTxIfFresh: vi.fn<(record: unknown) => Promise<boolean>>(async () => true),
   loadDeployments: vi.fn(async () => ({
-    hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK, cctp: { usdc: '0xusdc' } },
+    hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK, cctp: { usdc: '0xusdc' }, contracts: { privacyPool: '0xpool' } },
     clients: [],
   })),
 }))

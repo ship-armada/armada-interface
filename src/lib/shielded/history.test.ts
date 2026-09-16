@@ -14,6 +14,10 @@ vi.mock('./sdk-read', () => ({ readSdkHistory: hoisted.readSdkHistory }))
 vi.mock('./network', () => ({ getHubBlockTimestamps: hoisted.getHubBlockTimestamps }))
 
 import { historyEntryToTxRecord, isSyntheticTxId, runHistoryScan, syntheticTxId } from './history'
+import { getChainByDomain } from '@/config/network'
+
+// Local CCTP domains (VITE_NETWORK=local): hub 100/31337, client A 101/31338, client B 102/31339.
+const POOL = '0xpool00000000000000000000000000000000abcd'
 
 describe('syntheticTxId / isSyntheticTxId', () => {
   it('encodes txid + category', () => {
@@ -173,6 +177,31 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: SHARE_ADDR }), 'w', SDK_CTX, 5000)).toBeNull()
     // USDC still maps.
     expect(historyEntryToTxRecord(sdkEntry({ category: 'transfer-received', value: 5_000n, tokenAddress: USDC_ADDR }), 'w', SDK_CTX, 5000)).toMatchObject({ kind: 'transfer-shielded-received' })
+  })
+
+  it('remaps a shield → shield-xchain when a CCTP source domain is recovered (Tier 2)', () => {
+    const src = getChainByDomain(101)!
+    const ctx = { ...SDK_CTX, poolAddress: POOL, xchainByTxid: new Map([['0xabc', { sourceDomain: 101 }]]) }
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w', ctx, 5000)
+    expect(r).toMatchObject({ kind: 'shield-xchain', meta: { fromChainId: src.chainId, amount: 1_000_000n } })
+  })
+
+  it('keeps a shield same-chain when no CCTP source is recovered', () => {
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'shield' }), 'w', SDK_CTX, 5000)
+    expect(r).toMatchObject({ kind: 'shield', meta: { fromChainId: 31337 } })
+  })
+
+  it('remaps an unshield-to-pool → unshield-xchain with the real recipient + destination chain (Tier 2)', () => {
+    const dest = getChainByDomain(102)!
+    const ctx = { ...SDK_CTX, poolAddress: POOL, xchainByTxid: new Map([['0xabc', { destinationDomain: 102, recipient: '0xdead00000000000000000000000000000000beef' as const }]]) }
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'unshield', value: -500_000n, recipient: POOL }), 'w', ctx, 5000)
+    expect(r).toMatchObject({ kind: 'unshield-xchain', meta: { toChainId: dest.chainId, recipient: '0xdead00000000000000000000000000000000beef' } })
+  })
+
+  it('keeps an unshield to a non-pool EOA as unshield-local even with a dest domain in the map (Tier 2)', () => {
+    const ctx = { ...SDK_CTX, poolAddress: POOL, xchainByTxid: new Map([['0xabc', { destinationDomain: 102, recipient: '0xr' as const }]]) }
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'unshield', value: -500_000n, recipient: '0xeoa' }), 'w', ctx, 5000)
+    expect(r).toMatchObject({ kind: 'unshield-local', meta: { recipient: '0xeoa' } })
   })
 
   it('matches USDC case-insensitively and fails open when the USDC address is unresolved (#41)', () => {

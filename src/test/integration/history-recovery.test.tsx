@@ -41,7 +41,7 @@ const hoisted = vi.hoisted(() => {
       }
     },
     loadDeployments: vi.fn(async () => ({
-      hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK, cctp: { usdc: '0xusdc' } },
+      hub: { chainId: 31337, deployBlock: HUB_DEPLOY_BLOCK, cctp: { usdc: '0xusdc' }, contracts: { privacyPool: '0xpool' } },
       clients: [],
     })),
     loadYieldDeployment: vi.fn(async () => null),

@@ -3,9 +3,12 @@
 
 import { lifecycleFor } from '@/lib/tx/lifecycles'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
+import { getChainByDomain, getNetworkConfig } from '@/config/network'
+import { getCachedDeployments } from '@/config/deployments'
 import { getHubBlockTimestamps } from './network'
 import { readSdkHistory } from './sdk-read'
 import { decodeTxSelfMetadata } from './selfMetadata'
+import { buildXchainCctpMap, type XchainCctp } from './xchain-recovery'
 import type { HistoryEntry } from '@armada/sdk'
 
 /**
@@ -25,6 +28,13 @@ import type { HistoryEntry } from '@armada/sdk'
 export interface HistoryMapContext {
   hubChainId: number
   usdcAddress: string
+  /** Hub PrivacyPool address — the unshield recipient on a cross-chain exit (a local unshield goes to
+   *  an EOA). Used with `xchainByTxid` to distinguish `unshield-local` from `unshield-xchain`. */
+  poolAddress?: string
+  /** Cross-chain routing recovered from the hub CCTP events, keyed by txid (`xchain-recovery.ts`). An
+   *  entry with `sourceDomain` remaps a `shield` → `shield-xchain`; one with `destinationDomain` remaps
+   *  an unshield-to-pool → `unshield-xchain`. Absent → everything stays same-chain. */
+  xchainByTxid?: ReadonlyMap<string, XchainCctp>
 }
 
 /** Empty default — convenient for tests + the no-yield-detection path. Empty `usdcAddress` makes the
@@ -137,23 +147,37 @@ export function historyEntryToTxRecord(
 
   switch (entry.category) {
     case 'shield': {
-      const stages = terminalizeStages('shield')
       const shieldFee = entry.shieldFee ?? 0n
+      // Reconstruct the deposit total so the receipt's `amount - feeAmount - protocolFee` lands on the
+      // user's net note (entry.value): user note + its protocol shield fee + the gasless relayer fee
+      // note. NOTE: the relayer note's OWN shield fee isn't attributable from the user's wallet, so the
+      // total runs ~that fee short of the true deposit (SDK limitation); the received amount is exact.
+      const amount = entry.value + shieldFee + broadcasterFee
+      // Shared meta between same-chain shield + cross-chain shield.
+      const shieldMeta = {
+        feeCacheId: '',
+        ...(shieldFee > 0n ? { protocolFee: shieldFee } : {}),
+        // A recovered shield carrying a broadcaster fee note was a gasless (relayer-submitted) shield —
+        // surface the relayer fee so the recovered total matches note + fee (#43).
+        ...(broadcasterFee > 0n ? { useGasless: true, feeAmount: broadcasterFee, broadcasterShieldedAddress } : {}),
+      }
+      // A hub shield whose tx carried a CCTP `MessageReceived` was a cross-chain shield — recover the
+      // source chain from the event's domain (Tier 2). `getChainByDomain` maps CCTP domain → chain.
+      const sourceDomain = ctx.xchainByTxid?.get(entry.txid)?.sourceDomain
+      const sourceChainId = sourceDomain !== undefined ? getChainByDomain(sourceDomain)?.chainId : undefined
+      if (sourceChainId !== undefined) {
+        const stages = terminalizeStages('shield-xchain')
+        return {
+          id: syntheticTxId(entry.txid, entry.category), kind: 'shield-xchain', executionState: 'completed',
+          stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
+          meta: { amount, fromChainId: sourceChainId, ...shieldMeta },
+        }
+      }
+      const stages = terminalizeStages('shield')
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'shield', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: {
-          // Reconstruct the deposit total so the receipt's `amount - feeAmount - protocolFee` lands on
-          // the user's net note (entry.value): user note + its protocol shield fee + the gasless relayer
-          // fee note. NOTE: from the user's wallet the relayer note's OWN shield fee isn't attributable
-          // (the wallet doesn't own that note), so the recovered total runs ~that fee short of the true
-          // deposit — an SDK-side limitation; the recovered received amount is exact.
-          amount: entry.value + shieldFee + broadcasterFee, feeCacheId: '', fromChainId: ctx.hubChainId,
-          ...(shieldFee > 0n ? { protocolFee: shieldFee } : {}),
-          // A recovered shield carrying a broadcaster fee note was a gasless (relayer-submitted)
-          // shield — surface the relayer fee so the recovered total matches note + fee (#43).
-          ...(broadcasterFee > 0n ? { useGasless: true, feeAmount: broadcasterFee, broadcasterShieldedAddress } : {}),
-        },
+        meta: { amount, fromChainId: ctx.hubChainId, ...shieldMeta },
       }
     }
     case 'self-transfer': {
@@ -202,15 +226,32 @@ export function historyEntryToTxRecord(
       }
     }
     case 'unshield': {
+      const amount = abs - broadcasterFee - (entry.unshieldFee ?? 0n)
+      const unshieldMeta = {
+        amount, feeCacheId: recoveredFeeCacheId,
+        broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
+      }
+      // An unshield addressed to the pool that carried a CCTP `MessageSent` was a cross-chain exit
+      // (Tier 2) — recover the destination chain + the REAL final recipient (the on-chain unshield
+      // recipient is the pool, which forwards via CCTP).
+      const x = entry.recipient !== undefined && ctx.poolAddress !== undefined
+        && entry.recipient.toLowerCase() === ctx.poolAddress.toLowerCase()
+        ? ctx.xchainByTxid?.get(entry.txid)
+        : undefined
+      const destChainId = x?.destinationDomain !== undefined ? getChainByDomain(x.destinationDomain)?.chainId : undefined
+      if (destChainId !== undefined) {
+        const stages = terminalizeStages('unshield-xchain')
+        return {
+          id: syntheticTxId(entry.txid, entry.category), kind: 'unshield-xchain', executionState: 'completed',
+          stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
+          meta: { ...unshieldMeta, recipient: x?.recipient ?? entry.recipient ?? 'unknown', toChainId: destChainId },
+        }
+      }
       const stages = terminalizeStages('unshield-local')
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'unshield-local', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: {
-          amount: abs - broadcasterFee - (entry.unshieldFee ?? 0n), feeCacheId: recoveredFeeCacheId,
-          recipient: entry.recipient ?? 'unknown',
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
-        },
+        meta: { ...unshieldMeta, recipient: entry.recipient ?? 'unknown' },
       }
     }
     case 'yield-deposit': {
@@ -248,6 +289,33 @@ export function historyEntryToTxRecord(
 }
 
 /**
+ * Enrich the map context with cross-chain routing recovered from the hub CCTP events (Tier 2). Reads
+ * the CCTP MessageTransmitter address from the cached deployment and the hub RPC from config; returns
+ * `ctx` unchanged when they're unavailable, when `poolAddress` isn't set, or when no candidate resolves.
+ * Never throws — cross-chain recovery is additive, and a failure must never break same-chain history.
+ */
+async function withXchainRouting(
+  entries: ReadonlyArray<HistoryEntry>,
+  ctx: HistoryMapContext,
+): Promise<HistoryMapContext> {
+  try {
+    const deployments = getCachedDeployments()
+    const transmitter = deployments?.hub.cctp?.messageTransmitter as `0x${string}` | undefined
+    const hubRpcUrl = getNetworkConfig().hub.rpcUrls[0]
+    if (ctx.poolAddress === undefined || transmitter === undefined || hubRpcUrl === undefined) return ctx
+    const xchainByTxid = await buildXchainCctpMap({
+      entries,
+      poolAddress: ctx.poolAddress,
+      transmitterAddress: transmitter,
+      hubRpcUrl,
+    })
+    return xchainByTxid.size > 0 ? { ...ctx, xchainByTxid } : ctx
+  } catch {
+    return ctx
+  }
+}
+
+/**
  * Single entry point for both first-time recovery and ongoing incoming-transfer detection. Syncs
  * the @armada/sdk wallet, maps its history entries to `TxRecord`s, and surfaces a checkpoint
  * candidate (`highestBlock`). The SDK doesn't stamp a timestamp on every chain, so block times are
@@ -263,11 +331,17 @@ export async function runHistoryScan(
   const blocks = [...new Set(entries.map(e => e.blockNumber))]
   const timestamps = blocks.length > 0 ? await getHubBlockTimestamps(blocks) : new Map<number, number>()
 
+  // Tier 2: recover cross-chain routing from the hub CCTP events, so recovered shields/unshields that
+  // were actually cross-chain remap to `shield-xchain` / `unshield-xchain` with their real source /
+  // destination chain. Best-effort — a missing transmitter/RPC or a flaky fetch leaves everything
+  // same-chain (never throws, never drops history).
+  const enrichedCtx = await withXchainRouting(entries, ctx)
+
   const records: TxRecord[] = []
   let highest: number | null = null
   for (const entry of entries) {
     const seconds = timestamps.get(entry.blockNumber)
-    const record = historyEntryToTxRecord(entry, walletId, ctx, seconds !== undefined ? seconds * 1000 : 0)
+    const record = historyEntryToTxRecord(entry, walletId, enrichedCtx, seconds !== undefined ? seconds * 1000 : 0)
     if (record) records.push(record)
     if (highest === null || entry.blockNumber > highest) highest = entry.blockNumber
   }
