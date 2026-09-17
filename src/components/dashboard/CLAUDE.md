@@ -38,4 +38,4 @@ Shared primitives `IconButton`, `Tooltip`, `BottomSheet` live in `@/design`; the
 
 - `useDashboardBackground` is a stub returning `'gradient'`; the solid/gradient toggle UI is not ported.
 - The `Request` action opens the request-via-link flow (`components/request/RequestModal`).
-- `VaultPositionBar` "earned" figure shows a literal `???` placeholder — real accrued yield needs vault cost-basis tracking (`sharesToUsdc(shares) − principal`), which isn't wired. Pass a real `earnedAmount` once that exists. Deliberately not a realistic-looking estimate, so the stub can't be mistaken for real data.
+- `VaultPositionBar` "earned" figure = accrued vault yield, computed by `Dashboard` as `accruedVaultYieldRaw(txList, currentVaultValue)` (vault value − net settled deposits/withdrawals from history; `vaultEarnings.ts`) and passed as `earnedAmount`. Gated on `vaultLoaded && !gated && historyRecovery.state === 'idle'` so it only shows once history has settled — otherwise it falls back to the obvious `???` placeholder rather than a wrong number (a mid/failed recovery scan would under-count deposits).

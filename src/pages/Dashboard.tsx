@@ -22,6 +22,8 @@ import { usePrivateUsdcDisplay } from '@/hooks/usePrivateUsdcDisplay'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { sharesToUsdc } from '@/lib/yield'
+import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
+import { historyRecoveryAtom } from '@/state/history'
 import { openModalAtom, balanceHiddenAtom } from '@/state/ui'
 import { shieldedUsdcAtom, syncStateAtom, yieldSharesAtom, shieldedWalletAtom, evmAddressAtom } from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
@@ -102,6 +104,16 @@ export function Dashboard() {
     yieldShares !== null && yieldRate !== null ? sharesToUsdc(yieldShares, yieldRate.rate) : 0n
   const liveVault = usdcToNumber(earningUsdc)
   const vaultApy = yieldRate !== null ? Number(yieldRate.apyBps) / 100 : undefined
+  // Accrued vault yield = current vault value − net capital contributed (settled yield deposits −
+  // withdrawals, from history). Only trustworthy once the vault has loaded, the initial sync gate has
+  // lifted, and history recovery has SETTLED (`idle`) — a mid/failed recovery scan would under-count
+  // deposits and over-state the gain. Until then leave it undefined so the bar shows its placeholder
+  // rather than a wrong-looking number.
+  const historyRecovery = useAtomValue(historyRecoveryAtom)
+  const vaultEarned =
+    vaultLoaded && !gated && historyRecovery.state === 'idle'
+      ? usdcToNumber(accruedVaultYieldRaw(txList, earningUsdc))
+      : undefined
   // Both the private balance and the vault position are held while a tx modal is open (or the sync
   // gate is up), then advance together with a single roll trigger on return — so the balance roll,
   // the vault-row grow-in, and the earn-banner handoff all play on the dashboard rather than behind
@@ -231,6 +243,7 @@ export function Dashboard() {
           vaultBalance={displayedVault}
           vaultRollFromValue={vaultRollFromValue}
           vaultApy={vaultApy}
+          vaultEarned={vaultEarned}
           armadaAddress={shieldedWallet.shieldedAddress}
           balanceHidden={balanceHidden}
           onBalanceHiddenChange={setBalanceHidden}
