@@ -12,6 +12,7 @@ import { ReceiveDialog } from '@/components/receive'
 import { RequestModal } from '@/components/request'
 import { EarnModal } from '@/components/yield'
 import { SettingsModal } from '@/components/settings'
+import { SingleTabGate } from '@/components/SingleTabGate'
 import { useAutoLock } from '@/hooks/useAutoLock'
 import { usePayViaLinkIntent } from '@/hooks/usePayViaLinkIntent'
 import { useHistoryRecovery } from '@/hooks/useHistoryRecovery'
@@ -53,6 +54,7 @@ import {
   shieldedWalletAtom,
   shieldedWalletsAtom,
 } from '@/state/wallet'
+import { anotherTabActiveAtom } from '@/state/ui'
 
 export function App() {
   useTabVisible()
@@ -101,6 +103,7 @@ export function App() {
   }, [setDevMockBalance])
 
   const wallet = useAtomValue(shieldedWalletAtom)
+  const anotherTabActive = useAtomValue(anotherTabActiveAtom)
   const setShieldedWallets = useSetAtom(shieldedWalletsAtom)
   const setActiveWalletId = useSetAtom(activeShieldedWalletIdAtom)
   const [mode, setMode] = useState<GuardMode>('pre-migration')
@@ -172,6 +175,12 @@ export function App() {
     const next = appModeForWalletStatus(mode, wallet.status)
     if (next) setMode(next)
   }, [mode, wallet.status])
+
+  // Another tab already holds the shielded scan instance (SDK enforces one per origin) — supersede
+  // every mode with the single-tab gate so the user sees a clear message, not a broken shell.
+  if (anotherTabActive) {
+    return <SingleTabGate />
+  }
 
   if (mode === 'pre-migration' || mode === 'pre-init') {
     // Brief pre-render gap. `pre-migration` waits for the v2 schema-migration to drop legacy

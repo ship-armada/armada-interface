@@ -10,6 +10,8 @@ import {
   type ArmadaSdk,
   type HistoryEntry,
 } from '@armada/sdk'
+import { getDefaultStore } from 'jotai'
+import { anotherTabActiveAtom } from '@/state/ui'
 import { getCachedDeployments, getUsdcAddress, loadYieldDeployment } from '../../config/deployments'
 import { getNetworkConfig } from '../../config/network'
 import * as keyManager from './keyManager'
@@ -144,6 +146,15 @@ async function ensureInstance(): Promise<SdkInstance> {
   pendingInstance = { address: engineAddress, promise }
   try {
     return await promise
+  } catch (err) {
+    // Another live SDK instance in this origin (a second tab) holds the scan DB — the SDK refuses to
+    // open a concurrent one (it would corrupt scan state). Surface the full-screen single-tab gate;
+    // still rethrow so the calling read fails as before (the gate takes over the screen). Match on the
+    // SDK's stable `code` (its guidance: match `code`, never instance/message).
+    if (typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'STORAGE_CONFLICT') {
+      getDefaultStore().set(anotherTabActiveAtom, true)
+    }
+    throw err
   } finally {
     // Clear the marker only if still ours — a later identity change may have replaced it mid-build.
     if (pendingInstance !== null && pendingInstance.promise === promise) pendingInstance = null
