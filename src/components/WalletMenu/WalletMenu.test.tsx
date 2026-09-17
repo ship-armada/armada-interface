@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { WalletMenu, type WalletMenuProps } from './WalletMenu'
+import { WalletMenu, buildWalletChainBalances, type WalletMenuProps } from './WalletMenu'
 
 const FULL = '0x1234567890abcdef1234567890abcdef12345678'
 const DISPLAY = '0x1234…5678'
@@ -12,8 +12,7 @@ function setup(extra?: Partial<WalletMenuProps>) {
     displayAddress: DISPLAY,
     fullAddress: FULL,
     walletProvider: 'MetaMask',
-    chainId: 11155111,
-    usdcBalance: 1234.5,
+    balances: [{ chainId: 11155111, networkLabel: 'Ethereum Sepolia', usdcBalance: 1234.5 }],
     networkLabel: 'Ethereum Sepolia',
     explorerUrl: `https://sepolia.etherscan.io/address/${FULL}`,
     balanceHidden: false,
@@ -87,5 +86,53 @@ describe('<WalletMenu>', () => {
     setup({ explorerUrl: undefined })
     await openPanel()
     expect(screen.getByRole('button', { name: 'Explorer' })).toBeDisabled()
+  })
+
+  it('defaults to a combined Total row and expands to the per-chain breakdown (#8)', async () => {
+    setup({
+      balances: [
+        { chainId: 11155111, networkLabel: 'Ethereum Sepolia', usdcBalance: 5 },
+        { chainId: 84532, networkLabel: 'Base Sepolia', usdcBalance: 3 },
+      ],
+    })
+    await openPanel()
+    // Collapsed by default: a combined Total (5 + 3 = 8) across "2 networks"; per-chain rows hidden.
+    expect(screen.getByLabelText('8 USDC total')).toBeInTheDocument()
+    expect(screen.getByText('2 networks')).toBeInTheDocument()
+    expect(screen.queryByLabelText('5 USDC on Ethereum Sepolia')).toBeNull()
+    // Expand → the per-chain breakdown appears.
+    fireEvent.click(screen.getByRole('button', { name: /2 networks/ }))
+    expect(screen.getByLabelText('5 USDC on Ethereum Sepolia')).toBeInTheDocument()
+    expect(screen.getByLabelText('3 USDC on Base Sepolia')).toBeInTheDocument()
+  })
+
+  it('shows a single chain directly with no Total toggle', async () => {
+    setup({ balances: [{ chainId: 84532, networkLabel: 'Base Sepolia', usdcBalance: 3 }] })
+    await openPanel()
+    expect(screen.getByLabelText('3 USDC on Base Sepolia')).toBeInTheDocument()
+    // No combined "N networks" toggle when there's only one chain.
+    expect(screen.queryByText(/networks/)).toBeNull()
+  })
+})
+
+describe('buildWalletChainBalances', () => {
+  const nameOf = (id: number) => (id === 11155111 ? 'Ethereum Sepolia' : id === 84532 ? 'Base Sepolia' : `Chain ${id}`)
+
+  it('returns one row per chain with a positive balance, sorted by balance desc', () => {
+    const rows = buildWalletChainBalances({ 11155111: 5_000_000n, 84532: 8_000_000n }, 11155111, nameOf)
+    expect(rows).toEqual([
+      { chainId: 84532, networkLabel: 'Base Sepolia', usdcBalance: 8 },
+      { chainId: 11155111, networkLabel: 'Ethereum Sepolia', usdcBalance: 5 },
+    ])
+  })
+
+  it('drops zero-balance chains', () => {
+    const rows = buildWalletChainBalances({ 11155111: 5_000_000n, 84532: 0n }, 84532, nameOf)
+    expect(rows.map((r) => r.chainId)).toEqual([11155111])
+  })
+
+  it('falls back to a single zero row for the connected chain when nothing is held', () => {
+    const rows = buildWalletChainBalances({ 11155111: 0n }, 84532, nameOf)
+    expect(rows).toEqual([{ chainId: 84532, networkLabel: 'Base Sepolia', usdcBalance: 0 }])
   })
 })

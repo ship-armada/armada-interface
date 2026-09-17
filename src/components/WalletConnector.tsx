@@ -1,12 +1,11 @@
 // ABOUTME: Header wallet control — RainbowKit connect flow; connected state renders the WalletMenu pill + side panel.
 
-import { useMemo } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { AlertTriangle, Loader2, LogIn } from 'lucide-react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { useAccount, useDisconnect } from 'wagmi'
 import { Button, WalletButton } from '@/design'
-import { WalletMenu } from '@/components/WalletMenu'
+import { WalletMenu, buildWalletChainBalances } from '@/components/WalletMenu'
 import { useBalances } from '@/hooks/useBalances'
 import { openModalAtom, balanceHiddenAtom } from '@/state/ui'
 import { getChainById } from '@/config/network'
@@ -14,19 +13,10 @@ import { truncateAddress } from '@/lib/format'
 import { walletProviderFromConnector } from '@/lib/walletProvider'
 import styles from './WalletConnector.module.css'
 
-function totalUnshieldedUsdc(unshielded: Record<number, bigint>): number {
-  let sum = 0n
-  for (const amount of Object.values(unshielded)) {
-    sum += amount
-  }
-  return Number(sum) / 1e6
-}
-
 export function WalletConnector() {
   const { connector } = useAccount()
   const { disconnect } = useDisconnect()
   const { unshielded } = useBalances()
-  const usdcBalance = useMemo(() => totalUnshieldedUsdc(unshielded), [unshielded])
   const walletProvider = walletProviderFromConnector(connector)
   const setOpenModal = useSetAtom(openModalAtom)
   const [balanceHidden, setBalanceHidden] = useAtom(balanceHiddenAtom)
@@ -113,14 +103,20 @@ export function WalletConnector() {
         const explorerBase = getChainById(chain.id)?.explorerUrl
         const explorerUrl = explorerBase ? `${explorerBase}/address/${account.address}` : undefined
         const networkLabel = chain.name ?? getChainById(chain.id)?.name ?? `Chain ${chain.id}`
+        // Per-chain USDC breakdown — a shield is per-chain, so the panel shows where the balance
+        // actually sits rather than a misleading combined total (#8).
+        const chainBalances = buildWalletChainBalances(
+          unshielded,
+          chain.id,
+          (id) => getChainById(id)?.name ?? `Chain ${id}`,
+        )
 
         return (
           <WalletMenu
             displayAddress={displayAddress}
             fullAddress={account.address}
             walletProvider={walletProvider}
-            chainId={chain.id}
-            usdcBalance={usdcBalance}
+            balances={chainBalances}
             networkLabel={networkLabel}
             explorerUrl={explorerUrl}
             balanceHidden={balanceHidden}

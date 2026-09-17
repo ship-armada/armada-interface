@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowTopRightOnSquareIcon,
   CheckIcon,
+  ChevronDownIcon,
   ClipboardDocumentIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -25,7 +26,9 @@ import styles from './WalletMenu.module.css'
 const HERO_ICON_PX = 56
 const USDC_GLYPH_PX = 40
 const USDC_GLYPH_SIZE = Math.round((USDC_GLYPH_PX * 24) / 18)
-const USDC_OVERLAY_ICON_PX = 16
+// Per-chain breakdown rows are compact + chain-forward: just the chain logo (no USDC glyph — the
+// USDC-forward Total row above already establishes the token).
+const CHAIN_GLYPH_PX = 28
 
 /** Pill fade duration — the pill fades out before the panel opens (and back in after it closes). */
 const PILL_FADE_MS = 180
@@ -35,6 +38,39 @@ function fadeDelayMs(): number {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : PILL_FADE_MS
 }
 
+/** One row of the per-chain USDC breakdown shown in the wallet panel. */
+export interface WalletChainBalance {
+  chainId: number
+  /** Human chain name (e.g. "Base Sepolia") — the row subtitle + a11y label. */
+  networkLabel: string
+  /** Plain USDC balance on that chain (already scaled from raw). */
+  usdcBalance: number
+}
+
+/**
+ * Build the wallet panel's per-chain USDC breakdown: one row per chain that holds USDC, sorted by
+ * balance descending. A shield is per-chain, so showing a single combined total is misleading (#8) —
+ * this surfaces WHERE the shieldable balance actually sits. Falls back to a single zero row for the
+ * connected chain when the wallet holds no USDC anywhere, so the panel never renders empty.
+ */
+export function buildWalletChainBalances(
+  unshielded: Record<number, bigint>,
+  connectedChainId: number,
+  nameOf: (chainId: number) => string,
+): WalletChainBalance[] {
+  const rows = Object.entries(unshielded)
+    .map(([id, raw]) => ({
+      chainId: Number(id),
+      networkLabel: nameOf(Number(id)),
+      usdcBalance: Number(raw) / 1e6,
+    }))
+    .filter((r) => r.usdcBalance > 0)
+    .sort((a, b) => b.usdcBalance - a.usdcBalance)
+  return rows.length > 0
+    ? rows
+    : [{ chainId: connectedChainId, networkLabel: nameOf(connectedChainId), usdcBalance: 0 }]
+}
+
 export interface WalletMenuProps {
   /** Truncated EVM address — shown on the pill + panel hero. */
   displayAddress: string
@@ -42,11 +78,9 @@ export interface WalletMenuProps {
   fullAddress: string
   /** Connected wallet provider name (wagmi connector) — drives the brand glyph. */
   walletProvider?: string
-  /** Connected chain id — drives the USDC-row network overlay glyph. */
-  chainId: number
-  /** Connected EVM wallet USDC balance (plain number). */
-  usdcBalance: number
-  /** Connected chain name — shown as the network tag + USDC row subtitle. */
+  /** Per-chain USDC balances — one row each, since a shield is per-chain (#8). */
+  balances: WalletChainBalance[]
+  /** Connected chain name — shown as the hero network tag. */
   networkLabel: string
   /** Address explorer URL; the "Explorer" action is disabled when absent (e.g. local Anvil). */
   explorerUrl?: string
@@ -63,8 +97,7 @@ export function WalletMenu({
   displayAddress,
   fullAddress,
   walletProvider,
-  chainId,
-  usdcBalance,
+  balances,
   networkLabel,
   explorerUrl,
   balanceHidden,
@@ -76,6 +109,8 @@ export function WalletMenu({
   const [panelOpen, setPanelOpen] = useState(false)
   const [pillHidden, setPillHidden] = useState(false)
   const [copied, setCopied] = useState(false)
+  // The USDC block defaults to a combined "Total" row; expand to reveal the per-chain breakdown (#8).
+  const [balancesExpanded, setBalancesExpanded] = useState(false)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -143,8 +178,38 @@ export function WalletMenu({
     onDeposit()
   }
 
-  const balanceLabel = `${formatUsdcAmount(usdcBalance)} USDC`
-  const OverlayIcon = chainIconForChainId(chainId)
+  const multiChain = balances.length > 1
+  const totalLabel = `${formatUsdcAmount(balances.reduce((sum, r) => sum + r.usdcBalance, 0))} USDC`
+
+  /** A compact per-chain row: chain logo, chain name, chain balance (muted). */
+  function renderChainRow(row: WalletChainBalance) {
+    const ChainIcon = chainIconForChainId(row.chainId)
+    const balanceLabel = `${formatUsdcAmount(row.usdcBalance)} USDC`
+    return (
+      <div className={styles.chainRow} key={row.chainId}>
+        <span className={styles.chainIcon} aria-hidden>
+          <span className={styles.chainGlyph}>
+            {ChainIcon ? (
+              <ChainIcon size={CHAIN_GLYPH_PX} variant="branded" />
+            ) : (
+              <TokenUSDC size={CHAIN_GLYPH_PX} variant="branded" />
+            )}
+          </span>
+        </span>
+        <div className={styles.tokenIdentity}>
+          <p className={[styles.tokenName, styles.chainName].join(' ')}>{row.networkLabel}</p>
+        </div>
+        <p
+          className={[styles.tokenBalance, styles.chainBalance].join(' ')}
+          aria-label={`${balanceLabel} on ${row.networkLabel}`}
+        >
+          <BalanceScrambleValue value={balanceLabel} revealed={!balanceHidden} />
+        </p>
+        {/* Match the Total row's trailing chevron so the amounts right-align. */}
+        <span className={styles.chainRowSpacer} aria-hidden />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -237,25 +302,47 @@ export function WalletMenu({
 
             <div className={styles.usdcBlock}>
               <p className={styles.usdcLabel}>Your USDC wallet balance</p>
-              <div className={styles.usdcRow}>
-                <span className={styles.usdcIcon} aria-hidden>
-                  <span className={styles.usdcGlyph}>
-                    <TokenUSDC size={USDC_GLYPH_SIZE} variant="branded" />
-                  </span>
-                  {OverlayIcon ? (
-                    <span className={styles.usdcOverlay}>
-                      <OverlayIcon size={USDC_OVERLAY_ICON_PX} variant="branded" />
+              {multiChain ? (
+                <>
+                  {/* Default view: a combined Total row. A shield is per-chain (#8), so expand to see
+                      WHERE the balance sits — the per-chain breakdown below. */}
+                  <button
+                    type="button"
+                    className={[styles.usdcRow, styles.usdcTotalRow].join(' ')}
+                    aria-expanded={balancesExpanded}
+                    aria-controls="wallet-chain-breakdown"
+                    onClick={() => setBalancesExpanded((v) => !v)}
+                  >
+                    <span className={styles.usdcIcon} aria-hidden>
+                      <span className={styles.usdcGlyph}>
+                        <TokenUSDC size={USDC_GLYPH_SIZE} variant="branded" />
+                      </span>
                     </span>
+                    <div className={styles.tokenIdentity}>
+                      <p className={styles.tokenName}>USDC</p>
+                      <p className={styles.tokenNetwork}>{`${balances.length} networks`}</p>
+                    </div>
+                    <p className={styles.tokenBalance} aria-label={`${totalLabel} total`}>
+                      <BalanceScrambleValue value={totalLabel} revealed={!balanceHidden} />
+                    </p>
+                    <ChevronDownIcon
+                      className={[styles.balancesChevron, balancesExpanded && styles.balancesChevronOpen]
+                        .filter(Boolean)
+                        .join(' ')}
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                  </button>
+                  {balancesExpanded ? (
+                    <div id="wallet-chain-breakdown" className={styles.breakdown}>
+                      {balances.map(renderChainRow)}
+                    </div>
                   ) : null}
-                </span>
-                <div className={styles.tokenIdentity}>
-                  <p className={styles.tokenName}>USDC</p>
-                  <p className={styles.tokenNetwork}>{networkLabel}</p>
-                </div>
-                <p className={styles.tokenBalance}>
-                  <BalanceScrambleValue value={balanceLabel} revealed={!balanceHidden} />
-                </p>
-              </div>
+                </>
+              ) : (
+                // Single chain: no toggle — just show that chain's row directly.
+                balances.map(renderChainRow)
+              )}
             </div>
 
             <SendButton

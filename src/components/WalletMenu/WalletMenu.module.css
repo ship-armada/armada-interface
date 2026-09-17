@@ -169,6 +169,8 @@
 
 /* USDC balance block — a muted caption above the inset row. */
 .usdcBlock {
+  /* Shared so the Total row's chevron and the per-chain rows' alignment spacer stay in lock-step. */
+  --balances-chevron-size: 16px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -209,6 +211,60 @@
   background: var(--semantic-color-surface-raised-pressed);
 }
 
+/* The combined "Total" row is a toggle button styled like a usdcRow — reset the button chrome. */
+.usdcTotalRow {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: inherit;
+  color: inherit;
+}
+
+/* Expand/collapse chevron on the Total row — rotates when the per-chain breakdown is open. */
+.balancesChevron {
+  width: var(--balances-chevron-size);
+  height: var(--balances-chevron-size);
+  flex-shrink: 0;
+  color: var(--semantic-color-text-secondary);
+  transition: transform 0.15s ease;
+}
+.balancesChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* The per-chain rows revealed under the Total row when expanded. */
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+}
+
+/* Compact, chain-forward per-chain row (shorter than the USDC-forward Total row above it). No fill —
+   the rows read as a plain sublist below the raised Total row. */
+.chainRow {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+  width: 100%;
+  padding: var(--primitives-spacing-2) var(--primitives-spacing-3);
+  box-sizing: border-box;
+}
+
+/* Just the chain logo — the Total row above carries the USDC identity. */
+.chainIcon {
+  flex-shrink: 0;
+  width: var(--primitives-spacing-8);
+  height: var(--primitives-spacing-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chainGlyph {
+  display: block;
+  line-height: 0;
+}
+
 /* Composite USDC glyph + small chain-network overlay badge. */
 .usdcIcon {
   --overlay-size: var(--primitives-spacing-6);
@@ -231,24 +287,7 @@
   display: block;
 }
 
-.usdcOverlay {
-  position: absolute;
-  right: calc(var(--overlay-size) / -2);
-  bottom: calc(var(--primitives-spacing-1) * -0.25);
-  width: var(--overlay-size);
-  height: var(--overlay-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: calc(var(--primitives-borderRadius-full) * 1px);
-  background: var(--semantic-color-surface-default);
-  box-shadow: 0 0 0 calc(var(--primitives-borderWidth-default) * 1px)
-    color-mix(in srgb, var(--semantic-color-border-subtle) 50%, transparent);
-  line-height: 0;
-  overflow: hidden;
-}
-
-.usdcOverlay :global(svg) {
+.chainGlyph :global(svg) {
   display: block;
 }
 
@@ -288,6 +327,20 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+}
+
+/* Per-chain name + balance in a lighter grey. Placed after .tokenName/.tokenBalance so these win
+   the same-specificity `color` (the descendant-selector attempt read too close to primary). */
+.chainName,
+.chainBalance {
+  color: var(--semantic-color-text-muted);
+}
+
+/* Reserve the Total row's chevron footprint (16px) so per-chain amounts right-align with the Total
+   amount instead of sitting further right in the space the chevron occupies on the Total row. */
+.chainRowSpacer {
+  width: var(--balances-chevron-size);
+  flex-shrink: 0;
 }
 
 /* Deposit CTA. The brand gradient (amber → rose → lavender) overrides SendButton's default
