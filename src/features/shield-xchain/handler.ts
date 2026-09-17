@@ -114,8 +114,9 @@ const PRIVACY_POOL_CLIENT_SHIELD_ABI = [
  */
 export const shieldXchainHandler: StageHandler<'shield-xchain'> = {
   kind: 'shield-xchain',
-  // Iris/hub polling can be resumed; pre-receipt stages can't (ephemeral shield build + any permit sig + on-chain submit).
-  resumableFrom: ['submit-relayer', 'iris-attestation-pending'],
+  // Iris/hub polling + its collapsed tail stages can be resumed; pre-receipt stages can't (ephemeral
+  // shield build + any permit sig + on-chain submit).
+  resumableFrom: ['submit-relayer', 'iris-attestation-pending', 'iris-attestation-ready', 'hub-mint-pending'],
 
   async run(record, ctx) {
     try {
@@ -131,10 +132,15 @@ export const shieldXchainHandler: StageHandler<'shield-xchain'> = {
           await ctx.upsert(advance(record, 'iris-attestation-pending'))
           return
         case 'iris-attestation-pending':
+        // The collapsed tail stages are normally walked through synchronously inside
+        // runWaitForDelivery, but resume (#4) can re-enter run() with the record parked at one of
+        // them. Re-enter the delivery wait — it re-polls (idempotent: finds the already-delivered
+        // message) and walks to terminal — rather than falling through to a no-op that would
+        // busy-loop the chain. (hub-mint-confirmed is terminal, so the loop never calls run() there.)
+        case 'iris-attestation-ready':
+        case 'hub-mint-pending':
           await runWaitForDelivery(record, ctx)
           return
-        // Remaining stages are walked through inside runWaitForDelivery. Resume-on-load lands
-        // here only if we crashed mid-walk; we're already terminal in that case.
       }
     } catch (err) {
       if (ctx.signal.aborted) return

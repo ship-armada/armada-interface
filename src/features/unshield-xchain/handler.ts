@@ -83,8 +83,9 @@ function deliveryNonce(recordId: string): `0x${string}` {
  */
 export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
   kind: 'unshield-xchain',
-  // Iris/client polling can be resumed; pre-hub-receipt stages can't (proof + onchain submit).
-  resumableFrom: ['submit-relayer', 'iris-attestation-pending'],
+  // Iris/client polling + its collapsed tail stages can be resumed; pre-hub-receipt stages can't
+  // (proof + onchain submit).
+  resumableFrom: ['submit-relayer', 'iris-attestation-pending', 'iris-attestation-ready', 'client-mint-pending'],
 
   async run(record, ctx) {
     try {
@@ -102,11 +103,15 @@ export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
           await ctx.upsert(advance(record, 'iris-attestation-pending'))
           return
         case 'iris-attestation-pending':
+        // The collapsed tail stages are normally walked through synchronously inside
+        // runWaitForDelivery, but resume (#4) can re-enter run() with the record parked at one of
+        // them. Re-enter the delivery wait — it re-polls (idempotent: finds the already-delivered
+        // message) and walks to terminal — rather than falling through to a no-op that would
+        // busy-loop the chain. (client-mint-confirmed is terminal, so the loop never calls run() there.)
+        case 'iris-attestation-ready':
+        case 'client-mint-pending':
           await runWaitForDelivery(record, ctx)
           return
-        // The remaining stages (iris-attestation-ready / client-mint-pending /
-        // client-mint-confirmed) are advanced through inside runWaitForDelivery. If we end up
-        // here it's a resume from a partially-completed delivery and we're already terminal.
       }
     } catch (err) {
       if (ctx.signal.aborted) return

@@ -25,6 +25,7 @@ const INDETERMINATE_CODES: ReadonlySet<TxErrorCode> = new Set([
   'POLL_TIMEOUT',
   'DISMISSED',
   'DUPLICATE_TX',
+  'STUCK',
 ])
 
 export interface DashboardActivityItem {

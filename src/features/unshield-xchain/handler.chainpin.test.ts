@@ -97,3 +97,20 @@ describe('unshieldXchainHandler wallet-override chain pinning (W-3/W-4)', () => 
     expect(waitForReceiptMock).toHaveBeenCalledWith(expect.objectContaining({ chainId: 31337 }))
   })
 })
+
+// #4: resume can re-enter run() with the record parked at a collapsed delivery stage. Those stages
+// must route into the delivery wait (which re-polls and completes), NOT fall through to a no-op that
+// would busy-loop the executor's chain. Here the mocked deployment has no destination client, so the
+// delivery wait throws fast → the handler's catch writes markFailed — proving it routed in (a no-op
+// fall-through would have produced ZERO upserts).
+describe('unshieldXchainHandler collapsed-stage resume routing (#4)', () => {
+  it.each(['iris-attestation-ready', 'client-mint-pending'] as const)(
+    'routes a resume at %s into the delivery wait, not a no-op',
+    async (stage) => {
+      const { ctx, upserts } = makeCtx()
+      const rec = { ...overrideRecordWithHash(), stage, executionState: 'active' } as TxRecord<'unshield-xchain'>
+      await unshieldXchainHandler.run(rec, ctx)
+      expect(upserts.length).toBeGreaterThan(0)
+    },
+  )
+})

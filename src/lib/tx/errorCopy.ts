@@ -55,6 +55,10 @@ export const TX_ERROR_COPY: Record<TxErrorCode, TxErrorCopy> = {
     title: 'Stopped tracking',
     body: 'You asked us to stop watching this transaction. It may still complete on chain — check the explorer.',
   },
+  STUCK: {
+    title: 'Lost track of your transaction',
+    body: 'This transaction stalled unexpectedly. It may still complete on chain — check the explorer to confirm.',
+  },
   OTHER: {
     title: 'Something went wrong',
   },
