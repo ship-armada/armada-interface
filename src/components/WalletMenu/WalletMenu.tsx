@@ -26,10 +26,9 @@ import styles from './WalletMenu.module.css'
 const HERO_ICON_PX = 56
 const USDC_GLYPH_PX = 40
 const USDC_GLYPH_SIZE = Math.round((USDC_GLYPH_PX * 24) / 18)
-// Per-chain breakdown rows are compact + chain-forward: the chain logo is the main glyph, USDC a
-// small inset badge — the inverse of the USDC-forward Total row above them.
+// Per-chain breakdown rows are compact + chain-forward: just the chain logo (no USDC glyph — the
+// USDC-forward Total row above already establishes the token).
 const CHAIN_GLYPH_PX = 28
-const CHAIN_USDC_INSET_SIZE = Math.round((14 * 24) / 18)
 
 /** Pill fade duration — the pill fades out before the panel opens (and back in after it closes). */
 const PILL_FADE_MS = 180
@@ -182,7 +181,7 @@ export function WalletMenu({
   const multiChain = balances.length > 1
   const totalLabel = `${formatUsdcAmount(balances.reduce((sum, r) => sum + r.usdcBalance, 0))} USDC`
 
-  /** A compact per-chain row: chain logo (main) + small USDC inset, chain name, chain balance. */
+  /** A compact per-chain row: chain logo, chain name, chain balance (muted). */
   function renderChainRow(row: WalletChainBalance) {
     const ChainIcon = chainIconForChainId(row.chainId)
     const balanceLabel = `${formatUsdcAmount(row.usdcBalance)} USDC`
@@ -196,11 +195,6 @@ export function WalletMenu({
               <TokenUSDC size={CHAIN_GLYPH_PX} variant="branded" />
             )}
           </span>
-          {ChainIcon ? (
-            <span className={styles.chainUsdcInset}>
-              <TokenUSDC size={CHAIN_USDC_INSET_SIZE} variant="branded" />
-            </span>
-          ) : null}
         </span>
         <div className={styles.tokenIdentity}>
           <p className={styles.tokenName}>{row.networkLabel}</p>
@@ -309,7 +303,7 @@ export function WalletMenu({
                       WHERE the balance sits — the per-chain breakdown below. */}
                   <button
                     type="button"
-                    className={[styles.usdcRow, styles.usdcTotalRow].join(' ')}
+                    className={styles.usdcTotalRow}
                     aria-expanded={balancesExpanded}
                     aria-controls="wallet-chain-breakdown"
                     onClick={() => setBalancesExpanded((v) => !v)}

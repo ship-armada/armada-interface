@@ -209,14 +209,32 @@
   background: var(--semantic-color-surface-raised-pressed);
 }
 
-/* The combined "Total" row is a toggle button styled like a usdcRow — reset the button chrome. */
+/* The combined "Total" row is a toggle button — self-contained: usdcRow layout + the round action
+   buttons' frosted fill (so the summary reads as an elevated control above the recessed per-chain rows). */
 .usdcTotalRow {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+  width: 100%;
+  padding: var(--primitives-spacing-3);
+  border-radius: calc(var(--primitives-borderRadius-xl) * 1px);
+  box-sizing: border-box;
   appearance: none;
   border: none;
   cursor: pointer;
   font: inherit;
   text-align: inherit;
   color: inherit;
+  background: var(--semantic-color-frost-control);
+  transition: background 0.15s ease;
+}
+.usdcTotalRow:active {
+  background: var(--semantic-color-frost-pressed);
+}
+@media (hover: hover) and (pointer: fine) {
+  .usdcTotalRow:hover {
+    background: var(--semantic-color-frost-hover);
+  }
 }
 
 /* Expand/collapse chevron on the Total row — rotates when the per-chain breakdown is open. */
@@ -250,14 +268,11 @@
   box-sizing: border-box;
 }
 
-/* Reversed composite: chain logo as the main glyph, USDC as the small inset badge. */
+/* Just the chain logo — the Total row above carries the USDC identity. */
 .chainIcon {
-  --inset-size: var(--primitives-spacing-5);
-  position: relative;
   flex-shrink: 0;
   width: var(--primitives-spacing-8);
   height: var(--primitives-spacing-8);
-  margin-right: calc(var(--inset-size) / 2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -266,21 +281,10 @@
   display: block;
   line-height: 0;
 }
-.chainUsdcInset {
-  position: absolute;
-  right: calc(var(--inset-size) / -2);
-  bottom: calc(var(--primitives-spacing-1) * -0.25);
-  width: var(--inset-size);
-  height: var(--inset-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: calc(var(--primitives-borderRadius-full) * 1px);
-  background: var(--semantic-color-surface-default);
-  box-shadow: 0 0 0 calc(var(--primitives-borderWidth-default) * 1px)
-    color-mix(in srgb, var(--semantic-color-border-subtle) 50%, transparent);
-  line-height: 0;
-  overflow: hidden;
+/* Per-chain name + balance are muted — a lighter step below the Total row's primary text. */
+.chainRow .tokenName,
+.chainRow .tokenBalance {
+  color: var(--semantic-color-text-secondary);
 }
 
 /* Composite USDC glyph + small chain-network overlay badge. */
@@ -305,8 +309,7 @@
   display: block;
 }
 
-.chainGlyph :global(svg),
-.chainUsdcInset :global(svg) {
+.chainGlyph :global(svg) {
   display: block;
 }
 
