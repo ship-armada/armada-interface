@@ -197,11 +197,16 @@ export function WalletMenu({
           </span>
         </span>
         <div className={styles.tokenIdentity}>
-          <p className={styles.tokenName}>{row.networkLabel}</p>
+          <p className={[styles.tokenName, styles.chainName].join(' ')}>{row.networkLabel}</p>
         </div>
-        <p className={styles.tokenBalance} aria-label={`${balanceLabel} on ${row.networkLabel}`}>
+        <p
+          className={[styles.tokenBalance, styles.chainBalance].join(' ')}
+          aria-label={`${balanceLabel} on ${row.networkLabel}`}
+        >
           <BalanceScrambleValue value={balanceLabel} revealed={!balanceHidden} />
         </p>
+        {/* Match the Total row's trailing chevron so the amounts right-align. */}
+        <span className={styles.chainRowSpacer} aria-hidden />
       </div>
     )
   }

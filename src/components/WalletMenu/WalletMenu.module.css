@@ -169,6 +169,8 @@
 
 /* USDC balance block — a muted caption above the inset row. */
 .usdcBlock {
+  /* Shared so the Total row's chevron and the per-chain rows' alignment spacer stay in lock-step. */
+  --balances-chevron-size: 16px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -221,8 +223,8 @@
 
 /* Expand/collapse chevron on the Total row — rotates when the per-chain breakdown is open. */
 .balancesChevron {
-  width: 16px;
-  height: 16px;
+  width: var(--balances-chevron-size);
+  height: var(--balances-chevron-size);
   flex-shrink: 0;
   color: var(--semantic-color-text-secondary);
   transition: transform 0.15s ease;
@@ -325,6 +327,20 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+}
+
+/* Per-chain name + balance in a lighter grey. Placed after .tokenName/.tokenBalance so these win
+   the same-specificity `color` (the descendant-selector attempt read too close to primary). */
+.chainName,
+.chainBalance {
+  color: var(--semantic-color-text-muted);
+}
+
+/* Reserve the Total row's chevron footprint (16px) so per-chain amounts right-align with the Total
+   amount instead of sitting further right in the space the chevron occupies on the Total row. */
+.chainRowSpacer {
+  width: var(--balances-chevron-size);
+  flex-shrink: 0;
 }
 
 /* Deposit CTA. The brand gradient (amber → rose → lavender) overrides SendButton's default
