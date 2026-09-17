@@ -18,11 +18,14 @@ export interface EarnReviewStepProps {
   /**
    * Bottom-line USDC number for the summary total row, computed by the modal per tab. For Add this
    * is the private-balance debit (`amount + fee`); for Withdraw it's the net private-balance gain
-   * (`amount`), matching the actual yield-withdraw balance flow.
+   * (`amount - fee`, the fee skimmed from the redeemed proceeds).
    */
   netAmount: bigint
   /** Label paired with `netAmount` — also per-tab from the modal. */
   netLabel: string
+  /** Cross-tab estimate flag — withdraw redeems fixed shares at the execution-rate, so the net is an
+   *  estimate (marks the total with `≈` + a caption). Deposit is exact. */
+  estimated?: boolean
   submitBlockedReason?: string | null
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean
@@ -39,6 +42,7 @@ export function EarnReviewStep({
   fee,
   netAmount,
   netLabel,
+  estimated,
   submitBlockedReason,
   isSubmitting,
   feeUpdated,
@@ -68,6 +72,7 @@ export function EarnReviewStep({
           fee={fee}
           netAmount={netAmount}
           netLabel={netLabel}
+          estimated={estimated}
         />
 
         {tab === 'withdraw' ? (

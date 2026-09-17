@@ -18,7 +18,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
-import { shieldReceiptFromMeta } from '@/lib/fees/displayFees'
+import { shieldReceiptFromMeta, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -129,9 +129,10 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'yield-deposit':
     case 'yield-withdraw': {
       const meta = (record as TxRecord<'yield-deposit' | 'yield-withdraw'>).meta
-      const fee = meta.broadcasterFeeAmount
+      // Single receipt-math source shared with the completion screen so a completed yield op reads
+      // identically wherever it's shown (withdraw's `amount` is the handler-reconciled redeemed gross).
+      const { amount, fee, netAmount } = yieldReceiptFromMeta(meta, record.kind)
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
-      const netAmount = tab === 'add' ? meta.amount + fee : meta.amount - fee
       const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
       // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
       // the "Estimated APY" row shows the historical value. `EarnReviewSummary` reads only `apyBps`.
@@ -141,14 +142,14 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         flowLabel: 'Earn',
         steps: DEPOSIT_STEPS,
         title: tab === 'add' ? 'Vault deposit' : 'Vault withdrawal',
-        amount: meta.amount,
+        amount,
         explorerUrl,
         status,
         errorCopy,
         summary: (
           <EarnReviewSummary
             tab={tab}
-            amount={meta.amount}
+            amount={amount}
             rate={rate}
             fee={fee}
             netAmount={netAmount}

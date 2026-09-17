@@ -14,7 +14,7 @@ import { useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
 import { computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
-import { withdrawBelowFee } from '@/lib/fees/displayFees'
+import { withdrawBelowFee, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
@@ -178,6 +178,15 @@ export function EarnModal() {
     : submittedKind === 'yield-withdraw' ? txWithdraw
     : null
   const record = activeTx?.record ?? null
+
+  // Completion-screen figures. Once a record exists its meta is authoritative — for WITHDRAW the
+  // handler reconciles meta.amount to the ACTUAL redeemed gross (shares × execution-rate), so "confirm"
+  // shows the real figure identical to the activity receipt, not the submit-time estimate. Deposit
+  // amount is exact at submit (no rate drift). Falls back to the estimate before a record exists
+  // (never rendered — Complete only shows post-submit).
+  const completeReceipt = record
+    ? yieldReceiptFromMeta(record.meta, record.kind)
+    : { amount, fee: displayFeeTotal, netAmount: displayNetAmount }
 
   // Reset on close + sync initial tab when the entry-point modal kind changes.
   // Also pull a fresh rate on open so the APY hint + max-balance reflect current state — the
@@ -379,6 +388,8 @@ export function EarnModal() {
           fee={displayFeeTotal}
           netAmount={displayNetAmount}
           netLabel={displayNetLabel}
+          // Withdraw redeems fixed shares at the execution-rate → the net received is an estimate.
+          estimated={tab === 'withdraw'}
           submitBlockedReason={submitBlockedReason}
           feeUpdated={feeChanged}
           onBack={() => setStep('input')}
@@ -390,13 +401,13 @@ export function EarnModal() {
       {step === 'complete' && (
         <EarnCompleteStep
           tab={tab}
-          amount={amount}
+          amount={completeReceipt.amount}
           rate={yieldRate}
-          // Inclusive Fee total — broadcaster + protocol. No CCTP on yield kinds.
-          fee={displayFeeTotal}
-          // Per-tab net figure: Add debits `amount + fee`; Withdraw nets `amount - fee` into
-          // private balance (the broadcaster fee is a separate proof leg out of existing private USDC).
-          netAmount={displayNetAmount}
+          fee={completeReceipt.fee}
+          // Per-tab net figure derived from the (reconciled) record: Add debits `amount + fee`;
+          // Withdraw nets `amount - fee` into private balance (the fee is skimmed from the redeemed
+          // proceeds). `amount` is the actual redeemed gross once the handler reconciles it.
+          netAmount={completeReceipt.netAmount}
           netLabel={completeNetLabel}
           confirmedAt={record?.updatedAt ?? Date.now()}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

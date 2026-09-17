@@ -3,7 +3,7 @@
 
 import type { FeeSchedule } from '@/lib/relayer'
 import { userFeeForKind } from '@/lib/relayer'
-import type { MetaShield, MetaShieldXchain, TxKind } from '@/lib/tx/types'
+import type { MetaShield, MetaShieldXchain, MetaYieldDeposit, MetaYieldWithdraw, TxKind } from '@/lib/tx/types'
 
 export interface NativeGasEstimate {
   wei: bigint
@@ -97,6 +97,25 @@ export function shieldReceiptFromMeta(meta: MetaShield | MetaShieldXchain): {
   const totalFee = relayerFee + (meta.protocolFee ?? 0n) + cctpFee
   const netAmount = meta.amount > totalFee ? meta.amount - totalFee : meta.amount
   return { amount: meta.amount, fee: totalFee > 0n ? totalFee : null, netAmount }
+}
+
+/**
+ * Derive a yield op's confirmed receipt figures (headline amount, fee, net) from its stored `meta`.
+ * The broadcaster fee is the only fee leg on yield kinds (no CCTP; protocol fee is 0 on these ops).
+ *   - deposit: `netAmount = amount + fee` (total debited from the private balance).
+ *   - withdraw: `netAmount = amount - fee` (net received into the private balance; the fee is skimmed
+ *     from the redeemed proceeds). `amount` is the redeemed gross — the handler reconciles it to the
+ *     ACTUAL execution-rate value at completion, so a completed withdraw reads identically wherever
+ *     it's shown (complete screen, activity receipt, post-recovery). The SINGLE source of yield
+ *     receipt math — used by both the completion screen and the activity receipt.
+ */
+export function yieldReceiptFromMeta(
+  meta: MetaYieldDeposit | MetaYieldWithdraw,
+  kind: 'yield-deposit' | 'yield-withdraw',
+): { amount: bigint; fee: bigint; netAmount: bigint } {
+  const fee = meta.broadcasterFeeAmount
+  const netAmount = kind === 'yield-deposit' ? meta.amount + fee : meta.amount - fee
+  return { amount: meta.amount, fee, netAmount }
 }
 
 /**

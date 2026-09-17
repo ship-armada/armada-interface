@@ -14,12 +14,13 @@ import {
   isUnlocked as kmIsUnlocked,
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
+import { readSdkHistory } from '@/lib/shielded/sdk-read'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
 import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
-import { advance, markFailed } from '@/lib/tx/reducer'
+import { advance, markFailed, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
 import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { classifyHandlerError } from '@/lib/tx/errors'
@@ -56,6 +57,47 @@ export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
       await ctx.upsert(markFailed(record, classifyHandlerError(err, 'Vault withdrawal failed.', record.artifacts.sourceTxHash, getNetworkConfig().hub.chainId)))
     }
   },
+}
+
+/**
+ * Reconcile `meta.amount` to the ACTUAL redeemed gross so the confirmed receipt (and complete screen)
+ * match the note that landed — identical to what history recovery reconstructs on a rescan. The typed
+ * amount is a quote-time estimate: the redeem executes on fixed SHARES, and the execution-rate gross
+ * differs by the yield accrued between submit and execution. Read the actual gross (net received +
+ * broadcaster fee) from the SDK history entry for this txid, after a sync (option A — awaited so the
+ * complete screen shows the real figure immediately). Best-effort: a failed sync/read leaves the
+ * estimate, which a later rescan corrects. Returns undefined when nothing to reconcile.
+ */
+async function reconciledRedeemedAmount(txHash: `0x${string}`): Promise<bigint | undefined> {
+  if (!kmIsUnlocked()) return undefined
+  try {
+    await refreshShieldedBalances(kmGetWalletId())
+    const wanted = txHash.replace(/^0x/, '').toLowerCase()
+    const entry = (await readSdkHistory()).find(
+      (e) => e.category === 'yield-withdraw' && e.txid.replace(/^0x/, '').toLowerCase() === wanted,
+    )
+    if (!entry) return undefined
+    // Gross redeemed = the user's owned net note (entry.value) + the relayer fee note skimmed from the
+    // proceeds — matches historyEntryToTxRecord's `amount = entry.value + broadcasterFee`.
+    return entry.value + (entry.broadcasterFee ?? 0n)
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Advance the record to terminal `hub-confirmed`, folding the reconciled actual redeemed gross into
+ * the SAME write (via patchMeta) so the complete screen never flashes the submit-time estimate first.
+ */
+async function confirmWithReconciledAmount(
+  record: TxRecord<'yield-withdraw'>,
+  ctx: Parameters<typeof yieldWithdrawHandler.run>[1],
+  txHash: `0x${string}`,
+): Promise<void> {
+  const reconciledAmount = await reconciledRedeemedAmount(txHash)
+  let terminal = advance(record, 'hub-confirmed', { sourceTxHash: txHash })
+  if (reconciledAmount !== undefined) terminal = patchMeta(terminal, { amount: reconciledAmount })
+  await ctx.upsert(terminal)
 }
 
 /** A6 — null when wallet-override, otherwise the broadcaster context from meta. */
@@ -182,10 +224,8 @@ async function runSubmitAndConfirm(
       await ctx.upsert(broadcastRecord)
     }
     await waitForReceiptOrFail({ hash, signal: ctx.signal, chainId: hubChainId })
-    if (kmIsUnlocked()) {
-      void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-    }
-    await ctx.upsert(advance(broadcastRecord, 'hub-confirmed', { sourceTxHash: hash }))
+    // Syncs balances (awaited) AND reconciles meta.amount to the actual redeemed gross before terminal.
+    await confirmWithReconciledAmount(broadcastRecord, ctx, hash)
     return
   }
 
@@ -271,11 +311,6 @@ async function runSubmitAndConfirm(
 
   track('tx.relayer.confirmed', { id: record.id, kind: record.kind })
 
-  if (kmIsUnlocked()) {
-    void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-  }
-
-  await ctx.upsert(advance(broadcastRecord, 'hub-confirmed', {
-    sourceTxHash: txHash,
-  }))
+  // Syncs balances (awaited) AND reconciles meta.amount to the actual redeemed gross before terminal.
+  await confirmWithReconciledAmount(broadcastRecord, ctx, txHash)
 }

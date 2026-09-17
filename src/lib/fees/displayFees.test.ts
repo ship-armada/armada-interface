@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, shieldReceiptFromMeta, withdrawBelowFee } from './displayFees'
+import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, shieldReceiptFromMeta, withdrawBelowFee, yieldReceiptFromMeta } from './displayFees'
 import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'
-import type { MetaShield, MetaShieldXchain } from '@/lib/tx/types'
+import type { MetaShield, MetaShieldXchain, MetaYieldDeposit, MetaYieldWithdraw } from '@/lib/tx/types'
 
 const quote: FeeSchedule = {
   cacheId: 'test',
@@ -44,6 +44,36 @@ describe('computeDisplayFees', () => {
 describe('relayerGasFeeForKind', () => {
   it('returns 0 without a quote', () => {
     expect(relayerGasFeeForKind('transfer-shielded', null)).toBe(0n)
+  })
+})
+
+describe('yieldReceiptFromMeta', () => {
+  it('deposit nets amount + fee (total debited from the private balance)', () => {
+    const meta = {
+      amount: 500_000n, feeCacheId: 'x', broadcasterFeeAmount: 5_758_001n, broadcasterShieldedAddress: '0zk',
+    } as MetaYieldDeposit
+    expect(yieldReceiptFromMeta(meta, 'yield-deposit')).toEqual({
+      amount: 500_000n, fee: 5_758_001n, netAmount: 6_258_001n,
+    })
+  })
+
+  it('withdraw nets amount - fee (received; fee skimmed from the redeemed proceeds)', () => {
+    // The real reconciled withdraw: redeemed gross 6.000019, fee 5.758001 → received 0.242018.
+    const meta = {
+      amount: 6_000_019n, feeCacheId: 'x', broadcasterFeeAmount: 5_758_001n, broadcasterShieldedAddress: '0zk',
+    } as MetaYieldWithdraw
+    expect(yieldReceiptFromMeta(meta, 'yield-withdraw')).toEqual({
+      amount: 6_000_019n, fee: 5_758_001n, netAmount: 242_018n,
+    })
+  })
+
+  it('carries a zero fee (wallet-submit) unchanged', () => {
+    const meta = {
+      amount: 6_000_000n, feeCacheId: 'x', broadcasterFeeAmount: 0n, broadcasterShieldedAddress: '',
+    } as MetaYieldWithdraw
+    expect(yieldReceiptFromMeta(meta, 'yield-withdraw')).toEqual({
+      amount: 6_000_000n, fee: 0n, netAmount: 6_000_000n,
+    })
   })
 })
 
