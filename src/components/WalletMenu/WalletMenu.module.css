@@ -209,32 +209,14 @@
   background: var(--semantic-color-surface-raised-pressed);
 }
 
-/* The combined "Total" row is a toggle button — self-contained: usdcRow layout + the round action
-   buttons' frosted fill (so the summary reads as an elevated control above the recessed per-chain rows). */
+/* The combined "Total" row is a toggle button styled like a usdcRow — reset the button chrome. */
 .usdcTotalRow {
-  display: flex;
-  align-items: center;
-  gap: var(--primitives-spacing-3);
-  width: 100%;
-  padding: var(--primitives-spacing-3);
-  border-radius: calc(var(--primitives-borderRadius-xl) * 1px);
-  box-sizing: border-box;
   appearance: none;
   border: none;
   cursor: pointer;
   font: inherit;
   text-align: inherit;
   color: inherit;
-  background: var(--semantic-color-frost-control);
-  transition: background 0.15s ease;
-}
-.usdcTotalRow:active {
-  background: var(--semantic-color-frost-pressed);
-}
-@media (hover: hover) and (pointer: fine) {
-  .usdcTotalRow:hover {
-    background: var(--semantic-color-frost-hover);
-  }
 }
 
 /* Expand/collapse chevron on the Total row — rotates when the per-chain breakdown is open. */
@@ -256,15 +238,14 @@
   gap: var(--primitives-spacing-2);
 }
 
-/* Compact, chain-forward per-chain row (shorter than the USDC-forward Total row above it). */
+/* Compact, chain-forward per-chain row (shorter than the USDC-forward Total row above it). No fill —
+   the rows read as a plain sublist below the raised Total row. */
 .chainRow {
   display: flex;
   align-items: center;
   gap: var(--primitives-spacing-3);
   width: 100%;
   padding: var(--primitives-spacing-2) var(--primitives-spacing-3);
-  border-radius: calc(var(--primitives-borderRadius-lg) * 1px);
-  background: var(--semantic-color-surface-raised);
   box-sizing: border-box;
 }
 
@@ -280,11 +261,6 @@
 .chainGlyph {
   display: block;
   line-height: 0;
-}
-/* Per-chain name + balance are muted — a lighter step below the Total row's primary text. */
-.chainRow .tokenName,
-.chainRow .tokenBalance {
-  color: var(--semantic-color-text-secondary);
 }
 
 /* Composite USDC glyph + small chain-network overlay badge. */

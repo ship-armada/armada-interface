@@ -303,7 +303,7 @@ export function WalletMenu({
                       WHERE the balance sits — the per-chain breakdown below. */}
                   <button
                     type="button"
-                    className={styles.usdcTotalRow}
+                    className={[styles.usdcRow, styles.usdcTotalRow].join(' ')}
                     aria-expanded={balancesExpanded}
                     aria-controls="wallet-chain-breakdown"
                     onClick={() => setBalancesExpanded((v) => !v)}
