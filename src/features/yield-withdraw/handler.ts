@@ -3,8 +3,9 @@
 
 import { sendTransaction } from 'wagmi/actions'
 import { loadDeployments, loadYieldDeployment } from '@/config/deployments'
-import { getNetworkConfig } from '@/config/network'
+import { getChainById, getNetworkConfig } from '@/config/network'
 import { wagmiConfig } from '@/config/wagmi'
+import { createProvider } from '@/lib/rpc'
 import { ensureChain } from '@/lib/network-switch'
 import { waitForReceiptOrFail } from '@/lib/tx/receipt'
 import { simulateOrThrow } from '@/lib/tx/simulate'
@@ -14,8 +15,8 @@ import {
   isUnlocked as kmIsUnlocked,
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
-import { readSdkHistory } from '@/lib/shielded/sdk-read'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
+import { redeemedGrossFromLogs, type TransferLog } from './redeemedGross'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
 import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
@@ -61,25 +62,38 @@ export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
 
 /**
  * Reconcile `meta.amount` to the ACTUAL redeemed gross so the confirmed receipt (and complete screen)
- * match the note that landed — identical to what history recovery reconstructs on a rescan. The typed
- * amount is a quote-time estimate: the redeem executes on fixed SHARES, and the execution-rate gross
- * differs by the yield accrued between submit and execution. Read the actual gross (net received +
- * broadcaster fee) from the SDK history entry for this txid, after a sync (option A — awaited so the
- * complete screen shows the real figure immediately). Best-effort: a failed sync/read leaves the
- * estimate, which a later rescan corrects. Returns undefined when nothing to reconcile.
+ * match the note that landed. The typed amount is a quote-time estimate: the redeem executes on fixed
+ * SHARES, and the execution-rate gross differs by the yield accrued between submit and execution.
+ *
+ * Source it from the ON-CHAIN receipt, not the SDK history — a history read immediately after
+ * completion can be pre-settlement (the redeemed USDC re-shield note isn't scanned yet, so `entry.value`
+ * transiently reflects only the shares-spend and reads NEGATIVE). The redeemed gross is the USDC
+ * transferred INTO the PrivacyPool by `redeemAndShield` (the broadcaster fee is a shielded note, not an
+ * ERC-20 transfer, so the inbound USDC to the pool is the full gross). Deterministic + final once mined.
+ *
+ * Plausibility-guarded: the gross must be positive, cover the fee, and sit within a sane band of the
+ * typed estimate (rate slippage is minuscule) — else return undefined and keep the estimate (a later
+ * rescan corrects it). Best-effort: any RPC/parse failure also keeps the estimate.
  */
-async function reconciledRedeemedAmount(txHash: `0x${string}`): Promise<bigint | undefined> {
-  if (!kmIsUnlocked()) return undefined
+async function reconciledRedeemedGross(
+  record: TxRecord<'yield-withdraw'>,
+  txHash: `0x${string}`,
+): Promise<bigint | undefined> {
   try {
-    await refreshShieldedBalances(kmGetWalletId())
-    const wanted = txHash.replace(/^0x/, '').toLowerCase()
-    const entry = (await readSdkHistory()).find(
-      (e) => e.category === 'yield-withdraw' && e.txid.replace(/^0x/, '').toLowerCase() === wanted,
-    )
-    if (!entry) return undefined
-    // Gross redeemed = the user's owned net note (entry.value) + the relayer fee note skimmed from the
-    // proceeds — matches historyEntryToTxRecord's `amount = entry.value + broadcasterFee`.
-    return entry.value + (entry.broadcasterFee ?? 0n)
+    const deployments = await loadDeployments()
+    const usdc = deployments.hub.cctp.usdc.toLowerCase()
+    const pool = deployments.hub.contracts.privacyPool.toLowerCase()
+    const hubChain = getChainById(getNetworkConfig().hub.chainId)
+    if (!hubChain) return undefined
+    const receipt = await createProvider(hubChain.rpcUrls).getTransactionReceipt(txHash)
+    if (!receipt) return undefined
+    return redeemedGrossFromLogs({
+      logs: receipt.logs as unknown as ReadonlyArray<TransferLog>,
+      usdcAddress: usdc,
+      poolAddress: pool,
+      fee: record.meta.broadcasterFeeAmount,
+      estimate: record.meta.amount,
+    })
   } catch {
     return undefined
   }
@@ -87,17 +101,19 @@ async function reconciledRedeemedAmount(txHash: `0x${string}`): Promise<bigint |
 
 /**
  * Advance the record to terminal `hub-confirmed`, folding the reconciled actual redeemed gross into
- * the SAME write (via patchMeta) so the complete screen never flashes the submit-time estimate first.
+ * the SAME write (via patchMeta) so the complete screen shows the real figure directly (no flash), then
+ * refresh balances so the UI ticks up.
  */
 async function confirmWithReconciledAmount(
   record: TxRecord<'yield-withdraw'>,
   ctx: Parameters<typeof yieldWithdrawHandler.run>[1],
   txHash: `0x${string}`,
 ): Promise<void> {
-  const reconciledAmount = await reconciledRedeemedAmount(txHash)
+  const reconciledGross = await reconciledRedeemedGross(record, txHash)
   let terminal = advance(record, 'hub-confirmed', { sourceTxHash: txHash })
-  if (reconciledAmount !== undefined) terminal = patchMeta(terminal, { amount: reconciledAmount })
+  if (reconciledGross !== undefined) terminal = patchMeta(terminal, { amount: reconciledGross })
   await ctx.upsert(terminal)
+  if (kmIsUnlocked()) void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
 }
 
 /** A6 — null when wallet-override, otherwise the broadcaster context from meta. */
