@@ -44,6 +44,8 @@ export interface BalanceCardProps {
   onWithdraw?: () => void
   vaultBalance?: number
   vaultApy?: number
+  /** Accrued vault yield (USDC) for the green "earned" figure; undefined → the bar shows its placeholder. */
+  vaultEarned?: number
   vaultRollFromValue?: string
   onVaultOpen?: () => void
   activityVisible?: boolean
@@ -89,6 +91,7 @@ export function BalanceCard({
   onEarn,
   vaultBalance = 0,
   vaultApy,
+  vaultEarned,
   vaultRollFromValue,
   onVaultOpen,
   balanceHidden: balanceHiddenProp,
@@ -428,6 +431,7 @@ export function BalanceCard({
               <VaultPositionBar
                 balance={vaultBalance}
                 apy={vaultApy}
+                earnedAmount={vaultEarned}
                 vaultRollActive={vaultTransferRollActive && !vaultExiting}
                 vaultRollFromValue={vaultRollFromValue}
                 vaultRollTrigger={balanceRollTrigger}
