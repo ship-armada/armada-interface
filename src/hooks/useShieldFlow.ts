@@ -26,7 +26,7 @@ import {
   type WalletStep,
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
-import type { DisplayFees } from '@/lib/fees/displayFees'
+import { shieldProtocolFeeBase, shieldReceiptFromMeta, type DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -60,9 +60,12 @@ export interface ShieldFlow {
   displayFees: DisplayFees
   feeLoading: boolean
   flowBreakdown: FlowFeeBreakdown
-  /** Inclusive fee (broadcaster + on-chain protocol + CCTP) shown on the review/complete cards. */
+  /** Inclusive fee (broadcaster + on-chain protocol + CCTP) shown on the review card (an estimate). */
   feeInclusive: bigint
   netAmount: bigint
+  /** Completion-screen figures — record-derived actuals once a record exists (the handler reconciles
+   *  amount/protocolFee/cctpFee to the on-chain values at delivery), else the pre-submit estimate. */
+  completeReceipt: { amount: bigint; fee: bigint | null; netAmount: bigint }
   inputMax: bigint
   minAmount: bigint
   useGasless: boolean
@@ -179,19 +182,25 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // below as `protocolFee` so recipientReceives reflects the TRUE shielded value the user gets,
   // not just `amount - broadcasterFee`. nativeGas is also surfaced for the wallet-submit fallback
   // (gasless path doesn't pay native gas — Phase 6 hides that row).
-  const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
-    computedKind,
-    amount,
-    fromChainId,
-    quote,
-  )
-  const protocolFee = displayFees.protocolFee
   // CCTP fast-fee — applies to BOTH direct and gasless cross-chain shield (CCTP V2 always
   // charges its fast-fee on a cross-chain mint regardless of how the burn was initiated).
   // Routed through its own channel rather than the broadcaster slot so the tooltip can label it
   // "CCTP fee" instead of "Relayer fee" (which would be misleading on the direct path where
   // there's no broadcaster). Zero on any same-chain shield.
   const cctpFee: bigint = computedKind === 'shield-xchain' ? cctpFastFeeForAmount(amount) : 0n
+  // The pool shields only what reaches it after upstream carve-outs, so estimate the 50 bps protocol
+  // fee on that reduced base — not the full deposit — so "You'll shield" matches the note that lands:
+  //  - same-chain gasless shield: relayer fee carved out first → `amount - relayerFee`.
+  //  - shield-xchain: CCTP mint fee, then (gasless) relayer fee → `amount - relayerFee - cctpFee`.
+  const shieldFeeBase = shieldProtocolFeeBase(computedKind, amount, fee, useGasless, cctpFee)
+  const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
+    computedKind,
+    amount,
+    fromChainId,
+    quote,
+    shieldFeeBase,
+  )
+  const protocolFee = displayFees.protocolFee
   // Per-kind fee math (recipient receives / user is debited / how much they can type) lives in
   // the shared `computeFeeBreakdown` helper. Both gasless paths use `fee-from-recipient` so
   // the entered `amount` IS what's deducted from the user's USDC balance, and the shielded
@@ -320,12 +329,17 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
             wrapperAddress: hubWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            // Freeze the protocol shield fee so the receipt subtracts it too (matches what "You'll
+            // shield" showed in review — the note that lands is `amount - feeAmount - protocolFee`).
+            protocolFee,
           })
         } else {
           submittedId = await txShield.submit({
             amount,
             feeCacheId: activeQuote.cacheId,
             fromChainId,
+            // The pool takes its ~50 bps shield fee even on a direct submit — freeze it for the receipt.
+            protocolFee,
           })
         }
       } else {
@@ -356,12 +370,16 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
             wrapperAddress: clientWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
+            protocolFee,
           })
         } else {
           submittedId = await txShieldXchain.submit({
             amount,
             feeCacheId: activeQuote.cacheId,
             fromChainId,
+            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
+            protocolFee,
           })
         }
       }
@@ -419,6 +437,13 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     flowBreakdown,
     feeInclusive: fee + protocolFee + cctpFee,
     netAmount,
+    // Completion-screen figures. Once a record exists its meta is authoritative — the handler
+    // reconciles amount/protocolFee/cctpFee to the ACTUAL on-chain values at delivery, so "Confirm"
+    // shows the real numbers (identical to the activity receipt), not the pre-submit estimate. Falls
+    // back to the estimate before a record exists (never rendered — Complete only shows post-submit).
+    completeReceipt: record
+      ? shieldReceiptFromMeta((record as ShieldRecord).meta)
+      : { amount, fee: fee + protocolFee + cctpFee, netAmount },
     inputMax,
     minAmount,
     useGasless,

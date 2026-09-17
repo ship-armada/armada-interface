@@ -20,12 +20,14 @@ import {
   isUnlocked as kmIsUnlocked,
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
+import { readSdkHistory } from '@/lib/shielded/sdk-read'
 import {
   generateRandomShieldPrivateKey,
   type ShieldRequestData,
 } from '@/lib/shielded/shield'
 import { createShieldRequestSdk } from '@/lib/shielded/shield-sdk'
-import { extractCctpMessageFromReceipt, messageReceivedTopic } from '@/lib/cctp'
+import { extractCctpMessageFromReceipt, messageReceivedTopic, readCctpFromLogs } from '@/lib/cctp'
+import type { Log } from 'viem'
 import { cctpMaxFeeForKind, submitRelay, fetchCctpDeliveryStatus } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { signUsdcPermit } from '@/lib/wallet/permit'
@@ -38,7 +40,7 @@ import {
   type ShieldDataStruct,
 } from '@/lib/wallet/shield-intent'
 import { ensureChain } from '@/lib/network-switch'
-import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
+import { advance, markFailed, markWaiting, patchArtifacts, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
 import { poll, pollBudgetMs } from '@/lib/tx/poller'
 import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
@@ -47,7 +49,7 @@ import { classifyHandlerError } from '@/lib/tx/errors'
 import { track } from '@/lib/telemetry'
 import { scanCctpDeliveryWindow } from '../unshield-xchain/scan'
 import type { StageHandler } from '@/lib/tx/executor'
-import type { TxRecord } from '@/lib/tx/types'
+import type { MetaShieldXchain, TxRecord } from '@/lib/tx/types'
 
 // MessageReceived ABI for ethers.Interface.parseLog. We route the destination scan through
 // ethers (rather than viem) so the app-wide bisecting JsonRpcProvider patch
@@ -774,9 +776,51 @@ async function runWaitForDelivery(
     })
   }
 
+  // Reconcile the record to the ACTUAL delivered values so the confirmed receipt AND the Complete
+  // screen match the note that landed — identical to what history recovery reconstructs on a rescan.
+  // The submit-time meta is only an estimate: Circle sets the CCTP `feeExecuted` at execution, and the
+  // protocol shield fee is exact only once the commitment lands. Sources mirror the recovery path:
+  //   - amount (true deposit = CCTP burn) + cctpFee (feeExecuted): the hub delivery MessageReceived.
+  //   - protocolFee (shield fee) + relayer fee: the SDK history entry for the hub tx, after a sync.
+  // Best-effort per field — a failed fetch/sync just leaves that field's estimate, which a later
+  // rescan corrects.
+  const reconciledMeta: Partial<MetaShieldXchain> = {}
+  try {
+    const deliveryReceipt = result.value ? await hubProvider.getTransactionReceipt(result.value) : null
+    if (deliveryReceipt) {
+      const info = readCctpFromLogs({
+        logs: deliveryReceipt.logs as unknown as ReadonlyArray<Log>,
+        messageTransmitterAddress: hubMessageTransmitter,
+      })
+      if (info.received?.burnAmount !== undefined) reconciledMeta.amount = info.received.burnAmount
+      if (info.received?.cctpFee !== undefined) reconciledMeta.cctpFee = info.received.cctpFee
+    }
+  } catch { /* best-effort — keep the submit-time estimate */ }
+
+  // Sync (awaited — option A) so the just-landed shield is scanned, then read the ACTUAL protocol
+  // shield fee (+ relayer fee) off its history entry. The hub delivery tx (`result.value`) is the tx
+  // that minted + shielded on the hub, so it's the txid the SDK keys the shield entry under.
+  if (kmIsUnlocked() && result.value) {
+    try {
+      await refreshShieldedBalances(kmGetWalletId())
+      const wanted = result.value.replace(/^0x/, '').toLowerCase()
+      const entry = (await readSdkHistory()).find(
+        (e) => e.category === 'shield' && e.txid.replace(/^0x/, '').toLowerCase() === wanted,
+      )
+      if (entry) {
+        if (entry.shieldFee !== undefined) reconciledMeta.protocolFee = entry.shieldFee
+        if (entry.broadcasterFee !== undefined && entry.broadcasterFee > 0n) {
+          reconciledMeta.feeAmount = entry.broadcasterFee
+        }
+      }
+    } catch { /* best-effort — keep the submit-time estimate */ }
+  }
+
   // Walk through the three intermediate stages with brief gaps so the stepper renders each row
   // as "current" rather than flashing through transitions in a single frame. Same pattern as the
-  // inverse-direction handler — see its docstring for the visual-delay rationale.
+  // inverse-direction handler — see its docstring for the visual-delay rationale. The reconciled
+  // actuals are folded into the SAME write that reaches the terminal stage, so the Complete screen
+  // renders the real figures directly (no estimate-then-snap flash).
   const STAGE_VISUAL_DELAY_MS = 350
   const skipStages = ['iris-attestation-ready', 'hub-mint-pending', 'hub-mint-confirmed'] as const
   for (let i = 0; i < skipStages.length; i++) {
@@ -785,6 +829,9 @@ async function runWaitForDelivery(
     if (ctx.signal.aborted) return
     const next = skipStages[i]!
     cursor = advance(cursor, next, next === 'hub-mint-confirmed' ? { destTxHash: result.value } : {})
+    if (next === 'hub-mint-confirmed' && Object.keys(reconciledMeta).length > 0) {
+      cursor = patchMeta(cursor, reconciledMeta)
+    }
     await ctx.upsert(cursor)
     if (i < skipStages.length - 1) {
       await new Promise<void>(resolve => {
@@ -793,10 +840,5 @@ async function runWaitForDelivery(
       })
       if (ctx.signal.aborted) return
     }
-  }
-
-  // The shield commitment is now on the hub merkle tree — refresh balances so the UI ticks up.
-  if (kmIsUnlocked()) {
-    void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
   }
 }

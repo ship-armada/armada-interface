@@ -334,10 +334,17 @@ describe('computeFeeBreakdown', () => {
     // their shielded balance. A regression that ignored `secondaryFee` would over-quote the
     // recipient's mint, a regression that double-counted it would under-quote.
     const cctpFee = 10_000n // 0.01 USDC raw
-    const r = computeFeeBreakdown('unshield-xchain', AMOUNT, FEE, MAX, { secondaryFee: cctpFee })
-    expect(r.recipientReceives).toBe(AMOUNT - cctpFee)
+    const protocolFee = 3_000n // 0.003 USDC raw (nonzero unshield fee — 0 on demo3, >0 on mainnet)
+    const r = computeFeeBreakdown('unshield-xchain', AMOUNT, FEE, MAX, { secondaryFee: cctpFee, protocolFee })
+    // recipient absorbs BOTH the CCTP fee and the protocol fee; the user's debit is amount + broadcaster.
+    expect(r.recipientReceives).toBe(AMOUNT - cctpFee - protocolFee)
     expect(r.totalDeducted).toBe(AMOUNT + FEE)
     expect(r.inputMax).toBe(MAX - FEE)
+    // The user-facing "fees" line (paired with "total deducted") MUST equal totalDeducted - amount =
+    // the broadcaster fee ALONE. The CCTP + protocol fees are recipient-side, so folding them into
+    // this line double-counts them (fees ≠ total − amount). useUnshieldFlow derives feeInclusive this
+    // way; guard the relationship here.
+    expect(r.totalDeducted - AMOUNT).toBe(FEE)
   })
 
   it('fee-on-top-and-from-recipient floors recipientReceives at 0n when CCTP fee exceeds amount', () => {

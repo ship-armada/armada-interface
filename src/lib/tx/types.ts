@@ -205,6 +205,13 @@ export interface MetaShield extends MetaCommon {
    * the old public-USDC fee. Only set when `useGasless` is true.
    */
   broadcasterShieldedAddress?: string
+  /**
+   * On-chain protocol shield fee (PrivacyPool's ~50 bps armadaTake) charged on the shielded note.
+   * Captured at submit-time from `useDisplayFees` so the receipt can subtract it — the note that
+   * lands is `amount - feeAmount - protocolFee`. Absent on records pre-dating this capture (the
+   * receipt treats absent as 0 and under-reports the fee for those, as it did before).
+   */
+  protocolFee?: bigint
 }
 
 export interface MetaShieldXchain extends MetaCommon {
@@ -246,6 +253,19 @@ export interface MetaShieldXchain extends MetaCommon {
    * hub at full value). Only set when `useGasless` is true.
    */
   broadcasterShieldedAddress?: string
+  /**
+   * On-chain protocol shield fee (PrivacyPool's ~50 bps armadaTake) charged on the hub-minted note.
+   * Captured at submit-time so the receipt can subtract it — the note that lands is
+   * `amount - feeAmount - protocolFee`. Absent on records pre-dating this capture. (Excludes the
+   * CCTP fast-fee, which is a separate line item — see `cctpFee`.)
+   */
+  protocolFee?: bigint
+  /**
+   * CCTP fee deducted from the cross-chain mint on the hub — an estimate at submit-time, reconciled
+   * to the actual `feeExecuted` on confirmation (and on rescan, recovered from the hub MessageReceived).
+   * The note that lands is `amount - cctpFee - feeAmount - protocolFee`; `amount` is the true deposit.
+   */
+  cctpFee?: bigint
 }
 
 export interface MetaUnshieldLocal extends MetaCommon, MetaBroadcaster {
@@ -288,23 +308,36 @@ interface MetaBroadcaster {
 export interface MetaTransferShielded extends MetaCommon, MetaBroadcaster {
   /** 0zk recipient. */
   recipient: string
+  /**
+   * Plaintext memo the sender attached to the recipient's note. Recovered from the sent output on a
+   * chain rescan (`sentOutputs[].memo`); absent when no memo was sent (or on pre-capture records).
+   */
+  memoText?: string
 }
 
 /**
  * Meta for a synthetic received transfer. Deliberately does NOT extend `MetaCommon` — a received
  * transfer carries no fee (we didn't author it, so there's no `feeCacheId` to attach). The sender
- * is private by Railgun's design and not recoverable, so we only keep the amount + any plaintext
- * memo the sender chose to attach.
+ * is private by Railgun's design unless they CHOSE to disclose their 0zk, in which case the SDK
+ * recovers it (`senderShieldedAddress`); otherwise only the amount + any plaintext memo survive.
  */
 export interface MetaTransferShieldedReceived {
   /** USDC raw amount (6 decimals) credited to our shielded balance. */
   amount: bigint
   /** Optional plaintext memo the sender attached (`memoText` on the SDK history item). */
   memoText?: string
+  /** Sender's 0zk address — present only when the sender opted to disclose it (SDK
+   *  `entry.senderShieldedAddress`); the sender is otherwise anonymous by design. */
+  senderShieldedAddress?: string
 }
 
-export type MetaYieldDeposit = MetaCommon & MetaBroadcaster
-export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster {
+/** Net vault APY (basis points) at submit-time — surfaces the "Estimated APY" row on the receipt.
+ *  Recovered on rescan via the spend's self-metadata (armada-sdk #88 lever 3). */
+interface MetaYieldApy {
+  apyBps?: bigint
+}
+export type MetaYieldDeposit = MetaCommon & MetaBroadcaster & MetaYieldApy
+export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster, MetaYieldApy {
   /** Yield share amount to redeem; `amount` is the expected USDC output. */
   shares: bigint
 }

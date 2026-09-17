@@ -39,7 +39,6 @@ async function readPathConfig(): Promise<{
     poolAddress: `0x${string}`
     deployBlock: number
     usdcAddress: `0x${string}`
-    additionalTokens?: `0x${string}`[]
     wrappers?: { yieldAdapter?: `0x${string}` }
     confirmationDepth: number
     finalityThreshold: number
@@ -55,8 +54,6 @@ async function readPathConfig(): Promise<{
   if (!poolAddress || !usdcAddress) {
     throw new Error('sdk-read: hub deployment missing privacyPool or usdc')
   }
-  // Scan the yield-vault share token too, so the SDK can report shielded ayUSDC shares.
-  const vault = await vaultTokenAddress()
   // Yield adapter → `pool.wrappers.yieldAdapter`: lets the SDK natively classify yield ops (history
   // `yield-deposit`/`yield-withdraw` categories) and bind the correct `crossContract` fee tier.
   const yieldAdapter = await yieldAdapterAddress()
@@ -70,7 +67,6 @@ async function readPathConfig(): Promise<{
       poolAddress,
       deployBlock: deployments.hub.deployBlock ?? 0,
       usdcAddress,
-      ...(vault ? { additionalTokens: [vault] } : {}),
       ...(yieldAdapter ? { wrappers: { yieldAdapter } } : {}),
       confirmationDepth: getNetworkConfig().confirmationDepth,
       finalityThreshold: getNetworkConfig().finalityThreshold,

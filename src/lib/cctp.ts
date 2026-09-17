@@ -101,6 +101,94 @@ export function extractCctpMessageFromReceipt(opts: {
 }
 
 /**
+ * Domains + final recipient parsed from a CCTP V2 message envelope. `sourceDomain`/`destinationDomain`
+ * are the CCTP domain ids (map to a chain via `getChainByDomain`); `mintRecipient` is the BurnMessage's
+ * final recipient as a 0x EVM address.
+ */
+export interface CctpMessageInfo {
+  sourceDomain: number
+  destinationDomain: number
+  mintRecipient: `0x${string}`
+}
+
+/**
+ * Parse a CCTP V2 message envelope (the `MessageSent` bytes) → domains + `mintRecipient`. Envelope
+ * layout: `version(4) | sourceDomain(4) | destDomain(4) | nonce(32) | sender(32) | recipient(32) |
+ * destinationCaller(32) | minFinality(4) | finalityExecuted(4) | messageBody(...)`; the BurnMessage
+ * body is `version(4) | burnToken(32) | mintRecipient(32) | …`, so `mintRecipient` (the final EVM
+ * recipient = last 20 bytes) sits at envelope byte offset 184. Returns null if the bytes are too short.
+ */
+export function readCctpMessage(message: `0x${string}`): CctpMessageInfo | null {
+  const raw = message.slice(2)
+  if (raw.length < 432) return null // shorter than header + BurnMessage.mintRecipient (byte 216)
+  const u32 = (byteOffset: number): number => parseInt(raw.slice(byteOffset * 2, (byteOffset + 4) * 2), 16)
+  return {
+    sourceDomain: u32(4),
+    destinationDomain: u32(8),
+    // mintRecipient bytes32 at byte 184; the address is its last 20 bytes → hex [392, 432).
+    mintRecipient: `0x${raw.slice(392, 432)}` as `0x${string}`,
+  }
+}
+
+/**
+ * Parse a CCTP V2 `BurnMessage` body → the original burn `amount` (the true cross-chain deposit,
+ * pre-fee) + `feeExecuted` (the CCTP fee actually charged). Body layout:
+ * `version(4) | burnToken(32) | mintRecipient(32) | amount(32) | messageSender(32) | maxFee(32) |
+ * feeExecuted(32) | expirationBlock(32) | hookData(…)`. Returns null if the body is too short.
+ */
+export function readBurnMessage(body: `0x${string}`): { amount: bigint; feeExecuted: bigint } | null {
+  const raw = body.slice(2)
+  if (raw.length < 392) return null // needs feeExecuted at byte 164 → hex [328, 392)
+  const word = (byteOffset: number): bigint => BigInt(`0x${raw.slice(byteOffset * 2, (byteOffset + 32) * 2)}`)
+  return { amount: word(68), feeExecuted: word(164) }
+}
+
+/** Cross-chain markers found in a hub tx's logs — the outbound send (xchain unshield) and/or the
+ *  inbound mint (xchain shield), keyed off the CCTP MessageTransmitter events. */
+export interface CctpReceiptInfo {
+  /** From an outbound `MessageSent` (e.g. a cross-chain unshield): destination + final recipient. */
+  sent?: { destinationDomain: number; mintRecipient: `0x${string}` }
+  /** From an inbound `MessageReceived` (e.g. a cross-chain shield's hub mint): the origin domain, plus
+   *  the true deposit (`burnAmount`) + CCTP fee (`cctpFee`) recovered from the message's BurnMessage. */
+  received?: { sourceDomain: number; burnAmount?: bigint; cctpFee?: bigint }
+}
+
+/**
+ * Scan a hub tx's logs for the CCTP MessageTransmitter's `MessageSent` (outbound routing) and
+ * `MessageReceived` (inbound source). Used by history recovery to detect that a recovered hub
+ * shield/unshield was actually cross-chain and recover its source/destination. First match of each wins.
+ */
+export function readCctpFromLogs(opts: {
+  logs: ReadonlyArray<Log>
+  messageTransmitterAddress: `0x${string}`
+}): CctpReceiptInfo {
+  const addr = opts.messageTransmitterAddress.toLowerCase()
+  const sentEvent = getAbiItem({ abi: CCTP_MESSAGE_TRANSMITTER_ABI, name: 'MessageSent' })
+  const out: CctpReceiptInfo = {}
+  for (const log of opts.logs) {
+    if (log.address.toLowerCase() !== addr) continue
+    if (log.topics[0] === MESSAGE_SENT_TOPIC && out.sent === undefined) {
+      try {
+        const decoded = decodeEventLog({ abi: [sentEvent], data: log.data, topics: log.topics })
+        const info = readCctpMessage((decoded.args as { message: `0x${string}` }).message)
+        if (info) out.sent = { destinationDomain: info.destinationDomain, mintRecipient: info.mintRecipient }
+      } catch { /* decoder mismatch — skip */ }
+    } else if (log.topics[0] === MESSAGE_RECEIVED_TOPIC && out.received === undefined) {
+      try {
+        const decoded = decodeEventLog({ abi: CCTP_MESSAGE_TRANSMITTER_ABI, data: log.data, topics: log.topics })
+        const args = decoded.args as { sourceDomain: number | bigint; messageBody: `0x${string}` }
+        const burn = readBurnMessage(args.messageBody)
+        out.received = {
+          sourceDomain: Number(args.sourceDomain),
+          ...(burn !== null ? { burnAmount: burn.amount, cctpFee: burn.feeExecuted } : {}),
+        }
+      } catch { /* decoder mismatch — skip */ }
+    }
+  }
+  return out
+}
+
+/**
  * Test whether a destination-chain log batch contains a `MessageReceived` event matching the
  * given nonce. Used by handlers polling for cross-chain delivery — match on the indexed nonce
  * topic, which uniquely identifies the message envelope (no false positives from unrelated

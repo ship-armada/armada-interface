@@ -19,6 +19,7 @@ import { useIncomingTransferDetector } from '@/hooks/useIncomingTransferDetector
 import { useNowTicker } from '@/hooks/useNowTicker'
 import { useShieldedBalanceSync } from '@/hooks/useShieldedBalanceSync'
 import { useShieldedSyncPoll } from '@/hooks/useShieldedSyncPoll'
+import { useShieldedWatch } from '@/hooks/useShieldedWatch'
 import { useNullifierCrossCheck } from '@/hooks/useNullifierCrossCheck'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useDebugSync } from '@/hooks/useDebugSync'
@@ -75,6 +76,9 @@ export function App() {
   // Drive periodic wallet.sync() (visibility-gated) so live balance + incoming-transfer updates keep
   // flowing — the SDK-native replacement for the stock engine's continuous scan poller.
   useShieldedSyncPoll()
+  // Liveness floor under the adaptive poll — the SDK's wallet.watch() auto-sync loop (immediate-run +
+  // error backoff), visibility-gated, coalescing with the poll's sync() so the two never double-scan.
+  useShieldedWatch()
   // WI-5: after each shielded scan completes, cross-check the wallet's own unspent notes against
   // the hub PrivacyPool's on-chain nullifier set and block spending if the indexer omitted a spend.
   useNullifierCrossCheck()

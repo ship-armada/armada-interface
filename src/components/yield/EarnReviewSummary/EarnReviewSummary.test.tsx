@@ -31,8 +31,8 @@ describe('<EarnReviewSummary>', () => {
   })
 
   it('withdraw tab: Mode "Withdraw from shielded vault", "Your withdrawal", and the net-of-fee received total', () => {
-    // The broadcaster fee is unshielded from existing private USDC, so the net into private
-    // balance is amount − fee (50 − 0.50 = 49.50), not the full withdrawal.
+    // The broadcaster fee is skimmed from the redeemed proceeds, so the net into private balance is
+    // amount − fee (50 − 0.50 = 49.50), not the full withdrawal.
     render(
       <EarnReviewSummary
         tab="withdraw"
@@ -48,6 +48,37 @@ describe('<EarnReviewSummary>', () => {
     expect(screen.getByText("You'll receive into private balance")).toBeInTheDocument()
     expect(screen.getByText('49.50 USDC')).toBeInTheDocument()
     expect(screen.getByText('You are withdrawing to your shielded address')).toBeInTheDocument()
+  })
+
+  it('marks the net total as an estimate (≈ + caption) when estimated (withdraw review)', () => {
+    const { container, getByText } = render(
+      <EarnReviewSummary
+        tab="withdraw"
+        amount={50_000_000n}
+        rate={RATE}
+        fee={500_000n}
+        netAmount={49_500_000n}
+        netLabel="You'll receive into private balance"
+        estimated
+      />,
+    )
+    expect(container.textContent).toContain('≈ 49.50 USDC')
+    expect(getByText(/the final amount depends on the vault rate at execution/i)).toBeInTheDocument()
+  })
+
+  it('renders the exact net total (no ≈, no caption) when not estimated', () => {
+    const { container, queryByText } = render(
+      <EarnReviewSummary
+        tab="withdraw"
+        amount={50_000_000n}
+        rate={RATE}
+        fee={500_000n}
+        netAmount={49_500_000n}
+        netLabel="Received into private balance"
+      />,
+    )
+    expect(container.textContent).not.toContain('≈')
+    expect(queryByText(/depends on the vault rate/i)).toBeNull()
   })
 
   it('renders "—" for the fee before a quote loads (fee=null)', () => {

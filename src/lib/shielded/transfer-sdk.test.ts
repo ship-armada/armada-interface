@@ -8,11 +8,13 @@ const hoisted = vi.hoisted(() => ({
   prove: vi.fn(),
   preflight: vi.fn(),
   buildTransactCalldata: vi.fn(),
+  stashSpendPlan: vi.fn(),
 }))
 vi.mock('@armada/sdk', () => ({ buildTransactCalldata: hoisted.buildTransactCalldata }))
 vi.mock('./sdk-read', () => ({
   getSdkWallet: async () => ({ planTransfer: hoisted.planTransfer, prove: hoisted.prove, preflight: hoisted.preflight }),
 }))
+vi.mock('./pending-spend', () => ({ stashSpendPlan: hoisted.stashSpendPlan }))
 
 import { buildTransferSdk } from './transfer-sdk'
 
@@ -48,5 +50,19 @@ describe('buildTransferSdk', () => {
       outputs: [{ to0zk: '0zk_bob', amount: 1n }],
       fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
     })
+  })
+
+  it('stashes the plan under recordId (#55) and passes selfMetadata to prove (#44)', async () => {
+    await buildTransferSdk({
+      recipient: '0zk_bob', amount: 1n, broadcasterFee: null, poolAddress: POOL,
+      recordId: 'rec-9', selfMetadata: '{"v":1,"c":"q"}',
+    })
+    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-9', { plan: true })
+    expect(hoisted.prove).toHaveBeenCalledWith({ plan: true }, { selfMetadata: '{"v":1,"c":"q"}' })
+  })
+
+  it('does not stash a plan when no recordId is supplied', async () => {
+    await buildTransferSdk({ recipient: '0zk_bob', amount: 1n, broadcasterFee: null, poolAddress: POOL })
+    expect(hoisted.stashSpendPlan).not.toHaveBeenCalled()
   })
 })

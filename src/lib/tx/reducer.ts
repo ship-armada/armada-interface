@@ -2,7 +2,7 @@
 // ABOUTME: Hooks call these and write the result back to the txListAtom + IDB. Every transition increments updatedSeq (OCC; see storage.ts).
 
 import { lifecycleFor } from './lifecycles'
-import type { ArtifactsFor, StageFor, TxError, TxKind, TxRecord } from './types'
+import type { ArtifactsFor, MetaFor, StageFor, TxError, TxKind, TxRecord } from './types'
 
 /** Reach the next stage. Sets executionState to `completed` if at terminalSuccess, else `active`. */
 export function advance<K extends TxKind>(
@@ -185,6 +185,24 @@ export function patchArtifacts<K extends TxKind>(
     updatedSeq: record.updatedSeq + 1,
     updatedAt: Date.now(),
     artifacts: { ...record.artifacts, ...artifactPatch },
+  }
+}
+
+/**
+ * Merge on-chain-reconciled values into a record's `meta` (bumping `updatedSeq` for OCC). Meta is
+ * normally submit-time input, but a few values are only knowable post-execution — e.g. a cross-chain
+ * shield's actual CCTP `feeExecuted`, reconciled from the hub delivery on confirmation so the receipt
+ * matches the note that landed. Use only for such actual-value reconciliation, never to re-derive inputs.
+ */
+export function patchMeta<K extends TxKind>(
+  record: TxRecord<K>,
+  metaPatch: Partial<MetaFor<K>>,
+): TxRecord<K> {
+  return {
+    ...record,
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
+    meta: { ...record.meta, ...metaPatch },
   }
 }
 

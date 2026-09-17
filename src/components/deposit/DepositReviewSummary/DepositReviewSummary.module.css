@@ -162,3 +162,9 @@
   color: color-mix(in srgb, var(--semantic-color-text-primary) 80%, transparent);
   line-height: var(--primitives-lineHeight-normal);
 }
+
+.summaryEstimateNote {
+  composes: bodySm from '../../../design/styles/typographyComposites.module.css';
+  color: color-mix(in srgb, var(--semantic-color-text-primary) 55%, transparent);
+  margin-top: var(--primitives-spacing-2);
+}

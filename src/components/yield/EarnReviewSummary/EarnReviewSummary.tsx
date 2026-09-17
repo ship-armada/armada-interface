@@ -19,14 +19,20 @@ export interface EarnReviewSummaryProps {
   fee: bigint | null
   /**
    * Bottom-line USDC number, computed per-tab by the modal. For Add this is the private-balance
-   * debit (`amount + fee`); for Withdraw it's the net private-balance gain (`amount`, with the fee
-   * paid as a separate proof leg). NOT a blind `amount + fee` — the two tabs' balance flows differ.
+   * debit (`amount + fee`); for Withdraw it's the net private-balance gain (`amount - fee`, the fee
+   * skimmed from the redeemed proceeds). NOT a blind `amount + fee` — the two tabs' balance flows differ.
    */
   netAmount: bigint
   /** Label paired with `netAmount` — also per-tab from the modal. */
   netLabel: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row for confirmations. */
   confirmedAt?: number
+  /**
+   * When true, the net total is an estimate — a withdrawal redeems fixed SHARES at the execution-time
+   * rate, so the received amount depends on yield accrued between review and execution. Renders a `≈`
+   * and a caption. Set on the Withdraw review; the confirmed receipt (actual redeemed gross) is exact.
+   */
+  estimated?: boolean
   /**
    * Whether to render the "Estimated APY" row. Defaults to true (live review/complete). The activity
    * receipt sets false — a historical tx's rate isn't stored, so the row would be meaningless.
@@ -50,6 +56,7 @@ export function EarnReviewSummary({
   netLabel,
   confirmedAt,
   showApy = true,
+  estimated,
 }: EarnReviewSummaryProps) {
   const modeLabel = tab === 'add' ? 'Add to vault' : 'Withdraw from shielded vault'
   const amountLabel = tab === 'add' ? 'Your deposit' : 'Your withdrawal'
@@ -91,13 +98,19 @@ export function EarnReviewSummary({
         </div>
       </div>
       {/* Total row is the modal's per-tab net figure — deposit debits `amount + fee`; withdraw
-          returns `amount` in full (fee paid on a separate leg). Not a generic `amount + fee`. */}
+          returns the NET `amount - fee` (the fee is skimmed from the redeemed proceeds, not paid from
+          pre-existing private USDC). Not a generic `amount + fee`. */}
       <div className={styles.summaryTotalRow}>
         <span className={styles.summaryTotalLabel}>{netLabel}</span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
-          {formatUsdcAmount(netAmount)} USDC
+          {estimated ? '≈ ' : ''}{formatUsdcAmount(netAmount)} USDC
         </span>
       </div>
+      {estimated ? (
+        <div className={styles.summaryEstimateNote}>
+          Estimate — the final amount depends on the vault rate at execution.
+        </div>
+      ) : null}
       {/* Privacy notice — shown pre-confirmation only; vault moves are always private, so it's the
           brand (private) variant. The confirmation view carries the date row instead. */}
       {confirmedAt === undefined ? (

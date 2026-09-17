@@ -1,7 +1,7 @@
 // ABOUTME: Reducer tests — patchArtifacts cursor pattern + typed-error mark transitions (markFailed string|TxError, markCancelled, markDismissed).
 
 import { describe, it, expect } from 'vitest'
-import { advance, markCancelled, markDismissed, markFailed, markRecoveredComplete, markWaiting, patchArtifacts, sourceHashProvesComplete } from './reducer'
+import { advance, markCancelled, markDismissed, markFailed, markRecoveredComplete, markWaiting, patchArtifacts, patchMeta, sourceHashProvesComplete } from './reducer'
 import { lifecycleFor } from './lifecycles'
 import type { TxRecord } from './types'
 
@@ -75,6 +75,57 @@ describe('patchArtifacts', () => {
     expect(cursor.executionState).toBe('waiting')
     // Three patches after markWaiting (which itself bumped once).
     expect(cursor.updatedSeq).toBe(7 + 1 + 3)
+  })
+})
+
+function baseShieldXchainRecord(): TxRecord<'shield-xchain'> {
+  return {
+    id: '01TESTID00000000000001',
+    kind: 'shield-xchain',
+    executionState: 'completed',
+    stage: 'hub-mint-confirmed',
+    stagesCompleted: ['build-proof', 'submit-relayer', 'client-burn-confirmed', 'hub-mint-pending'],
+    updatedSeq: 4,
+    createdAt: 1_000_000,
+    updatedAt: 1_000_500,
+    meta: {
+      amount: 3_000_000n,
+      feeCacheId: 'fee-1',
+      fromChainId: 84532,
+      protocolFee: 15_000n,
+    },
+    artifacts: {
+      sourceTxHash: '0xabc' as `0x${string}`,
+      cctpNonce: '0xnonce' as `0x${string}`,
+    },
+    walletContext: {
+      evmAddress: '0xeve',
+      shieldedWalletId: 'wallet-1',
+      sourceChainId: 84532,
+    },
+  }
+}
+
+describe('patchMeta (Fix C)', () => {
+  it('merges reconciled meta (cctpFee) without touching stage, executionState, or artifacts', () => {
+    const r = baseShieldXchainRecord()
+    const next = patchMeta(r, { cctpFee: 25_000n })
+
+    expect(next.meta.cctpFee).toBe(25_000n)
+    expect(next.meta.amount).toBe(3_000_000n) // preserved
+    expect(next.meta.protocolFee).toBe(15_000n) // preserved
+    expect(next.stage).toBe('hub-mint-confirmed') // untouched
+    expect(next.executionState).toBe('completed') // untouched — terminal record stays terminal
+    expect(next.artifacts).toEqual(r.artifacts) // untouched
+    expect(next.updatedSeq).toBe(r.updatedSeq + 1) // bumped for OCC
+  })
+
+  it('does not mutate the input record', () => {
+    const r = baseShieldXchainRecord()
+    const snapshot = JSON.parse(JSON.stringify(r, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)))
+    patchMeta(r, { cctpFee: 25_000n })
+    const after = JSON.parse(JSON.stringify(r, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)))
+    expect(after).toEqual(snapshot)
   })
 })
 

@@ -30,9 +30,18 @@ export function useDisplayFees(
   amount: bigint,
   gasChainId: number,
   quote: FeeSchedule | null,
+  /**
+   * Base the protocol shield fee is charged on, when it differs from `amount`. A gasless shield
+   * carves the relayer fee out first as its own shielded note, so the pool takes the 50 bps fee on
+   * `(amount - relayerFee)`, not the full deposit — passing that reduced base here keeps both the
+   * on-chain `calculateShieldFee` read and the fallback aligned with the note that actually lands.
+   * Defaults to `amount` (direct shield: no relayer fee carved out).
+   */
+  shieldFeeBase?: bigint,
 ): { fees: DisplayFees; isLoading: boolean } {
   const hubChainId = getNetworkConfig().hub.chainId
   const integrator = getIntegratorAddress()
+  const feeBase = shieldFeeBase ?? amount
 
   const { data: feeModuleAddress } = useQuery({
     queryKey: FEE_MODULE_QUERY_KEY,
@@ -50,14 +59,14 @@ export function useDisplayFees(
   // Debounce the amount the on-chain read keys off so a typing burst fires one eth_call, not one
   // per keystroke. The displayed Fee row still tracks the live amount via the 50 bps fallback below
   // until the debounced read for the settled amount resolves.
-  const debouncedAmount = useDebouncedValue(amount, SHIELD_FEE_DEBOUNCE_MS)
-  const needsOnChainShieldFee = isShieldKind && debouncedAmount > 0n && Boolean(feeModuleAddress)
+  const debouncedBase = useDebouncedValue(feeBase, SHIELD_FEE_DEBOUNCE_MS)
+  const needsOnChainShieldFee = isShieldKind && debouncedBase > 0n && Boolean(feeModuleAddress)
 
   const { data: shieldFeeResult, isLoading: shieldFeeLoading } = useReadContract({
     address: feeModuleAddress ?? undefined,
     abi: feeModuleAbi,
     functionName: 'calculateShieldFee',
-    args: [integrator, debouncedAmount],
+    args: [integrator, debouncedBase],
     chainId: hubChainId,
     query: { enabled: needsOnChainShieldFee },
   })
@@ -67,17 +76,17 @@ export function useDisplayFees(
   const fees = useMemo(() => {
     const base = computeDisplayFees(kind, amount, quote)
     let protocolFee = base.protocolFee
-    // Only trust the on-chain result when it was computed for the amount currently displayed —
-    // while the user is mid-keystroke the debounced read lags the live amount, so we fall back to
-    // the 50 bps estimate rather than show a fee for a stale amount.
-    const onChainMatchesLive = debouncedAmount === amount
+    // Only trust the on-chain result when it was computed for the base currently displayed — while
+    // the user is mid-keystroke the debounced read lags the live base, so we fall back to the 50 bps
+    // estimate rather than show a fee for a stale base.
+    const onChainMatchesLive = debouncedBase === feeBase
     if (isShieldKind && shieldFeeResult && onChainMatchesLive) {
       protocolFee = shieldFeeResult[2]
-    } else if (isShieldKind && feeModuleAddress && amount > 0n) {
-      // Fallback while the on-chain read is loading or the amount is still settling: ~50 bps
-      // matches deployed fee module `baseArmadaTakeBps` so the Fee row doesn't flash a misleading
-      // lower value during the async window before the wagmi result lands.
-      protocolFee = (amount * 50n) / 10_000n
+    } else if (isShieldKind && feeModuleAddress && feeBase > 0n) {
+      // Fallback while the on-chain read is loading or the base is still settling: ~50 bps matches
+      // deployed fee module `baseArmadaTakeBps` so the Fee row doesn't flash a misleading lower
+      // value during the async window before the wagmi result lands.
+      protocolFee = (feeBase * 50n) / 10_000n
     }
     const feeInclusive =
       kind === 'shield' || kind === 'shield-xchain' || kind === 'unshield-xchain'
@@ -88,7 +97,7 @@ export function useDisplayFees(
       totalFee: protocolFee,
       feeInclusive,
     }
-  }, [kind, amount, debouncedAmount, quote, shieldFeeResult, feeModuleAddress, isShieldKind, nativeGas])
+  }, [kind, amount, feeBase, debouncedBase, quote, shieldFeeResult, feeModuleAddress, isShieldKind, nativeGas])
 
   const isLoading = needsOnChainShieldFee && shieldFeeLoading
 

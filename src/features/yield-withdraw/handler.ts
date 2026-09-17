@@ -3,8 +3,9 @@
 
 import { sendTransaction } from 'wagmi/actions'
 import { loadDeployments, loadYieldDeployment } from '@/config/deployments'
-import { getNetworkConfig } from '@/config/network'
+import { getChainById, getNetworkConfig } from '@/config/network'
 import { wagmiConfig } from '@/config/wagmi'
+import { createProvider } from '@/lib/rpc'
 import { ensureChain } from '@/lib/network-switch'
 import { waitForReceiptOrFail } from '@/lib/tx/receipt'
 import { simulateOrThrow } from '@/lib/tx/simulate'
@@ -15,9 +16,12 @@ import {
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
+import { redeemedGrossFromLogs, type TransferLog } from './redeemedGross'
+import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
+import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
-import { advance, markFailed } from '@/lib/tx/reducer'
+import { advance, markFailed, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
 import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { classifyHandlerError } from '@/lib/tx/errors'
@@ -56,6 +60,62 @@ export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
   },
 }
 
+/**
+ * Reconcile `meta.amount` to the ACTUAL redeemed gross so the confirmed receipt (and complete screen)
+ * match the note that landed. The typed amount is a quote-time estimate: the redeem executes on fixed
+ * SHARES, and the execution-rate gross differs by the yield accrued between submit and execution.
+ *
+ * Source it from the ON-CHAIN receipt, not the SDK history — a history read immediately after
+ * completion can be pre-settlement (the redeemed USDC re-shield note isn't scanned yet, so `entry.value`
+ * transiently reflects only the shares-spend and reads NEGATIVE). The redeemed gross is the USDC
+ * transferred INTO the PrivacyPool by `redeemAndShield` (the broadcaster fee is a shielded note, not an
+ * ERC-20 transfer, so the inbound USDC to the pool is the full gross). Deterministic + final once mined.
+ *
+ * Plausibility-guarded: the gross must be positive, cover the fee, and sit within a sane band of the
+ * typed estimate (rate slippage is minuscule) — else return undefined and keep the estimate (a later
+ * rescan corrects it). Best-effort: any RPC/parse failure also keeps the estimate.
+ */
+async function reconciledRedeemedGross(
+  record: TxRecord<'yield-withdraw'>,
+  txHash: `0x${string}`,
+): Promise<bigint | undefined> {
+  try {
+    const deployments = await loadDeployments()
+    const usdc = deployments.hub.cctp.usdc.toLowerCase()
+    const pool = deployments.hub.contracts.privacyPool.toLowerCase()
+    const hubChain = getChainById(getNetworkConfig().hub.chainId)
+    if (!hubChain) return undefined
+    const receipt = await createProvider(hubChain.rpcUrls).getTransactionReceipt(txHash)
+    if (!receipt) return undefined
+    return redeemedGrossFromLogs({
+      logs: receipt.logs as unknown as ReadonlyArray<TransferLog>,
+      usdcAddress: usdc,
+      poolAddress: pool,
+      fee: record.meta.broadcasterFeeAmount,
+      estimate: record.meta.amount,
+    })
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Advance the record to terminal `hub-confirmed`, folding the reconciled actual redeemed gross into
+ * the SAME write (via patchMeta) so the complete screen shows the real figure directly (no flash), then
+ * refresh balances so the UI ticks up.
+ */
+async function confirmWithReconciledAmount(
+  record: TxRecord<'yield-withdraw'>,
+  ctx: Parameters<typeof yieldWithdrawHandler.run>[1],
+  txHash: `0x${string}`,
+): Promise<void> {
+  const reconciledGross = await reconciledRedeemedGross(record, txHash)
+  let terminal = advance(record, 'hub-confirmed', { sourceTxHash: txHash })
+  if (reconciledGross !== undefined) terminal = patchMeta(terminal, { amount: reconciledGross })
+  await ctx.upsert(terminal)
+  if (kmIsUnlocked()) void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
+}
+
 /** A6 — null when wallet-override, otherwise the broadcaster context from meta. */
 function broadcasterFeeFromRecord(
   record: TxRecord<'yield-withdraw'>,
@@ -92,6 +152,14 @@ async function runBuildProof(
   // redeemAndShield, and stash the calldata + the fee note's random (#312) so submit-relayer
   // dispatches it without re-proving. Survives a reload (persisted in the record).
   const bf = broadcasterFeeFromRecord(record)
+  // Persist the recoverable bucket-C fields (#44) in the spend's change note so a fresh scan recovers
+  // them even after local storage is cleared.
+  const selfMetadata = encodeTxSelfMetadata({
+    feeCacheId: record.meta.feeCacheId,
+    useWalletOverride: record.meta.useWalletOverride,
+    // Persist the reviewed net APY (Tier 4) so the recovered receipt can show the APY row.
+    yieldApyBps: record.meta.apyBps,
+  })
   const { to, data, feeShieldRandom } = await buildYieldAdaptSdk({
     mode: 'redeem',
     amount: record.meta.shares,
@@ -103,6 +171,9 @@ async function runBuildProof(
     shieldedAddress,
     broadcasterFee: bf,
     onProgress: progress.write,
+    // `recordId` lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
+    recordId: record.id,
+    ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
 
@@ -158,6 +229,9 @@ async function runSubmitAndConfirm(
       const broadcast = await recordBroadcastHash(record, hash, ctx)
       if (broadcast.dismissed) return
       broadcastRecord = broadcast.record
+      // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
+      // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
+      void markSpendPendingForRecord(record.id, hash)
     }
     // Enter the on-chain confirmation stage before waiting (idempotent for resume), so the stepper
     // shows the confirming step instead of holding on "Submitting transaction".
@@ -166,10 +240,8 @@ async function runSubmitAndConfirm(
       await ctx.upsert(broadcastRecord)
     }
     await waitForReceiptOrFail({ hash, signal: ctx.signal, chainId: hubChainId })
-    if (kmIsUnlocked()) {
-      void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-    }
-    await ctx.upsert(advance(broadcastRecord, 'hub-confirmed', { sourceTxHash: hash }))
+    // Syncs balances (awaited) AND reconciles meta.amount to the actual redeemed gross before terminal.
+    await confirmWithReconciledAmount(broadcastRecord, ctx, hash)
     return
   }
 
@@ -205,6 +277,9 @@ async function runSubmitAndConfirm(
     const broadcast = await recordBroadcastHash(record, txHash, ctx)
     if (broadcast.dismissed) return
     broadcastRecord = broadcast.record
+    // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
+    // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
+    void markSpendPendingForRecord(record.id, txHash)
   }
 
   // Enter the on-chain confirmation stage before polling (idempotent for resume/retry), so the
@@ -238,6 +313,9 @@ async function runSubmitAndConfirm(
 
   if (final.status === 'failed') {
     track('tx.relayer.rejected', { id: record.id, kind: record.kind, errorCode: 'EXECUTION_FAILED' })
+    // #55: the tx reverted → its inputs were NOT nullified on-chain, so release the optimistic hold
+    // now instead of waiting out the TTL, freeing the notes for the next spend.
+    void clearSpendPendingForTx(txHash)
     const error: TxError = {
       code: 'TX_REVERTED',
       message: final.error ?? 'Relayer-broadcast tx reverted on chain.',
@@ -249,11 +327,6 @@ async function runSubmitAndConfirm(
 
   track('tx.relayer.confirmed', { id: record.id, kind: record.kind })
 
-  if (kmIsUnlocked()) {
-    void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-  }
-
-  await ctx.upsert(advance(broadcastRecord, 'hub-confirmed', {
-    sourceTxHash: txHash,
-  }))
+  // Syncs balances (awaited) AND reconciles meta.amount to the actual redeemed gross before terminal.
+  await confirmWithReconciledAmount(broadcastRecord, ctx, txHash)
 }

@@ -25,6 +25,8 @@ export interface ShieldReviewStepProps {
   duplicateWarning?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
   feeUpdated?: boolean
+  /** Cross-chain shield — the received total is an estimate (final depends on the CCTP fee at delivery). */
+  estimated?: boolean
   onBack: () => void
   onConfirm: () => void
 }
@@ -40,6 +42,7 @@ export function ShieldReviewStep({
   isSubmitting,
   duplicateWarning,
   feeUpdated,
+  estimated,
   onBack,
   onConfirm,
 }: ShieldReviewStepProps) {
@@ -63,6 +66,7 @@ export function ShieldReviewStep({
           walletAddress={walletAddress}
           walletProvider={walletProvider}
           shieldedAddress={shieldedAddress}
+          estimated={estimated}
         />
 
         {duplicateWarning ? (

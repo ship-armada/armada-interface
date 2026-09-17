@@ -20,7 +20,8 @@ import {
   readHistoryCheckpoint,
   writeHistoryCheckpoint,
 } from '@/lib/shielded/history-checkpoint'
-import { loadDeployments } from '@/config/deployments'
+import { loadDeployments, getUsdcAddress } from '@/config/deployments'
+import { getNetworkConfig } from '@/config/network'
 import { track, trackError } from '@/lib/telemetry'
 
 /**
@@ -147,6 +148,12 @@ async function resolveScanInputs(): Promise<{
     return {
       ctx: {
         hubChainId: deployments.hub.chainId,
+        // USDC gate for the mapper — keeps recovery USDC-only now that the SDK's history is
+        // ERC20-agnostic (armada-sdk #91). Read straight from the hub manifest (no SDK config round-trip
+        // that could throw and skip the whole scan); '' when absent makes the gate fail open.
+        usdcAddress: getUsdcAddress(deployments, getNetworkConfig().hub) ?? '',
+        // Hub PrivacyPool address — lets recovery detect an unshield-to-pool as a cross-chain exit (Tier 2).
+        poolAddress: deployments.hub.contracts.privacyPool,
       },
       hubDeployBlock: deployments.hub.deployBlock,
     }

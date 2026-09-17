@@ -8,6 +8,7 @@ import { useFlowExit } from '@/components/flow/useFlowExit'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
+import type { YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { getChainById, getNetworkConfig } from '@/config/network'
@@ -17,6 +18,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
+import { shieldReceiptFromMeta, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -67,20 +69,21 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'shield':
     case 'shield-xchain': {
       const meta = (record as TxRecord<'shield' | 'shield-xchain'>).meta
-      const fee = meta.feeAmount ?? null
-      const netAmount = fee ? meta.amount - fee : meta.amount
+      // received = amount − relayerFee − protocolFee − cctpFee — the single receipt-math source shared
+      // with the completion screen so a completed shield reads identically wherever it's shown.
+      const { amount, fee, netAmount } = shieldReceiptFromMeta(meta)
       return {
         flowLabel: 'Shield',
         steps: DEPOSIT_STEPS,
         title: 'USDC shield',
-        amount: meta.amount,
+        amount,
         explorerUrl,
         status,
         errorCopy,
         summary: (
           <DepositReviewSummary
             fromChainId={meta.fromChainId}
-            amount={meta.amount}
+            amount={amount}
             fee={fee}
             netAmount={netAmount}
             confirmedAt={confirmedAt}
@@ -126,29 +129,33 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'yield-deposit':
     case 'yield-withdraw': {
       const meta = (record as TxRecord<'yield-deposit' | 'yield-withdraw'>).meta
-      const fee = meta.broadcasterFeeAmount
+      // Single receipt-math source shared with the completion screen so a completed yield op reads
+      // identically wherever it's shown (withdraw's `amount` is the handler-reconciled redeemed gross).
+      const { amount, fee, netAmount } = yieldReceiptFromMeta(meta, record.kind)
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
-      const netAmount = tab === 'add' ? meta.amount + fee : meta.amount - fee
       const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
+      // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
+      // the "Estimated APY" row shows the historical value. `EarnReviewSummary` reads only `apyBps`.
+      // Absent on pre-capture records → keep the row hidden (unknown, not a fabricated 0%).
+      const rate: YieldRate | null = meta.apyBps !== undefined ? { rate: 0n, apyBps: meta.apyBps, fetchedAt: 0 } : null
       return {
         flowLabel: 'Earn',
         steps: DEPOSIT_STEPS,
         title: tab === 'add' ? 'Vault deposit' : 'Vault withdrawal',
-        amount: meta.amount,
+        amount,
         explorerUrl,
         status,
         errorCopy,
         summary: (
-          // APY row hidden — a historical tx's rate isn't stored, so it can't be shown accurately.
           <EarnReviewSummary
             tab={tab}
-            amount={meta.amount}
-            rate={null}
+            amount={amount}
+            rate={rate}
             fee={fee}
             netAmount={netAmount}
             netLabel={netLabel}
             confirmedAt={confirmedAt}
-            showApy={false}
+            showApy={rate !== null}
           />
         ),
       }
