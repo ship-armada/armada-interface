@@ -32,8 +32,12 @@ export function TxActions({ record, variant = 'both' }: TxActionsProps) {
   // Follower tabs can't drive the executor — handlers run only on the leader. A follower Retry
   // would wedge the record in `retrying` (retryTx refuses, but the dead button is worse than
   // absent), and a follower Cancel/Stop races the leader's authoritative state. Hide all actions;
-  // the follower stays a passive observer. In v1 a follower never gains leadership (no failover),
-  // so this is stable. (T-H3)
+  // the follower stays a passive observer. (T-H3)
+  //
+  // A follower CAN gain leadership now (#3 promotion when the leader tab closes). `getIsLeader()`
+  // isn't reactive, so these buttons appear on the next render after promotion rather than instantly
+  // — which is exactly when they matter: promotion resumes the in-flight tx, whose record update
+  // re-renders this row with leadership already flipped. Nothing to show on a tab with no in-flight tx.
   if (!getIsLeader()) return null
 
   const isInFlight = PRE_TERMINAL_STATES.has(record.executionState)

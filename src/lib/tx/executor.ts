@@ -11,6 +11,7 @@ import { isTerminalState } from './types'
 import type { StageFor, TxKind, TxRecord } from './types'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
 import { tabVisibleAtom } from '@/state/visibility'
+import { isUnlocked as kmIsUnlocked, getWalletId as kmGetWalletId } from '@/lib/shielded/keyManager'
 
 const LOCK_NAME = 'armada-tx-executor'
 
@@ -75,6 +76,15 @@ export function __setIsLeaderForTests(value: boolean): void {
  * the holder runs handlers + resume logic. Other tabs operate as passive
  * observers (their atoms hydrate from IDB but they don't execute).
  *
+ * Two requests are issued (#3):
+ *  1. an `ifAvailable` probe — resolves immediately so a follower knows its status (and emits
+ *     telemetry) without waiting; the common case is a single tab that wins this outright.
+ *  2. a BLOCKING (queued) request — stays in the lock queue and is granted when the current leader
+ *     releases (only ever on tab close, since the leader holds via a never-resolve promise). This is
+ *     what PROMOTES an already-open follower to leader without a reload. On the leader tab it simply
+ *     queues behind its own hold and never fires. `onBecomeLeader` is idempotent, so whichever
+ *     request grants first wins and the other is a no-op.
+ *
  * Fire-and-forget; the caller (App.tsx) does not await.
  */
 export function startEngine(): void {
@@ -87,22 +97,25 @@ export function startEngine(): void {
     return
   }
 
-  navigator.locks
-    .request(LOCK_NAME, { mode: 'exclusive', ifAvailable: true }, async (lock) => {
-      if (!lock) {
-        // Another tab holds the lock — we run in follower mode.
-        isLeader = false
-        track('tx.engine.started', { isLeader: false })
-        return // returning releases nothing (we never had the lock)
-      }
-      onBecomeLeader()
-      // Hold the lock for the tab's lifetime. The browser releases it on tab
-      // close / navigation; another tab can then acquire it on its next start.
-      await new Promise<void>(() => { /* intentional never-resolve */ })
-    })
-    .catch((err) => {
-      trackError('tx.engine.start', err, { scope: 'tx.engine', message: 'navigator.locks.request failed' })
-    })
+  const hold = async (lock: Lock | null): Promise<void> => {
+    if (!lock) {
+      // Probe only: another tab holds the lock, so we start as a follower. (The blocking request
+      // below stays queued and will promote us later.) Guard on `!isLeader` so this can't emit a
+      // stale "follower" event if the blocking request already won leadership in a startup race.
+      if (!isLeader) track('tx.engine.started', { isLeader: false })
+      return
+    }
+    onBecomeLeader()
+    // Hold the lock for the tab's lifetime. The browser releases it on tab close / navigation, at
+    // which point a queued follower's blocking request is granted → promotion.
+    await new Promise<void>(() => { /* intentional never-resolve */ })
+  }
+
+  const onError = (err: unknown) =>
+    trackError('tx.engine.start', err, { scope: 'tx.engine', message: 'navigator.locks.request failed' })
+
+  navigator.locks.request(LOCK_NAME, { mode: 'exclusive', ifAvailable: true }, hold).catch(onError)
+  navigator.locks.request(LOCK_NAME, { mode: 'exclusive' }, hold).catch(onError)
 }
 
 /**
@@ -305,11 +318,21 @@ function abortAndMark(id: string, kind: 'cancel' | 'dismiss'): void {
 /* ----- Internals ----- */
 
 function onBecomeLeader(): void {
+  if (isLeader) return // idempotent — the probe + the blocking request can both resolve to us
   isLeader = true
   track('tx.engine.started', { isLeader: true })
-  // Resume is NOT kicked here. The leader lock is acquired pre-unlock (from App mount), when no
-  // walletId / decryption key is available yet — `loadAllTx` would return []. Resume runs from
-  // `useTxResume` once the active wallet unlocks (and only on the leader). See resumeForWallet.
+  // Resume-on-become-leader, guarded on an already-unlocked wallet:
+  //  - Initial acquisition (App mount): the wallet is still locked, so this is a no-op — resume runs
+  //    later from `useTxResume` on unlock (and only on the leader).
+  //  - PROMOTION (#3): a follower that had already unlocked just took over from a closed leader.
+  //    `useTxResume` won't re-fire (it keys on unlock, not leadership), so kick resume here for the
+  //    active wallet. Idempotent per (walletId, session) via `resumedWallets` — the follower bailed
+  //    at the `!isLeader` guard before adding itself, so this first real run isn't skipped.
+  if (kmIsUnlocked()) {
+    void resumeForWallet(kmGetWalletId()).catch((err) =>
+      trackError('tx.engine.promote-resume', err, { scope: 'tx.engine', message: 'resume on promotion failed' }),
+    )
+  }
 }
 
 /**
