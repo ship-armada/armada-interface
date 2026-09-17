@@ -160,7 +160,10 @@ export function EarnModal() {
   // only uncoverable case is a withdrawal that doesn't exceed its own fee — the redeem can't pay a fee
   // larger than its proceeds (it would revert) and a net-zero withdrawal is pointless. Block that at
   // submit-time. Only enforced when we have a real fee quote — pre-quote the number is unknown.
-  const withdrawFeeShortfall = tab === 'withdraw' && withdrawBelowFee(amount, displayFeeTotal)
+  // `amount > 0n` so the shortfall alert only surfaces once the user has actually typed an amount —
+  // an empty field (amount 0) is "nothing entered yet", not "too small" (mirrors ShieldAmountStep's
+  // `tooSmall` / useShieldFlow's `duplicateWarning` gating).
+  const withdrawFeeShortfall = tab === 'withdraw' && amount > 0n && withdrawBelowFee(amount, displayFeeTotal)
   const withdrawFeeBlockedReason: string | null = withdrawFeeShortfall
     ? `Withdrawal is smaller than the ${formatUsdcAmount(displayFeeTotal)} fee — withdraw more`
     : null
