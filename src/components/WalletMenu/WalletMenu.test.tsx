@@ -88,7 +88,7 @@ describe('<WalletMenu>', () => {
     expect(screen.getByRole('button', { name: 'Explorer' })).toBeDisabled()
   })
 
-  it('shows a per-chain row for each chain holding USDC (#8)', async () => {
+  it('defaults to a combined Total row and expands to the per-chain breakdown (#8)', async () => {
     setup({
       balances: [
         { chainId: 11155111, networkLabel: 'Ethereum Sepolia', usdcBalance: 5 },
@@ -96,16 +96,22 @@ describe('<WalletMenu>', () => {
       ],
     })
     await openPanel()
-    // Pluralized header + one balance row per chain (a shield is per-chain, not a combined total).
-    expect(screen.getByText('Your USDC wallet balances')).toBeInTheDocument()
+    // Collapsed by default: a combined Total (5 + 3 = 8) across "2 networks"; per-chain rows hidden.
+    expect(screen.getByLabelText('8 USDC total')).toBeInTheDocument()
+    expect(screen.getByText('2 networks')).toBeInTheDocument()
+    expect(screen.queryByLabelText('5 USDC on Ethereum Sepolia')).toBeNull()
+    // Expand → the per-chain breakdown appears.
+    fireEvent.click(screen.getByRole('button', { name: /2 networks/ }))
     expect(screen.getByLabelText('5 USDC on Ethereum Sepolia')).toBeInTheDocument()
     expect(screen.getByLabelText('3 USDC on Base Sepolia')).toBeInTheDocument()
   })
 
-  it('uses the singular header for a single chain', async () => {
-    setup()
+  it('shows a single chain directly with no Total toggle', async () => {
+    setup({ balances: [{ chainId: 84532, networkLabel: 'Base Sepolia', usdcBalance: 3 }] })
     await openPanel()
-    expect(screen.getByText('Your USDC wallet balance')).toBeInTheDocument()
+    expect(screen.getByLabelText('3 USDC on Base Sepolia')).toBeInTheDocument()
+    // No combined "N networks" toggle when there's only one chain.
+    expect(screen.queryByText(/networks/)).toBeNull()
   })
 })
 

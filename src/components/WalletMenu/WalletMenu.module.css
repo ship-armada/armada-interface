@@ -209,6 +209,35 @@
   background: var(--semantic-color-surface-raised-pressed);
 }
 
+/* The combined "Total" row is a toggle button styled like a usdcRow — reset the button chrome. */
+.usdcTotalRow {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: inherit;
+  color: inherit;
+}
+
+/* Expand/collapse chevron on the Total row — rotates when the per-chain breakdown is open. */
+.balancesChevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--semantic-color-text-secondary);
+  transition: transform 0.15s ease;
+}
+.balancesChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* The per-chain rows revealed under the Total row when expanded. */
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+}
+
 /* Composite USDC glyph + small chain-network overlay badge. */
 .usdcIcon {
   --overlay-size: var(--primitives-spacing-6);
