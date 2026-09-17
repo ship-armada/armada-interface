@@ -19,8 +19,7 @@ export function SingleTabGate() {
           Armada is open in another tab
         </Text>
         <p className={styles.body}>
-          To keep your private balance safe, Armada runs in a single tab per browser — two tabs would
-          corrupt its encrypted activity data. This tab can’t load while another is open.
+          To keep your private balance safe, Armada runs in a single tab per browser.
         </p>
         <p className={styles.body}>
           Switch back to the tab you already have open. If you’ve closed it, reload this page to
