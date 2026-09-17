@@ -91,7 +91,8 @@ export function EarnReviewSummary({
         </div>
       </div>
       {/* Total row is the modal's per-tab net figure — deposit debits `amount + fee`; withdraw
-          returns `amount` in full (fee paid on a separate leg). Not a generic `amount + fee`. */}
+          returns the NET `amount - fee` (the fee is skimmed from the redeemed proceeds, not paid from
+          pre-existing private USDC). Not a generic `amount + fee`. */}
       <div className={styles.summaryTotalRow}>
         <span className={styles.summaryTotalLabel}>{netLabel}</span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>

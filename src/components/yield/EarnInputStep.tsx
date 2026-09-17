@@ -44,17 +44,18 @@ export interface EarnInputStepProps {
   feeLoading?: boolean
   gasChainId: number
   /**
-   * When true, the relayer pays gas — suppresses the GasBalanceNotice. `yield-deposit` defaults
-   * to the relayer path; `yield-withdraw` force-routes through the user's wallet (the
-   * multi-Transaction shape of `redeemAndShield` doesn't fit the broadcaster path today — see
-   * EarnModal). Modal passes the inverse of `effectiveUseWalletOverride`.
+   * When true, the relayer pays gas — suppresses the GasBalanceNotice. Both `yield-deposit` and
+   * `yield-withdraw` follow the user's `submitFromWallet` preference (#312's contract-side
+   * fee-from-proceeds made the relayer path viable for withdraw too — see EarnModal). Modal passes
+   * the inverse of `effectiveUseWalletOverride`.
    */
   gaslessMode?: boolean
   rate: YieldRate | null
   /**
-   * Optional pre-flight gate reason — set on the Withdraw tab when the user's private USDC
-   * doesn't cover the broadcaster fee. Surfaced inline + disables Review so the user sees the
-   * problem before paying for a 20–30s proof that would inevitably revert.
+   * Optional pre-flight gate reason — set on the Withdraw tab when the withdrawal amount doesn't
+   * exceed its own fee (the fee is skimmed from the redeemed proceeds, so a withdrawal below its fee
+   * can't cover it). Surfaced inline + disables Review so the user sees the problem before paying for
+   * a 20–30s proof that would inevitably revert.
    */
   continueBlockedReason?: string | null
   onCancel: () => void

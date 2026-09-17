@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, shieldReceiptFromMeta } from './displayFees'
+import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, shieldReceiptFromMeta, withdrawBelowFee } from './displayFees'
 import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'
 import type { MetaShield, MetaShieldXchain } from '@/lib/tx/types'
 
@@ -44,6 +44,25 @@ describe('computeDisplayFees', () => {
 describe('relayerGasFeeForKind', () => {
   it('returns 0 without a quote', () => {
     expect(relayerGasFeeForKind('transfer-shielded', null)).toBe(0n)
+  })
+})
+
+describe('withdrawBelowFee', () => {
+  it('blocks a withdrawal at or below its fee (the redeem proceeds cannot cover the fee)', () => {
+    expect(withdrawBelowFee(400_000n, 500_000n)).toBe(true) // amount < fee
+    expect(withdrawBelowFee(500_000n, 500_000n)).toBe(true) // amount == fee → nets zero
+  })
+
+  it('allows a withdrawal that exceeds its fee', () => {
+    expect(withdrawBelowFee(500_001n, 500_000n)).toBe(false)
+    expect(withdrawBelowFee(3_000_000n, 500_000n)).toBe(false)
+  })
+
+  it('never blocks when there is no fee (wallet-submit / free)', () => {
+    // WHY: the withdraw fee comes from the redeemed proceeds, so a zero fee is always coverable —
+    // this is the wallet-submit path (user pays ETH gas, no USDC broadcaster fee).
+    expect(withdrawBelowFee(0n, 0n)).toBe(false)
+    expect(withdrawBelowFee(1n, 0n)).toBe(false)
   })
 })
 

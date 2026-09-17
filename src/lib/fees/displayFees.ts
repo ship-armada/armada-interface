@@ -99,6 +99,18 @@ export function shieldReceiptFromMeta(meta: MetaShield | MetaShieldXchain): {
   return { amount: meta.amount, fee: totalFee > 0n ? totalFee : null, netAmount }
 }
 
+/**
+ * Whether a yield withdrawal is too small to cover its own fee (→ block submit). The withdraw fee is
+ * skimmed from the redeemed proceeds (contract-side re-shield to the relayer — see yield-sdk
+ * `redeemAndShield`), NOT from the user's pre-existing private USDC, so the only uncoverable case is a
+ * withdrawal whose amount doesn't exceed the fee: the redeem can't pay a fee larger than its proceeds
+ * (it would revert) and a net-zero withdrawal is pointless. `feeTotal === 0` (wallet-submit / no fee)
+ * is never blocked.
+ */
+export function withdrawBelowFee(amount: bigint, feeTotal: bigint): boolean {
+  return feeTotal > 0n && amount <= feeTotal
+}
+
 /** Base display fees; shield protocol fee is overridden in useDisplayFees via fee module. */
 export function computeDisplayFees(
   kind: TxKind,

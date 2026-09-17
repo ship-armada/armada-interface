@@ -14,6 +14,7 @@ import { useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
 import { computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
+import { withdrawBelowFee } from '@/lib/fees/displayFees'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
@@ -107,10 +108,10 @@ export function EarnModal() {
   // Both yield ops are fee-on-top in `computeFeeBreakdown`'s model, but the balance flows differ:
   //   - Add Funds: user unshields (amount + fee) USDC. `totalDeducted = amount + fee` is the
   //     literal private-balance debit. `recipientReceives = amount` is what the vault gains.
-  //   - Withdraw: vault redeems `amount` USDC, ALL of it shields back to user. The broadcaster
-  //     fee comes from a SEPARATE unshield of user's pre-existing private USDC (see
-  //     adapter.redeemAndShield + SDK CrossContractCalls broadcaster handling). Net private
-  //     balance change is +(amount - fee); vault balance drops by `amount`-worth of shares.
+  //   - Withdraw: vault redeems `amount` USDC; the broadcaster fee is skimmed from THOSE proceeds
+  //     (contract-side re-shield to the relayer, bound into adaptParams — see yield-sdk
+  //     redeemAndShield). The user receives the NET `amount - fee` into their private balance and
+  //     their pre-existing private USDC is UNTOUCHED; vault balance drops by `amount`-worth of shares.
   const hubChainId = getNetworkConfig().hub.chainId
   const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
     yieldKind,
@@ -131,13 +132,10 @@ export function EarnModal() {
     totalDeducted,
     recipientLabel: tab === 'add' ? 'Vault receives' : "You'll receive into private balance",
   }
-  // For withdraw the fee doesn't come from the vault — it's debited from private USDC via a
-  // separate unshield in the same proof. Reserving `fee` against the vault `max` would collapse
-  // the typeable cap to 0 whenever `fee >= vault balance` (e.g. a $0.50 fee on a $0.40 vault
-  // balance), even though the user can perfectly well withdraw the full $0.40 as long as their
-  // private balance covers the fee. The private-USDC sufficiency check is enforced via the
-  // pre-flight `continueBlockedReason` below; here we just expose the full vault balance as
-  // typeable.
+  // For withdraw the fee is skimmed from the redeemed proceeds, not reserved on top, so the typeable
+  // cap is the FULL vault balance — don't subtract the fee from `max`. The only lower bound is that
+  // the withdrawal must exceed its own fee (else the redeem can't pay it); that's enforced via the
+  // pre-flight `continueBlockedReason` below.
   const inputMax: bigint = tab === 'add' ? feeOnTopInputMax : max
   // Per-tab display values handed down to the step components. The step components stay dumb;
   // EarnModal owns the per-tab semantic translation.
@@ -145,13 +143,11 @@ export function EarnModal() {
   // Total displayed fee (broadcaster + any protocol fee) — the figure shown on the summary's
   // "Fees" row. Hoisted so the net-received total below subtracts the SAME number.
   const displayFeeTotal: bigint = fee + displayFees.protocolFee
-  // For withdraw, the vault redeem proceeds (`amount`) shield back to private balance IN FULL,
-  // while the broadcaster fee is unshielded from the user's pre-existing private USDC on a
-  // separate leg. Both hit the same private balance, so the honest "You'll receive into private
-  // balance" total is the NET change: `amount - fee`. The itemized "Your withdrawal" and "Fees"
-  // rows above keep the two legs visible. When the fee exceeds the withdrawal the net goes
-  // negative — shown as-is (a withdraw that costs more in fees than it returns is economically
-  // losing but permitted).
+  // For withdraw, the vault redeems `amount` USDC and the broadcaster fee is skimmed from those
+  // proceeds (contract-side), so the user receives the NET `amount - fee` into their private balance;
+  // pre-existing private USDC is untouched. The itemized "Your withdrawal" and "Fees" rows above keep
+  // both visible. A withdrawal at or below its own fee is blocked at review (see below), so the net
+  // shown here is always ≥ 0.
   const displayNetAmount: bigint = tab === 'add' ? totalDeducted : amount - displayFeeTotal
   const displayNetLabel: string =
     tab === 'add' ? 'Total deducted from balance' : "You'll receive into private balance"
@@ -159,14 +155,14 @@ export function EarnModal() {
   // completed screen says "Received…" for the same withdraw net.
   const completeNetLabel: string =
     tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
-  // Pre-flight: the withdraw broadcaster fee is unshielded from the user's PRE-EXISTING private
-  // USDC (the proof needs a USDC UTXO; the redeem proceeds aren't available at proof-construction
-  // time). If the user's private USDC is below the fee, proof gen will fail 20-30s in. Block at
-  // submit-time with a clear reason instead. Only enforced when we have a real fee quote — pre-quote
-  // we don't know the number yet.
-  const withdrawFeeShortfall = tab === 'withdraw' && fee > 0n && spendableUsdc < fee
+  // Pre-flight: the withdraw fee is skimmed from the redeemed proceeds (contract-side re-shield to
+  // the relayer — see yield-sdk redeemAndShield), so the user needs NO pre-existing private USDC. The
+  // only uncoverable case is a withdrawal that doesn't exceed its own fee — the redeem can't pay a fee
+  // larger than its proceeds (it would revert) and a net-zero withdrawal is pointless. Block that at
+  // submit-time. Only enforced when we have a real fee quote — pre-quote the number is unknown.
+  const withdrawFeeShortfall = tab === 'withdraw' && withdrawBelowFee(amount, displayFeeTotal)
   const withdrawFeeBlockedReason: string | null = withdrawFeeShortfall
-    ? `Not enough private USDC to cover the ${formatUsdcAmount(fee)} fee — add some first`
+    ? `Withdrawal is smaller than the ${formatUsdcAmount(displayFeeTotal)} fee — withdraw more`
     : null
   // Composed gate for the review step — sync gate OR private-USDC shortfall.
   const submitBlockedReason: string | null = syncGate.reason || withdrawFeeBlockedReason

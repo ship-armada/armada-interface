@@ -131,13 +131,13 @@ describe('<EarnInputStep>', () => {
   })
 
   it('disables Review and surfaces the reason in the amount-field tooltip when continueBlockedReason is set', () => {
-    // WHY: the withdraw broadcaster fee comes from the user's pre-existing private USDC (not
-    // from the redeem proceeds), so the modal must gate submit when private USDC < fee.
+    // WHY: the withdraw fee is skimmed from the redeemed proceeds, so the modal gates submit when the
+    // withdrawal amount doesn't exceed its own fee (a redeem can't pay a fee larger than its proceeds).
     render(
       <EarnInputStep
         tab="withdraw"
         onTabChange={vi.fn()}
-        amountStr="3"
+        amountStr="0.4"
         onAmountChange={vi.fn()}
         max={5_000_000n}
         maxInput={5_000_000n}
@@ -145,7 +145,7 @@ describe('<EarnInputStep>', () => {
         feeLoading={false}
         gasChainId={31337}
         rate={null}
-        continueBlockedReason="Not enough private USDC to cover the 0.50 fee — add some first"
+        continueBlockedReason="Withdrawal is smaller than the 0.50 fee — withdraw more"
         onCancel={vi.fn()}
         onContinue={vi.fn()}
       />,
@@ -154,7 +154,7 @@ describe('<EarnInputStep>', () => {
       'aria-disabled',
       'true',
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/cover the 0\.50 fee/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/smaller than the 0\.50 fee/)
   })
 
   it('tapping the disabled "Input amount" CTA nudges the field (focus) instead of continuing', () => {
