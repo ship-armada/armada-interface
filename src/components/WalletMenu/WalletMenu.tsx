@@ -26,7 +26,10 @@ import styles from './WalletMenu.module.css'
 const HERO_ICON_PX = 56
 const USDC_GLYPH_PX = 40
 const USDC_GLYPH_SIZE = Math.round((USDC_GLYPH_PX * 24) / 18)
-const USDC_OVERLAY_ICON_PX = 16
+// Per-chain breakdown rows are compact + chain-forward: the chain logo is the main glyph, USDC a
+// small inset badge — the inverse of the USDC-forward Total row above them.
+const CHAIN_GLYPH_PX = 28
+const CHAIN_USDC_INSET_SIZE = Math.round((14 * 24) / 18)
 
 /** Pill fade duration — the pill fades out before the panel opens (and back in after it closes). */
 const PILL_FADE_MS = 180
@@ -179,25 +182,28 @@ export function WalletMenu({
   const multiChain = balances.length > 1
   const totalLabel = `${formatUsdcAmount(balances.reduce((sum, r) => sum + r.usdcBalance, 0))} USDC`
 
-  /** A single per-chain USDC row (USDC + network overlay glyph, network label, chain balance). */
+  /** A compact per-chain row: chain logo (main) + small USDC inset, chain name, chain balance. */
   function renderChainRow(row: WalletChainBalance) {
-    const OverlayIcon = chainIconForChainId(row.chainId)
+    const ChainIcon = chainIconForChainId(row.chainId)
     const balanceLabel = `${formatUsdcAmount(row.usdcBalance)} USDC`
     return (
-      <div className={styles.usdcRow} key={row.chainId}>
-        <span className={styles.usdcIcon} aria-hidden>
-          <span className={styles.usdcGlyph}>
-            <TokenUSDC size={USDC_GLYPH_SIZE} variant="branded" />
+      <div className={styles.chainRow} key={row.chainId}>
+        <span className={styles.chainIcon} aria-hidden>
+          <span className={styles.chainGlyph}>
+            {ChainIcon ? (
+              <ChainIcon size={CHAIN_GLYPH_PX} variant="branded" />
+            ) : (
+              <TokenUSDC size={CHAIN_GLYPH_PX} variant="branded" />
+            )}
           </span>
-          {OverlayIcon ? (
-            <span className={styles.usdcOverlay}>
-              <OverlayIcon size={USDC_OVERLAY_ICON_PX} variant="branded" />
+          {ChainIcon ? (
+            <span className={styles.chainUsdcInset}>
+              <TokenUSDC size={CHAIN_USDC_INSET_SIZE} variant="branded" />
             </span>
           ) : null}
         </span>
         <div className={styles.tokenIdentity}>
-          <p className={styles.tokenName}>USDC</p>
-          <p className={styles.tokenNetwork}>{row.networkLabel}</p>
+          <p className={styles.tokenName}>{row.networkLabel}</p>
         </div>
         <p className={styles.tokenBalance} aria-label={`${balanceLabel} on ${row.networkLabel}`}>
           <BalanceScrambleValue value={balanceLabel} revealed={!balanceHidden} />
