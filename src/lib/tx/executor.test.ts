@@ -189,6 +189,40 @@ describe('expiry guard (P0-5)', () => {
     expect(after?.artifacts.error?.message).toBe('reverted on chain')
     expect(after?.updatedSeq).toBe(2)
   })
+
+  // No-progress backstop (#4): a handler that returns without advancing / parking / terminating would
+  // busy-loop the chain (e.g. a resume landing on a stage with no `switch` case). The loop must detect
+  // the no-op and fail the record `STUCK` instead of spinning until the lifecycle budget.
+  it('fails a record STUCK when the handler returns without making progress', async () => {
+    const store = getDefaultStore()
+    let runCalls = 0
+    const noProgress: StageHandler<'shield'> = {
+      kind: 'shield',
+      resumableFrom: ['submit-relayer'],
+      // Returns immediately, never upserts — the pathological no-case fall-through.
+      run: async () => { runCalls += 1 },
+    }
+    registerHandler(noProgress)
+
+    const rec = makeRecord({
+      id: 'ulid-no-progress',
+      executionState: 'active',
+      stage: 'submit-relayer',
+      stagesCompleted: ['build-proof'],
+      updatedSeq: 1,
+      createdAt: Date.now(), // well within budget — a busy-loop would spin, not expire
+    })
+    store.set(upsertTxAtom, rec)
+
+    executeTx(rec.id)
+
+    const after = await waitTerminalThenSettle(rec.id, 'failed')
+    expect(after?.artifacts.error?.code).toBe('STUCK')
+    // The guard tripped on the FIRST no-op iteration — run() was not called in a loop.
+    expect(runCalls).toBe(1)
+    // Exactly one transition (the STUCK markFailed) on top of the seeded seq 1.
+    expect(after?.updatedSeq).toBe(2)
+  })
 })
 
 describe('retryTx (P0-4)', () => {

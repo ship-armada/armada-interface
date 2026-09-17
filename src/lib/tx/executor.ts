@@ -410,6 +410,9 @@ async function runHandlerChain(
         },
       }
 
+      const stageBefore = current.stage
+      const seqBefore = current.updatedSeq
+
       await handler.run(current as TxRecord<TxKind>, ctx as ExecutorCtx<TxKind>)
 
       // Reload current state from the atom (handler wrote through ctx.upsert).
@@ -427,6 +430,25 @@ async function runHandlerChain(
       // Handler put us in 'waiting'? Pause the chain; external trigger (e.g. a
       // poller completing, or executeTx being called again) will resume.
       if (current.executionState === 'waiting') break
+
+      // No-progress backstop (#4). Per the handler contract, `run()` must advance the stage, park at
+      // `waiting`, or terminate — writing every transition through `ctx.upsert` (which bumps
+      // `updatedSeq`). If it returned having written NOTHING (same stage AND same seq) yet the record
+      // is neither terminal nor waiting, re-calling `run()` would produce the same no-op → a busy-loop
+      // until the lifecycle budget elapses (e.g. a resume landing on a stage with no `switch` case).
+      // Fail the record loudly instead. Indeterminate (`STUCK`): the tx may already have completed.
+      if (current.stage === stageBefore && current.updatedSeq === seqBefore) {
+        const stuck = markFailed(current, {
+          code: 'STUCK',
+          message: 'This transaction stalled and made no progress. It may still complete on chain — check the explorer.',
+        })
+        await ctx.upsert(stuck as TxRecord<TxKind>)
+        trackError('tx.executor.no-progress', new Error(`handler ${handler.kind} made no progress at stage ${current.stage}`), {
+          scope: 'tx.executor',
+          message: `no-progress backstop tripped: ${handler.kind} at ${current.stage}`,
+        })
+        break
+      }
 
       // Hard-cap on total lifecycle duration — crediting back time the tab was hidden so a
       // backgrounded tab doesn't expire a tx that merely waited while the user was away (T-M5/S-M6).

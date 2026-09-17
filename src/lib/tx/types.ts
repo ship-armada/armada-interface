@@ -392,6 +392,10 @@ export type TxErrorCode =
   | 'DUPLICATE_TX'
   | 'CANCELLED'
   | 'DISMISSED'
+  // The executor's chain-loop no-progress backstop tripped: a handler's `run()` returned without
+  // advancing the stage, parking at `waiting`, or terminating — which would busy-loop the chain.
+  // The record is failed to break the loop, but the tx MAY have completed (indeterminate).
+  | 'STUCK'
   | 'OTHER'
 
 /**
