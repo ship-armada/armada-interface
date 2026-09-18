@@ -157,6 +157,41 @@ describe('DepositAmountCard — presets + amount roll', () => {
   })
 })
 
+describe('DepositAmountCard — fee caption', () => {
+  const nativeGas = { wei: 1_234_560_000_000_000n, symbol: 'ETH', formatted: '0.00123456' }
+  /** DisplayFees with the given USDC fee total + a native-gas estimate. */
+  function fees(totalFee: bigint) {
+    return { protocolFee: totalFee, gasFee: 0n, nativeGas, totalFee, feeInclusive: true }
+  }
+
+  it('promotes the ETH network-gas estimate into the caption on the direct path (no relayer fee)', () => {
+    // Direct hub shield: no USDC fee, broadcasterFee 0n → the only cost is network gas.
+    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n } })
+    expect(screen.getByText('+ ~0.0012 ETH gas')).toBeInTheDocument()
+    expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
+  })
+
+  it('hides the gas segment on the gasless path (relayer covers gas, broadcasterFee > 0)', () => {
+    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 250_000n } })
+    expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
+    // The relayer fee still surfaces as the USDC FEE segment.
+    expect(screen.getByText('+ $0.25 FEE')).toBeInTheDocument()
+  })
+
+  it('shows BOTH the USDC fee and the ETH gas on a direct cross-chain shield', () => {
+    // broadcasterFee 0n (direct) but a CCTP fee is deducted in USDC → both segments render.
+    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n, cctpFee: 500_000n } })
+    expect(screen.getByText('+ $0.50 FEE')).toBeInTheDocument()
+    expect(screen.getByText('+ ~0.0012 ETH gas')).toBeInTheDocument()
+  })
+
+  it('renders no caption segments before an amount is entered', () => {
+    renderCard({ amount: '', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n } })
+    expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
+  })
+})
+
 describe('DepositAmountCard — incomplete-CTA nudge shake', () => {
   // The mockup nudges by shaking the amount CARD (not the button) to point the eye at the empty
   // field; the modal drives this via the `shaking` prop when the disabled "Input amount" CTA is tapped.

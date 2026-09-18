@@ -3,7 +3,7 @@
 
 import { InformationCircleIcon } from '@heroicons/react/16/solid'
 import { formatUsdcAmount } from '@/lib/format'
-import type { DisplayFees } from '@/lib/fees/displayFees'
+import { formatNativeGasAmount, type DisplayFees } from '@/lib/fees/displayFees'
 import { Tooltip } from '@/components/ui/Tooltip'
 import styles from './FeeBreakdownTooltip.module.css'
 
@@ -21,8 +21,7 @@ function formatUsdcLine(label: string, amount: bigint): string {
 function formatGasLine(fees: DisplayFees): string {
   const gas = fees.nativeGas
   if (!gas) return 'Network gas: Paid in native token (e.g. ETH)'
-  const trimmed = gas.formatted.replace(/(\.\d{4})\d+$/, '$1')
-  return `Network gas: ~${trimmed} ${gas.symbol}`
+  return `Network gas: ${formatNativeGasAmount(gas)}`
 }
 
 /**

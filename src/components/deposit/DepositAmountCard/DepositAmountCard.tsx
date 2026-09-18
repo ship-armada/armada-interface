@@ -12,7 +12,7 @@ import {
   BALANCE_ROLL_DIGIT_STAGGER_MS,
 } from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { formatUsdcAmount, formatUsdcPlain } from '@/lib/format'
-import type { DisplayFees } from '@/lib/fees/displayFees'
+import { formatNativeGasAmount, type DisplayFees } from '@/lib/fees/displayFees'
 import { incompleteCtaShakeClass } from '@/design'
 import styles from './DepositAmountCard.module.css'
 
@@ -208,6 +208,12 @@ export function DepositAmountCard({
     ? displayFees.totalFee + (flowBreakdown?.broadcasterFee ?? 0n) + (flowBreakdown?.cctpFee ?? 0n)
     : 0n
   const showFee = showActiveAmount && displayFees !== undefined && totalFeeRaw > 0n
+  // The user pays network gas themselves only on the direct path (no relayer broadcaster fee) —
+  // mirrors FeeBreakdownTooltip's gas-line gate so the caption and tooltip never disagree. On the
+  // direct hub shield there's no USDC fee at all, so this is the ONLY cost the caption can surface.
+  const nativeGas = displayFees?.nativeGas ?? null
+  const userPaysNativeGas = (flowBreakdown?.broadcasterFee ?? 0n) === 0n
+  const showGas = showActiveAmount && userPaysNativeGas && nativeGas !== null
 
   return (
     <div
@@ -277,13 +283,16 @@ export function DepositAmountCard({
           </AmountFieldWarning>
         </label>
 
-        {/* Fee caption (mockup): "+ $X.XX FEE" directly under the amount. The line is always
-            reserved (non-breaking space when there's no fee) so the card height stays stable. The
-            breakdown tooltip is kept beside the value for the full protocol/broadcaster split. */}
+        {/* Fee caption (mockup): "+ $X.XX FEE" directly under the amount, plus a "+ ~X ETH gas"
+            segment on the direct path where the user pays network gas from their own wallet (the
+            two combine on a direct cross-chain shield). The line is always reserved (non-breaking
+            space when there's no fee) so the card height stays stable. The breakdown tooltip is
+            kept beside the value for the full protocol/broadcaster/gas split. */}
         <div className={`armada-text-ui-label-md ${styles.feeCaption}`} role="status">
-          {showFee && displayFees ? (
+          {(showFee || showGas) && displayFees ? (
             <>
-              <span>+ ${formatUsdcAmount(totalFeeRaw)} FEE</span>
+              {showFee ? <span>+ ${formatUsdcAmount(totalFeeRaw)} FEE</span> : null}
+              {showGas && nativeGas ? <span>+ {formatNativeGasAmount(nativeGas)} gas</span> : null}
               <FeeBreakdownTooltip
                 fees={displayFees}
                 isLoading={feeLoading}

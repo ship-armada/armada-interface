@@ -11,6 +11,16 @@ export interface NativeGasEstimate {
   formatted: string
 }
 
+/**
+ * The native-gas estimate as a compact approximate amount, e.g. "~0.0012 ETH" — trimmed to 4
+ * decimals. Shared by the amount-card fee caption and the breakdown tooltip so the two never
+ * disagree on the figure. The `~` conveys "estimate" (gas units × current price, not a quote).
+ */
+export function formatNativeGasAmount(gas: NativeGasEstimate): string {
+  const trimmed = gas.formatted.replace(/(\.\d{4})\d+$/, '$1')
+  return `~${trimmed} ${gas.symbol}`
+}
+
 export interface DisplayFees {
   /** USDC protocol fee (shield fee module or CCTP bps) — deducted from deposit amount when inclusive. */
   protocolFee: bigint
@@ -123,8 +133,8 @@ export function yieldReceiptFromMeta(
  * skimmed from the redeemed proceeds (contract-side re-shield to the relayer — see yield-sdk
  * `redeemAndShield`), NOT from the user's pre-existing private USDC, so the only uncoverable case is a
  * withdrawal whose amount doesn't exceed the fee: the redeem can't pay a fee larger than its proceeds
- * (it would revert) and a net-zero withdrawal is pointless. `feeTotal === 0` (wallet-submit / no fee)
- * is never blocked.
+ * (it would revert) and a net-zero withdrawal is pointless. `feeTotal === 0` (no fee) is never
+ * blocked.
  */
 export function withdrawBelowFee(amount: bigint, feeTotal: bigint): boolean {
   return feeTotal > 0n && amount <= feeTotal
