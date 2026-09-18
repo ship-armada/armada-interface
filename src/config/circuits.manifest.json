@@ -1,0 +1,100 @@
+{
+  "release": "v0.1.0-dev",
+  "shapes": {
+    "01x01": {
+      "zkey": "8c7336c0223f6aad7af9be598c48d790a28cd6a5ae8be4af5891bb461fbb45ed",
+      "wasm": "79c7257ab7a5e763bddf1cfe23de2778d575db2eed1214a983ce6cef58077785",
+      "vkey": "2129dd0a7816e975f1cf8854c12aad75c2daf7fd5c845c8accb27ff5d9f46254"
+    },
+    "01x02": {
+      "zkey": "194d77aed5c7df36d8155e407b8c82c095151548f07f35488ffb34f06bbd5c85",
+      "wasm": "4eee71f5d6e7f781947c676bcb484084098120a726baae59af280a8d92ea2ae2",
+      "vkey": "895f6ce6a58148aa44cde3d144687fbbaf0452dc7f9a7393ceaffb48b29ea1a2"
+    },
+    "01x03": {
+      "zkey": "a20672375b7f481004cad39b633d7f312cdbf53ef7a05fee193c5b6affff43fd",
+      "wasm": "b16a2909316164a0c0fb98b28042bb644d922d4feeb84f27a8aad5815c8e969c",
+      "vkey": "48cdd190f5f328126815c528f1325f5f28500c392b6f67a11fec21feae86f238"
+    },
+    "02x01": {
+      "zkey": "2d05ea41b056d48eaf7c35844be1c11ef1994d6fcc8eeca4c96620f7f9522bb5",
+      "wasm": "32e637dfc7533c721374ca69879393b705fc379f19ff1b9b998d16bdd551d0ef",
+      "vkey": "c6fa8d59b5c4586dfddf88ac8f7ee2100fe9f006113a606e1c827def04e71e87"
+    },
+    "02x02": {
+      "zkey": "fdc998727e9611043beab76bc538eeeb90fc4f0525484f6517836e752a76d044",
+      "wasm": "ec34afbb93a49d36b4479da0a09ab57787aa8a93d3f79dd883868d0308641d16",
+      "vkey": "b58585210f0584a12e14577bdfe67edc407051e9c2297408e43991b749ea678b"
+    },
+    "02x03": {
+      "zkey": "1d867d1ea372df3b25624785b503641232069f10dac74e629cdf2bb03ed2dc78",
+      "wasm": "c7bb7f13f29500e7330c4251ee0d1db4d66447b5fe4bb67dc264d3c22846a875",
+      "vkey": "0fa1368d3c0c7cba66c9573b8c43d830af9973c93444b0e97324b2d9fc3cb9c6"
+    },
+    "03x01": {
+      "zkey": "eac2ad0da1bfe8dda63af77014c0fe1174d7577764adc9dc9ef3d35a3180d2f9",
+      "wasm": "e4a87bf371e07b3df2f09467454b8aa7e71d33826385b426d7a807f9f2c4c478",
+      "vkey": "5bf86b07cc3bae5fedd300378b12c185e628f8e83e721214a131fe9f810cec3f"
+    },
+    "03x02": {
+      "zkey": "80f4d62eb50932ee6749c54bcb5b99b05dda95951f6ecf71d2ee2f72100a2b06",
+      "wasm": "47c2e947cc04c808efc44fcbd1e3bcbfbe8dd0e2b32b9d78e252cfc54bc67ac1",
+      "vkey": "db86260a9488ab9194554eb50d2e047e1a9d1ef6d3a8c42b9f7f5ffba4191dc6"
+    },
+    "03x03": {
+      "zkey": "bea26fbe07ae3cf15c7ddb49f221126e115d50ecd533aeb5c5348f1257f32d33",
+      "wasm": "12266072847ab73fa0f632d3f77bd7e5265ee9ce742d3e66e32ea2745015167c",
+      "vkey": "831f066b49bb7a0e344e266a1c71a8ab8cf618114c64a792fb1baff205ae8403"
+    },
+    "04x01": {
+      "zkey": "e28674da4109e1690bdca5bf9bde1e76b635531b028083b3f4d785ca4e97e6b9",
+      "wasm": "991160e4d37241bcee7a7dea07cc9c80b9e660ea3cde74fa549bdd161703f642",
+      "vkey": "c7662fe24d36901c6ace0079a7ae30d967eae6472df12b2f9943ba12df8f0085"
+    },
+    "04x02": {
+      "zkey": "0a19536fb171e502780badf5a896a3384adca615194e9a491e95a718978fe2e2",
+      "wasm": "a284a6dffdbde6027b4c10e01987beccdbed2b0fca7b1f0d7c0fbf2490b9e120",
+      "vkey": "22aec433a5eec13279682ecb59df32400c1a37098e8921430f7fd736e8011967"
+    },
+    "04x03": {
+      "zkey": "a86e9a83a30b881233b1713f85ea2ebdade0c99877e1cb49d6bbd5da0fb4ad75",
+      "wasm": "dae929dc8d63bfe1169e3d949f2f5f539c61fac8bd47da7a01b226b978ea2c74",
+      "vkey": "899e0feac2a6095dc2d978d65e63184b7d53a94615a95f9fc1e80b8773aae27c"
+    },
+    "05x01": {
+      "zkey": "b50c29ae5a3b013c29284a848ac4279f7a32688afe7f29ad8f72776cc01e61a7",
+      "wasm": "9acbf3b64fe9f0e443ca10b7b675837571d0bf6cfb709c60a0cb43939c9fd660",
+      "vkey": "0d102887dc1176f191ca3171a6de4a7f38f800fd1bf88780b1001a60d0e67888"
+    },
+    "05x02": {
+      "zkey": "8adb4a8531bfa9bd8c94d1e8c2e42cd3dd7625e30e37c2f56056217870d2370b",
+      "wasm": "40101f795b457459d5930f89b452af660baf80a08f86fdcbaa50253258509932",
+      "vkey": "081b12aa93dc2bfe39e9afe5e0c1463b90cd654d2decb6fac6c3fa44f5bd190d"
+    },
+    "06x01": {
+      "zkey": "4ba438af007618e643227a489439bff87e23143c415d166d1a9411b465255be8",
+      "wasm": "98dd764849ba7371b2f6ab05cdb1c2316df409aced5df34580b389ffac567db4",
+      "vkey": "f32d3c118cc5c6561f31870bc3339bf934ee8afbe820aeeaf8f3cf28f26e82ce"
+    },
+    "06x02": {
+      "zkey": "1771940fc3e1ea610f847a008bfd2e81aa305661e9362fdce5115eb49110e555",
+      "wasm": "160593f6b8127b0e83da49740b99a6d22012b42303c0bcae157bd1ce06790eb6",
+      "vkey": "34914719bbbad6897f29b3dd6100f6a54f31630e7131e5c89e2695056ed89c41"
+    },
+    "07x01": {
+      "zkey": "9af2a2f4bf3b3033127a547323759fd3e69d0d636ca13aa6696e006e9ecaf9f1",
+      "wasm": "028e2d035f0925fef1974a45a5f8557129b159b08e70e2f0b39bff940a9181e3",
+      "vkey": "287e908c6981700a0c3a0f3c46711fc9dc7c934a58bdd1b47d1092e7d93a000d"
+    },
+    "08x01": {
+      "zkey": "4e714b407141871c9c80c0e7c73565de5027699c4919ba4a3a671e58a39e2677",
+      "wasm": "b5128f6b4eb686b2b0066ed824d799d6e83dca392060f497792bead6524de8c6",
+      "vkey": "4850b7cbf604f365efddad0caafc8ad408b560dc5261ab34312016596ac910ba"
+    },
+    "08x04": {
+      "zkey": "974534f7ced830f1f97a5d795f3ea97430e6dd7b7e627a927d290acc88e6338c",
+      "wasm": "46d987fd452e792ef4ffd2e8af90e0dea5eaeaae9f4689408cc1fd8b7d020133",
+      "vkey": "ff9b02f326c1eb31431d026b9ab0e7041b19989a4f94121e287711cfe3a2d95c"
+    }
+  }
+}

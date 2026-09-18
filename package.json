@@ -12,6 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prepare:artifacts": "node scripts/prepare-artifacts.mjs",
+    "circuits:manifest": "node scripts/gen-circuits-manifest.mjs",
+    "circuits:fetch": "node scripts/publish-circuits.mjs --dest public/artifacts",
+    "circuits:publish": "node scripts/publish-circuits.mjs",
     "tokens:typography": "node scripts/build-typography.mjs",
     "postinstall": "node scripts/ensure-linux-native-modules.mjs"
   },

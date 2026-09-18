@@ -8,6 +8,7 @@ Env-driven configuration. **All env-var reads happen here.** Hooks and component
 | `wagmi.ts` | Builds the wagmi config from `network.ts`. `resolveChainsForMode()` derives one wagmi `Chain` per active identity (hub + enabled clients) — canonical viem objects where known (`KNOWN_VIEM_CHAINS`), synthesized from the `ChainIdentity` otherwise. No hardcoded chain count. |
 | `deployments.ts` | Fetches the hub manifest (`privacy-pool-hub[-sepolia].json`), then **probes** the contiguous `privacy-pool-client<i>[-sepolia].json` files and **binds each by its embedded `chainId`** — never by ordinal position. Joins to the enabled registry clients by chainId; an enabled-but-undeployed client is skipped (not a hard failure). Cached in memory. |
 | `relayer.ts` | Relayer base URL + endpoint constants + typed error codes. The HTTP client itself lives in `lib/relayer.ts`. |
+| `circuits.ts` + `circuits.manifest.json` | ZK circuit artifact source (#6): `VITE_ARTIFACTS_BASE_URL` (default same-origin `/artifacts`) + the committed shape → sha256 integrity manifest. Consumed by `lib/shielded/circuitFetch.ts` to fetch + verify artifacts at runtime. See `docs/CIRCUIT_ARTIFACTS.md`. |
 
 ## Multi-client model (1 hub + N clients)
 

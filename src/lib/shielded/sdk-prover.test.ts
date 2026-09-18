@@ -1,5 +1,5 @@
 // ABOUTME: Unit test for the write-capable SDK wiring — the ArtifactSource resolves loaded circuits from
-// ABOUTME: the artifactGetter registry to the SDK's {wasm,zkey,vkey} shape, and fails loudly when unloaded.
+// ABOUTME: the registry (fast path) and lazy-loads any other shape via circuitFetch on a miss (#6).
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -9,37 +9,50 @@ vi.mock('@armada/sdk', () => ({
   createWorkerProver: () => ({ prove: async () => ({}), verify: async () => false, close: async () => {} }),
 }))
 
+// Stub the lazy loader — the ArtifactSource under test should delegate a registry miss to it.
+const ensureCircuitLoadedMock = vi.hoisted(() => vi.fn())
+vi.mock('./circuitFetch', () => ({ ensureCircuitLoaded: ensureCircuitLoadedMock }))
+
 import { createInterfaceArtifactSource, createInterfaceProver } from './sdk-prover'
 import { setArmadaArtifact, clearArmadaArtifacts, type ArmadaArtifact } from './artifactGetter'
 
-const artifact = (wasm: Uint8Array | undefined): ArmadaArtifact =>
+const artifact = (wasm: Uint8Array): ArmadaArtifact =>
   ({ zkey: new Uint8Array([2]), wasm, vkey: { protocol: 'groth16' } })
 
 describe('createInterfaceArtifactSource', () => {
   beforeEach(() => {
     clearArmadaArtifacts()
+    ensureCircuitLoadedMock.mockReset()
+    ensureCircuitLoadedMock.mockResolvedValue(undefined)
   })
 
-  it('resolves a loaded circuit (by padded NNxMM shape) to { wasm, zkey, vkey }', async () => {
+  it('resolves a warm circuit from the registry without a fetch (fast path)', async () => {
     const wasm = new Uint8Array([1, 2, 3])
     setArmadaArtifact('01x02', artifact(wasm))
-    const source = createInterfaceArtifactSource()
-    const set = await source.resolve({ nullifiers: 1, commitments: 2 })
+    const set = await createInterfaceArtifactSource().resolve({ nullifiers: 1, commitments: 2 })
     expect(set.wasm).toBe(wasm)
     expect(set.zkey).toEqual(new Uint8Array([2]))
     expect(set.vkey).toEqual({ protocol: 'groth16' })
+    // ensureCircuitLoaded is still called (it no-ops on a warm shape), but no throw.
+    expect(ensureCircuitLoadedMock).toHaveBeenCalledWith('01x02')
   })
 
-  it('throws for a shape whose circuit has not been loaded', async () => {
-    // WHY: a missing circuit must fail loudly at resolve time, not hang the prover or prove garbage.
-    const source = createInterfaceArtifactSource()
-    await expect(source.resolve({ nullifiers: 2, commitments: 3 })).rejects.toThrow(/circuit 02x03 not loaded/)
+  it('lazy-loads a shape on a registry miss, then resolves it', async () => {
+    // Simulate circuitFetch populating the registry.
+    const wasm = new Uint8Array([9, 9])
+    ensureCircuitLoadedMock.mockImplementation(async (key: string) => {
+      setArmadaArtifact(key, artifact(wasm))
+    })
+    const set = await createInterfaceArtifactSource().resolve({ nullifiers: 8, commitments: 4 })
+    expect(ensureCircuitLoadedMock).toHaveBeenCalledWith('08x04')
+    expect(set.wasm).toBe(wasm)
   })
 
-  it('throws when the registered artifact has no wasm (dat-only circuit)', async () => {
-    setArmadaArtifact('01x02', artifact(undefined))
-    const source = createInterfaceArtifactSource()
-    await expect(source.resolve({ nullifiers: 1, commitments: 2 })).rejects.toThrow(/not loaded/)
+  it('propagates a load failure (404 / integrity mismatch) as a rejection', async () => {
+    ensureCircuitLoadedMock.mockRejectedValue(new Error('circuit fetch → 404'))
+    await expect(
+      createInterfaceArtifactSource().resolve({ nullifiers: 2, commitments: 3 }),
+    ).rejects.toThrow(/404/)
   })
 })
 

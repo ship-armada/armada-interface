@@ -30,7 +30,8 @@ jobs:
 
   # Production bundle must compile. Vite's bundle phase is memory-heavy (RainbowKit graph +
   # SDK WASM + snarkjs), so raise the V8 heap; public GitHub runners have 16 GB, leaving ample
-  # headroom above the 8192 MB ceiling. prebuild verifies the committed ZK artifacts are present.
+  # headroom above the 8192 MB ceiling. Setting VITE_ARTIFACTS_BASE_URL means the prebuild guard
+  # skips the local-artifact check (circuits are host-served at runtime, #6).
   build:
     name: Production Build
     runs-on: ubuntu-latest
@@ -46,3 +47,4 @@ jobs:
         run: npm run build
         env:
           NODE_OPTIONS: --max-old-space-size=8192
+          VITE_ARTIFACTS_BASE_URL: ${{ vars.VITE_ARTIFACTS_BASE_URL || 'https://circuits.knowable.run/v0.1.0-dev' }}
