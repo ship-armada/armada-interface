@@ -14,7 +14,7 @@
 | `DEPLOYMENT_INSTANCE` | Optional, defaults `demo3` (build-step, non-VITE) | Which instance directory under `testnet/` to fetch. The fetch reads that instance's `manifest.json` index and pulls every chain it lists (no hardcoded chain set). |
 | `VITE_SENTRY_DSN` | Optional | Sentry DSN. **Unset → Sentry init is a no-op** (local/dev + any build without it transmit nothing). Errors only (no perf/replay), `sendDefaultPii: false`, and a `beforeSend` scrubber redacts 0zk/EVM addresses + long hex. |
 | `VITE_SENTRY_ENVIRONMENT` | Optional, falls back to Vite `MODE` | Environment tag on Sentry events (e.g. `production`, `sepolia`). |
-| `VITE_SENTRY_RELEASE` | Optional | Release tag on events. Unset → the Sentry Vite plugin auto-detects the release from git and injects it, keeping runtime + uploaded maps aligned. |
+| `VITE_SENTRY_RELEASE` | Optional | Release tag on events. The deploy workflow sets it to the build commit (`github.sha`) so the runtime tag (`Sentry.init`) and the uploaded source maps (vite plugin) share one release name — required for stack traces to symbolicate. Unset → the plugin falls back to git auto-detection (less deterministic). |
 | `SENTRY_AUTH_TOKEN` | Optional, **secret** (build-step, non-VITE) | Enables source-map **upload**. Unset → the Vite plugin self-disables AND no sourcemaps are emitted at all (so an un-configured build never publishes maps). Set it (+ `SENTRY_ORG`/`SENTRY_PROJECT`) to upload `hidden` maps that are deleted from `dist/` after upload. **Never commit.** |
 | `SENTRY_ORG` / `SENTRY_PROJECT` | Optional (build-step, non-VITE) | Sentry org + project slugs the maps upload to. Required alongside `SENTRY_AUTH_TOKEN`. |
 

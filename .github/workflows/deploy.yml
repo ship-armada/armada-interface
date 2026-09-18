@@ -56,6 +56,10 @@ jobs:
       # Optional Sentry — inert unless VITE_SENTRY_DSN / SENTRY_AUTH_TOKEN are set.
       VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
       VITE_SENTRY_ENVIRONMENT: ${{ vars.VITE_SENTRY_ENVIRONMENT }}
+      # Pin the release to the build commit so the runtime tag (Sentry.init) and the uploaded
+      # source maps (vite plugin) share ONE release name — otherwise stack traces stay minified.
+      # Harmless when Sentry is off (just an unused env var).
+      VITE_SENTRY_RELEASE: ${{ github.sha }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       SENTRY_ORG: ${{ vars.SENTRY_ORG }}
       SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
