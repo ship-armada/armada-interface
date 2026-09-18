@@ -1,6 +1,7 @@
 // ABOUTME: RelayerStatusBanner — surfaced inside relayer-mediated modals when the relayer is unavailable.
 // ABOUTME: Spends are blocked (no wallet-submit — it would deanonymize them); shield can still proceed direct.
 
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/design'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
 import styles from './RelayerStatusBanner.module.css'
@@ -51,7 +52,10 @@ export function RelayerStatusBanner({
   if (isChecking) {
     return (
       <div className={styles.root} role="status" aria-live="polite">
-        <div className={styles.message}>Looking for an available relayer…</div>
+        <div className={styles.checking}>
+          <Loader2 className={`${styles.spinner} animate-spin`} size={16} aria-hidden="true" />
+          <span className={styles.message}>Looking for an available relayer…</span>
+        </div>
       </div>
     )
   }

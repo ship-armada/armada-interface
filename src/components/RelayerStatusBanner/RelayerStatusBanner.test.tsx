@@ -51,8 +51,10 @@ describe('<RelayerStatusBanner>', () => {
     // isChecking wins over the unavailable branch so the banner never blanks mid-check (which would
     // read as "resolved") — covers both the initial open and a post-"Check again" refetch.
     mockUseRelayerHealth.mockReturnValue(health({ isChecking: true, isUnreachable: true, data: undefined }))
-    render(<RelayerStatusBanner isOpen />)
+    const { container } = render(<RelayerStatusBanner isOpen />)
     expect(screen.getByRole('status').textContent).toMatch(/looking for an available relayer/i)
+    // A spinner accompanies the message (aria-hidden svg from lucide's Loader2).
+    expect(container.querySelector('svg')).toBeInTheDocument()
     expect(screen.queryByRole('button')).toBeNull()
   })
 

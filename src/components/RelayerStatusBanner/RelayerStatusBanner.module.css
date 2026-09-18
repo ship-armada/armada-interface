@@ -1,4 +1,4 @@
-/* ABOUTME: RelayerStatusBanner — warning-toned callout nudging users to the wallet-submit path. */
+/* ABOUTME: RelayerStatusBanner — warning-toned callout for relayer unavailability / delivery advisories. */
 /* ABOUTME: Theme tokens throughout (surface-raised + status-warning accent), mirroring FeeUpdatedBanner. */
 
 .root {
@@ -26,4 +26,17 @@
 /* The action is a design-system Button (secondary/sm); only stop it from shrinking in the row. */
 .action {
   flex-shrink: 0;
+}
+
+/* Resolving state: spinner + message grouped on the left (no action button). */
+.checking {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+}
+
+.spinner {
+  flex-shrink: 0;
+  color: var(--semantic-color-text-secondary);
 }
