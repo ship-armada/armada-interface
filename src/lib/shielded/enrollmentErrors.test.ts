@@ -4,7 +4,7 @@ import { normalizeEnrollmentError } from './enrollmentErrors'
 describe('normalizeEnrollmentError', () => {
   it('maps SyntaxError to artifact download guidance', () => {
     const out = normalizeEnrollmentError(new SyntaxError("Unexpected token ']'"))
-    expect(out.message).toMatch(/IPFS/i)
+    expect(out.message).toMatch(/ZK circuit files/i)
     expect(out.message).not.toMatch(/underlying:/i)
   })
 

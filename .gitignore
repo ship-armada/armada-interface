@@ -9,10 +9,12 @@ dist/
 .vite/
 coverage/
 
-# ZK circuit artifacts. The small demo-critical variants (01x02/01x03/02x02/02x03, ~48 MB) are
-# committed to keep the app self-contained. The heavy 08x04 (~30 MB) is deliberately left out —
-# the SDK fetches it from its IPFS read-through cache at runtime.
-public/artifacts/08x04/
+# ZK circuit artifacts (issue #6). Binaries are NOT committed — they're fetched from a hosted release
+# (Cloudflare R2 / relayer VPS) at runtime, integrity-verified against src/config/circuits.manifest.json,
+# or populated locally with `npm run circuits:fetch`. The manifest itself IS committed (the integrity
+# anchor). `.gitkeep` preserves the directory.
+public/artifacts/*
+!public/artifacts/.gitkeep
 
 # Build-time-fetched Sepolia manifests (Netlify/Vercel pull these from armada-deployments at build
 # time per netlify.toml / vercel.json; never commit them).

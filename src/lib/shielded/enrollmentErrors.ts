@@ -7,9 +7,9 @@ const DEPLOYMENT_SETUP_MSG =
   'or set `VITE_NETWORK=sepolia` in apps/armada-interface/.env.development and restart the dev server.'
 
 const ARTIFACT_DOWNLOAD_MSG =
-  'The privacy engine could not load its ZK circuit files. This site normally serves them from the app bundle; ' +
-  'if that failed, the engine falls back to IPFS (often blocked by ad blockers or rate limits). ' +
-  'Reload the page, click Retry engine setup, then Sign again. Try disabling ad blockers/VPN for this domain.'
+  'Could not load the ZK circuit files this app needs to prove your transaction. They are served from ' +
+  'the configured artifact host and integrity-checked before use, so this usually means the host is ' +
+  'unreachable or a file failed its checksum. Reload the page, click Retry engine setup, then Sign again.'
 
 const RELAYER_MSG =
   'The fee relayer is not reachable. Start it from armada-poc (`npm run relayer` or your team\'s relayer script) ' +
