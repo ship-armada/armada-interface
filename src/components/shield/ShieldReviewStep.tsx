@@ -5,6 +5,7 @@ import { AlertTriangle } from 'lucide-react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
+import type { NativeGasEstimate } from '@/lib/fees/displayFees'
 import { formatUsdcPlain } from '@/lib/format'
 import styles from './ShieldReviewStep.module.css'
 
@@ -27,6 +28,9 @@ export interface ShieldReviewStepProps {
   feeUpdated?: boolean
   /** Cross-chain shield — the received total is an estimate (final depends on the CCTP fee at delivery). */
   estimated?: boolean
+  /** Direct-path network-gas estimate (ETH) — adds a "Network gas" row to the summary. Null on the
+   *  gasless path (relayer covers gas). */
+  nativeGas?: NativeGasEstimate | null
   onBack: () => void
   onConfirm: () => void
 }
@@ -43,6 +47,7 @@ export function ShieldReviewStep({
   duplicateWarning,
   feeUpdated,
   estimated,
+  nativeGas,
   onBack,
   onConfirm,
 }: ShieldReviewStepProps) {
@@ -67,6 +72,7 @@ export function ShieldReviewStep({
           walletProvider={walletProvider}
           shieldedAddress={shieldedAddress}
           estimated={estimated}
+          nativeGas={nativeGas}
         />
 
         {duplicateWarning ? (

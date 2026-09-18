@@ -214,6 +214,11 @@
   color: var(--semantic-color-text-secondary);
 }
 
+/* Neutral placeholder while the fee path is still resolving (relayer reachability probe). */
+.feeResolving {
+  color: var(--semantic-color-text-muted);
+}
+
 .amountField {
   position: relative;
   display: inline-block;

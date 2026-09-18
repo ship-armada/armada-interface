@@ -190,6 +190,14 @@ describe('DepositAmountCard — fee caption', () => {
     expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
     expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
   })
+
+  it('shows "Estimating fees…" and suppresses both segments while the fee path is resolving', () => {
+    // feeResolving = the relayer-reachability probe is in flight; we don't yet know gasless vs direct.
+    renderCard({ amount: '5', displayFees: fees(500_000n), flowBreakdown: { broadcasterFee: 0n }, feeResolving: true })
+    expect(screen.getByText(/Estimating fees…/)).toBeInTheDocument()
+    expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
+  })
 })
 
 describe('DepositAmountCard — incomplete-CTA nudge shake', () => {

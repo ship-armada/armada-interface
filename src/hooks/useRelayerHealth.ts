@@ -74,12 +74,26 @@ export function useRelayerHealth(opts: UseRelayerHealthOptions = {}) {
   // ignored — it's routine watcher lag, not an availability signal.
   const isIndexerStalled = data?.status === 'unhealthy'
 
+  // A positive, non-errored health snapshot — the relayer is known-reachable right now.
+  const isAvailable = data !== undefined && !isUnreachable
+  // A probe is in flight with no conclusive reachable result yet: the initial open (before the
+  // first poll settles) OR a "Check again" refetch after an outage. `isUnreachable` only flips true
+  // AFTER the ~9s of retries exhaust, and `refetch` drops the prior error — so without this signal
+  // the banner blanks (reads as "resolved") and the shield commits to the direct path prematurely
+  // during that window. Callers surface a neutral "looking for a relayer" state instead. Excludes
+  // the routine 60s background poll while healthy (`isAvailable` is still true then).
+  const isChecking = isConfigured && query.isFetching && !isAvailable
+
   return {
     data,
     error: query.error,
     isLoading: query.isLoading,
     /** Actor unreachable after retries — drives the "can't broadcast" banner + gasless-path gating. */
     isUnreachable,
+    /** A probe is in flight with no conclusive result yet (initial open / post-"Check again"
+     *  refetch) — drives the neutral "looking for a relayer" state so the banner never blanks and
+     *  the shield doesn't advertise the direct path before we know it's needed. */
+    isChecking,
     /** Indexer badly behind — drives the cross-chain "delivery may be delayed" advisory only. */
     isIndexerStalled,
     /** False when no relayer URL is configured for this build — callers render a distinct

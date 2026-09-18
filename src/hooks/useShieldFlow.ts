@@ -68,6 +68,9 @@ export interface ShieldFlow {
   inputMax: bigint
   minAmount: bigint
   useGasless: boolean
+  /** True while the relayer reachability probe is in flight — the modal shows the fee as
+   *  "estimating" and suppresses the direct-path ETH gas figures until the path is known (#23). */
+  relayerResolving: boolean
   duplicateWarning: boolean
   /** True when a submit-time fee refetch changed the fee — the review step shows the FeeUpdatedBanner. */
   feeChanged: boolean
@@ -143,7 +146,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // shield, so it must not silently flip the user to direct wallet-submit. Only a sustained
   // unreachable actor (`isUnreachable`) does. Still require a positive `healthData` so the
   // still-loading state defaults to direct-submit rather than advertising a gasless fee prematurely.
-  const { data: healthData, isUnreachable } = useRelayerHealth({ enabled: isOpen })
+  const { data: healthData, isUnreachable, isChecking: relayerResolving } = useRelayerHealth({ enabled: isOpen })
   const relayerAvailable = !isUnreachable && healthData !== undefined
 
   const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
@@ -181,8 +184,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // the hub regardless of submission path (gasless or direct). useDisplayFees reads
   // calculateShieldFee from the deployed fee module via wagmi; layered into computeFeeBreakdown
   // below as `protocolFee` so recipientReceives reflects the TRUE shielded value the user gets,
-  // not just `amount - broadcasterFee`. nativeGas is also surfaced for the wallet-submit fallback
-  // (gasless path doesn't pay native gas — Phase 6 hides that row).
+  // not just `amount - broadcasterFee`. nativeGas is also surfaced for the direct-submit path
+  // (gasless path doesn't pay native gas — that row is hidden there).
   // CCTP fast-fee — applies to BOTH direct and gasless cross-chain shield (CCTP V2 always
   // charges its fast-fee on a cross-chain mint regardless of how the burn was initiated).
   // Routed through its own channel rather than the broadcaster slot so the tooltip can label it
@@ -448,6 +451,9 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     inputMax,
     minAmount,
     useGasless,
+    // True while the relayer reachability is still being probed — the modal shows the fee as
+    // "estimating" and suppresses the direct-path ETH gas caption until we know the path (#23).
+    relayerResolving,
     duplicateWarning,
     feeChanged,
     evmAddress,

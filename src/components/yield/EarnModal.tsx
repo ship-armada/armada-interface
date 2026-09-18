@@ -9,6 +9,7 @@ import { shieldedUsdcAtom, shieldedUsdcSpendableAtom, yieldSharesAtom } from '@/
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
+import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
@@ -156,8 +157,11 @@ export function EarnModal() {
   const withdrawFeeBlockedReason: string | null = withdrawFeeShortfall
     ? `Withdrawal is smaller than the ${formatUsdcAmount(displayFeeTotal)} fee — withdraw more`
     : null
-  // Composed gate for the review step — sync gate OR private-USDC shortfall.
-  const submitBlockedReason: string | null = syncGate.reason || withdrawFeeBlockedReason
+  // Both yield kinds are relayer-submitted with no wallet fallback (#23) — block Confirm when the
+  // relayer is unavailable.
+  const relayerBlock = useRelayerSubmitBlock(isOpen)
+  // Composed gate for the review step — sync gate OR private-USDC shortfall OR relayer unavailable.
+  const submitBlockedReason: string | null = syncGate.reason || withdrawFeeBlockedReason || relayerBlock
 
   // Two useTx hooks; only one gets a record per flow.
   const txDeposit = useTx({ kind: 'yield-deposit' })

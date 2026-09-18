@@ -41,7 +41,20 @@ export function RelayerStatusBanner({
   crossChain = false,
   walletFallback = false,
 }: RelayerStatusBannerProps) {
-  const { isUnreachable, isIndexerStalled, isConfigured, refetch } = useRelayerHealth({ enabled: isOpen })
+  const { isUnreachable, isIndexerStalled, isConfigured, isChecking, refetch } =
+    useRelayerHealth({ enabled: isOpen })
+
+  // Resolving — a probe is in flight with no conclusive result yet (initial open, or a "Check
+  // again" refetch after an outage). Shown BEFORE the unavailable branch so the banner never blanks
+  // mid-check (which reads as "resolved") — see useRelayerHealth.isChecking. No retry button: a
+  // check is already running.
+  if (isChecking) {
+    return (
+      <div className={styles.root} role="status" aria-live="polite">
+        <div className={styles.message}>Looking for an available relayer…</div>
+      </div>
+    )
+  }
 
   // Broadcast-path unavailability — no relayer configured, or configured but currently unreachable.
   if (!isConfigured || isUnreachable) {

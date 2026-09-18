@@ -18,6 +18,7 @@ function health(overrides: Partial<ReturnType<typeof useRelayerHealth>> = {}) {
   return {
     isConfigured: true,
     isUnreachable: false,
+    isChecking: false,
     isIndexerStalled: false,
     data: { status: 'healthy' },
     refetch: refetchMock,
@@ -44,6 +45,15 @@ describe('<RelayerStatusBanner>', () => {
     mockUseRelayerHealth.mockReturnValue(health({ data: { status: 'stale' } }))
     const { container } = render(<RelayerStatusBanner isOpen crossChain />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('shows a neutral "Looking for a relayer…" state (no button) while a probe is in flight', () => {
+    // isChecking wins over the unavailable branch so the banner never blanks mid-check (which would
+    // read as "resolved") — covers both the initial open and a post-"Check again" refetch.
+    mockUseRelayerHealth.mockReturnValue(health({ isChecking: true, isUnreachable: true, data: undefined }))
+    render(<RelayerStatusBanner isOpen />)
+    expect(screen.getByRole('status').textContent).toMatch(/looking for an available relayer/i)
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
   it('blocks a spend and offers "Check again" when the relayer is configured but unreachable', () => {

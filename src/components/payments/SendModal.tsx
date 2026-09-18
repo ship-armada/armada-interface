@@ -17,6 +17,7 @@ import { useRecentRecipients } from '@/hooks/useRecentRecipients'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
+import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
 import { getChainById, getNetworkConfig } from '@/config/network'
 import {
   findDeploymentForChain,
@@ -141,6 +142,9 @@ export function SendModal() {
   // Gate Confirm while the initial shielded-balance sync is incomplete. Every kind spends the
   // user's shielded USDC, so the same gate applies.
   const syncGate = useSpendableSyncGate()
+  // Every kind here is relayer-submitted with no wallet fallback (#23), so an unavailable relayer
+  // blocks Confirm outright (the banner explains it at the top of the modal).
+  const relayerBlock = useRelayerSubmitBlock(isOpen)
 
   // Deployment manifests — used to validate that the chosen destination chain actually has a
   // deployment present. Otherwise the user could pick a chain that the submit step would throw on.
@@ -489,7 +493,7 @@ export function SendModal() {
           totalDeducted={totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
-          submitBlockedReason={syncGate.reason}
+          submitBlockedReason={syncGate.reason ?? relayerBlock}
           feeUpdated={feeChanged}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}

@@ -9,6 +9,7 @@ import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useDisplayFees } from '@/hooks/useDisplayFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
+import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
 import { cctpFastFeeForAmount, computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
 import { getChainById, getNetworkConfig } from '@/config/network'
 import { findDeploymentForChain, loadDeployments, type ResolvedDeployments } from '@/config/deployments'
@@ -106,6 +107,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
   // Gate Confirm while the initial shielded-balance sync is incomplete — every unshield spends
   // the user's shielded USDC.
   const syncGate = useSpendableSyncGate()
+  // Unshield is relayer-submitted with no wallet fallback (#23) — block Confirm when unavailable.
+  const relayerBlock = useRelayerSubmitBlock(isOpen)
 
   // Deployment manifests — validate that the chosen destination chain actually has a deployment
   // present, otherwise the user could pick a chain the submit step would throw on.
@@ -317,7 +320,7 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     recipientWalletProvider: connector?.name,
     networkName: getChainById(toChainId)?.name,
     destDeploymentError,
-    submitBlockedReason: syncGate.reason ?? undefined,
+    submitBlockedReason: syncGate.reason ?? relayerBlock ?? undefined,
     step,
     isSubmitting,
     record,

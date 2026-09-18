@@ -137,6 +137,7 @@ export function ShieldModal() {
             displayFees={active.displayFees}
             flowBreakdown={active.flowBreakdown}
             feeLoading={active.feeLoading}
+            feeResolving={isShield ? shieldFlow.relayerResolving : false}
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
             inputRef={amountInputRef}
@@ -168,6 +169,13 @@ export function ShieldModal() {
             duplicateWarning={shieldFlow.duplicateWarning}
             feeUpdated={shieldFlow.feeChanged}
             estimated={shieldFlow.fromChainId !== hubChainId}
+            // Direct path only: the user pays ETH gas from their wallet. Suppressed on the gasless
+            // path (relayer covers gas) and while the relayer state is still resolving.
+            nativeGas={
+              !shieldFlow.useGasless && !shieldFlow.relayerResolving
+                ? shieldFlow.displayFees.nativeGas
+                : null
+            }
             onBack={shieldFlow.onBackToInput}
             onConfirm={shieldFlow.submit}
           />

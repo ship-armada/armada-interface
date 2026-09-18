@@ -50,6 +50,13 @@ export interface DepositAmountCardProps {
   displayFees?: DisplayFees
   feeLoading?: boolean
   /**
+   * True while the fee path is still being determined — today the shield's relayer-reachability
+   * probe (gasless USDC fee vs direct ETH gas is unknown until it settles). Suppresses both fee
+   * segments and shows a neutral "Estimating fees…" caption instead of prematurely committing to
+   * the direct-path ETH gas figure that may vanish a moment later (#23).
+   */
+  feeResolving?: boolean
+  /**
    * Optional flow-level breakdown (broadcaster fee, recipient-receives, total-deducted) layered
    * onto the tooltip and into the FEE label total. Used by relayer-mediated / gasless flows
    * where the displayed total USDC fee is `protocolFee + broadcasterFee`.
@@ -93,6 +100,7 @@ export function DepositAmountCard({
   pendingBalance,
   displayFees,
   feeLoading = false,
+  feeResolving = false,
   flowBreakdown,
   onMax,
   maxInput,
@@ -207,13 +215,16 @@ export function DepositAmountCard({
   const totalFeeRaw = displayFees
     ? displayFees.totalFee + (flowBreakdown?.broadcasterFee ?? 0n) + (flowBreakdown?.cctpFee ?? 0n)
     : 0n
-  const showFee = showActiveAmount && displayFees !== undefined && totalFeeRaw > 0n
+  // While the fee path is still resolving we don't yet know if it's gasless (USDC) or direct (ETH
+  // gas), so surface a neutral "Estimating…" caption instead of either committed segment.
+  const showResolving = showActiveAmount && feeResolving
+  const showFee = showActiveAmount && !feeResolving && displayFees !== undefined && totalFeeRaw > 0n
   // The user pays network gas themselves only on the direct path (no relayer broadcaster fee) —
   // mirrors FeeBreakdownTooltip's gas-line gate so the caption and tooltip never disagree. On the
   // direct hub shield there's no USDC fee at all, so this is the ONLY cost the caption can surface.
   const nativeGas = displayFees?.nativeGas ?? null
   const userPaysNativeGas = (flowBreakdown?.broadcasterFee ?? 0n) === 0n
-  const showGas = showActiveAmount && userPaysNativeGas && nativeGas !== null
+  const showGas = showActiveAmount && !feeResolving && userPaysNativeGas && nativeGas !== null
 
   return (
     <div
@@ -289,7 +300,9 @@ export function DepositAmountCard({
             space when there's no fee) so the card height stays stable. The breakdown tooltip is
             kept beside the value for the full protocol/broadcaster/gas split. */}
         <div className={`armada-text-ui-label-md ${styles.feeCaption}`} role="status">
-          {(showFee || showGas) && displayFees ? (
+          {showResolving ? (
+            <span className={styles.feeResolving}>Estimating fees…</span>
+          ) : (showFee || showGas) && displayFees ? (
             <>
               {showFee ? <span>+ ${formatUsdcAmount(totalFeeRaw)} FEE</span> : null}
               {showGas && nativeGas ? <span>+ {formatNativeGasAmount(nativeGas)} gas</span> : null}
