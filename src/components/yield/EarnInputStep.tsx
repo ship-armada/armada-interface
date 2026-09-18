@@ -45,9 +45,8 @@ export interface EarnInputStepProps {
   gasChainId: number
   /**
    * When true, the relayer pays gas — suppresses the GasBalanceNotice. Both `yield-deposit` and
-   * `yield-withdraw` follow the user's `submitFromWallet` preference (#312's contract-side
-   * fee-from-proceeds made the relayer path viable for withdraw too — see EarnModal). Modal passes
-   * the inverse of `effectiveUseWalletOverride`.
+   * `yield-withdraw` are relayer-submitted (#312's contract-side fee-from-proceeds made the relayer
+   * path viable for withdraw too — see EarnModal), so the modal always passes true.
    */
   gaslessMode?: boolean
   rate: YieldRate | null

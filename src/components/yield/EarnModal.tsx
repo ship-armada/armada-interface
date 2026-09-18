@@ -4,7 +4,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { openModalAtom, type ModalKind } from '@/state/ui'
-import { preferencesAtom } from '@/state/preferences'
 import { RelayerStatusBanner } from '@/components/RelayerStatusBanner'
 import { shieldedUsdcAtom, shieldedUsdcSpendableAtom, yieldSharesAtom } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
@@ -43,8 +42,6 @@ export function EarnModal() {
   const [openModal, setOpenModal] = useAtom(openModalAtom)
   const isOpen = EARN_KINDS.includes(openModal)
   const initialTab: EarnTab = openModal === 'yield-withdraw' ? 'withdraw' : 'add'
-  // A6 — frozen into the record meta at submit-time so a mid-flight toggle doesn't strand the handler.
-  const prefs = useAtomValue(preferencesAtom)
 
   // Form state
   const [tab, setTab] = useState<EarnTab>(initialTab)
@@ -92,19 +89,11 @@ export function EarnModal() {
   // Yield ops spend the user's shielded USDC (deposit) or shielded yield shares (withdraw).
   // Either way, we need a successful first sync before letting the user submit.
   const syncGate = useSpendableSyncGate()
-  // A4 — yield ops are relayer-mediated. Fee comes from the quote's crossContract tier.
+  // A4 — yield ops are relayer-mediated. Fee comes from the quote's crossContract tier. Both kinds
+  // (deposit + withdraw) submit via the relayer's broadcaster path; there's no wallet-submit fallback
+  // (that would link the user's EVM address to a shielded spend — see #23).
   const yieldKind: 'yield-deposit' | 'yield-withdraw' = tab === 'add' ? 'yield-deposit' : 'yield-withdraw'
-  // yield-withdraw now uses the same submission model as every other kind: the user's `submitFromWallet`
-  // preference decides wallet vs. relayer. #312's fee-from-proceeds design removed the old blocker — the
-  // withdraw is a single Transaction and the relayer fee is shielded to the relayer's 0zk address (bound
-  // in adaptParams), so it fits the standard relayer/broadcaster path. NOTE: for the relayer (gasless)
-  // path to succeed end-to-end, the relayer's broadcaster-fee verifier must accept the new
-  // `redeemAndShield` selector and confirm the fee-shield output targets its 0zk address — tracked at
-  // #312 (relayer side). Users can fall back to wallet submission via the `submitFromWallet` preference.
-  const effectiveUseWalletOverride = prefs.submitFromWallet
-  // When the user-wallet path is in effect, no broadcaster fee is baked into the proof — the
-  // user pays gas in ETH instead.
-  const fee: bigint = effectiveUseWalletOverride ? 0n : userFeeForKind(yieldKind, amount, quote)
+  const fee: bigint = userFeeForKind(yieldKind, amount, quote)
   // Both yield ops are fee-on-top in `computeFeeBreakdown`'s model, but the balance flows differ:
   //   - Add Funds: user unshields (amount + fee) USDC. `totalDeducted = amount + fee` is the
   //     literal private-balance debit. `recipientReceives = amount` is what the vault gains.
@@ -264,12 +253,11 @@ export function EarnModal() {
       const broadcasterShieldedAddress = activeQuote.broadcasterShieldedAddress
       if (tab === 'add') {
         // S-M5: a deposit unshields amount + fee from the shielded balance (fee-on-top), so
-        // re-validate against the FRESH fee before proof gen. Wallet-override pays native gas
-        // separately, so no shielded fee applies there. (Withdraw takes its fee from the redeemed
-        // output, not the share balance — no fee-on-top check needed.)
+        // re-validate against the FRESH fee before proof gen. (Withdraw takes its fee from the
+        // redeemed output, not the share balance — no fee-on-top check needed.)
         assertSpendableForFeeOnTop({
           amount,
-          fee: effectiveUseWalletOverride ? 0n : broadcasterFeeAmount,
+          fee: broadcasterFeeAmount,
           balance: max,
         })
         setSubmittedKind('yield-deposit')
@@ -278,7 +266,6 @@ export function EarnModal() {
           feeCacheId,
           broadcasterFeeAmount,
           broadcasterShieldedAddress,
-          useWalletOverride: effectiveUseWalletOverride,
           // Freeze the reviewed net APY so the receipt can show it (persisted for rescan via selfMetadata).
           ...(yieldRate !== null ? { apyBps: yieldRate.apyBps } : {}),
         })
@@ -300,7 +287,6 @@ export function EarnModal() {
           shares,
           broadcasterFeeAmount,
           broadcasterShieldedAddress,
-          useWalletOverride: effectiveUseWalletOverride,
           // Freeze the reviewed net APY so the receipt can show it (persisted for rescan via selfMetadata).
           ...(effectiveRate !== null ? { apyBps: effectiveRate.apyBps } : {}),
         })
@@ -359,10 +345,8 @@ export function EarnModal() {
             flowBreakdown={flowBreakdown}
             feeLoading={feeLoading}
             gasChainId={hubChainId}
-            // Both tabs are relayer-mediated (gasless) unless the user opts into wallet submission
-            // via `submitFromWallet`. `effectiveUseWalletOverride` encodes that; the input step shows
-            // the gas notice when it's true.
-            gaslessMode={!effectiveUseWalletOverride}
+            // Both tabs are relayer-mediated (gasless) — no wallet-submit fallback (#23).
+            gaslessMode={true}
             rate={yieldRate}
             continueBlockedReason={withdrawFeeBlockedReason}
             inputRef={amountInputRef}

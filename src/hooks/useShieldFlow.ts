@@ -6,7 +6,6 @@ import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
 import { shieldedWalletAtom } from '@/state/wallet'
-import { preferencesAtom } from '@/state/preferences'
 import { activeTxListAtom } from '@/state/tx'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
@@ -92,7 +91,6 @@ export interface ShieldFlow {
 }
 
 export function useShieldFlow(isOpen: boolean): ShieldFlow {
-  const prefs = useAtomValue(preferencesAtom)
 
   // Review-step summary addresses: the connected EVM wallet (source) + the shielded destination.
   // Both are optional — the review rows render only when a value is present.
@@ -150,8 +148,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
 
   const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
 
-  // Phase B3/B4 — gasless path is available when the wrapper for the source chain is deployed,
-  // the relayer is reachable, and the user hasn't opted into wallet-override.
+  // Phase B3/B4 — gasless path is available when the wrapper for the source chain is deployed and
+  // the relayer is reachable.
   //   - `shield` (hub):           reads `deployments.hub.contracts.gaslessShieldWrapper`.
   //   - `shield-xchain` (client): reads the per-client `gaslessShieldWrapperClient`.
   const hubWrapperAddress = deployments.data?.hub.contracts.gaslessShieldWrapper
@@ -161,8 +159,11 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           .gaslessShieldWrapperClient
       : undefined
   const wrapperAddress = computedKind === 'shield' ? hubWrapperAddress : clientWrapperAddress
-  const useGasless: boolean =
-    wrapperAddress !== undefined && relayerAvailable && !prefs.submitFromWallet
+  // Gasless (relayer-covered) when a wrapper is deployed for the source chain AND the relayer is
+  // reachable; otherwise the deposit submits directly from the user's wallet (they pay ETH gas).
+  // Shielding moves the user's OWN public USDC in, so direct-shield is not a privacy regression —
+  // there's no wallet-submit fallback for spends (that would link the EVM address to a shielded spend).
+  const useGasless: boolean = wrapperAddress !== undefined && relayerAvailable
 
   // useFees stays plumbed in for the relayer-submit path (need cacheId at submit time even
   // though the display fee no longer comes from the quote on the direct path). For B4 the

@@ -11,7 +11,6 @@
 export interface RecoverableTxMeta {
   feeCacheId?: string
   useGasless?: boolean
-  useWalletOverride?: boolean
   /** Net vault APY (basis points) at the time of a yield op — persists the historical rate so the
    *  recovered yield receipt can show the "Estimated APY" row (otherwise hidden on rescan). */
   yieldApyBps?: bigint
@@ -24,7 +23,6 @@ interface WireV1 {
   v: 1
   c?: string
   g?: 1
-  w?: 1
   y?: string
 }
 
@@ -37,9 +35,8 @@ export function encodeTxSelfMetadata(meta: RecoverableTxMeta): string | undefine
   const wire: WireV1 = { v: 1 }
   if (meta.feeCacheId) wire.c = meta.feeCacheId
   if (meta.useGasless) wire.g = 1
-  if (meta.useWalletOverride) wire.w = 1
   if (meta.yieldApyBps !== undefined) wire.y = meta.yieldApyBps.toString()
-  if (wire.c === undefined && wire.g === undefined && wire.w === undefined && wire.y === undefined) return undefined
+  if (wire.c === undefined && wire.g === undefined && wire.y === undefined) return undefined
   return JSON.stringify(wire)
 }
 
@@ -53,7 +50,6 @@ export function decodeTxSelfMetadata(blob: string | undefined): RecoverableTxMet
     return {
       ...(typeof wire.c === 'string' ? { feeCacheId: wire.c } : {}),
       ...(wire.g === 1 ? { useGasless: true } : {}),
-      ...(wire.w === 1 ? { useWalletOverride: true } : {}),
       ...(typeof wire.y === 'string' ? { yieldApyBps: BigInt(wire.y) } : {}),
     }
   } catch {

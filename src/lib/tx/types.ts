@@ -175,7 +175,7 @@ export interface MetaShield extends MetaCommon {
   fromChainId: number
   /**
    * Phase B3 — gasless mode flag. Frozen at submit-time by the modal based on (wrapper
-   * deployed for fromChainId AND relayer healthy AND user hasn't toggled wallet-override).
+   * deployed for fromChainId AND relayer healthy).
    *   - `true`  → handler signs an EIP-2612 permit + POSTs gaslessShield(...) calldata to the
    *     relayer; user pays the relayer's `shield` tier fee in USDC and no ETH gas.
    *   - `false` → handler does the existing direct path (user-signed approve + shield from the
@@ -220,7 +220,7 @@ export interface MetaShieldXchain extends MetaCommon {
   fromChainId: number
   /**
    * Phase B4 — gasless mode flag. Frozen at submit-time by the modal based on (client wrapper
-   * deployed for fromChainId AND relayer healthy AND user hasn't toggled wallet-override).
+   * deployed for fromChainId AND relayer healthy).
    *   - `true`  → handler signs an EIP-2612 permit on the source chain + POSTs
    *     gaslessCrossChainShield(...) calldata to the relayer; user pays the `shieldXchain`
    *     tier fee in USDC and no native gas on the source chain.
@@ -285,24 +285,12 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
  * embeds these EXACT values; the relayer's server-side verifier (Phase A2) rejects requests
  * whose decrypted broadcaster output doesn't match. Frozen for the record's lifetime — the
  * cacheId already gates against the relayer rotating the schedule mid-flight.
- *
- * A6 — when `useWalletOverride: true` the handler skips the broadcaster path entirely: the proof
- * is built with `broadcasterFee: null`, the tx is submitted via the user's EVM wallet, and the
- * broadcasterFeeAmount / broadcasterShieldedAddress fields are recorded for history but ignored
- * by the proof builder. The flag is frozen on the record at submit-time so a session-level
- * preference flip mid-flight doesn't strand the handler.
  */
 interface MetaBroadcaster {
   /** USDC raw amount paid to the relayer's broadcaster output. */
   broadcasterFeeAmount: bigint
   /** Relayer's shielded (`0zk`) address that the broadcaster output pays. */
   broadcasterShieldedAddress: string
-  /**
-   * A6 wallet-override escape hatch. When true, handler builds the proof with `broadcasterFee:
-   * null` and submits via the user's EVM wallet (writeContract / sendTransaction) instead of
-   * POSTing to `/relay`. Defaults to false (relayer path) for records created before A6.
-   */
-  useWalletOverride?: boolean
 }
 
 export interface MetaTransferShielded extends MetaCommon, MetaBroadcaster {
@@ -526,7 +514,7 @@ export interface ArtifactsYield extends ArtifactsCommon {
   /**
    * Withdraw-only (#312): the fee note's 16-byte hex `random`, captured at build-proof and sent on
    * the /relay request so the relayer can verify the fee is shielded to itself. Absent on deposit /
-   * wallet-override / fee-less redeem.
+   * fee-less redeem.
    */
   feeShieldRandom?: string
 }

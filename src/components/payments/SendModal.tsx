@@ -6,7 +6,6 @@ import { useAccount } from 'wagmi'
 import { useAtom, useAtomValue } from 'jotai'
 import { openModalAtom, paymentIntentAtom } from '@/state/ui'
 import { clearPendingPayViaLink } from '@/lib/payViaLink'
-import { preferencesAtom } from '@/state/preferences'
 import {
   evmAddressAtom,
   shieldedUsdcAtom,
@@ -70,8 +69,6 @@ export function SendModal() {
   // (ShieldModal). The `withdraw` variant copy survives on the step components (ActivityReceipt
   // renders unshield receipts with it), but this modal no longer opens in that variant.
   const variant: SendFlowVariant = 'send'
-  // A6 — frozen into the record's meta at submit-time so a mid-flight toggle doesn't strand the handler.
-  const prefs = useAtomValue(preferencesAtom)
 
   // The user's own shielded (Armada) address — rendered as the review/complete summary's
   // "From your private account" row. Optional; the row is omitted when locked/absent.
@@ -307,14 +304,13 @@ export function SendModal() {
       }
       const feeCacheId = activeQuote.cacheId
       // S-M5: re-validate amount + the FRESH relayer fee against the balance before proof gen. All
-      // three kinds draw the fee from the shielded balance (fee-on-top) on the relayer path;
-      // wallet-override pays native gas separately, so no shielded fee applies there.
+      // three kinds draw the fee from the shielded balance (fee-on-top) on the relayer path.
       const freshFee = computedKind === 'transfer-shielded'
         ? BigInt(activeQuote.fees.transfer)
         : computedKind === 'unshield-local'
           ? BigInt(activeQuote.fees.unshield)
           : BigInt(activeQuote.fees.crossChainUnshield)
-      assertSpendableForFeeOnTop({ amount, fee: prefs.submitFromWallet ? 0n : freshFee, balance: max })
+      assertSpendableForFeeOnTop({ amount, fee: freshFee, balance: max })
       if (computedKind === 'transfer-shielded') {
         // Strict-validate the user's typed 0zk recipient (bech32m checksum, not just shape) at the
         // funds-committing boundary — a transposed character would otherwise send a private
@@ -341,7 +337,6 @@ export function SendModal() {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.transfer),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          useWalletOverride: prefs.submitFromWallet,
           devForceError: forcedOutcome ?? undefined,
         })
       } else if (computedKind === 'unshield-local') {
@@ -362,7 +357,6 @@ export function SendModal() {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.unshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          useWalletOverride: prefs.submitFromWallet,
           devForceError: forcedOutcome ?? undefined,
         })
       } else {
@@ -384,7 +378,6 @@ export function SendModal() {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.crossChainUnshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          useWalletOverride: prefs.submitFromWallet,
           devForceError: forcedOutcome ?? undefined,
         })
       }
@@ -468,9 +461,10 @@ export function SendModal() {
             // proof-bearing tx on hub, `unshield-local` likewise, and `unshield-xchain` signs
             // `atomicCrossChainUnshield` on hub before CCTP delivers on the destination chain.
             gasChainId={hubChainId}
-            // SendModal's three kinds default to the relayer path; user pays gas only when
-            // they've toggled Preferences → "Submit transactions from my wallet".
-            gaslessMode={!prefs.submitFromWallet}
+            // SendModal's three kinds are always relayer-submitted (a spend from the user's own
+            // wallet would link their EVM address to the shielded activity; #23), so gas is never
+            // theirs to pay — the notice stays suppressed.
+            gaslessMode={true}
             inputRef={amountInputRef}
             shaking={shaking}
             onShakeAnimationEnd={onShakeAnimationEnd}

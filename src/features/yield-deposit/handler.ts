@@ -1,13 +1,8 @@
 // ABOUTME: Yield-deposit (lend) handler — single atomic adapt-proof tx with broadcaster fee → POST /relay → poll status. Relayer-mediated (A4).
 // ABOUTME: Three stages: build-proof (~20-30s, embeds broadcaster output), submit-relayer (POST + status poll), hub-confirmed (balance refresh).
 
-import { sendTransaction } from 'wagmi/actions'
 import { loadDeployments, loadYieldDeployment } from '@/config/deployments'
 import { getNetworkConfig } from '@/config/network'
-import { wagmiConfig } from '@/config/wagmi'
-import { ensureChain } from '@/lib/network-switch'
-import { waitForReceiptOrFail } from '@/lib/tx/receipt'
-import { simulateOrThrow } from '@/lib/tx/simulate'
 import {
   getShieldedAddress as kmGetShieldedAddress,
   getWalletId as kmGetWalletId,
@@ -67,11 +62,10 @@ export const yieldDepositHandler: StageHandler<'yield-deposit'> = {
   },
 }
 
-/** A6 — null when wallet-override, otherwise the broadcaster context from meta. */
+/** The broadcaster fee note context — always present (spends are relayer-submitted; #23). */
 function broadcasterFeeFromRecord(
   record: TxRecord<'yield-deposit'>,
-): { amount: bigint; recipientAddress: string } | null {
-  if (record.meta.useWalletOverride) return null
+): { amount: bigint; recipientAddress: string } {
   return {
     amount: record.meta.broadcasterFeeAmount,
     recipientAddress: record.meta.broadcasterShieldedAddress,
@@ -106,7 +100,6 @@ async function runBuildProof(
   // them even after local storage is cleared.
   const selfMetadata = encodeTxSelfMetadata({
     feeCacheId: record.meta.feeCacheId,
-    useWalletOverride: record.meta.useWalletOverride,
     // Persist the reviewed net APY (Tier 4) so the recovered receipt can show the APY row.
     yieldApyBps: record.meta.apyBps,
   })
@@ -145,55 +138,6 @@ async function runSubmitAndConfirm(
   // `yieldTx` is persisted in artifacts at build-proof, so it survives a reload — no re-proving
   // needed on resume. Only the broadcast itself must be guarded against re-entry.
   const existingHash = record.artifacts.sourceTxHash
-
-  // A6 wallet-override path — submit the wrapper calldata via the user's EVM wallet.
-  if (record.meta.useWalletOverride) {
-    // Idempotency guard (P0-1): never re-broadcast a tx we already sent. On re-entry skip to the
-    // receipt wait for the known hash.
-    let hash = existingHash
-    let broadcastRecord = record
-    if (!hash) {
-      await ensureChain(hubChainId)
-      if (ctx.signal.aborted) throw new Error('cancelled')
-      // S-M8: pre-flight simulate so an on-chain revert surfaces as a typed PRE_FLIGHT_REVERT
-      // ("nothing was sent") instead of MetaMask's opaque 30M-gas-fallback "gas limit too high".
-      const sender = record.walletContext.evmAddress
-      if (sender) {
-        await simulateOrThrow({
-          to: yieldTx.to as `0x${string}`,
-          data: yieldTx.data as `0x${string}`,
-          value: BigInt(yieldTx.value),
-          account: sender as `0x${string}`,
-          chainId: hubChainId,
-        })
-        if (ctx.signal.aborted) throw new Error('cancelled')
-      }
-      hash = await sendTransaction(wagmiConfig, {
-        to: yieldTx.to as `0x${string}`,
-        data: yieldTx.data as `0x${string}`,
-        value: BigInt(yieldTx.value),
-        chainId: hubChainId,
-      })
-      const broadcast = await recordBroadcastHash(record, hash, ctx)
-      if (broadcast.dismissed) return
-      broadcastRecord = broadcast.record
-      // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
-      // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
-      void markSpendPendingForRecord(record.id, hash)
-    }
-    // Enter the on-chain confirmation stage before waiting (idempotent for resume), so the stepper
-    // shows the confirming step instead of holding on "Submitting transaction".
-    if (broadcastRecord.stage !== 'hub-pending') {
-      broadcastRecord = advance(broadcastRecord, 'hub-pending')
-      await ctx.upsert(broadcastRecord)
-    }
-    await waitForReceiptOrFail({ hash, signal: ctx.signal, chainId: hubChainId })
-    if (kmIsUnlocked()) {
-      void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-    }
-    await ctx.upsert(advance(broadcastRecord, 'hub-confirmed', { sourceTxHash: hash }))
-    return
-  }
 
   // Idempotency guard (P0-1): once the relayer accepted the POST we persist the returned txHash.
   // NEVER re-POST — a duplicate gets a 409 and surfaces a false failure. On re-entry skip to the

@@ -1,13 +1,8 @@
 // ABOUTME: Unshield-local stage handler — build-proof (with broadcaster fee) → submit-relayer (POST /relay) → poll status → hub-confirmed.
 // ABOUTME: Phase A3 — first relayer-mediated handler. Zero EVM wallet prompts; tx broadcast + gas paid by the relayer; status tracked via /status polling.
 
-import { sendTransaction } from 'wagmi/actions'
 import { loadDeployments } from '@/config/deployments'
 import { getNetworkConfig } from '@/config/network'
-import { wagmiConfig } from '@/config/wagmi'
-import { ensureChain } from '@/lib/network-switch'
-import { waitForReceiptOrFail } from '@/lib/tx/receipt'
-import { simulateOrThrow } from '@/lib/tx/simulate'
 import {
   getWalletId as kmGetWalletId,
   isUnlocked as kmIsUnlocked,
@@ -76,16 +71,10 @@ export const unshieldLocalHandler: StageHandler<'unshield-local'> = {
   },
 }
 
-/**
- * Compute the broadcasterFee argument for the SDK unshield build. Returns null when the record was
- * created with the A6 wallet-override flag set, so the proof is built for direct EVM submit (no
- * broadcaster output); otherwise returns the broadcaster context baked into the record's meta at
- * submit-time.
- */
+/** The broadcaster fee note context — always present (spends are relayer-submitted; #23). */
 function broadcasterFeeFromRecord(
   record: TxRecord<'unshield-local'>,
-): { amount: bigint; recipientAddress: string } | null {
-  if (record.meta.useWalletOverride) return null
+): { amount: bigint; recipientAddress: string } {
   return {
     amount: record.meta.broadcasterFeeAmount,
     recipientAddress: record.meta.broadcasterShieldedAddress,
@@ -109,7 +98,6 @@ async function runBuildProof(
   // them even after local storage is cleared.
   const selfMetadata = encodeTxSelfMetadata({
     feeCacheId: record.meta.feeCacheId,
-    useWalletOverride: record.meta.useWalletOverride,
   })
   // Build (plan → prove off-thread → serialize) the transact calldata and stash it, so submit-relayer
   // dispatches it without re-proving — and, persisted in the record, it survives a reload. `recordId`
@@ -148,58 +136,6 @@ async function runSubmitAndConfirm(
       throw new Error('Unshield calldata missing — start a new transaction.')
     }
     populated = { to: stashed.to, data: stashed.data, value: BigInt(stashed.value) }
-  }
-
-  // A6 wallet-override path — bypass the relayer entirely and submit through the user's EVM
-  // wallet. Builds the same populated calldata (just with a different proof shape), waits for
-  // the receipt directly, and advances to the same `hub-confirmed` terminal stage so the rest
-  // of the lifecycle (UI, history, balance refresh) is uniform across both paths.
-  if (record.meta.useWalletOverride) {
-    let hash = existingHash
-    let broadcastRecord = record
-    if (!hash) {
-      const tx = populated!
-      await ensureChain(hubChainId)
-      if (ctx.signal.aborted) throw new Error('cancelled')
-      // S-M8: pre-flight simulate so an on-chain revert surfaces as a typed PRE_FLIGHT_REVERT
-      // ("nothing was sent") instead of MetaMask's opaque 30M-gas-fallback "gas limit too high".
-      const sender = record.walletContext.evmAddress
-      if (sender) {
-        await simulateOrThrow({
-          to: tx.to,
-          data: tx.data,
-          value: tx.value,
-          account: sender as `0x${string}`,
-          chainId: hubChainId,
-        })
-        if (ctx.signal.aborted) throw new Error('cancelled')
-      }
-      hash = await sendTransaction(wagmiConfig, {
-        to: tx.to,
-        data: tx.data,
-        value: tx.value,
-        chainId: hubChainId,
-      })
-      const broadcast = await recordBroadcastHash(record, hash, ctx)
-      if (broadcast.dismissed) return
-      broadcastRecord = broadcast.record
-      // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
-      // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
-      void markSpendPendingForRecord(record.id, hash)
-    }
-    // Enter the on-chain confirmation stage before waiting (idempotent for resume), so the stepper
-    // shows the confirming step instead of holding on "Submitting transaction".
-    if (broadcastRecord.stage !== 'hub-pending') {
-      broadcastRecord = advance(broadcastRecord, 'hub-pending')
-      await ctx.upsert(broadcastRecord)
-    }
-    await waitForReceiptOrFail({ hash, signal: ctx.signal, chainId: hubChainId })
-    if (kmIsUnlocked()) {
-      void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-    }
-    const completed = advance(broadcastRecord, 'hub-confirmed', { sourceTxHash: hash })
-    await ctx.upsert(completed)
-    return
   }
 
   // Hand the populated calldata to the relayer. The relayer's pre-submit pipeline validates the

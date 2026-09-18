@@ -23,7 +23,7 @@ These primitives are NOT in `src/design` because they aren't yet stable enough t
 | `Tooltip` | Portalled hover/focus tooltip. |
 | `FeeBreakdownTooltip` | Tooltip exposing the fee split (protocol + broadcaster + CCTP) behind the under-amount "+ $X FEE" caption. |
 | `EstimatedFeeValue` | Formatted fee value with loading state. |
-| `GasBalanceNotice` | Low-native-gas warning shown on wallet-submit (non-gasless) paths. |
+| `GasBalanceNotice` | Low-native-gas warning shown on the direct-submit (non-gasless) shield path. |
 | `WalletProviderIcon` | Brand glyph for a wagmi connector (used on "From your wallet" rows). |
 
 ## Conventions (mirror `src/design`)

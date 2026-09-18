@@ -5,9 +5,9 @@ import { encodeTxSelfMetadata, decodeTxSelfMetadata } from './selfMetadata'
 
 describe('encodeTxSelfMetadata / decodeTxSelfMetadata', () => {
   it('round-trips the recoverable fields', () => {
-    const blob = encodeTxSelfMetadata({ feeCacheId: 'quote-123', useWalletOverride: true })
+    const blob = encodeTxSelfMetadata({ feeCacheId: 'quote-123' })
     expect(blob).toBeTypeOf('string')
-    expect(decodeTxSelfMetadata(blob)).toEqual({ feeCacheId: 'quote-123', useWalletOverride: true })
+    expect(decodeTxSelfMetadata(blob)).toEqual({ feeCacheId: 'quote-123' })
   })
 
   it('round-trips the gasless flag', () => {
@@ -26,7 +26,7 @@ describe('encodeTxSelfMetadata / decodeTxSelfMetadata', () => {
     // WHY: an empty blob would still write a change memo — calldata gas + a metadata-presence signal
     // for no recovered value. The caller skips prove({ selfMetadata }) when this is undefined.
     expect(encodeTxSelfMetadata({})).toBeUndefined()
-    expect(encodeTxSelfMetadata({ feeCacheId: '', useGasless: false, useWalletOverride: false })).toBeUndefined()
+    expect(encodeTxSelfMetadata({ feeCacheId: '', useGasless: false })).toBeUndefined()
   })
 
   it('omits absent flags rather than encoding them false', () => {

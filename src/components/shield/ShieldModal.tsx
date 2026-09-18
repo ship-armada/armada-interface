@@ -2,9 +2,8 @@
 // ABOUTME: Shield = public → private; Unshield = private → your own EVM wallet (to-chain picker). The typed amount carries across the tab toggle.
 
 import { useRef, useState } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom } from 'jotai'
 import { openModalAtom } from '@/state/ui'
-import { preferencesAtom } from '@/state/preferences'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
 import { getNetworkConfig } from '@/config/network'
@@ -40,7 +39,6 @@ export function ShieldModal() {
   const [openModal, setOpenModal] = useAtom(openModalAtom)
   const isOpen = openModal === 'shield' || openModal === 'unshield'
   const initialTab: ShieldTab = openModal === 'unshield' ? 'unshield' : 'shield'
-  const prefs = useAtomValue(preferencesAtom)
   const hubChainId = getNetworkConfig().hub.chainId
 
   const [tab, setTab] = useState<ShieldTab>(initialTab)
@@ -117,6 +115,7 @@ export function ShieldModal() {
       <RelayerStatusBanner
         isOpen={isOpen}
         crossChain={(isShield ? shieldFlow.fromChainId : unshieldFlow.toChainId) !== hubChainId}
+        walletFallback={isShield}
       />
       {step === 'input' && (
         <>
@@ -138,7 +137,7 @@ export function ShieldModal() {
             displayFees={active.displayFees}
             flowBreakdown={active.flowBreakdown}
             feeLoading={active.feeLoading}
-            gaslessMode={isShield ? shieldFlow.useGasless : !prefs.submitFromWallet}
+            gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
             inputRef={amountInputRef}
             shaking={shaking}

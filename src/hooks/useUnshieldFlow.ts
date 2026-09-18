@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
 import { evmAddressAtom, shieldedUsdcAtom, shieldedUsdcSpendableAtom, shieldedWalletAtom } from '@/state/wallet'
-import { preferencesAtom } from '@/state/preferences'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useDisplayFees } from '@/hooks/useDisplayFees'
@@ -72,7 +71,6 @@ export interface UnshieldFlow {
 }
 
 export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
-  const prefs = useAtomValue(preferencesAtom)
   const shieldedWallet = useAtomValue(shieldedWalletAtom)
 
   // Destination = the connected EVM wallet (pinned; this is "unshield to my own wallet").
@@ -231,13 +229,12 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
       }
       const feeCacheId = activeQuote.cacheId
       // S-M5: re-validate amount + the FRESH relayer fee against the balance before proof gen. Both
-      // kinds draw the fee from the shielded balance (fee-on-top) on the relayer path; wallet-
-      // override pays native gas separately, so no shielded fee applies there.
+      // kinds draw the fee from the shielded balance (fee-on-top) on the relayer path.
       const freshFee =
         computedKind === 'unshield-local'
           ? BigInt(activeQuote.fees.unshield)
           : BigInt(activeQuote.fees.crossChainUnshield)
-      assertSpendableForFeeOnTop({ amount, fee: prefs.submitFromWallet ? 0n : freshFee, balance: max })
+      assertSpendableForFeeOnTop({ amount, fee: freshFee, balance: max })
       // Fail fast if the relayer published a malformed broadcaster address — avoid a 20-30s proof
       // gen doomed to surface an opaque SDK throw deep in the pipeline.
       if (!isShieldedAddress(activeQuote.broadcasterShieldedAddress)) {
@@ -254,7 +251,6 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.unshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          useWalletOverride: prefs.submitFromWallet,
         })
       } else {
         setSubmittedKind('unshield-xchain')
@@ -265,7 +261,6 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.crossChainUnshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          useWalletOverride: prefs.submitFromWallet,
         })
       }
       if (submittedId === null) return

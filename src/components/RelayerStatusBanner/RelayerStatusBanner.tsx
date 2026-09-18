@@ -1,9 +1,7 @@
-// ABOUTME: RelayerStatusBanner — surfaced inside relayer-mediated modals when /health reports stale/unhealthy.
-// ABOUTME: Offers a one-click "Submit from your wallet instead" path that toggles the persisted preference.
+// ABOUTME: RelayerStatusBanner — surfaced inside relayer-mediated modals when the relayer is unavailable.
+// ABOUTME: Spends are blocked (no wallet-submit — it would deanonymize them); shield can still proceed direct.
 
-import { useAtom } from 'jotai'
 import { Button } from '@/design'
-import { preferencesAtom } from '@/state/preferences'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
 import styles from './RelayerStatusBanner.module.css'
 
@@ -15,75 +13,66 @@ export interface RelayerStatusBannerProps {
    * delivery advisory, which only applies to the CCTP delivery leg — same-chain flows never show it.
    */
   crossChain?: boolean
+  /**
+   * True for the SHIELD flow: shielding moves the user's own public USDC in, so a relayer outage just
+   * falls back to a direct wallet submit (paying ETH gas) — informational, not a block. Spends (the
+   * default) have no such fallback — submitting from the wallet would link the EVM address to a
+   * shielded spend (#23) — so they're blocked until the relayer is reachable.
+   */
+  walletFallback?: boolean
 }
 
 /**
- * Surfaces relayer-state banners inside relayer-mediated modals. Three cases:
+ * Surfaces relayer-state banners inside relayer-mediated modals. Cases:
  *
- *  1. No relayer configured for this build (P0-10) → steer to wallet-submit.
- *  2. Relayer unreachable → "can't broadcast" nudge to wallet-submit.
- *  3. Cross-chain flow + the indexer is badly behind → an advisory that delivery may be delayed
- *     (informational; NOT a broadcast block, and wallet-submit wouldn't help — the CCTP delivery
- *     leg is relayer-driven either way).
- *
- * Cases 1–2 are broadcast-path nudges, so they're suppressed once the user has opted into
- * wallet-submit (`preferencesAtom.submitFromWallet`, `atomWithStorage` → persisted). Case 3 shows
- * regardless. The banner does NOT decide the submit path — it nudges; handlers read the pref at
- * submit-time.
+ *  1. Relayer unavailable (not configured, or configured but unreachable):
+ *     - `walletFallback` (shield) → informational: the deposit will submit from the wallet (ETH gas).
+ *     - spends → blocked: this transaction can't be submitted right now.
+ *     Offers a "Check again" retry when the relayer is *configured but unreachable* (re-checking a
+ *     build with no relayer configured can't help).
+ *  2. Cross-chain flow + the indexer is badly behind → an advisory that delivery may be delayed
+ *     (informational; independent of the broadcast path).
  *
  * Deliberately does NOT trip on `/health` `status: 'stale'`: that's routine watcher-indexer lag,
  * not a relay-availability signal — `/relay` and `/status` work regardless (see `useRelayerHealth`).
  */
-export function RelayerStatusBanner({ isOpen, crossChain = false }: RelayerStatusBannerProps) {
-  const { isUnreachable, isIndexerStalled, isConfigured } = useRelayerHealth({ enabled: isOpen })
-  const [prefs, setPrefs] = useAtom(preferencesAtom)
+export function RelayerStatusBanner({
+  isOpen,
+  crossChain = false,
+  walletFallback = false,
+}: RelayerStatusBannerProps) {
+  const { isUnreachable, isIndexerStalled, isConfigured, refetch } = useRelayerHealth({ enabled: isOpen })
 
-  // Broadcast-path nudges (not-configured / unreachable) steer to wallet-submit, so they're moot
-  // once the user has already opted in.
-  if (!prefs.submitFromWallet) {
-    if (!isConfigured) {
-      return (
-        <div className={styles.root} role="status" aria-live="polite">
-          <div className={styles.message}>
-            No relayer is configured for this site. You can still submit transactions from your own
-            wallet (you'll pay network gas).
-          </div>
+  // Broadcast-path unavailability — no relayer configured, or configured but currently unreachable.
+  if (!isConfigured || isUnreachable) {
+    const message = walletFallback
+      ? isConfigured
+        ? "Couldn't find an available relayer. If you choose to proceed, your deposit will be submitted from your own wallet and you'll pay network fees in ETH instead."
+        : "No relayer configured. If you choose to proceed, your deposit will be submitted from your own wallet and you'll pay network fees in ETH instead."
+      : isConfigured
+        ? "Couldn't find an available relayer, so this transaction can't be submitted right now — please try again in a moment."
+        : "No relayer configured, so this transaction can't be submitted right now."
+    return (
+      <div className={styles.root} role="status" aria-live="polite">
+        <div className={styles.message}>{message}</div>
+        {/* Re-checking only helps when a relayer IS configured but momentarily unreachable. */}
+        {isConfigured ? (
           <Button
             variant="secondary"
             size="sm"
-            label="Submit from my wallet"
+            label="Check again"
             showIcon={false}
             className={styles.action}
-            onClick={() => setPrefs({ ...prefs, submitFromWallet: true })}
+            onClick={() => void refetch()}
           />
-        </div>
-      )
-    }
-
-    if (isUnreachable) {
-      return (
-        <div className={styles.root} role="status" aria-live="polite">
-          <div className={styles.message}>
-            Can't find an available relayer. Your transaction may not be broadcast promptly.
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            label="Submit from my wallet instead"
-            showIcon={false}
-            className={styles.action}
-            onClick={() => setPrefs({ ...prefs, submitFromWallet: true })}
-          />
-        </div>
-      )
-    }
+        ) : null}
+      </div>
+    )
   }
 
   // Cross-chain delivery advisory — the indexer that feeds CCTP delivery discovery is badly behind.
-  // Delivery still completes (a direct-RPC fallback engages) but may lag. Informational only — no
-  // wallet-override CTA, since wallet-submit doesn't change the relayer-driven delivery leg. Shown
-  // even under wallet-submit because it's independent of the broadcast path.
-  if (crossChain && isIndexerStalled && !isUnreachable) {
+  // Delivery still completes (a direct-RPC fallback engages) but may lag. Informational only.
+  if (crossChain && isIndexerStalled) {
     return (
       <div className={styles.root} role="status" aria-live="polite">
         <div className={styles.message}>

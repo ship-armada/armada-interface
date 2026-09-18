@@ -128,11 +128,10 @@ export function historyEntryToTxRecord(
   const broadcasterFee = entry.broadcasterFee ?? 0n
   const broadcasterShieldedAddress = entry.broadcasterShieldedAddress ?? ''
   // Bucket-C fields the SDK recovers from the spend's self-owned change-note memo (#44) — the relayer
-  // quote id + submission mode, which a chain scan can't otherwise reconstruct. Empty for entries that
-  // carried no self-metadata (older records, receives, shields). `wo` overlays useWalletOverride below.
+  // quote id, which a chain scan can't otherwise reconstruct. Empty for entries that carried no
+  // self-metadata (older records, receives, shields).
   const recovered = decodeTxSelfMetadata(entry.selfMetadata)
   const recoveredFeeCacheId = recovered.feeCacheId ?? ''
-  const wo = recovered.useWalletOverride ? { useWalletOverride: true as const } : {}
   // Net vault APY at tx time (Tier 4) — recovered from the yield spend's self-metadata; overlaid onto
   // the yield records so the receipt's "Estimated APY" row survives a rescan.
   const apy = recovered.yieldApyBps !== undefined ? { apyBps: recovered.yieldApyBps } : {}
@@ -203,7 +202,7 @@ export function historyEntryToTxRecord(
         meta: {
           amount: abs, feeCacheId: recoveredFeeCacheId,
           recipient: entry.sentOutputs?.[0]?.recipientShieldedAddress ?? 'self',
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
+          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
         },
       }
     }
@@ -229,7 +228,7 @@ export function historyEntryToTxRecord(
         meta: {
           amount: recipientAmount, feeCacheId: recoveredFeeCacheId,
           recipient: entry.sentOutputs?.[0]?.recipientShieldedAddress ?? 'unknown',
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
+          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
           // Recover the memo the sender attached to the recipient's note (`sentOutputs[].memo`).
           ...(entry.sentOutputs?.[0]?.memo ? { memoText: entry.sentOutputs[0].memo } : {}),
         },
@@ -239,7 +238,7 @@ export function historyEntryToTxRecord(
       const amount = abs - broadcasterFee - (entry.unshieldFee ?? 0n)
       const unshieldMeta = {
         amount, feeCacheId: recoveredFeeCacheId,
-        broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo,
+        broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
       }
       // An unshield addressed to the pool that carried a CCTP `MessageSent` was a cross-chain exit
       // (Tier 2) — recover the destination chain + the REAL final recipient (the on-chain unshield
@@ -274,7 +273,7 @@ export function historyEntryToTxRecord(
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'yield-deposit', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: { amount: principal, feeCacheId: recoveredFeeCacheId, broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo, ...apy },
+        meta: { amount: principal, feeCacheId: recoveredFeeCacheId, broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...apy },
       }
     }
     case 'yield-withdraw': {
@@ -289,7 +288,7 @@ export function historyEntryToTxRecord(
         meta: {
           amount: entry.value + broadcasterFee, feeCacheId: recoveredFeeCacheId,
           shares: entry.shares ?? 0n,
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...wo, ...apy,
+          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress, ...apy,
         },
       }
     }
