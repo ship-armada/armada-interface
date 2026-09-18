@@ -12,6 +12,7 @@ import {
   type WorkerChannel,
 } from '@armada/sdk'
 import { armadaVariantKey, getArmadaArtifact } from './artifactGetter'
+import { ensureCircuitLoaded } from './circuitFetch'
 
 /**
  * A `WorkerChannel` over a browser Web Worker running the SDK's prebuilt prover entry.
@@ -50,18 +51,21 @@ export function createInterfaceProver(): ProverAdapter {
 }
 
 /**
- * `ArtifactSource` bridging the SDK to the interface's in-memory circuit registry — the same
- * `artifactGetter` registry the engine proves against, populated by the DEV circuit loader + the prod
- * origin-preload (keyed by padded `NNxMM`). Resolves `(shape) → { wasm, zkey, vkey }`; throws if the
- * shape's circuit hasn't been loaded, so a request for an unserved shape fails loudly rather than hanging.
+ * `ArtifactSource` bridging the SDK to the interface's in-memory circuit registry. On a registry miss
+ * it lazy-fetches the shape from the configured artifact host (`VITE_ARTIFACTS_BASE_URL`, default
+ * same-origin `/artifacts`) and integrity-verifies it against the committed manifest before caching it
+ * (see circuitFetch.ts) — so ANY served shape resolves on first proof, not just the preloaded common
+ * ones (#6). A genuine 404 or a hash mismatch throws loudly; there is no IPFS fallback.
  */
 export function createInterfaceArtifactSource(): ArtifactSource {
   return {
     async resolve(shape: CircuitShape): Promise<ArtifactSet> {
       const key = armadaVariantKey(shape.nullifiers, shape.commitments)
+      await ensureCircuitLoaded(key)
       const artifact = getArmadaArtifact(key)
       if (!artifact || artifact.wasm === undefined || artifact.zkey === undefined || artifact.vkey === undefined) {
-        throw new Error(`sdk-prover: circuit ${key} not loaded — ensure artifacts are preloaded before proving`)
+        // ensureCircuitLoaded resolves or throws; a populated-but-incomplete registry entry here is a bug.
+        throw new Error(`sdk-prover: circuit ${key} unavailable after load`)
       }
       return {
         wasm: artifact.wasm as Uint8Array,
