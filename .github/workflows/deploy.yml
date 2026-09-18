@@ -42,6 +42,10 @@ jobs:
     env:
       # Mirrors netlify.toml's [build.environment]. Sepolia drives the manifest suffix + hub RPC/chain.
       VITE_NETWORK: sepolia
+      # ZK circuit artifact host (#6). Baked into the bundle; the app fetches + integrity-verifies each
+      # shape from here at runtime. Also lets the prepare:artifacts step skip the local-artifact check.
+      # Override via a repo variable to bump the release or move hosts (e.g. R2); defaults to testnet VPS.
+      VITE_ARTIFACTS_BASE_URL: ${{ vars.VITE_ARTIFACTS_BASE_URL || 'https://circuits.knowable.run/v0.1.0-dev' }}
       VITE_RELAYER_URL: ${{ vars.VITE_RELAYER_URL }}
       VITE_INDEXER_URL: ${{ vars.VITE_INDEXER_URL }}
       VITE_WALLETCONNECT_PROJECT_ID: ${{ vars.VITE_WALLETCONNECT_PROJECT_ID }}

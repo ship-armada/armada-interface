@@ -59,10 +59,11 @@ async function fetchAndVerify(paddedShape: string): Promise<FetchedCircuit> {
 export function fetchCircuitShape(paddedShape: string): Promise<FetchedCircuit> {
   const existing = inFlight.get(paddedShape)
   if (existing) return existing
-  const p = fetchAndVerify(paddedShape)
+  // The `.finally` is part of the returned/stored promise chain (not a discarded branch), so a
+  // rejection propagates to the caller and never surfaces as an unhandled rejection. Clears on settle
+  // (success OR failure) — the registry caches successes; a failure stays retryable.
+  const p = fetchAndVerify(paddedShape).finally(() => inFlight.delete(paddedShape))
   inFlight.set(paddedShape, p)
-  // Clear on settle (success OR failure) — the registry caches successes; a failure should be retryable.
-  void p.finally(() => inFlight.delete(paddedShape))
   return p
 }
 
