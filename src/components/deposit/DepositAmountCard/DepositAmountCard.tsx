@@ -57,6 +57,12 @@ export interface DepositAmountCardProps {
    */
   feeResolving?: boolean
   /**
+   * True when the user pays network gas themselves — the direct shield path (`!gaslessMode`). Gates
+   * the "+ ~X ETH gas" caption segment + the tooltip's network-gas line. Relayer-mediated flows
+   * (all spends, gasless shield) pass false: the relayer covers gas, so no ETH figure is shown.
+   */
+  userPaysNativeGas?: boolean
+  /**
    * Optional flow-level breakdown (broadcaster fee, recipient-receives, total-deducted) layered
    * onto the tooltip and into the FEE label total. Used by relayer-mediated / gasless flows
    * where the displayed total USDC fee is `protocolFee + broadcasterFee`.
@@ -101,6 +107,7 @@ export function DepositAmountCard({
   displayFees,
   feeLoading = false,
   feeResolving = false,
+  userPaysNativeGas = false,
   flowBreakdown,
   onMax,
   maxInput,
@@ -219,11 +226,12 @@ export function DepositAmountCard({
   // gas), so surface a neutral "Estimating…" caption instead of either committed segment.
   const showResolving = showActiveAmount && feeResolving
   const showFee = showActiveAmount && !feeResolving && displayFees !== undefined && totalFeeRaw > 0n
-  // The user pays network gas themselves only on the direct path (no relayer broadcaster fee) —
-  // mirrors FeeBreakdownTooltip's gas-line gate so the caption and tooltip never disagree. On the
-  // direct hub shield there's no USDC fee at all, so this is the ONLY cost the caption can surface.
+  // The ETH network-gas segment shows ONLY when the caller says the user pays gas themselves — the
+  // direct shield path (`!gaslessMode`). This is an explicit signal, NOT inferred from a zero
+  // broadcaster fee: a relayer-submitted spend with a not-yet-loaded fee is also 0, and must not
+  // surface an ETH gas line. On the direct hub shield there's no USDC fee at all, so this is the
+  // only cost the caption can show.
   const nativeGas = displayFees?.nativeGas ?? null
-  const userPaysNativeGas = (flowBreakdown?.broadcasterFee ?? 0n) === 0n
   const showGas = showActiveAmount && !feeResolving && userPaysNativeGas && nativeGas !== null
 
   return (
@@ -310,6 +318,7 @@ export function DepositAmountCard({
                 fees={displayFees}
                 isLoading={feeLoading}
                 flowBreakdown={flowBreakdown}
+                userPaysNativeGas={userPaysNativeGas}
               />
             </>
           ) : (

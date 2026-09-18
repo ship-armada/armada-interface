@@ -119,6 +119,9 @@ export function ShieldAmountStepContent({
         flowBreakdown={flowBreakdown}
         feeLoading={feeLoading}
         feeResolving={feeResolving}
+        // Only the DIRECT shield path (gasless off) has the user pay ETH network gas. The Unshield
+        // tab (relayer-submitted) passes gaslessMode true → no gas caption.
+        userPaysNativeGas={!gaslessMode}
         onMax={() => onAmountChange(formatUsdcPlain(maxInput))}
         maxInput={maxInput}
         error={errorMessage}

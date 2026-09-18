@@ -6,6 +6,7 @@ import { useAtom } from 'jotai'
 import { openModalAtom } from '@/state/ui'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
+import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
@@ -176,6 +177,10 @@ export function ShieldModal() {
                 ? shieldFlow.displayFees.nativeGas
                 : null
             }
+            // Hold Confirm only while the relayer state is still resolving (we don't yet know
+            // gasless vs direct). Once resolved, the direct path submits from the wallet regardless
+            // of relayer availability, so there's no unavailable-block here (unlike spends).
+            submitBlockedReason={shieldFlow.relayerResolving ? RELAYER_CHECKING_REASON : null}
             onBack={shieldFlow.onBackToInput}
             onConfirm={shieldFlow.submit}
           />

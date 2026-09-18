@@ -288,20 +288,26 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
       // null ⇒ submit was refused on a follower tab (useTx.submit toasts + persists nothing); we
       // keep the user on the review step rather than advancing to a never-driven progress spinner.
       let submittedId: string | null = null
-      // Always refetch a fresh cacheId before proof gen (a stale cacheId is the FEE_EXPIRED cause);
-      // if the fee moved since Review, bounce back with the banner rather than silently swapping it.
-      const { quote: activeQuote, feeChanged: changed } = await resolveFreshQuote({
-        refresh,
-        reviewedFee: fee,
-        feeOf: (s) => userFeeForKind(computedKind, amount, s, { gasless: useGasless }),
-      })
-      if (!activeQuote) {
-        throw new Error('Could not fetch a current fee quote — please try again.')
-      }
-      if (changed) {
-        setFeeChanged(true)
-        setStep('review')
-        return
+      // The DIRECT shield path submits from the user's own wallet and needs no relayer quote — and
+      // it MUST work when the relayer is down (that's the whole point of the direct fallback), so we
+      // only refetch a fresh cacheId on the GASLESS path. A stale cacheId is the FEE_EXPIRED cause,
+      // and a fee that moved since Review bounces back with the banner rather than silently swapping. #23
+      let activeQuote = quote
+      if (useGasless) {
+        const { quote: fresh, feeChanged: changed } = await resolveFreshQuote({
+          refresh,
+          reviewedFee: fee,
+          feeOf: (s) => userFeeForKind(computedKind, amount, s, { gasless: true }),
+        })
+        if (!fresh) {
+          throw new Error('Could not fetch a current fee quote — please try again.')
+        }
+        if (changed) {
+          setFeeChanged(true)
+          setStep('review')
+          return
+        }
+        activeQuote = fresh
       }
       if (computedKind === 'shield') {
         setSubmittedKind('shield')
@@ -313,7 +319,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           // check is `amount > max`. The trickier race is when gas spiked between input and
           // submit and the new fee now equals or exceeds amount — the wrapper's
           // `shieldAmount = totalAmount - fee` would underflow. Fail fast with a clear copy.
-          const liveFee = BigInt(activeQuote.fees.shield)
+          const q = activeQuote! // gasless always refetched a fresh quote above (non-null).
+          const liveFee = BigInt(q.fees.shield)
           if (amount > max) {
             throw new Error(
               `Insufficient USDC balance. You have ${formatUsdc(max)} USDC, attempted to deposit ${formatUsdc(amount)} USDC.`,
@@ -326,13 +333,13 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           }
           submittedId = await txShield.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            feeCacheId: q.cacheId,
             fromChainId,
             useGasless: true,
             feeAmount: liveFee,
             wrapperAddress: hubWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
-            broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            broadcasterShieldedAddress: q.broadcasterShieldedAddress,
             // Freeze the protocol shield fee so the receipt subtracts it too (matches what "You'll
             // shield" showed in review — the note that lands is `amount - feeAmount - protocolFee`).
             protocolFee,
@@ -340,7 +347,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
         } else {
           submittedId = await txShield.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
+            feeCacheId: activeQuote?.cacheId ?? '',
             fromChainId,
             // The pool takes its ~50 bps shield fee even on a direct submit — freeze it for the receipt.
             protocolFee,
@@ -354,7 +362,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
         if (useGasless && clientWrapperAddress !== undefined) {
           // Same submit-time race guard as the hub branch — see that comment block for the
           // full rationale. With fee-from-recipient the entered `amount` IS what's pulled.
-          const liveFee = BigInt(activeQuote.fees.shieldXchain)
+          const q = activeQuote! // gasless always refetched a fresh quote above (non-null).
+          const liveFee = BigInt(q.fees.shieldXchain)
           if (amount > max) {
             throw new Error(
               `Insufficient USDC balance. You have ${formatUsdc(max)} USDC, attempted to deposit ${formatUsdc(amount)} USDC.`,
@@ -367,20 +376,21 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           }
           submittedId = await txShieldXchain.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            feeCacheId: q.cacheId,
             fromChainId,
             useGasless: true,
             feeAmount: liveFee,
             wrapperAddress: clientWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
-            broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            broadcasterShieldedAddress: q.broadcasterShieldedAddress,
             // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
             protocolFee,
           })
         } else {
           submittedId = await txShieldXchain.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
+            feeCacheId: activeQuote?.cacheId ?? '',
             fromChainId,
             // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
             protocolFee,

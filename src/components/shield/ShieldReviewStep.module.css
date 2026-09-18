@@ -79,6 +79,15 @@
   margin-top: 2px;
 }
 
+/* Submit-blocked notice (e.g. while the relayer state is still resolving) above the disabled CTA. */
+.blockedNotice {
+  background: rgba(196, 145, 229, 0.08);
+  border: 1px solid var(--semantic-color-border-lavender);
+  border-radius: calc(var(--semantic-borderRadius-input) * 1px);
+  padding: var(--primitives-spacing-3) var(--primitives-spacing-4);
+  color: var(--semantic-color-text-secondary);
+}
+
 /* Two-button CTA row — deposit-review mockup: equal-width Back / Confirm, no divider above. */
 .buttonRow {
   display: flex;

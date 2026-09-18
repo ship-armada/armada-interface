@@ -40,4 +40,40 @@ describe('<ShieldReviewStep>', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Back/ }))
     expect(onBack).toHaveBeenCalledTimes(1)
   })
+
+  it('disables Confirm and surfaces the reason when submitBlockedReason is set (relayer resolving)', () => {
+    const onConfirm = vi.fn()
+    render(
+      <ShieldReviewStep
+        fromChainId={31337}
+        amount={100_500_000n}
+        fee={null}
+        netAmount={100_500_000n}
+        submitBlockedReason="Checking relayer…"
+        onBack={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+    )
+    expect(screen.getByText('Checking relayer…')).toBeInTheDocument()
+    const confirm = screen.getByRole('button', { name: /^Confirm$/ })
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('renders a "Network gas" row when a direct-path nativeGas estimate is provided', () => {
+    render(
+      <ShieldReviewStep
+        fromChainId={31337}
+        amount={100_500_000n}
+        fee={null}
+        netAmount={100_500_000n}
+        nativeGas={{ wei: 1_234_560_000_000_000n, symbol: 'ETH', formatted: '0.00123456' }}
+        onBack={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('Network gas')).toBeInTheDocument()
+    expect(screen.getByText('~0.0012 ETH')).toBeInTheDocument()
+  })
 })

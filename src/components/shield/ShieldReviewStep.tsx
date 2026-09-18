@@ -31,6 +31,10 @@ export interface ShieldReviewStepProps {
   /** Direct-path network-gas estimate (ETH) — adds a "Network gas" row to the summary. Null on the
    *  gasless path (relayer covers gas). */
   nativeGas?: NativeGasEstimate | null
+  /** When set, disables Confirm + surfaces the reason — used to hold while the relayer state is
+   *  still resolving (shield can't yet know gasless vs direct). Shield has no unavailable-block:
+   *  once resolved, the direct path submits from the wallet regardless. */
+  submitBlockedReason?: string | null
   onBack: () => void
   onConfirm: () => void
 }
@@ -48,6 +52,7 @@ export function ShieldReviewStep({
   feeUpdated,
   estimated,
   nativeGas,
+  submitBlockedReason,
   onBack,
   onConfirm,
 }: ShieldReviewStepProps) {
@@ -84,6 +89,12 @@ export function ShieldReviewStep({
             </span>
           </div>
         ) : null}
+
+        {submitBlockedReason ? (
+          <div className={styles.blockedNotice} role="status" aria-live="polite">
+            {submitBlockedReason}
+          </div>
+        ) : null}
       </div>
 
       <div className={`${styles.buttonRow} ${modalActionRowEnter}`}>
@@ -102,7 +113,7 @@ export function ShieldReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={isSubmitting}
+          disabled={Boolean(submitBlockedReason) || isSubmitting}
         />
       </div>
     </div>

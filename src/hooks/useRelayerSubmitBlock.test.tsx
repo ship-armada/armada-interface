@@ -3,7 +3,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'
-import { useRelayerSubmitBlock, RELAYER_UNAVAILABLE_REASON } from './useRelayerSubmitBlock'
+import { useRelayerSubmitBlock, RELAYER_UNAVAILABLE_REASON, RELAYER_CHECKING_REASON } from './useRelayerSubmitBlock'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
 
 const mockUseRelayerHealth = useRelayerHealth as unknown as ReturnType<typeof vi.fn>
@@ -42,8 +42,8 @@ describe('useRelayerSubmitBlock', () => {
     expect(capture()).toBe(RELAYER_UNAVAILABLE_REASON)
   })
 
-  it('does NOT block during the initial probe (isChecking) — resolves before Review', () => {
+  it('blocks while a probe is in flight (isChecking) — we do not yet know it is reachable', () => {
     mockUseRelayerHealth.mockReturnValue(health({ isChecking: true }))
-    expect(capture()).toBeNull()
+    expect(capture()).toBe(RELAYER_CHECKING_REASON)
   })
 })

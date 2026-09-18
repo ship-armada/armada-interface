@@ -164,11 +164,19 @@ describe('DepositAmountCard — fee caption', () => {
     return { protocolFee: totalFee, gasFee: 0n, nativeGas, totalFee, feeInclusive: true }
   }
 
-  it('promotes the ETH network-gas estimate into the caption on the direct path (no relayer fee)', () => {
-    // Direct hub shield: no USDC fee, broadcasterFee 0n → the only cost is network gas.
-    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n } })
+  it('promotes the ETH network-gas estimate into the caption on the direct path (userPaysNativeGas)', () => {
+    // Direct hub shield: no USDC fee → the only cost is network gas. The gas segment shows ONLY
+    // because the caller explicitly flags the direct path — never inferred from a zero fee.
+    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n }, userPaysNativeGas: true })
     expect(screen.getByText('+ ~0.0012 ETH gas')).toBeInTheDocument()
     expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
+  })
+
+  it('hides the gas segment on relayer-mediated flows even when the fee is 0 (no userPaysNativeGas)', () => {
+    // Regression: a spend whose fee hasn't loaded (broadcasterFee 0) must NOT surface an ETH gas
+    // line. The explicit flag is off, so no gas segment — this is the #1 bug fix.
+    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n } })
+    expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
   })
 
   it('hides the gas segment on the gasless path (relayer covers gas, broadcasterFee > 0)', () => {
@@ -179,14 +187,14 @@ describe('DepositAmountCard — fee caption', () => {
   })
 
   it('shows BOTH the USDC fee and the ETH gas on a direct cross-chain shield', () => {
-    // broadcasterFee 0n (direct) but a CCTP fee is deducted in USDC → both segments render.
-    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n, cctpFee: 500_000n } })
+    // Direct path (userPaysNativeGas) + a CCTP fee deducted in USDC → both segments render.
+    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n, cctpFee: 500_000n }, userPaysNativeGas: true })
     expect(screen.getByText('+ $0.50 FEE')).toBeInTheDocument()
     expect(screen.getByText('+ ~0.0012 ETH gas')).toBeInTheDocument()
   })
 
   it('renders no caption segments before an amount is entered', () => {
-    renderCard({ amount: '', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n } })
+    renderCard({ amount: '', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n }, userPaysNativeGas: true })
     expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
     expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
   })
