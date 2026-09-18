@@ -97,6 +97,20 @@ describe('<RelayerStatusBanner>', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
+  it('suppresses the availability banner when showAvailability is false (past Review)', () => {
+    mockUseRelayerHealth.mockReturnValue(health({ isUnreachable: true, data: undefined }))
+    const { container } = render(<RelayerStatusBanner isOpen walletFallback showAvailability={false} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('still shows the cross-chain delivery advisory when showAvailability is false', () => {
+    // The delivery advisory is relevant DURING progress (delivery in flight), so it must survive
+    // the post-Review availability suppression.
+    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
+    render(<RelayerStatusBanner isOpen crossChain showAvailability={false} />)
+    expect(screen.getByRole('status').textContent).toMatch(/cross-chain delivery may be delayed/i)
+  })
+
   it('shows the cross-chain delivery advisory (no CTA) when the indexer is stalled on an xchain flow', () => {
     mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
     render(<RelayerStatusBanner isOpen crossChain />)

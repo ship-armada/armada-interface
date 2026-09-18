@@ -117,6 +117,10 @@ export function ShieldModal() {
         isOpen={isOpen}
         crossChain={(isShield ? shieldFlow.fromChainId : unshieldFlow.toChainId) !== hubChainId}
         walletFallback={isShield}
+        // The availability nudge is a pre-submit decision aid — once past Review the path is
+        // committed (esp. direct shield, already signing/broadcasting), so it's just noise. The
+        // cross-chain delivery advisory still shows during progress.
+        showAvailability={step === 'input' || step === 'review'}
       />
       {step === 'input' && (
         <>

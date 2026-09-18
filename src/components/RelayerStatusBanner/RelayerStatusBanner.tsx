@@ -21,6 +21,13 @@ export interface RelayerStatusBannerProps {
    * shielded spend (#23) — so they're blocked until the relayer is reachable.
    */
   walletFallback?: boolean
+  /**
+   * Gates the availability messaging (looking / unavailable / direct-fallback). Pass false once the
+   * flow is past Review (wallet-sign / progress / confirmation): the path is already committed, so
+   * the availability nudge is just noise there. The cross-chain delivery advisory is unaffected —
+   * it stays relevant while delivery is in flight. Defaults to true.
+   */
+  showAvailability?: boolean
 }
 
 /**
@@ -41,6 +48,7 @@ export function RelayerStatusBanner({
   isOpen,
   crossChain = false,
   walletFallback = false,
+  showAvailability = true,
 }: RelayerStatusBannerProps) {
   const { isUnreachable, isIndexerStalled, isConfigured, isChecking, refetch } =
     useRelayerHealth({ enabled: isOpen })
@@ -49,7 +57,7 @@ export function RelayerStatusBanner({
   // again" refetch after an outage). Shown BEFORE the unavailable branch so the banner never blanks
   // mid-check (which reads as "resolved") — see useRelayerHealth.isChecking. No retry button: a
   // check is already running.
-  if (isChecking) {
+  if (showAvailability && isChecking) {
     return (
       <div className={styles.root} role="status" aria-live="polite">
         <div className={styles.checking}>
@@ -61,7 +69,7 @@ export function RelayerStatusBanner({
   }
 
   // Broadcast-path unavailability — no relayer configured, or configured but currently unreachable.
-  if (!isConfigured || isUnreachable) {
+  if (showAvailability && (!isConfigured || isUnreachable)) {
     const message = walletFallback
       ? isConfigured
         ? "Couldn't find an available relayer. If you choose to proceed, your deposit will be submitted from your own wallet and you'll pay network fees in ETH instead."
