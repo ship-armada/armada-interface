@@ -1,14 +1,13 @@
-// ABOUTME: Tests for RelayerStatusBanner — reachability-gated broadcast nudge + xchain delivery advisory.
+// ABOUTME: Tests for RelayerStatusBanner — reachability-gated availability notice + xchain delivery advisory.
 // ABOUTME: Mocks useRelayerHealth to drive healthy / unreachable / indexer-stalled / not-configured states.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { Provider, createStore } from 'jotai'
 import { RelayerStatusBanner } from './RelayerStatusBanner'
-import { preferencesAtom, DEFAULT_PREFERENCES, PREFERENCES_STORAGE_KEY } from '@/state/preferences'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
 
 const mockUseRelayerHealth = useRelayerHealth as unknown as ReturnType<typeof vi.fn>
+const refetchMock = vi.fn()
 
 vi.mock('@/hooks/useRelayerHealth', () => ({
   useRelayerHealth: vi.fn(),
@@ -16,23 +15,26 @@ vi.mock('@/hooks/useRelayerHealth', () => ({
 
 /** Full hook shape; override per test. Defaults = configured + healthy. */
 function health(overrides: Partial<ReturnType<typeof useRelayerHealth>> = {}) {
-  return { isConfigured: true, isUnreachable: false, isIndexerStalled: false, data: { status: 'healthy' }, ...overrides }
-}
-
-function wrapWith(store: ReturnType<typeof createStore>, ui: React.ReactElement) {
-  return <Provider store={store}>{ui}</Provider>
+  return {
+    isConfigured: true,
+    isUnreachable: false,
+    isChecking: false,
+    isIndexerStalled: false,
+    data: { status: 'healthy' },
+    refetch: refetchMock,
+    ...overrides,
+  }
 }
 
 describe('<RelayerStatusBanner>', () => {
   beforeEach(() => {
     mockUseRelayerHealth.mockReset()
-    window.localStorage.removeItem(PREFERENCES_STORAGE_KEY)
+    refetchMock.mockClear()
   })
 
   it('renders nothing when the relayer is reachable and healthy', () => {
     mockUseRelayerHealth.mockReturnValue(health())
-    const store = createStore()
-    const { container } = render(wrapWith(store, <RelayerStatusBanner isOpen />))
+    const { container } = render(<RelayerStatusBanner isOpen />)
     expect(container.firstChild).toBeNull()
   })
 
@@ -41,64 +43,85 @@ describe('<RelayerStatusBanner>', () => {
     // hook reports isUnreachable:false / isIndexerStalled:false for stale, so nothing renders — even
     // on a cross-chain flow (stale is below the delivery-advisory threshold).
     mockUseRelayerHealth.mockReturnValue(health({ data: { status: 'stale' } }))
-    const store = createStore()
-    const { container } = render(wrapWith(store, <RelayerStatusBanner isOpen crossChain />))
+    const { container } = render(<RelayerStatusBanner isOpen crossChain />)
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders the unreachable banner with the wallet-submit CTA', () => {
-    mockUseRelayerHealth.mockReturnValue(health({ isUnreachable: true, data: undefined }))
-    const store = createStore()
-    const { getByRole } = render(wrapWith(store, <RelayerStatusBanner isOpen />))
-    expect(getByRole('status').textContent).toMatch(/can't find an available relayer/i)
-    expect(getByRole('button', { name: /Submit from my wallet instead/i })).toBeInTheDocument()
+  it('shows a neutral "Looking for a relayer…" state (no button) while a probe is in flight', () => {
+    // isChecking wins over the unavailable branch so the banner never blanks mid-check (which would
+    // read as "resolved") — covers both the initial open and a post-"Check again" refetch.
+    mockUseRelayerHealth.mockReturnValue(health({ isChecking: true, isUnreachable: true, data: undefined }))
+    const { container } = render(<RelayerStatusBanner isOpen />)
+    expect(screen.getByRole('status').textContent).toMatch(/looking for an available relayer/i)
+    // A spinner accompanies the message (aria-hidden svg from lucide's Loader2).
+    expect(container.querySelector('svg')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('suppresses the unreachable nudge once submitFromWallet is enabled', () => {
+  it('blocks a spend and offers "Check again" when the relayer is configured but unreachable', () => {
     mockUseRelayerHealth.mockReturnValue(health({ isUnreachable: true, data: undefined }))
-    const store = createStore()
-    store.set(preferencesAtom, { ...DEFAULT_PREFERENCES, submitFromWallet: true })
-    const { container } = render(wrapWith(store, <RelayerStatusBanner isOpen />))
-    expect(container.firstChild).toBeNull()
+    render(<RelayerStatusBanner isOpen />)
+    expect(screen.getByRole('status').textContent).toMatch(/can't be submitted right now/i)
+    expect(screen.getByRole('button', { name: /Check again/i })).toBeInTheDocument()
   })
 
-  it('renders a distinct "no relayer configured" banner with a wallet-submit CTA (P0-10)', () => {
+  it('re-probes the relayer when the user clicks "Check again"', () => {
+    mockUseRelayerHealth.mockReturnValue(health({ isUnreachable: true, data: undefined }))
+    render(<RelayerStatusBanner isOpen />)
+    fireEvent.click(screen.getByRole('button', { name: /Check again/i }))
+    expect(refetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells the shield flow it will fall back to a direct wallet submit (walletFallback)', () => {
+    mockUseRelayerHealth.mockReturnValue(health({ isUnreachable: true, data: undefined }))
+    render(<RelayerStatusBanner isOpen walletFallback />)
+    expect(screen.getByRole('status').textContent).toMatch(/submitted from your own wallet/i)
+    expect(screen.getByRole('status').textContent).toMatch(/network fees in ETH/i)
+    // Still re-checkable while a relayer is configured.
+    expect(screen.getByRole('button', { name: /Check again/i })).toBeInTheDocument()
+  })
+
+  it('shows a distinct "no relayer configured" spend banner with NO retry (P0-10)', () => {
+    // Re-checking a build with no relayer configured can't help — omit the button.
     mockUseRelayerHealth.mockReturnValue(health({ isConfigured: false, data: undefined }))
-    const store = createStore()
-    const { getByRole } = render(wrapWith(store, <RelayerStatusBanner isOpen />))
-    expect(getByRole('status').textContent).toMatch(/no relayer is configured/i)
-    expect(getByRole('button', { name: /Submit from my wallet/i })).toBeInTheDocument()
+    render(<RelayerStatusBanner isOpen />)
+    expect(screen.getByRole('status').textContent).toMatch(/no relayer configured/i)
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('flips submitFromWallet to true when the user clicks the unreachable-banner action', () => {
+  it('shows a "no relayer configured" shield banner (wallet fallback) with NO retry', () => {
+    mockUseRelayerHealth.mockReturnValue(health({ isConfigured: false, data: undefined }))
+    render(<RelayerStatusBanner isOpen walletFallback />)
+    expect(screen.getByRole('status').textContent).toMatch(/no relayer configured/i)
+    expect(screen.getByRole('status').textContent).toMatch(/submitted from your own wallet/i)
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('suppresses the availability banner when showAvailability is false (past Review)', () => {
     mockUseRelayerHealth.mockReturnValue(health({ isUnreachable: true, data: undefined }))
-    const store = createStore()
-    render(wrapWith(store, <RelayerStatusBanner isOpen />))
-    fireEvent.click(screen.getByRole('button', { name: /Submit from my wallet instead/i }))
-    expect(store.get(preferencesAtom).submitFromWallet).toBe(true)
+    const { container } = render(<RelayerStatusBanner isOpen walletFallback showAvailability={false} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('still shows the cross-chain delivery advisory when showAvailability is false', () => {
+    // The delivery advisory is relevant DURING progress (delivery in flight), so it must survive
+    // the post-Review availability suppression.
+    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
+    render(<RelayerStatusBanner isOpen crossChain showAvailability={false} />)
+    expect(screen.getByRole('status').textContent).toMatch(/cross-chain delivery may be delayed/i)
   })
 
   it('shows the cross-chain delivery advisory (no CTA) when the indexer is stalled on an xchain flow', () => {
     mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
-    const store = createStore()
-    const { getByRole, queryByRole } = render(wrapWith(store, <RelayerStatusBanner isOpen crossChain />))
-    expect(getByRole('status').textContent).toMatch(/cross-chain delivery may be delayed/i)
-    // Advisory is informational — wallet-submit doesn't change the relayer-driven delivery leg.
-    expect(queryByRole('button')).toBeNull()
+    render(<RelayerStatusBanner isOpen crossChain />)
+    expect(screen.getByRole('status').textContent).toMatch(/cross-chain delivery may be delayed/i)
+    // Advisory is informational — the delivery leg is relayer-driven regardless.
+    expect(screen.queryByRole('button')).toBeNull()
   })
 
   it('does NOT show the delivery advisory on a same-chain flow, even when the indexer is stalled', () => {
     mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
-    const store = createStore()
-    const { container } = render(wrapWith(store, <RelayerStatusBanner isOpen />))
+    const { container } = render(<RelayerStatusBanner isOpen />)
     expect(container.firstChild).toBeNull()
-  })
-
-  it('still shows the delivery advisory under submitFromWallet (delivery is relayer-driven regardless)', () => {
-    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
-    const store = createStore()
-    store.set(preferencesAtom, { ...DEFAULT_PREFERENCES, submitFromWallet: true })
-    const { getByRole } = render(wrapWith(store, <RelayerStatusBanner isOpen crossChain />))
-    expect(getByRole('status').textContent).toMatch(/cross-chain delivery may be delayed/i)
   })
 })

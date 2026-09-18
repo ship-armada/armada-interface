@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
 import { evmAddressAtom, shieldedUsdcAtom, shieldedUsdcSpendableAtom, shieldedWalletAtom } from '@/state/wallet'
-import { preferencesAtom } from '@/state/preferences'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useDisplayFees } from '@/hooks/useDisplayFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
+import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
 import { cctpFastFeeForAmount, computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
 import { getChainById, getNetworkConfig } from '@/config/network'
 import { findDeploymentForChain, loadDeployments, type ResolvedDeployments } from '@/config/deployments'
@@ -72,7 +72,6 @@ export interface UnshieldFlow {
 }
 
 export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
-  const prefs = useAtomValue(preferencesAtom)
   const shieldedWallet = useAtomValue(shieldedWalletAtom)
 
   // Destination = the connected EVM wallet (pinned; this is "unshield to my own wallet").
@@ -108,6 +107,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
   // Gate Confirm while the initial shielded-balance sync is incomplete — every unshield spends
   // the user's shielded USDC.
   const syncGate = useSpendableSyncGate()
+  // Unshield is relayer-submitted with no wallet fallback (#23) — block Confirm when unavailable.
+  const relayerBlock = useRelayerSubmitBlock(isOpen)
 
   // Deployment manifests — validate that the chosen destination chain actually has a deployment
   // present, otherwise the user could pick a chain the submit step would throw on.
@@ -231,13 +232,12 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
       }
       const feeCacheId = activeQuote.cacheId
       // S-M5: re-validate amount + the FRESH relayer fee against the balance before proof gen. Both
-      // kinds draw the fee from the shielded balance (fee-on-top) on the relayer path; wallet-
-      // override pays native gas separately, so no shielded fee applies there.
+      // kinds draw the fee from the shielded balance (fee-on-top) on the relayer path.
       const freshFee =
         computedKind === 'unshield-local'
           ? BigInt(activeQuote.fees.unshield)
           : BigInt(activeQuote.fees.crossChainUnshield)
-      assertSpendableForFeeOnTop({ amount, fee: prefs.submitFromWallet ? 0n : freshFee, balance: max })
+      assertSpendableForFeeOnTop({ amount, fee: freshFee, balance: max })
       // Fail fast if the relayer published a malformed broadcaster address — avoid a 20-30s proof
       // gen doomed to surface an opaque SDK throw deep in the pipeline.
       if (!isShieldedAddress(activeQuote.broadcasterShieldedAddress)) {
@@ -254,7 +254,6 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.unshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          useWalletOverride: prefs.submitFromWallet,
         })
       } else {
         setSubmittedKind('unshield-xchain')
@@ -265,7 +264,6 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.crossChainUnshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          useWalletOverride: prefs.submitFromWallet,
         })
       }
       if (submittedId === null) return
@@ -322,7 +320,7 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     recipientWalletProvider: connector?.name,
     networkName: getChainById(toChainId)?.name,
     destDeploymentError,
-    submitBlockedReason: syncGate.reason ?? undefined,
+    submitBlockedReason: syncGate.reason ?? relayerBlock ?? undefined,
     step,
     isSubmitting,
     record,

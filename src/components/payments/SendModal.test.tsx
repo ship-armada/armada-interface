@@ -18,6 +18,14 @@ import { withTestQueryClient } from '@/test-utils/queryClient'
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults so the modal renders.
 // This tab is the executor leader (single-tab test env) so useTx.submit isn't refused (P1-26).
+// Healthy, resolved relayer so the submit gate (useRelayerSubmitBlock) never blocks Confirm.
+vi.mock('@/hooks/useRelayerHealth', () => ({
+  useRelayerHealth: () => ({
+    isConfigured: true, isUnreachable: false, isChecking: false, isIndexerStalled: false,
+    data: { status: 'healthy' }, refetch: vi.fn(),
+  }),
+}))
+
 vi.mock('@/lib/tx/executor', async (importActual) => ({
   ...await importActual<typeof import('@/lib/tx/executor')>(),
   getIsLeader: () => true,

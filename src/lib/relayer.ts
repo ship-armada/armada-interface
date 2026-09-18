@@ -69,10 +69,9 @@ const CCTP_FAST_FEE_BPS = 2n
  */
 /**
  * Per-kind options that flip a fee-shape under the kind's umbrella. Today only `shield` uses
- * `gasless` — it's free under Phase A's user-wallet direct submit but carries a `shield` tier
- * fee under Phase B's permit + wrapper path. The flag lives in the modal (which knows whether
- * a wrapper is deployed for the chosen chain AND the user hasn't toggled wallet-override) and
- * is passed in here for every recompute.
+ * `gasless` — it's free under the user-wallet direct submit but carries a `shield` tier fee under
+ * the permit + wrapper path. The flag lives in the modal (which knows whether a wrapper is deployed
+ * for the chosen chain AND the relayer is reachable) and is passed in here for every recompute.
  */
 export interface UserFeeOpts {
   /** Phase B `shield` gasless path: include the relayer's `shield` tier fee. Default false. */
@@ -481,7 +480,7 @@ export interface RelayerHealthResponse {
     pendingCount: number
   }>
   generatedAt: number
-  /** In-process counters (A6). May be empty / undefined when no events have occurred. */
+  /** In-process relayer counters. May be empty / undefined when no events have occurred. */
   counters?: Record<string, number>
 }
 

@@ -112,4 +112,24 @@ describe('useRelayerHealth', () => {
     expect(results.at(-1)?.isUnreachable).toBe(false)
     expect(results.at(-1)?.isIndexerStalled).toBe(false)
   })
+
+  it('reports isChecking while a probe is in flight with no conclusive result yet', async () => {
+    // A never-settling probe keeps the query fetching with no data + no error → isChecking, the
+    // neutral "looking for a relayer" signal (not yet unreachable — retries haven't exhausted).
+    vi.spyOn(relayer, 'fetchHealth').mockReturnValue(new Promise(() => {}))
+
+    const { results } = renderHarness()
+
+    await waitFor(() => expect(results.at(-1)?.isChecking).toBe(true))
+    expect(results.at(-1)?.isUnreachable).toBe(false)
+  })
+
+  it('clears isChecking once a healthy result lands (no "looking" flicker on the steady poll)', async () => {
+    vi.spyOn(relayer, 'fetchHealth').mockResolvedValue(makeHealth('healthy'))
+
+    const { results } = renderHarness()
+
+    await waitFor(() => expect(results.at(-1)?.data?.status).toBe('healthy'))
+    expect(results.at(-1)?.isChecking).toBe(false)
+  })
 })

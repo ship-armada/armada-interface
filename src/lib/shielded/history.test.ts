@@ -168,18 +168,17 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(shareLeg).toBeNull()
   })
 
-  it('repopulates recoverable meta (feeCacheId + useWalletOverride) from entry.selfMetadata (#44)', () => {
+  it('repopulates recoverable meta (feeCacheId) from entry.selfMetadata (#44)', () => {
     const r = historyEntryToTxRecord(
-      sdkEntry({ category: 'unshield', value: -500_000n, recipient: '0xrecipient', selfMetadata: JSON.stringify({ v: 1, c: 'quote-77', w: 1 }) }),
+      sdkEntry({ category: 'unshield', value: -500_000n, recipient: '0xrecipient', selfMetadata: JSON.stringify({ v: 1, c: 'quote-77' }) }),
       'w', SDK_CTX, 5000,
     )
-    expect(r).toMatchObject({ kind: 'unshield-local', meta: { feeCacheId: 'quote-77', useWalletOverride: true } })
+    expect(r).toMatchObject({ kind: 'unshield-local', meta: { feeCacheId: 'quote-77' } })
   })
 
-  it('leaves feeCacheId empty + omits useWalletOverride when no selfMetadata was recovered (#44)', () => {
+  it('leaves feeCacheId empty when no selfMetadata was recovered (#44)', () => {
     const r = historyEntryToTxRecord(sdkEntry({ category: 'unshield', value: -500_000n, recipient: '0xr' }), 'w', SDK_CTX, 5000)
     expect(r!.meta).toMatchObject({ feeCacheId: '' })
-    expect(r!.meta).not.toHaveProperty('useWalletOverride')
   })
 
   it('filters non-USDC entries so they never render mis-denominated as USDC (#41)', () => {

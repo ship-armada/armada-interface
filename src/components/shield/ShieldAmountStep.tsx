@@ -39,9 +39,12 @@ interface ShieldAmountStepContentProps {
   displayFees: DisplayFees
   flowBreakdown: FlowFeeBreakdown
   feeLoading?: boolean
+  /** True while the shield's relayer-reachability probe is in flight — shows "Estimating fees…"
+   *  and suppresses the premature direct-path ETH gas caption until the path is known (#23). */
+  feeResolving?: boolean
   /** True when the relayer covers gas (shield gasless / unshield relayer). Suppresses the gas notice. */
   gaslessMode?: boolean
-  /** Chain whose native balance is checked for the wallet-submit gas notice. */
+  /** Chain whose native balance is checked for the direct-submit gas notice. */
   gasChainId: number
   /** Ref onto the amount input so the footer's incomplete-CTA nudge can focus the field. */
   inputRef?: Ref<HTMLInputElement>
@@ -65,6 +68,7 @@ export function ShieldAmountStepContent({
   displayFees,
   flowBreakdown,
   feeLoading = false,
+  feeResolving = false,
   gaslessMode = true,
   gasChainId,
   inputRef,
@@ -114,6 +118,10 @@ export function ShieldAmountStepContent({
         displayFees={displayFees}
         flowBreakdown={flowBreakdown}
         feeLoading={feeLoading}
+        feeResolving={feeResolving}
+        // Only the DIRECT shield path (gasless off) has the user pay ETH network gas. The Unshield
+        // tab (relayer-submitted) passes gaslessMode true → no gas caption.
+        userPaysNativeGas={!gaslessMode}
         onMax={() => onAmountChange(formatUsdcPlain(maxInput))}
         maxInput={maxInput}
         error={errorMessage}

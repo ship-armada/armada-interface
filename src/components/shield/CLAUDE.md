@@ -9,7 +9,7 @@ EVM wallet), as two tabs on the amount step. Owned by `ShieldModal`, opened via 
 | Component | Purpose |
 |---|---|
 | `ShieldModal` | **Dumb renderer** — open/close chrome + per-tab step rendering. Composes two controller hooks: `hooks/useShieldFlow.ts` (Shield) + `hooks/useUnshieldFlow.ts` (Unshield). The typed amount carries across the tab toggle. |
-| `ShieldAmountStep` | Shared amount step (`ShieldAmountStepContent` + `Footer`) — `DepositAmountCard` with the Shield/Unshield `SegmentedControl` in its header + a chain picker (source for shield / destination for unshield) + `GasBalanceNotice` (wallet-submit). Direction-driven title/aria; footer gates Review on amount (+ shield's fee floor). Replaced the retired `ShieldInputStep`. |
+| `ShieldAmountStep` | Shared amount step (`ShieldAmountStepContent` + `Footer`) — `DepositAmountCard` with the Shield/Unshield `SegmentedControl` in its header + a chain picker (source for shield / destination for unshield) + `GasBalanceNotice` (direct-shield). Direction-driven title/aria; footer gates Review on amount (+ shield's fee floor). Replaced the retired `ShieldInputStep`. |
 | `ShieldReviewStep` / `ShieldCompleteStep` | **Shield direction** — frost card + `DepositReviewSummary`. |
 | `ShieldWalletStep` | Dedicated **Wallet** step (the mockup's step 3) — the live approve/sign checklist (`WalletConfirmList` + `lib/tx/shieldWalletSteps`). Title transitions "Preparing your deposit…" (proof building) → "Confirm in your wallet" (a prompt is live). Shield tab only; Unshield is relayer-submitted. |
 | (unshield direction review/complete) | Reuses `payments/SendReviewStep` + `SendCompleteStep` with `variant="withdraw"` (the "Review your USDC unshield" / "USDC unshield confirmed" copy). |

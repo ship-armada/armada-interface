@@ -6,7 +6,6 @@ import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
 import { useQuery } from '@tanstack/react-query'
 import { shieldedWalletAtom } from '@/state/wallet'
-import { preferencesAtom } from '@/state/preferences'
 import { activeTxListAtom } from '@/state/tx'
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
@@ -69,6 +68,9 @@ export interface ShieldFlow {
   inputMax: bigint
   minAmount: bigint
   useGasless: boolean
+  /** True while the relayer reachability probe is in flight — the modal shows the fee as
+   *  "estimating" and suppresses the direct-path ETH gas figures until the path is known (#23). */
+  relayerResolving: boolean
   duplicateWarning: boolean
   /** True when a submit-time fee refetch changed the fee — the review step shows the FeeUpdatedBanner. */
   feeChanged: boolean
@@ -92,7 +94,6 @@ export interface ShieldFlow {
 }
 
 export function useShieldFlow(isOpen: boolean): ShieldFlow {
-  const prefs = useAtomValue(preferencesAtom)
 
   // Review-step summary addresses: the connected EVM wallet (source) + the shielded destination.
   // Both are optional — the review rows render only when a value is present.
@@ -145,13 +146,13 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // shield, so it must not silently flip the user to direct wallet-submit. Only a sustained
   // unreachable actor (`isUnreachable`) does. Still require a positive `healthData` so the
   // still-loading state defaults to direct-submit rather than advertising a gasless fee prematurely.
-  const { data: healthData, isUnreachable } = useRelayerHealth({ enabled: isOpen })
+  const { data: healthData, isUnreachable, isChecking: relayerResolving } = useRelayerHealth({ enabled: isOpen })
   const relayerAvailable = !isUnreachable && healthData !== undefined
 
   const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
 
-  // Phase B3/B4 — gasless path is available when the wrapper for the source chain is deployed,
-  // the relayer is reachable, and the user hasn't opted into wallet-override.
+  // Phase B3/B4 — gasless path is available when the wrapper for the source chain is deployed and
+  // the relayer is reachable.
   //   - `shield` (hub):           reads `deployments.hub.contracts.gaslessShieldWrapper`.
   //   - `shield-xchain` (client): reads the per-client `gaslessShieldWrapperClient`.
   const hubWrapperAddress = deployments.data?.hub.contracts.gaslessShieldWrapper
@@ -161,8 +162,11 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           .gaslessShieldWrapperClient
       : undefined
   const wrapperAddress = computedKind === 'shield' ? hubWrapperAddress : clientWrapperAddress
-  const useGasless: boolean =
-    wrapperAddress !== undefined && relayerAvailable && !prefs.submitFromWallet
+  // Gasless (relayer-covered) when a wrapper is deployed for the source chain AND the relayer is
+  // reachable; otherwise the deposit submits directly from the user's wallet (they pay ETH gas).
+  // Shielding moves the user's OWN public USDC in, so direct-shield is not a privacy regression —
+  // there's no wallet-submit fallback for spends (that would link the EVM address to a shielded spend).
+  const useGasless: boolean = wrapperAddress !== undefined && relayerAvailable
 
   // useFees stays plumbed in for the relayer-submit path (need cacheId at submit time even
   // though the display fee no longer comes from the quote on the direct path). For B4 the
@@ -180,8 +184,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // the hub regardless of submission path (gasless or direct). useDisplayFees reads
   // calculateShieldFee from the deployed fee module via wagmi; layered into computeFeeBreakdown
   // below as `protocolFee` so recipientReceives reflects the TRUE shielded value the user gets,
-  // not just `amount - broadcasterFee`. nativeGas is also surfaced for the wallet-submit fallback
-  // (gasless path doesn't pay native gas — Phase 6 hides that row).
+  // not just `amount - broadcasterFee`. nativeGas is also surfaced for the direct-submit path
+  // (gasless path doesn't pay native gas — that row is hidden there).
   // CCTP fast-fee — applies to BOTH direct and gasless cross-chain shield (CCTP V2 always
   // charges its fast-fee on a cross-chain mint regardless of how the burn was initiated).
   // Routed through its own channel rather than the broadcaster slot so the tooltip can label it
@@ -284,20 +288,26 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
       // null ⇒ submit was refused on a follower tab (useTx.submit toasts + persists nothing); we
       // keep the user on the review step rather than advancing to a never-driven progress spinner.
       let submittedId: string | null = null
-      // Always refetch a fresh cacheId before proof gen (a stale cacheId is the FEE_EXPIRED cause);
-      // if the fee moved since Review, bounce back with the banner rather than silently swapping it.
-      const { quote: activeQuote, feeChanged: changed } = await resolveFreshQuote({
-        refresh,
-        reviewedFee: fee,
-        feeOf: (s) => userFeeForKind(computedKind, amount, s, { gasless: useGasless }),
-      })
-      if (!activeQuote) {
-        throw new Error('Could not fetch a current fee quote — please try again.')
-      }
-      if (changed) {
-        setFeeChanged(true)
-        setStep('review')
-        return
+      // The DIRECT shield path submits from the user's own wallet and needs no relayer quote — and
+      // it MUST work when the relayer is down (that's the whole point of the direct fallback), so we
+      // only refetch a fresh cacheId on the GASLESS path. A stale cacheId is the FEE_EXPIRED cause,
+      // and a fee that moved since Review bounces back with the banner rather than silently swapping. #23
+      let activeQuote = quote
+      if (useGasless) {
+        const { quote: fresh, feeChanged: changed } = await resolveFreshQuote({
+          refresh,
+          reviewedFee: fee,
+          feeOf: (s) => userFeeForKind(computedKind, amount, s, { gasless: true }),
+        })
+        if (!fresh) {
+          throw new Error('Could not fetch a current fee quote — please try again.')
+        }
+        if (changed) {
+          setFeeChanged(true)
+          setStep('review')
+          return
+        }
+        activeQuote = fresh
       }
       if (computedKind === 'shield') {
         setSubmittedKind('shield')
@@ -309,7 +319,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           // check is `amount > max`. The trickier race is when gas spiked between input and
           // submit and the new fee now equals or exceeds amount — the wrapper's
           // `shieldAmount = totalAmount - fee` would underflow. Fail fast with a clear copy.
-          const liveFee = BigInt(activeQuote.fees.shield)
+          const q = activeQuote! // gasless always refetched a fresh quote above (non-null).
+          const liveFee = BigInt(q.fees.shield)
           if (amount > max) {
             throw new Error(
               `Insufficient USDC balance. You have ${formatUsdc(max)} USDC, attempted to deposit ${formatUsdc(amount)} USDC.`,
@@ -322,13 +333,13 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           }
           submittedId = await txShield.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            feeCacheId: q.cacheId,
             fromChainId,
             useGasless: true,
             feeAmount: liveFee,
             wrapperAddress: hubWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
-            broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            broadcasterShieldedAddress: q.broadcasterShieldedAddress,
             // Freeze the protocol shield fee so the receipt subtracts it too (matches what "You'll
             // shield" showed in review — the note that lands is `amount - feeAmount - protocolFee`).
             protocolFee,
@@ -336,7 +347,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
         } else {
           submittedId = await txShield.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
+            feeCacheId: activeQuote?.cacheId ?? '',
             fromChainId,
             // The pool takes its ~50 bps shield fee even on a direct submit — freeze it for the receipt.
             protocolFee,
@@ -350,7 +362,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
         if (useGasless && clientWrapperAddress !== undefined) {
           // Same submit-time race guard as the hub branch — see that comment block for the
           // full rationale. With fee-from-recipient the entered `amount` IS what's pulled.
-          const liveFee = BigInt(activeQuote.fees.shieldXchain)
+          const q = activeQuote! // gasless always refetched a fresh quote above (non-null).
+          const liveFee = BigInt(q.fees.shieldXchain)
           if (amount > max) {
             throw new Error(
               `Insufficient USDC balance. You have ${formatUsdc(max)} USDC, attempted to deposit ${formatUsdc(amount)} USDC.`,
@@ -363,20 +376,21 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
           }
           submittedId = await txShieldXchain.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            feeCacheId: q.cacheId,
             fromChainId,
             useGasless: true,
             feeAmount: liveFee,
             wrapperAddress: clientWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
-            broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+            broadcasterShieldedAddress: q.broadcasterShieldedAddress,
             // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
             protocolFee,
           })
         } else {
           submittedId = await txShieldXchain.submit({
             amount,
-            feeCacheId: activeQuote.cacheId,
+            // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
+            feeCacheId: activeQuote?.cacheId ?? '',
             fromChainId,
             // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
             protocolFee,
@@ -447,6 +461,9 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     inputMax,
     minAmount,
     useGasless,
+    // True while the relayer reachability is still being probed — the modal shows the fee as
+    // "estimating" and suppresses the direct-path ETH gas caption until we know the path (#23).
+    relayerResolving,
     duplicateWarning,
     feeChanged,
     evmAddress,

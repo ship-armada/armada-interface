@@ -30,9 +30,9 @@ export interface SendInputStepProps {
   gasChainId: number
   /**
    * When true, the relayer pays gas — suppresses the GasBalanceNotice. All three SendModal
-   * kinds (`transfer-shielded`, `unshield-local`, `unshield-xchain`) route through the relayer
-   * by default; the user pays native gas only when they've toggled Preferences →
-   * "Submit transactions from my wallet". Mirrors `ShieldModal`.
+   * kinds (`transfer-shielded`, `unshield-local`, `unshield-xchain`) are always relayer-submitted
+   * (a spend from the user's own wallet would link their EVM address to the shielded activity; #23),
+   * so this is always true here.
    */
   gaslessMode?: boolean
   onBack: () => void

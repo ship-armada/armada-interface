@@ -3,7 +3,7 @@
 
 import { InformationCircleIcon } from '@heroicons/react/16/solid'
 import { formatUsdcAmount } from '@/lib/format'
-import type { DisplayFees } from '@/lib/fees/displayFees'
+import { formatNativeGasAmount, type DisplayFees } from '@/lib/fees/displayFees'
 import { Tooltip } from '@/components/ui/Tooltip'
 import styles from './FeeBreakdownTooltip.module.css'
 
@@ -21,8 +21,7 @@ function formatUsdcLine(label: string, amount: bigint): string {
 function formatGasLine(fees: DisplayFees): string {
   const gas = fees.nativeGas
   if (!gas) return 'Network gas: Paid in native token (e.g. ETH)'
-  const trimmed = gas.formatted.replace(/(\.\d{4})\d+$/, '$1')
-  return `Network gas: ~${trimmed} ${gas.symbol}`
+  return `Network gas: ${formatNativeGasAmount(gas)}`
 }
 
 /**
@@ -49,20 +48,35 @@ export interface FeeBreakdownTooltipProps {
   fees: DisplayFees
   isLoading?: boolean
   flowBreakdown?: FlowFeeBreakdown
+  /**
+   * True when the user pays native gas themselves (direct shield). Explicit signal for the
+   * network-gas line + description. When omitted, falls back to the legacy "no broadcaster fee ⇒
+   * direct" inference for callers that don't thread it (e.g. EstimatedFeeValue).
+   */
+  userPaysNativeGas?: boolean
 }
 
 export function FeeBreakdownTooltip({
   fees,
   isLoading = false,
   flowBreakdown,
+  userPaysNativeGas,
 }: FeeBreakdownTooltipProps) {
   const broadcasterFee = flowBreakdown?.broadcasterFee ?? 0n
   const cctpFee = flowBreakdown?.cctpFee ?? 0n
-  // Description varies by which of the three fee components are non-zero. CCTP and relayer
-  // legs are independent on cross-chain flows: a direct cross-chain shield has CCTP but no
-  // broadcaster; gasless has both. Spelling it out per branch keeps the user's mental model
-  // aligned with what they'll see deducted on chain.
+  // Whether the user pays native gas from their own wallet. Use the explicit prop when provided; a
+  // zero broadcaster fee alone is NOT a reliable signal (a relayer-mediated spend with a not-yet
+  // loaded fee is also 0), so the amount card passes it explicitly.
+  const paysGas = userPaysNativeGas ?? broadcasterFee === 0n
+  // Description varies by which fee components apply. The native-gas clause keys on `paysGas`; the
+  // relayer/CCTP clauses on their own amounts. Spelling it out keeps the user's mental model aligned
+  // with what they'll see deducted on chain.
   const description = (() => {
+    if (paysGas) {
+      return cctpFee > 0n
+        ? 'Protocol fee + CCTP network fee come out of your USDC. Native gas is paid separately from your wallet.'
+        : 'Protocol fee is taken from your deposit in USDC. Network gas is paid separately from your wallet.'
+    }
     if (broadcasterFee > 0n && cctpFee > 0n) {
       return "Protocol fee, relayer fee, and the CCTP network fee all come out of your USDC. You don't pay native gas — the relayer covers it."
     }
@@ -70,9 +84,9 @@ export function FeeBreakdownTooltip({
       return "Protocol fee + relayer fee come out of your USDC. Network gas is paid by the relayer (you don't pay native gas)."
     }
     if (cctpFee > 0n) {
-      return 'Protocol fee + CCTP network fee come out of your USDC. Native gas is paid separately from your wallet.'
+      return "Protocol fee + CCTP network fee come out of your USDC. You don't pay native gas — the relayer covers it."
     }
-    return 'Protocol fee is taken from your deposit in USDC. Network gas is paid separately from your wallet.'
+    return 'Protocol fee is taken from your deposit in USDC.'
   })()
 
   const bullets: string[] = isLoading
@@ -81,10 +95,8 @@ export function FeeBreakdownTooltip({
         formatUsdcLine('Protocol fee', fees.protocolFee),
         ...(broadcasterFee > 0n ? [formatUsdcLine('Relayer fee', broadcasterFee)] : []),
         ...(cctpFee > 0n ? [formatUsdcLine('CCTP fee', cctpFee)] : []),
-        // Network-gas line is only shown when the user actually pays native gas themselves —
-        // gasless paths cover it via the broadcaster; direct cross-chain still has the user
-        // pay native gas on the source chain.
-        ...(broadcasterFee > 0n ? [] : [formatGasLine(fees)]),
+        // Network-gas line only when the user actually pays native gas themselves (direct shield).
+        ...(paysGas ? [formatGasLine(fees)] : []),
         ...(flowBreakdown?.recipientLabel && flowBreakdown.recipientReceives !== undefined
           ? [formatUsdcLine(flowBreakdown.recipientLabel, flowBreakdown.recipientReceives)]
           : []),

@@ -39,6 +39,14 @@ function unresolvedShield(amount: bigint): TxRecord {
 // don't mount one, so stub the hook with a deterministic DisplayFees value. The protocolFee
 // arithmetic is exercised by relayer.test.ts; this mock just keeps the modal renderable.
 // This tab is the executor leader (single-tab test env) so useTx.submit isn't refused (P1-26).
+// Healthy, resolved relayer so shield's resolving gate never holds Confirm (relayerResolving=false).
+vi.mock('@/hooks/useRelayerHealth', () => ({
+  useRelayerHealth: () => ({
+    isConfigured: true, isUnreachable: false, isChecking: false, isIndexerStalled: false,
+    data: { status: 'healthy' }, refetch: vi.fn(),
+  }),
+}))
+
 vi.mock('@/lib/tx/executor', async (importActual) => ({
   ...await importActual<typeof import('@/lib/tx/executor')>(),
   getIsLeader: () => true,

@@ -2,11 +2,11 @@
 // ABOUTME: Shield = public → private; Unshield = private → your own EVM wallet (to-chain picker). The typed amount carries across the tab toggle.
 
 import { useRef, useState } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom } from 'jotai'
 import { openModalAtom } from '@/state/ui'
-import { preferencesAtom } from '@/state/preferences'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
+import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
@@ -40,7 +40,6 @@ export function ShieldModal() {
   const [openModal, setOpenModal] = useAtom(openModalAtom)
   const isOpen = openModal === 'shield' || openModal === 'unshield'
   const initialTab: ShieldTab = openModal === 'unshield' ? 'unshield' : 'shield'
-  const prefs = useAtomValue(preferencesAtom)
   const hubChainId = getNetworkConfig().hub.chainId
 
   const [tab, setTab] = useState<ShieldTab>(initialTab)
@@ -117,6 +116,11 @@ export function ShieldModal() {
       <RelayerStatusBanner
         isOpen={isOpen}
         crossChain={(isShield ? shieldFlow.fromChainId : unshieldFlow.toChainId) !== hubChainId}
+        walletFallback={isShield}
+        // The availability nudge is a pre-submit decision aid — once past Review the path is
+        // committed (esp. direct shield, already signing/broadcasting), so it's just noise. The
+        // cross-chain delivery advisory still shows during progress.
+        showAvailability={step === 'input' || step === 'review'}
       />
       {step === 'input' && (
         <>
@@ -138,7 +142,8 @@ export function ShieldModal() {
             displayFees={active.displayFees}
             flowBreakdown={active.flowBreakdown}
             feeLoading={active.feeLoading}
-            gaslessMode={isShield ? shieldFlow.useGasless : !prefs.submitFromWallet}
+            feeResolving={isShield ? shieldFlow.relayerResolving : false}
+            gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
             inputRef={amountInputRef}
             shaking={shaking}
@@ -169,6 +174,17 @@ export function ShieldModal() {
             duplicateWarning={shieldFlow.duplicateWarning}
             feeUpdated={shieldFlow.feeChanged}
             estimated={shieldFlow.fromChainId !== hubChainId}
+            // Direct path only: the user pays ETH gas from their wallet. Suppressed on the gasless
+            // path (relayer covers gas) and while the relayer state is still resolving.
+            nativeGas={
+              !shieldFlow.useGasless && !shieldFlow.relayerResolving
+                ? shieldFlow.displayFees.nativeGas
+                : null
+            }
+            // Hold Confirm only while the relayer state is still resolving (we don't yet know
+            // gasless vs direct). Once resolved, the direct path submits from the wallet regardless
+            // of relayer availability, so there's no unavailable-block here (unlike spends).
+            submitBlockedReason={shieldFlow.relayerResolving ? RELAYER_CHECKING_REASON : null}
             onBack={shieldFlow.onBackToInput}
             onConfirm={shieldFlow.submit}
           />

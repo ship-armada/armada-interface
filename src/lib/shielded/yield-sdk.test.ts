@@ -114,7 +114,7 @@ describe('buildYieldAdaptSdk', () => {
     expect(r.feeShieldRandom).toBe('r-fee') // #312 — surfaced for the relayer's npk-reconstruction check
   })
 
-  it('redeem wallet-override (no broadcaster fee): zero fee bundle, no feeShieldRandom', async () => {
+  it('redeem with no broadcaster fee: zero fee bundle, no feeShieldRandom', async () => {
     hoisted.buildShieldRequest.mockResolvedValueOnce(shieldReqReturning(NPK, 'r-user'))
     const r = await buildYieldAdaptSdk({
       mode: 'redeem',

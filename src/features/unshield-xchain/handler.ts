@@ -3,16 +3,14 @@
 
 import { ethers } from 'ethers'
 import { keccak256, toBytes } from 'viem'
-import { getPublicClient, sendTransaction } from 'wagmi/actions'
-import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
-import { simulateOrThrow } from '@/lib/tx/simulate'
+import { getPublicClient } from 'wagmi/actions'
+import { asTxError } from '@/lib/tx/receipt'
 import { classifyHandlerError } from '@/lib/tx/errors'
 import { throwIfForcedError } from '@/lib/tx/devForce'
 import { track } from '@/lib/telemetry'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
 import { getChainById, getNetworkConfig } from '@/config/network'
-import { ensureChain } from '@/lib/network-switch'
 import { createProvider } from '@/lib/rpc'
 import {
   getWalletId as kmGetWalletId,
@@ -121,11 +119,10 @@ export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
   },
 }
 
-/** A6 — null when wallet-override, otherwise the broadcaster context from meta. */
+/** The broadcaster fee note context — always present (spends are relayer-submitted; #23). */
 function broadcasterFeeFromRecord(
   record: TxRecord<'unshield-xchain'>,
-): { amount: bigint; recipientAddress: string } | null {
-  if (record.meta.useWalletOverride) return null
+): { amount: bigint; recipientAddress: string } {
   return {
     amount: record.meta.broadcasterFeeAmount,
     recipientAddress: record.meta.broadcasterShieldedAddress,
@@ -170,7 +167,6 @@ async function runBuildProof(
   // them even after local storage is cleared.
   const selfMetadata = encodeTxSelfMetadata({
     feeCacheId: record.meta.feeCacheId,
-    useWalletOverride: record.meta.useWalletOverride,
   })
   const { to, data } = await buildXchainUnshieldSdk({
     amount: record.meta.amount,
@@ -203,58 +199,6 @@ async function runSubmitAndBurn(
   // survives a reload — no re-proving on resume. Only the broadcast itself is guarded against
   // re-entry via the sourceTxHash idempotency check below. (P0-1)
   const existingHash = record.artifacts.sourceTxHash
-
-  // A6 wallet-override path — submit the wrapper calldata via the user's EVM wallet. The
-  // CCTP-message extraction + destination polling are identical to the relayer path; the only
-  // difference is the source of the hub-side tx hash.
-  if (record.meta.useWalletOverride) {
-    // Idempotency guard (P0-1): never re-broadcast a hub burn we already sent. On re-entry skip
-    // to the receipt wait + CCTP extraction for the known hash.
-    let userHash = existingHash
-    let broadcastRecord = record
-    if (!userHash) {
-      await ensureChain(hubChainId)
-      if (ctx.signal.aborted) throw new Error('cancelled')
-      // S-M8: pre-flight simulate so an on-chain revert surfaces as a typed PRE_FLIGHT_REVERT
-      // ("nothing was sent") instead of MetaMask's opaque 30M-gas-fallback "gas limit too high".
-      const sender = record.walletContext.evmAddress
-      if (sender) {
-        await simulateOrThrow({
-          to: unshieldTx.to,
-          data: unshieldTx.data,
-          value: BigInt(unshieldTx.value),
-          account: sender as `0x${string}`,
-          chainId: hubChainId,
-        })
-        if (ctx.signal.aborted) throw new Error('cancelled')
-      }
-      userHash = await sendTransaction(wagmiConfig, {
-        to: unshieldTx.to,
-        data: unshieldTx.data,
-        value: BigInt(unshieldTx.value),
-        chainId: hubChainId,
-      })
-      const broadcast = await recordBroadcastHash(record, userHash, ctx)
-      if (broadcast.dismissed) return
-      broadcastRecord = broadcast.record
-      // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
-      // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
-      void markSpendPendingForRecord(record.id, userHash)
-    }
-    await waitForReceiptOrFail({ hash: userHash, signal: ctx.signal, chainId: hubChainId })
-    await extractCctpRefAndAdvance({
-      ctx,
-      record: broadcastRecord,
-      txHash: userHash,
-      hubChainId,
-      messageTransmitter: deployments.hub.cctp.messageTransmitter as `0x${string}`,
-      destChainId: record.meta.toChainId,
-    })
-    if (kmIsUnlocked()) {
-      void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-    }
-    return
-  }
 
   // Hand the wrapper calldata to the relayer. Pre-submit pipeline validates the selector
   // (atomicCrossChainUnshield → A5 addition) and decrypts the embedded broadcaster output against
@@ -360,8 +304,7 @@ async function runSubmitAndBurn(
 /**
  * Hub-side completion: fetch the tx receipt from the wagmi public client, extract the CCTP
  * MessageSent event from the logs, snapshot the destination chain's current block height, and
- * advance the record to `hub-burn-confirmed`. Identical for both the relayer-mediated path (A5)
- * and the wallet-override path (A6) — they only differ in the source of the txHash.
+ * advance the record to `hub-burn-confirmed`.
  */
 async function extractCctpRefAndAdvance(args: {
   ctx: Parameters<typeof unshieldXchainHandler.run>[1]

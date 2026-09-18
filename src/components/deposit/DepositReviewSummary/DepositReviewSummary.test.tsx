@@ -28,4 +28,41 @@ describe('<DepositReviewSummary>', () => {
     expect(container.textContent).toContain('≈ 2.974349 USDC')
     expect(getByText(/the final amount depends on the CCTP fee charged at delivery/i)).toBeInTheDocument()
   })
+
+  const nativeGas = { wei: 1_234_560_000_000_000n, symbol: 'ETH', formatted: '0.00123456' }
+
+  it('renders a "Network gas" row (~ETH) on the direct path when nativeGas is provided', () => {
+    const { getByText } = render(
+      <DepositReviewSummary
+        fromChainId={31337}
+        amount={3_000_000n}
+        fee={0n}
+        netAmount={3_000_000n}
+        nativeGas={nativeGas}
+      />,
+    )
+    expect(getByText('Network gas')).toBeInTheDocument()
+    expect(getByText('~0.0012 ETH')).toBeInTheDocument()
+  })
+
+  it('omits the gas row on the confirmation/receipt view (confirmedAt set)', () => {
+    const { queryByText } = render(
+      <DepositReviewSummary
+        fromChainId={31337}
+        amount={3_000_000n}
+        fee={0n}
+        netAmount={3_000_000n}
+        nativeGas={nativeGas}
+        confirmedAt={Date.now()}
+      />,
+    )
+    expect(queryByText('Network gas')).toBeNull()
+  })
+
+  it('omits the gas row on the gasless path (no nativeGas)', () => {
+    const { queryByText } = render(
+      <DepositReviewSummary fromChainId={31337} amount={3_000_000n} fee={25_651n} netAmount={2_974_349n} />,
+    )
+    expect(queryByText('Network gas')).toBeNull()
+  })
 })
