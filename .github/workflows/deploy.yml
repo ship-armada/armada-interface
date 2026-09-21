@@ -39,6 +39,11 @@ jobs:
     name: Build & Deploy to Netlify
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Opt into the "Netlify Build" GitHub environment so ITS variables/secrets (VITE_SENTRY_DSN,
+    # SENTRY_AUTH_TOKEN, SENTRY_ORG/PROJECT, VITE_SENTRY_ENVIRONMENT, …) resolve for this job. Without
+    # this, environment-scoped values are invisible and `${{ vars.* }}`/`${{ secrets.* }}` only see
+    # repo-level ones. The environment has no protection rules, so there's no approval gate.
+    environment: "Netlify Build"
     env:
       # Mirrors netlify.toml's [build.environment]. Sepolia drives the manifest suffix + hub RPC/chain.
       VITE_NETWORK: sepolia
