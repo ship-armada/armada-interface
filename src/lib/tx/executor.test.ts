@@ -11,6 +11,11 @@ import { cacheClear } from '../cache'
 import { setUnlocked, clear as clearKeyManager } from '../shielded/keyManager'
 import { isTerminalState, type TxError, type TxRecord } from './types'
 
+// The failure reporter's own behaviour is unit-tested in failureReport.test.ts; here we only assert
+// the executor invokes it once per failed settle (the single-chokepoint wiring).
+const failureReportMock = vi.hoisted(() => ({ reportTerminalFailure: vi.fn() }))
+vi.mock('./failureReport', () => ({ reportTerminalFailure: failureReportMock.reportTerminalFailure }))
+
 function makeRecord(overrides: Partial<TxRecord> = {}): TxRecord {
   return {
     id: 'ulid-test-1',
@@ -188,6 +193,37 @@ describe('expiry guard (P0-5)', () => {
     expect(after?.artifacts.error?.code).toBe('TX_REVERTED')
     expect(after?.artifacts.error?.message).toBe('reverted on chain')
     expect(after?.updatedSeq).toBe(2)
+  })
+
+  it('reports the failure once when a handler settles a record to failed', async () => {
+    failureReportMock.reportTerminalFailure.mockClear()
+    const store = getDefaultStore()
+    const handler: StageHandler<'shield'> = {
+      kind: 'shield',
+      resumableFrom: ['submit-relayer'],
+      run: async (record, ctx) => {
+        await ctx.upsert(markFailed(record, { code: 'OTHER', message: 'circuit fetch … → 404' }))
+      },
+    }
+    registerHandler(handler)
+
+    const rec = makeRecord({
+      id: 'ulid-report-fail',
+      executionState: 'active',
+      stage: 'build-proof',
+      stagesCompleted: [],
+      updatedSeq: 1,
+      createdAt: Date.now(),
+    })
+    store.set(upsertTxAtom, rec)
+
+    executeTx(rec.id)
+
+    await waitTerminalThenSettle(rec.id, 'failed')
+    expect(failureReportMock.reportTerminalFailure).toHaveBeenCalledTimes(1)
+    const reported = failureReportMock.reportTerminalFailure.mock.calls[0]![0] as TxRecord
+    expect(reported.id).toBe('ulid-report-fail')
+    expect(reported.artifacts.error?.code).toBe('OTHER')
   })
 
   // No-progress backstop (#4): a handler that returns without advancing / parking / terminating would

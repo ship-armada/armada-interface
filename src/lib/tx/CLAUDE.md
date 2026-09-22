@@ -15,6 +15,7 @@ Transaction lifecycle model. The most important architectural surface in this ap
 | `recentRecipients.ts` | Pure `deriveRecentRecipients(records, {hubChainId, limit})` — the Send flow's recent-recipients list from settled history (dedupe by normalized address, newest-first, completed-only, per-kind destination chain). Consumed via `hooks/useRecentRecipients`. |
 | `submitQuote.ts` | `resolveFreshQuote({refresh, reviewedFee, feeOf})` — every submit path (shield/unshield/transfer/yield) refetches a fresh `cacheId` right before proof gen (a stale cacheId is the relayer `FEE_EXPIRED` cause) and flags `feeChanged` when the fresh fee differs from the reviewed one, so the modal re-reviews (FeeUpdatedBanner) instead of silently swapping the fee. |
 | `errorCopy.ts` | `TX_ERROR_COPY` + `resolveTxErrorCopy(error, fallback)` — category-aware failed/cancelled copy shared by the live `ErrorStep` modal + the `ActivityReceipt`. |
+| `failureReport.ts` | `reportTerminalFailure(record)` — called once from the executor when a record settles `failed`. Always emits `tx.failed`; forwards the unexpected-failure codes (`OTHER` / `TX_REVERTED` / `POLL_TIMEOUT`) to Sentry via `trackError`. |
 
 ## Invariants
 
@@ -131,3 +132,5 @@ stale writes only ever produce `active`/`waiting`, never `retrying`).
 The tx executor emits structured events via `lib/telemetry.ts`. The EventRegistry's `tx.*` keys are the only allowlist; adding a new event = editing the registry.
 
 Never emit amounts, recipients, or anything tied to shielded identities. Use ids and kinds.
+
+**Failure reporting is single-chokepoint.** When a handler leaves a record `failed` — via its outer catch OR an inner post-broadcast failure (`POLL_TIMEOUT` / `TX_REVERTED`) that upserts-and-returns without re-throwing — the executor's chain loop calls `failureReport.ts::reportTerminalFailure(record)` exactly once. That emits the `tx.failed` info event for every failure and funnels the unexpected codes to Sentry, so handlers don't call `trackError` themselves and a new handler gets both for free. `STUCK` (executor no-progress → `tx.executor.no-progress`) and `INTERRUPTED` (resume → `tx.interrupted`) carry their own dedicated telemetry and are intentionally not routed through this chokepoint.
