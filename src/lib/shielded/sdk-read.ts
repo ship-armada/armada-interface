@@ -14,6 +14,7 @@ import { getDefaultStore } from 'jotai'
 import { anotherTabActiveAtom } from '@/state/ui'
 import { getCachedDeployments, getUsdcAddress, loadYieldDeployment } from '../../config/deployments'
 import { getNetworkConfig } from '../../config/network'
+import { supportedCircuitShapeKeys } from '../../config/circuits'
 import * as keyManager from './keyManager'
 import { createInterfaceArtifactSource, createInterfaceProver } from './sdk-prover'
 import { emitBalanceChange, emitScanStatus } from './balance-bus'
@@ -44,6 +45,7 @@ async function readPathConfig(): Promise<{
     wrappers?: { yieldAdapter?: `0x${string}` }
     confirmationDepth: number
     finalityThreshold: number
+    supportedShapes: readonly string[]
   }
   rpc: { urls: string[] }
   indexer?: { url: string }
@@ -72,6 +74,10 @@ async function readPathConfig(): Promise<{
       ...(yieldAdapter ? { wrappers: { yieldAdapter } } : {}),
       confirmationDepth: getNetworkConfig().confirmationDepth,
       finalityThreshold: getNetworkConfig().finalityThreshold,
+      // Fail-fast guard: reject an unprovable circuit shape at plan time with a typed
+      // UnsupportedCircuitShapeError, rather than late at artifact fetch (a 404) or on-chain. Keys are
+      // the SDK's unpadded `NxM` format (see supportedCircuitShapeKeys — the manifest is padded).
+      supportedShapes: supportedCircuitShapeKeys(),
     },
     rpc: { urls: [...hub.rpcUrls] },
     ...(indexerUrl ? { indexer: { url: indexerUrl } } : {}),

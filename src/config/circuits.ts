@@ -49,3 +49,18 @@ export function circuitHashes(paddedShape: string): CircuitHashes | undefined {
 export function circuitsRelease(): string {
   return MANIFEST.release
 }
+
+/**
+ * The supported circuit shapes in the `@armada/sdk` shape-key format (`<nullifiers>x<commitments>`,
+ * UNPADDED — e.g. `"5x2"`), derived from the committed manifest. Fed to the SDK's `pool.supportedShapes`
+ * guard so `planTransfer` rejects an unprovable shape up front with `UnsupportedCircuitShapeError`,
+ * instead of failing late at artifact fetch (a 404) or on-chain. The manifest keys are PADDED (`NNxMM`)
+ * but the SDK's `shapeKey` is unpadded, so we strip the padding here — a padded key would never match
+ * and the guard would silently never fire.
+ */
+export function supportedCircuitShapeKeys(): string[] {
+  return Object.keys(MANIFEST.shapes).map((padded) => {
+    const [n = '', m = ''] = padded.split('x')
+    return `${parseInt(n, 10)}x${parseInt(m, 10)}`
+  })
+}
