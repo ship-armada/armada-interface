@@ -70,6 +70,14 @@ export function initSentry(): void {
 }
 
 /**
+ * Whether Sentry is live (init ran with a DSN). Lets bootstrap emit an observable
+ * "Sentry initialized: yes/no" telemetry line so a DSN-less build is visible on the live site.
+ */
+export function sentryEnabled(): boolean {
+  return initialized
+}
+
+/**
  * Capture a caught error. No-op until `initSentry` ran with a DSN. `scope` becomes a Sentry tag;
  * `context` (primitive props) attaches as structured context. The error object is passed through
  * unmodified — redaction happens centrally in `beforeSend`.

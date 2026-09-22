@@ -13,8 +13,8 @@ import { wagmiConfig } from '@/config/wagmi'
 import { installBisectingGetLogs } from '@/lib/rpc-bisecting'
 import { getSavedTheme, setTheme } from '@/design/utils/theme'
 import { AppErrorBoundary } from '@/components/AppErrorBoundary'
-import { initSentry } from '@/lib/sentry'
-import { trackError } from '@/lib/telemetry'
+import { initSentry, sentryEnabled } from '@/lib/sentry'
+import { track, trackError } from '@/lib/telemetry'
 import { App } from '@/App'
 
 // Initialise Sentry first so it can capture errors thrown during the rest of bootstrap. No-op
@@ -22,6 +22,9 @@ import { App } from '@/App'
 // existing AppErrorBoundary + global rejection handler + lib/telemetry's trackError all funnel
 // into Sentry via this — no separate <SentryErrorBoundary> wrapper needed.
 initSentry()
+// Surface whether Sentry actually came up (DSN present + init ran) as a console-visible line, so a
+// misconfigured build — where every error report would otherwise silently no-op — is observable live.
+track('app.sentry', { enabled: sentryEnabled() })
 
 // Install at the earliest possible point — before any provider is constructed. Patches
 // ethers' JsonRpcProvider.prototype.send to bisect eth_getLogs on "block range too large"

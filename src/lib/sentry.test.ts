@@ -14,6 +14,7 @@ vi.mock('@sentry/react', () => ({
 import { init, captureException } from '@sentry/react'
 import {
   initSentry,
+  sentryEnabled,
   captureError,
   scrubString,
   scrubEvent,
@@ -95,6 +96,21 @@ describe('initSentry', () => {
     initSentry()
     initSentry()
     expect(mockInit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('sentryEnabled', () => {
+  it('is false before init and when the DSN is unset', () => {
+    expect(sentryEnabled()).toBe(false)
+    vi.stubEnv('VITE_SENTRY_DSN', '')
+    initSentry()
+    expect(sentryEnabled()).toBe(false)
+  })
+
+  it('is true once init ran with a DSN', () => {
+    vi.stubEnv('VITE_SENTRY_DSN', 'https://abc@o1.ingest.sentry.io/1')
+    initSentry()
+    expect(sentryEnabled()).toBe(true)
   })
 })
 
