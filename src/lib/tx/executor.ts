@@ -7,6 +7,7 @@ import { lifecycleFor } from './lifecycles'
 import { markCancelled, markDismissed, markExpired, markFailed, markRetrying } from './reducer'
 import { beginHiddenCredit, endHiddenCredit, hiddenMsForRecord } from './hiddenClock'
 import { loadAllTx, putTxIfFresh } from './storage'
+import { reportTerminalFailure } from './failureReport'
 import { isTerminalState } from './types'
 import type { StageFor, TxKind, TxRecord } from './types'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
@@ -425,7 +426,13 @@ async function runHandlerChain(
       // that reached a terminal state after maxDurationMs (e.g. a long hidden-tab pause counted
       // against the wall-clock cap) would be clobbered from `completed`/`failed` to `expired`,
       // losing the success or the original TxError. (P0-5)
-      if (isTerminalState(current.executionState)) break
+      if (isTerminalState(current.executionState)) {
+        // Single chokepoint for handler-caused failures — covers both the handler's outer catch
+        // and its inner post-broadcast failures (POLL_TIMEOUT / TX_REVERTED) that upsert-and-return
+        // without re-throwing. Emits tx.failed + funnels the unexpected codes to Sentry.
+        if (current.executionState === 'failed') reportTerminalFailure(current)
+        break
+      }
 
       // Handler put us in 'waiting'? Pause the chain; external trigger (e.g. a
       // poller completing, or executeTx being called again) will resume.
