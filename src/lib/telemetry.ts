@@ -100,6 +100,10 @@ export type EventRegistry = {
   'tx.history.scan.completed':{ walletId: string; itemCount: number; recordCount: number; durationMs: number }
   'tx.storage.stale-write':   { id: string; existingSeq: number; incomingSeq: number }
 
+  // Emitted once at bootstrap (main.tsx) right after initSentry(). `enabled` reflects whether a DSN
+  // was configured at build time and Sentry actually initialised — so a DSN-less/misconfigured build
+  // is observable in the live console instead of silently dropping every error report.
+  'app.sentry':               { enabled: boolean }
   'config.deployments.loaded':{ chainCount: number }
 
   'poller.tick':              { scope: string; errorStreak: number }
