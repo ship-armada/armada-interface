@@ -48,7 +48,7 @@ function shieldReqReturning(npk: string, random: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue({ plan: true })
+  hoisted.planTransfer.mockResolvedValue([{ plan: true }]) // unsplittable → single group
   hoisted.prove.mockResolvedValue({ toTransactionData: () => ({ tx: 'data' }) })
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.transactionToTuple.mockReturnValue(['TUPLE'])

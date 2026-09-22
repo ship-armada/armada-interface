@@ -21,7 +21,7 @@ const RECIPIENT = '0xbob0000000000000000000000000000000000000' as const
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue({ plan: true })
+  hoisted.planTransfer.mockResolvedValue([{ plan: true }]) // unsplittable → single group
   hoisted.prove.mockResolvedValue({ toTransactionData: () => ({ tx: 'data' }) })
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.buildTransactCalldata.mockReturnValue({ to: POOL, data: '0xdeadbeef', value: 0n })

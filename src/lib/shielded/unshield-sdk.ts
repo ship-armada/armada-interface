@@ -49,17 +49,21 @@ export async function buildUnshieldSdk(
       }
     : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
 
-  const plan = await wallet.planTransfer({
+  // Unshields aren't split (the SDK's planSpend only splits plain single-recipient transfers), so this
+  // is exactly one group. A shape the deployment can't prove surfaces as UnsupportedCircuitShapeError.
+  const plans = await wallet.planTransfer({
     outputs: [],
     unshield: { recipient: inputs.recipient, amount: inputs.amount },
     fee,
   })
+  const plan = plans[0]
+  if (plans.length !== 1 || !plan) throw new Error('unshield: expected a single plan group')
   // Pre-proof gate: reject a stale root / already-spent input in <1s instead of proving for ~30s and
   // reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
   await assertSpendPreflight(wallet, plan)
   // Stash the plan so the handler can mark its inputs pending after broadcast (#55). After preflight
   // so an already-spent-input build never leaves a stale hold.
-  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plan)
+  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plans)
   const handle = await wallet.prove(plan, {
     ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),

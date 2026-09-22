@@ -30,7 +30,7 @@ beforeEach(() => {
 
 describe('markSpendPendingForRecord', () => {
   it('marks the stashed plan with the on-chain txid, then forgets it', async () => {
-    stashSpendPlan('rec-1', PLAN)
+    stashSpendPlan('rec-1', [PLAN])
     await markSpendPendingForRecord('rec-1', '0xhash')
     expect(hoisted.markSpendPending).toHaveBeenCalledWith(PLAN, '0xhash')
     // A second call is a no-op (the plan was consumed) — no double-mark.
@@ -45,7 +45,7 @@ describe('markSpendPendingForRecord', () => {
   })
 
   it('never throws if the SDK mark fails (best-effort hardening)', async () => {
-    stashSpendPlan('rec-2', PLAN)
+    stashSpendPlan('rec-2', [PLAN])
     hoisted.markSpendPending.mockImplementation(() => { throw new Error('boom') })
     await expect(markSpendPendingForRecord('rec-2', '0xhash')).resolves.toBeUndefined()
   })
@@ -53,7 +53,7 @@ describe('markSpendPendingForRecord', () => {
 
 describe('forgetSpendPlan', () => {
   it('drops a stashed plan so a later mark is a no-op', async () => {
-    stashSpendPlan('rec-3', PLAN)
+    stashSpendPlan('rec-3', [PLAN])
     forgetSpendPlan('rec-3')
     await markSpendPendingForRecord('rec-3', '0xhash')
     expect(hoisted.markSpendPending).not.toHaveBeenCalled()

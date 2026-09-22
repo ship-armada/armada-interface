@@ -133,18 +133,22 @@ export async function buildYieldAdaptSdk(
       }
     : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
 
-  const plan = await wallet.planTransfer({
+  // Yield ops are adaptParams unshields — not split (planSpend only splits plain transfers), so this is
+  // exactly one group; the adapter call takes a single proved Transaction tuple.
+  const plans = await wallet.planTransfer({
     outputs: [],
     unshield: { recipient: inputs.adapterAddress, amount: inputs.amount, adaptContract: inputs.adapterAddress, adaptParams },
     tokenAddress: inputs.unshieldToken,
     fee,
   })
+  const plan = plans[0]
+  if (plans.length !== 1 || !plan) throw new Error('yield: expected a single plan group')
   // Pre-proof gate: reject a stale root / already-spent input in <1s instead of proving for ~30s and
   // reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
   await assertSpendPreflight(wallet, plan)
   // Stash the plan so the handler can mark its inputs pending after broadcast (#55). After preflight
   // so an already-spent-input build never leaves a stale hold.
-  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plan)
+  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plans)
   const handle = await wallet.prove(plan, {
     ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),

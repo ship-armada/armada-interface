@@ -1,5 +1,5 @@
-// ABOUTME: SDK-backed shielded-transfer builder — planTransfer → prove → toTransactionData → buildTransactCalldata,
-// ABOUTME: returning the raw { to, data } the handler submits. The @armada/sdk analogue of lib/shielded/transfer.ts.
+// ABOUTME: SDK-backed shielded-transfer builder — planTransfer → prove EACH group → buildTransactCalldata([...]),
+// ABOUTME: combining a (possibly split) fragmented transfer into one { to, data } the handler submits atomically.
 
 import { buildTransactCalldata } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
@@ -45,20 +45,30 @@ export async function buildTransferSdk(
       }
     : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
 
-  const plan = await wallet.planTransfer({
+  // A fragmented wallet plans as MORE THAN ONE group (the SDK splits a transfer no single supported
+  // circuit shape can cover); the recipient receives multiple notes and every group is submitted in one
+  // atomic `transact([...])`. The common case is a single group. Throws `TooFragmentedError` when the
+  // wallet is too fragmented for one batch (consolidate first) — surfaced to the user by the handler.
+  const plans = await wallet.planTransfer({
     outputs: [{ to0zk: inputs.recipient, amount: inputs.amount }],
     fee,
   })
-  // Pre-proof gate: reject a stale root / already-spent input in <1s instead of proving for ~30s and
-  // reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
-  await assertSpendPreflight(wallet, plan)
-  // Stash the plan so the handler can mark its inputs pending after broadcast (#55). After preflight
-  // so an already-spent-input build never leaves a stale hold.
-  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plan)
-  const handle = await wallet.prove(plan, {
-    ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
-    ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
-  })
-  const { to, data } = buildTransactCalldata([handle.toTransactionData()], inputs.poolAddress)
+  // Pre-proof gate PER GROUP: reject a stale root / already-spent input in <1s instead of proving for
+  // ~30s and reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
+  for (const plan of plans) await assertSpendPreflight(wallet, plan)
+  // Stash the plan group(s) so the handler can mark ALL their inputs pending after broadcast (#55).
+  // After preflight so an already-spent-input build never leaves a stale hold.
+  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plans)
+  // Prove each group serially on the one worker prover; progress spans all groups. selfMetadata rides
+  // the change note (last group) — prove() ignores it on a group with no change output.
+  const transactions = []
+  for (let i = 0; i < plans.length; i += 1) {
+    const handle = await wallet.prove(plans[i]!, {
+      ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.((i + p.fraction) / plans.length) } : {}),
+      ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
+    })
+    transactions.push(handle.toTransactionData())
+  }
+  const { to, data } = buildTransactCalldata(transactions, inputs.poolAddress)
   return { to, data }
 }

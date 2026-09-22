@@ -22,7 +22,7 @@ const POOL = '0xpool000000000000000000000000000000000000' as const
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue({ plan: true })
+  hoisted.planTransfer.mockResolvedValue([{ plan: true }]) // one group (the common, unfragmented case)
   hoisted.prove.mockResolvedValue({ toTransactionData: () => ({ tx: 'data' }) })
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.buildTransactCalldata.mockReturnValue({ to: POOL, data: '0xdeadbeef', value: 0n })
@@ -57,12 +57,28 @@ describe('buildTransferSdk', () => {
       recipient: '0zk_bob', amount: 1n, broadcasterFee: null, poolAddress: POOL,
       recordId: 'rec-9', selfMetadata: '{"v":1,"c":"q"}',
     })
-    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-9', { plan: true })
+    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-9', [{ plan: true }])
     expect(hoisted.prove).toHaveBeenCalledWith({ plan: true }, { selfMetadata: '{"v":1,"c":"q"}' })
   })
 
   it('does not stash a plan when no recordId is supplied', async () => {
     await buildTransferSdk({ recipient: '0zk_bob', amount: 1n, broadcasterFee: null, poolAddress: POOL })
     expect(hoisted.stashSpendPlan).not.toHaveBeenCalled()
+  })
+
+  it('proves EVERY group of a split (fragmented) transfer and combines them into one transact([...])', async () => {
+    hoisted.planTransfer.mockResolvedValue([{ plan: 'a' }, { plan: 'b' }])
+    let n = 0
+    hoisted.prove.mockImplementation(async () => ({ toTransactionData: () => ({ tx: `t${n++}` }) }))
+    const r = await buildTransferSdk({
+      recipient: '0zk_bob', amount: 1n, broadcasterFee: null, poolAddress: POOL, recordId: 'rec-multi',
+    })
+    expect(hoisted.preflight).toHaveBeenCalledTimes(2) // preflight per group
+    expect(hoisted.prove).toHaveBeenCalledTimes(2)
+    // All groups' inputs stashed under the one record (one atomic tx).
+    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-multi', [{ plan: 'a' }, { plan: 'b' }])
+    // Both proved transactions combined into a single transact([...]) calldata, in group order.
+    expect(hoisted.buildTransactCalldata).toHaveBeenCalledWith([{ tx: 't0' }, { tx: 't1' }], POOL)
+    expect(r).toEqual({ to: POOL, data: '0xdeadbeef' })
   })
 })
