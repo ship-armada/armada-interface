@@ -73,6 +73,27 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { memoText: 'gm' } })
   })
 
+  it('a tagged merge (no recipient output → transfer-sent) is recovered as a consolidation', () => {
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'transfer-sent', value: -40_000n, broadcasterFee: 40_000n, broadcasterShieldedAddress: '0zk_relayer', selfMetadata: '{"v":1,"c":"q1","m":1}' }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({
+      kind: 'consolidate',
+      id: 'synth:0xabc:transfer-sent',
+      executionState: 'completed',
+      stage: 'hub-confirmed',
+      meta: { amount: 0n, feeCacheId: 'q1', tokenAddress: USDC_ADDR, broadcasterFeeAmount: 40_000n, broadcasterShieldedAddress: '0zk_relayer' },
+    })
+    // The scan sees the fee leg, not how many notes were merged.
+    expect((r!.meta as { notesMerged?: number }).notesMerged).toBeUndefined()
+  })
+
+  it('an untagged transfer-sent with no recipient stays a send (only the tag marks a merge)', () => {
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'transfer-sent', value: -40_000n, broadcasterFee: 40_000n }), 'w', SDK_CTX, 5000)
+    expect(r?.kind).toBe('transfer-shielded')
+  })
+
   it('self-transfer → transfer-shielded with amount = fee, not a phantom outgoing (#39)', () => {
     // The pre-#88 SDK misclassified a send-to-self as a big negative transfer-sent (the "−194" bug).
     // Now it is a distinct `self-transfer` (value = −fee); the record must NOT be dropped and its

@@ -49,6 +49,7 @@ export function relayerFeeKeyForKind(kind: TxKind): RelayerFeeKey {
     case 'unshield-local':
       return 'unshield'
     case 'transfer-shielded':
+    case 'consolidate':
       return 'transfer'
     case 'transfer-shielded-received':
       // Synthetic received-transfer records are reconstructed from chain and never submitted, so

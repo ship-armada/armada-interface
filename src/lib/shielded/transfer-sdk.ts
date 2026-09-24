@@ -5,15 +5,15 @@ import { buildTransactCalldata, InsufficientBalanceError, type Plan } from '@arm
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
-import { TransferFeeIncreasedError } from './transfer-fee-error'
+import { SpendFeeIncreasedError } from './spend-fee-error'
 
-export { TransferFeeIncreasedError }
+export { SpendFeeIncreasedError }
 
 /** The SDK planner's cap on proofs per atomic batch (`MAX_SPLIT_GROUPS`); a send never pays more fees. */
 const MAX_PROOFS_PER_SEND = 4n
 
 /** The relayer's per-proof fee and its 0zk address, or null for direct submission (no fee note). */
-type BroadcasterFee = { readonly amount: bigint; readonly recipientAddress: string } | null
+export type BroadcasterFee = { readonly amount: bigint; readonly recipientAddress: string } | null
 
 export interface SdkTransferInputs {
   /** 0zk recipient of the transfer. */
@@ -22,7 +22,7 @@ export interface SdkTransferInputs {
   /** Broadcaster (relayer) per-proof fee + 0zk address, or null for direct user submission (no fee output).
    *  A split transfer pays `amount` once per proof. */
   readonly broadcasterFee: BroadcasterFee
-  /** The total fee the user reviewed. The build refuses (`TransferFeeIncreasedError`) if planning now
+  /** The total fee the user reviewed. The build refuses (`SpendFeeIncreasedError`) if planning now
    *  charges more — e.g. a sync fragmented the wallet into more proofs since review. Omit to skip. */
   readonly maxTotalFee?: bigint
   readonly poolAddress: `0x${string}`
@@ -56,7 +56,7 @@ export async function buildTransferSdk(
   const plans = await wallet.planTransfer(transferRequest(inputs.recipient, inputs.amount, inputs.broadcasterFee))
   const totalFee = totalFeeOf(plans)
   if (inputs.maxTotalFee !== undefined && totalFee > inputs.maxTotalFee) {
-    throw new TransferFeeIncreasedError(inputs.maxTotalFee, totalFee)
+    throw new SpendFeeIncreasedError(inputs.maxTotalFee, totalFee)
   }
   // Pre-proof gate over ALL groups in one batched preflight: reject a stale root / already-spent input
   // in <1s instead of proving for ~30s and reverting on-chain. Maps to PRE_FLIGHT_REVERT.
@@ -129,10 +129,17 @@ export async function maxTransferAmount(inputs: {
   }
 }
 
-// planTransfer reads only `schedule.transfer` + `broadcasterShieldedAddress`; `feesCacheId`/`expiresAt`
-// are part of the FeeQuote contract but unused here (the quote's staleness is the relayer's concern).
 function transferRequest(recipient: string, amount: bigint, broadcasterFee: BroadcasterFee) {
-  const fee = broadcasterFee
+  return { outputs: [{ to0zk: recipient, amount }], fee: feeQuoteFor(broadcasterFee) }
+}
+
+/**
+ * The SDK fee quote for a per-proof broadcaster fee. The planners (`planTransfer`, `consolidate`) read
+ * only `schedule.transfer` + `broadcasterShieldedAddress`; `feesCacheId`/`expiresAt` are part of the
+ * FeeQuote contract but unused here (the quote's staleness is the relayer's concern).
+ */
+export function feeQuoteFor(broadcasterFee: BroadcasterFee) {
+  return broadcasterFee
     ? {
         schedule: { transfer: broadcasterFee.amount.toString() },
         broadcasterShieldedAddress: broadcasterFee.recipientAddress,
@@ -140,10 +147,9 @@ function transferRequest(recipient: string, amount: bigint, broadcasterFee: Broa
         expiresAt: 0,
       }
     : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
-  return { outputs: [{ to0zk: recipient, amount }], fee }
 }
 
 /** The fee actually charged across a spend's groups: the sum of their broadcaster fee notes. */
-function totalFeeOf(plans: readonly Plan[]): bigint {
+export function totalFeeOf(plans: readonly Pick<Plan, 'summary'>[]): bigint {
   return plans.reduce((sum, p) => sum + (p.summary.feeOutput?.value ?? 0n), 0n)
 }

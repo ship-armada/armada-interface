@@ -28,7 +28,7 @@ vi.mock('@/lib/shielded/sync', () => ({ refreshShieldedBalances: vi.fn(async () 
 vi.mock('@/lib/shielded/selfMetadata', () => ({ encodeTxSelfMetadata: () => undefined }))
 
 import { transferShieldedHandler } from './handler'
-import { TransferFeeIncreasedError } from '@/lib/shielded/transfer-fee-error'
+import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
 import type { ExecutorCtx } from '@/lib/tx/executor'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -103,7 +103,7 @@ describe('transferShieldedHandler — build-proof fee', () => {
   })
 
   it('fails with FEE_EXPIRED (start over, no retry) when the fee rose since review', async () => {
-    hoisted.buildTransferSdk.mockRejectedValue(new TransferFeeIncreasedError(40_000n, 60_000n))
+    hoisted.buildTransferSdk.mockRejectedValue(new SpendFeeIncreasedError(40_000n, 60_000n))
     const { ctx, upserts } = makeCtx()
     await transferShieldedHandler.run(buildRecord(), ctx)
     const failed = upserts.at(-1)!

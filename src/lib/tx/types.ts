@@ -10,6 +10,7 @@ export type TxKind =
   | 'transfer-shielded-received'
   | 'yield-deposit'
   | 'yield-withdraw'
+  | 'consolidate'
 
 /**
  * Execution lifecycle state — separate from the protocol stage so they don't
@@ -133,6 +134,13 @@ export type StageYieldWithdraw =
   | 'hub-pending'
   | 'hub-confirmed'
 
+/** Note consolidation (armada-sdk #98): relayer-submitted like a private send. */
+export type StageConsolidate =
+  | 'build-proof'
+  | 'submit-relayer'
+  | 'hub-pending'
+  | 'hub-confirmed'
+
 export type TxStage =
   | StageShield
   | StageShieldXchain
@@ -142,6 +150,7 @@ export type TxStage =
   | StageReceived
   | StageYieldDeposit
   | StageYieldWithdraw
+  | StageConsolidate
 
 /* Per-kind stage map — used to constrain `TxRecord<K>['stage']` to legal values. */
 export type StageFor<K extends TxKind> =
@@ -153,6 +162,7 @@ export type StageFor<K extends TxKind> =
   : K extends 'transfer-shielded-received' ? StageReceived
   : K extends 'yield-deposit' ? StageYieldDeposit
   : K extends 'yield-withdraw' ? StageYieldWithdraw
+  : K extends 'consolidate' ? StageConsolidate
   : never
 
 /* Meta — input parameters captured at tx submit time. */
@@ -337,6 +347,25 @@ export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster, MetaYiel
   shares: bigint
 }
 
+/**
+ * Note consolidation (armada-sdk #98): merges one token's notes into fewer notes the wallet owns. No value
+ * leaves the wallet except the relayer fee, so `amount` is always 0n and the total deducted is
+ * `broadcasterFeeAmount` (USDC) — which keeps the fee-on-top math and the balance ledger right.
+ */
+export interface MetaConsolidate extends MetaCommon, MetaBroadcaster {
+  /** The token merged (USDC or vault shares). The fee is always USDC. On a record recovered from chain
+   *  this is the USDC fee leg's token (the scan can't see which token was merged). */
+  tokenAddress: `0x${string}`
+  /** The merged token's display name at submit ("USDC", "Vault shares"). Absent on recovered records. */
+  tokenSymbol?: string
+  /** The relayer's quoted fee PER PROOF; `broadcasterFeeAmount` is the total (as on `MetaTransferShielded`). */
+  broadcasterFeePerProof?: bigint
+  /** How many of the token's notes the merge spends, and how many it leaves in their place. Absent on
+   *  records recovered from chain (the scan sees the fee leg, not the note counts). */
+  notesMerged?: number
+  notesCreated?: number
+}
+
 export type MetaFor<K extends TxKind> =
   K extends 'shield' ? MetaShield
   : K extends 'shield-xchain' ? MetaShieldXchain
@@ -346,6 +375,7 @@ export type MetaFor<K extends TxKind> =
   : K extends 'transfer-shielded-received' ? MetaTransferShieldedReceived
   : K extends 'yield-deposit' ? MetaYieldDeposit
   : K extends 'yield-withdraw' ? MetaYieldWithdraw
+  : K extends 'consolidate' ? MetaConsolidate
   : never
 
 /* Artifacts — opaque outputs accumulated as stages complete. */
@@ -611,6 +641,19 @@ export interface ArtifactsUnshieldLocal extends ArtifactsCommon {
   }
 }
 
+export interface ArtifactsConsolidate extends ArtifactsCommon {
+  /**
+   * The consolidation's `transact([...])` calldata built during build-proof, so submit-relayer dispatches
+   * it without re-proving and it survives a reload. `value` is '0'; stringified for IDB. Mirrors
+   * `ArtifactsTransfer.transferTx`.
+   */
+  consolidateTx?: {
+    to: `0x${string}`
+    data: `0x${string}`
+    value: string
+  }
+}
+
 export type ArtifactsFor<K extends TxKind> =
   K extends 'unshield-xchain' ? ArtifactsXchain
   : K extends 'unshield-local' ? ArtifactsUnshieldLocal
@@ -619,6 +662,7 @@ export type ArtifactsFor<K extends TxKind> =
   : K extends 'yield-deposit' ? ArtifactsYield
   : K extends 'yield-withdraw' ? ArtifactsYield
   : K extends 'transfer-shielded' ? ArtifactsTransfer
+  : K extends 'consolidate' ? ArtifactsConsolidate
   : ArtifactsCommon
 
 /* Ownership / session context — captured at submit. Required for history

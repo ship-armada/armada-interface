@@ -147,6 +147,22 @@ export function historyEntryToTxRecord(
   const entryToken = (entry.tokenAddress ?? '').toLowerCase()
   if (usdcAddress !== '' && entryToken !== '' && entryToken !== usdcAddress) return null
 
+  // A note consolidation (armada-sdk #98) spends into a fee note + self-owned change only — no recipient
+  // output — so the SDK recovers it as an anonymous `transfer-sent` (or a `self-transfer`). Its
+  // self-metadata tag marks it; map it back to a merge: no value moved, only the fee left the wallet.
+  if (recovered.consolidation && (entry.category === 'transfer-sent' || entry.category === 'self-transfer')) {
+    const stages = terminalizeStages('consolidate')
+    return {
+      id: syntheticTxId(entry.txid, entry.category), kind: 'consolidate', executionState: 'completed',
+      stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
+      meta: {
+        amount: 0n, feeCacheId: recoveredFeeCacheId,
+        tokenAddress: (entry.tokenAddress ?? ctx.usdcAddress) as `0x${string}`,
+        broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
+      },
+    }
+  }
+
   switch (entry.category) {
     case 'shield': {
       const shieldFee = entry.shieldFee ?? 0n

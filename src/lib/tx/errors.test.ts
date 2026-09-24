@@ -13,9 +13,10 @@ import {
   StorageConflictError,
   TooFragmentedError,
   UnsupportedCircuitShapeError,
+  NothingToConsolidateError,
 } from '@armada/sdk'
 import { classifyHandlerError } from './errors'
-import { TransferFeeIncreasedError } from '@/lib/shielded/transfer-fee-error'
+import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
 import { asTxError } from './receipt'
 
 const STD_ERR_ABI = [
@@ -244,9 +245,17 @@ describe('classifyHandlerError — shape-aware planner errors', () => {
 })
 
 describe('classifyHandlerError — transfer fee rose since review', () => {
-  it('maps TransferFeeIncreasedError to FEE_EXPIRED (retry is futile — start a new send to re-review)', () => {
-    const r = classifyHandlerError(new TransferFeeIncreasedError(20_000n, 40_000n), 'fallback')
+  it('maps SpendFeeIncreasedError to FEE_EXPIRED (retry is futile — start a new send to re-review)', () => {
+    const r = classifyHandlerError(new SpendFeeIncreasedError(20_000n, 40_000n), 'fallback')
     expect(r.code).toBe('FEE_EXPIRED')
     expect(r.message).toMatch(/higher fee/i)
+  })
+})
+
+describe('classifyHandlerError — consolidation', () => {
+  it('maps NothingToConsolidateError to PRE_FLIGHT_REVERT with plain "nothing to merge" copy', () => {
+    const r = classifyHandlerError(new NothingToConsolidateError('nothing worth merging'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/nothing to merge/i)
   })
 })

@@ -21,7 +21,25 @@ function shieldRecord(): TxRecord {
   } as unknown as TxRecord
 }
 
+function mergeRecord(): TxRecord {
+  return {
+    ...shieldRecord(),
+    kind: 'consolidate',
+    meta: {
+      amount: 0n, feeCacheId: 'x', tokenAddress: '0xusdc', tokenSymbol: 'USDC',
+      broadcasterFeeAmount: 40_000n, broadcasterShieldedAddress: '0zk_r', notesMerged: 11, notesCreated: 2,
+    },
+  } as unknown as TxRecord
+}
+
 describe('<ActivityReceipt>', () => {
+  it('shows a note merge by its fee, with the notes merged', () => {
+    render(<ActivityReceipt record={mergeRecord()} open onClose={vi.fn()} />)
+    expect(screen.getByText('Notes merged')).toBeInTheDocument()
+    expect(screen.getByText('0.04')).toBeInTheDocument()
+    expect(screen.getByText('11 → 2')).toBeInTheDocument()
+  })
+
   it('renders nothing when record is null', () => {
     render(<ActivityReceipt record={null} open onClose={vi.fn()} />)
     expect(screen.queryByText('USDC shield')).toBeNull()

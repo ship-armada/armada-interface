@@ -93,6 +93,12 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   'transfer-shielded-received': {
     observed: { label: 'Received', subtitle: 'Payment received', completedLabel: 'Received' },
   },
+  consolidate: {
+    'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proofs' },
+    'submit-relayer': { label: 'Submitting transaction', subtitle: 'Relaying privately' },
+    'hub-pending': { label: 'Merging notes', subtitle: 'Confirming on chain' },
+    'hub-confirmed': { label: 'Notes merged', subtitle: 'Confirming on chain', completedLabel: 'Notes merged' },
+  },
   'yield-deposit': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting privately', subtitle: 'Relaying to shielded vault' },
@@ -149,6 +155,12 @@ function resolveCardBase(record: TxRecord, sendVariant?: SendVariant): CardBase 
       }
     case 'transfer-shielded-received':
       return { tag: 'Received', title: 'Payment received' }
+    case 'consolidate':
+      return {
+        tag: 'Merge in progress',
+        title: 'Merging your notes',
+        titleLines: ['Merging your', 'notes'],
+      }
     case 'unshield-local':
     case 'unshield-xchain':
       return sendVariant === 'withdraw'

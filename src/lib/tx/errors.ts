@@ -7,7 +7,7 @@ import { decodeRevertData, extractRevertHex } from './revertSelectors'
 import { isUserRejection, isChainMismatchError } from '../errors'
 import { mapRevertToMessage } from '../revert'
 import { getChainById } from '@/config/network'
-import { TransferFeeIncreasedError } from '@/lib/shielded/transfer-fee-error'
+import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
 import type { TxError } from './types'
 import type { RelayerErrorCode } from '@/config/relayer'
 
@@ -104,6 +104,12 @@ function classifySdkError(err: unknown): TxError | null {
         message:
           'This would spend too many of your smaller notes at once. Send a smaller amount for now — a few smaller sends will merge them into fewer notes.',
       }
+    case 'NOTHING_TO_CONSOLIDATE':
+      return {
+        code: 'PRE_FLIGHT_REVERT',
+        message:
+          "Nothing to merge — your notes are already as few as they can usefully be, or too small to be worth the fee.",
+      }
     case 'ARTIFACT_INTEGRITY':
       return {
         code: 'PRE_FLIGHT_REVERT',
@@ -183,14 +189,14 @@ export function classifyHandlerError(
   const sdk = classifySdkError(err)
   if (sdk) return sdk
 
-  // A fragmented wallet's split fee rose between review and build. Rebuilding with the same record
-  // re-plans the same higher fee, so retry is futile — FEE_EXPIRED gates it off and the modal sends the
-  // user back to start a fresh send, where review shows the new fee.
-  if (err instanceof TransferFeeIncreasedError) {
+  // A multi-proof spend's fee (split transfer, consolidation) rose between review and build. Rebuilding
+  // with the same record re-plans the same higher fee, so retry is futile — FEE_EXPIRED gates it off and
+  // the modal sends the user back to start again, where review shows the new fee.
+  if (err instanceof SpendFeeIncreasedError) {
     return {
       code: 'FEE_EXPIRED',
       message:
-        'Your balance changed since you reviewed this send, and it now needs a higher fee. Nothing was sent — start the send again to review the new fee.',
+        'Your balance changed since you reviewed this, and it now needs a higher fee. Nothing was sent — start again to review the new fee.',
     }
   }
 

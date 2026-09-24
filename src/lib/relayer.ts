@@ -113,6 +113,10 @@ export function userFeeForKind(
       // A4 — relayer-mediated. The relayer's transfer-tier fee covers a single transact() call
       // (no cross-contract leg), so it's the cheapest tier in the schedule.
       return quote ? BigInt(quote.fees.transfer) : 0n
+    case 'consolidate':
+      // A bare transact() self-spend, priced at the transfer tier PER PROOF — this is the per-proof
+      // fee; the planned total (one per proof) comes from the consolidation preview.
+      return quote ? BigInt(quote.fees.transfer) : 0n
     case 'yield-deposit':
     case 'yield-withdraw':
       // A4 — relayer-mediated via ArmadaYieldAdapter's lendAndShield/redeemAndShield wrappers,
@@ -172,6 +176,7 @@ export function feeModelForKind(kind: TxKind, opts?: UserFeeOpts): FeeModel {
     case 'transfer-shielded':
     case 'yield-deposit':
     case 'yield-withdraw':
+    case 'consolidate':
       // A4 — all relayer-mediated. Recipient receives the entered amount; the broadcaster fee
       // is an extra output in the proof, deducted on top of the entered amount.
       return 'fee-on-top'

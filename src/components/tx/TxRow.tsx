@@ -6,12 +6,14 @@ import {
   ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
+  Combine,
   Inbox,
   Plus,
   type LucideIcon,
 } from 'lucide-react'
 import { useAtomValue } from 'jotai'
 import { lifecycleFor } from '@/lib/tx/lifecycles'
+import { headlineAmount } from '@/lib/tx/headlineAmount'
 import { formatUsdc, formatRelativeTime } from '@/lib/format'
 import { nowAtom } from '@/state/time'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
@@ -28,6 +30,7 @@ import styles from './TxRow.module.css'
  *  - yield-deposit          ArrowUpRight — into vault.
  *  - yield-withdraw         ArrowDownLeft — vault → available shielded.
  *  - transfer-received      Inbox — someone shielded USDC to us (ties to the Receive button glyph).
+ *  - consolidate            Combine — small notes merged into fewer.
  */
 function kindIcon(kind: TxKind): LucideIcon {
   switch (kind) {
@@ -45,6 +48,8 @@ function kindIcon(kind: TxKind): LucideIcon {
       return ArrowUpRight
     case 'yield-withdraw':
       return ArrowDownLeft
+    case 'consolidate':
+      return Combine
   }
 }
 
@@ -105,7 +110,7 @@ export function TxRow({
   const inflow = isInflow(record.kind)
   // Direction is conveyed by the leading kind glyph and the amount color (inflows green,
   // outflows default) — no need for a leading + / − character.
-  const formattedAmount = formatUsdc(record.meta.amount)
+  const formattedAmount = formatUsdc(headlineAmount(record))
   const amountCls = [styles.amount, inflow ? styles.amountInflow : ''].filter(Boolean).join(' ')
 
   // Completed is the common case — drop the chip and surface only the relative time. For any

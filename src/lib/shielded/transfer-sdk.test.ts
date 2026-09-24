@@ -22,7 +22,7 @@ vi.mock('./sdk-read', () => ({
 }))
 vi.mock('./pending-spend', () => ({ stashSpendPlan: hoisted.stashSpendPlan }))
 
-import { buildTransferSdk, planTransferFee, maxTransferAmount, TransferFeeIncreasedError } from './transfer-sdk'
+import { buildTransferSdk, planTransferFee, maxTransferAmount, SpendFeeIncreasedError } from './transfer-sdk'
 
 const POOL = '0xpool000000000000000000000000000000000000' as const
 
@@ -116,7 +116,7 @@ describe('buildTransferSdk — actual fee', () => {
         recipient: '0zk_bob', amount: 1n, broadcasterFee: FEE, poolAddress: POOL,
         recordId: 'rec-1', maxTotalFee: 20_000n,
       }),
-    ).rejects.toBeInstanceOf(TransferFeeIncreasedError)
+    ).rejects.toBeInstanceOf(SpendFeeIncreasedError)
     expect(hoisted.stashSpendPlan).not.toHaveBeenCalled()
     expect(hoisted.proveAll).not.toHaveBeenCalled()
   })
