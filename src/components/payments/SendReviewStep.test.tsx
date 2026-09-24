@@ -17,6 +17,7 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     totalDeducted: extras?.totalDeducted ?? 5_000_000n,
     networkName: extras?.networkName,
     submitBlockedReason: extras?.submitBlockedReason,
+    feeNote: extras?.feeNote,
     isSubmitting: extras?.isSubmitting,
     onBack: extras?.onBack ?? vi.fn(),
     onConfirm: extras?.onConfirm ?? vi.fn(),
@@ -26,6 +27,18 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
 }
 
 describe('<SendReviewStep>', () => {
+  it('shows the fee note when one is given (a split send explains its higher fee)', () => {
+    renderReview({ feeNote: 'The fee covers 2 proofs.' })
+    expect(screen.getByText('The fee covers 2 proofs.')).toBeInTheDocument()
+    // A note, not a blocker — Confirm stays enabled.
+    expect(screen.getByRole('button', { name: 'Confirm send' })).not.toBeDisabled()
+  })
+
+  it('shows no fee note by default', () => {
+    renderReview()
+    expect(screen.queryByText(/proofs/)).toBeNull()
+  })
+
   it('private: shows the "Private transfer." notice and no network row', () => {
     renderReview({ recipient: VALID_0ZK })
     expect(screen.getByText('Private transfer.')).toBeInTheDocument()

@@ -19,7 +19,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildXchainUnshieldSdk } from '@/lib/shielded/unshield-xchain-sdk'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
-import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
+import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import {
   extractCctpMessageFromReceipt,
   messageReceivedTopic,
@@ -112,6 +112,9 @@ export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
           return
       }
     } catch (err) {
+      // Nothing was broadcast on this path (or the stash was already consumed at broadcast) — drop any
+      // stashed plans (#55) rather than keep them for the session.
+      forgetSpendPlan(record.id)
       if (ctx.signal.aborted) return
       const failed = markFailed(record, classifyHandlerError(err, 'Cross-chain withdraw failed.', record.artifacts.sourceTxHash, getNetworkConfig().hub.chainId))
       await ctx.upsert(failed)

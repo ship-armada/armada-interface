@@ -10,7 +10,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildUnshieldSdk } from '@/lib/shielded/unshield-sdk'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
-import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
+import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { advance, markFailed } from '@/lib/tx/reducer'
@@ -59,6 +59,9 @@ export const unshieldLocalHandler: StageHandler<'unshield-local'> = {
       // hub-confirmed is terminal; advance() flips executionState to 'completed' so the executor
       // loop won't re-enter this handler. Defensive no-op for resume-on-load.
     } catch (err) {
+      // Nothing was broadcast on this path (or the stash was already consumed at broadcast) — drop any
+      // stashed plans (#55) rather than keep them for the session.
+      forgetSpendPlan(record.id)
       // Abort-during-handler path: if the user cancelled (or the executor dismissed) we've
       // already written the terminal cancelled/dismissed state via abortAndMark / dismissTx.
       // Returning without upserting prevents us from clobbering it with a failed record (OCC

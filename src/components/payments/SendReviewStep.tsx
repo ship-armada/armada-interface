@@ -28,6 +28,8 @@ export interface SendReviewStepProps {
   isSubmitting?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
   feeUpdated?: boolean
+  /** Explains the fee below the summary (e.g. why a fragmented wallet's split send costs more). */
+  feeNote?: string | null
   onBack: () => void
   onConfirm: () => void
 }
@@ -44,6 +46,7 @@ export function SendReviewStep({
   submitBlockedReason,
   isSubmitting,
   feeUpdated,
+  feeNote,
   onBack,
   onConfirm,
 }: SendReviewStepProps) {
@@ -76,6 +79,12 @@ export function SendReviewStep({
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
         />
+
+        {feeNote ? (
+          <div className={styles.feeNote} role="note">
+            {feeNote}
+          </div>
+        ) : null}
 
         {submitBlockedReason ? (
           <div className={styles.syncNotice} role="status" aria-live="polite">

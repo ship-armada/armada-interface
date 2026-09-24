@@ -11,7 +11,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
-import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
+import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { advance, markFailed } from '@/lib/tx/reducer'
@@ -56,6 +56,9 @@ export const yieldDepositHandler: StageHandler<'yield-deposit'> = {
       }
       // hub-confirmed is terminal.
     } catch (err) {
+      // Nothing was broadcast on this path (or the stash was already consumed at broadcast) — drop any
+      // stashed plans (#55) rather than keep them for the session.
+      forgetSpendPlan(record.id)
       if (ctx.signal.aborted) return
       await ctx.upsert(markFailed(record, classifyHandlerError(err, 'Vault deposit failed.', record.artifacts.sourceTxHash, getNetworkConfig().hub.chainId)))
     }

@@ -46,6 +46,7 @@ import { SendInputStepContent, SendInputStepFooter } from './SendInputStep'
 import { ForceOutcomeSelect } from '@/components/debug/ForceOutcomeSelect'
 import { devForceOutcomeAtom } from '@/state/debug'
 import { useDisplayFees } from '@/hooks/useDisplayFees'
+import { useTransferFeePlan } from '@/hooks/useTransferFeePlan'
 import { SendReviewStep } from './SendReviewStep'
 import { SendCompleteStep } from './SendCompleteStep'
 import { RelayerStatusBanner } from '@/components/RelayerStatusBanner'
@@ -202,13 +203,25 @@ export function SendModal() {
     : null
   const record = activeTx?.record ?? null
 
-  // Display fee per (kind, amount, quote):
-  //   transfer-shielded → relayer's `transfer` tier from the quote (A4); 0n pre-quote-load
+  // Quoted fee per (kind, amount, quote):
+  //   transfer-shielded → relayer's `transfer` tier from the quote (A4) — the PER-PROOF fee; the
+  //                       displayed fee is the planned total below. 0n pre-quote-load
   //   unshield-local    → relayer's `unshield` tier from the quote (A3+); 0n pre-quote-load
   //   unshield-xchain   → relayer's `crossChainUnshield` tier (A5). A separate CCTP fast-fee
   //                       (~2 bps) applies on top — surfaced via `cctpFee` below as the secondary
   //                       FeeSummary line so the user sees both deductions.
-  const fee: bigint = userFeeForKind(computedKind, amount, quote)
+  const quotedFee: bigint = userFeeForKind(computedKind, amount, quote)
+  // A private (0zk) send is priced by planning it: a wallet of many small notes splits into several
+  // proofs, each paying the quoted `transfer` fee, so its real fee can be a multiple of the quote. The
+  // plan's total is what review shows, Max leaves room for, and the user approves. Unshields never split.
+  const transferPlan = useTransferFeePlan({
+    enabled: isOpen && isPrivate && (step === 'input' || step === 'review'),
+    recipient,
+    amount,
+    quote,
+    balance: max,
+  })
+  const fee: bigint = isPrivate && transferPlan.fee !== null ? transferPlan.fee : quotedFee
   // CCTP fast-fee — paid out of the destination mint on xchain, not the user's shielded balance.
   // Distinct semantics from `fee` (which is the on-top relayer fee). Zero for non-xchain kinds.
   const cctpFee: bigint = isXchain ? cctpFastFeeForAmount(amount) : 0n
@@ -231,6 +244,16 @@ export function SendModal() {
     max,
     { secondaryFee: cctpFee, protocolFee: displayFees.protocolFee },
   )
+  // Max: the plan's fee-aware cap for a private send (falls back to the one-proof cap until it's known).
+  const sendMax = isPrivate && transferPlan.maxInput !== null ? transferPlan.maxInput : inputMax
+  // Why a private send can't be confirmed yet (still pricing, or the planner refused it).
+  const transferBlockReason = !isPrivate
+    ? null
+    : transferPlan.error ?? (transferPlan.pending ? 'Working out the fee for this send…' : null)
+  const splitFeeNote =
+    isPrivate && transferPlan.proofs !== null && transferPlan.proofs > 1
+      ? `Your balance is spread across many small notes, so this send is split into ${transferPlan.proofs} proofs. The fee covers each one.`
+      : null
   const flowBreakdown = {
     broadcasterFee: fee,
     cctpFee: isXchain ? cctpFee : undefined,
@@ -295,7 +318,7 @@ export function SendModal() {
       // user re-confirms the new amount ("what you saw is what you pay").
       const { quote: activeQuote, feeChanged: changed } = await resolveFreshQuote({
         refresh,
-        reviewedFee: fee,
+        reviewedFee: quotedFee,
         feeOf: (s) => userFeeForKind(computedKind, amount, s),
       })
       if (!activeQuote) {
@@ -307,10 +330,20 @@ export function SendModal() {
         return
       }
       const feeCacheId = activeQuote.cacheId
+      // A private send is re-priced at the fresh quote: the wallet's notes may split differently than
+      // at review (a sync landed). A different total means the user hasn't approved it — re-review.
+      const repricedTransferFee =
+        computedKind === 'transfer-shielded' ? await transferPlan.priceAt(activeQuote) : undefined
+      if (repricedTransferFee !== undefined && repricedTransferFee !== fee) {
+        await transferPlan.invalidate()
+        setFeeChanged(true)
+        setStep('review')
+        return
+      }
       // S-M5: re-validate amount + the FRESH relayer fee against the balance before proof gen. All
       // three kinds draw the fee from the shielded balance (fee-on-top) on the relayer path.
-      const freshFee = computedKind === 'transfer-shielded'
-        ? BigInt(activeQuote.fees.transfer)
+      const freshFee = repricedTransferFee !== undefined
+        ? repricedTransferFee
         : computedKind === 'unshield-local'
           ? BigInt(activeQuote.fees.unshield)
           : BigInt(activeQuote.fees.crossChainUnshield)
@@ -339,7 +372,9 @@ export function SendModal() {
           amount,
           feeCacheId,
           recipient,
-          broadcasterFeeAmount: BigInt(activeQuote.fees.transfer),
+          // The approved total across every proof, and the per-proof fee the build re-plans at.
+          broadcasterFeeAmount: freshFee,
+          broadcasterFeePerProof: BigInt(activeQuote.fees.transfer),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
           devForceError: forcedOutcome ?? undefined,
         })
@@ -456,11 +491,11 @@ export function SendModal() {
             amountStr={amountStr}
             onAmountChange={setAmountStr}
             max={max}
-            maxInput={inputMax}
+            maxInput={sendMax}
             pending={pendingUsdc}
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
-            feeLoading={feeLoading}
+            feeLoading={feeLoading || (isPrivate && transferPlan.pending)}
             // The user always signs on HUB regardless of kind — `transfer-shielded` runs the
             // proof-bearing tx on hub, `unshield-local` likewise, and `unshield-xchain` signs
             // `atomicCrossChainUnshield` on hub before CCTP delivers on the destination chain.
@@ -476,7 +511,7 @@ export function SendModal() {
           <ForceOutcomeSelect />
           <SendInputStepFooter
             amountStr={amountStr}
-            maxInput={inputMax}
+            maxInput={sendMax}
             onBack={() => setStep('recipient')}
             onContinue={() => setStep('review')}
             onIncompleteContinue={nudgeIncomplete}
@@ -493,8 +528,9 @@ export function SendModal() {
           totalDeducted={totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
-          submitBlockedReason={syncGate.reason ?? relayerBlock}
+          submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason}
           feeUpdated={feeChanged}
+          feeNote={splitFeeNote}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}
           onConfirm={handleSubmit}

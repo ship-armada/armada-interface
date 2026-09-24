@@ -297,6 +297,13 @@ export interface MetaTransferShielded extends MetaCommon, MetaBroadcaster {
   /** 0zk recipient. */
   recipient: string
   /**
+   * The relayer's quoted fee PER PROOF. A fragmented wallet's transfer splits into several proofs, each
+   * paying it, so `broadcasterFeeAmount` is the TOTAL: the fee the user reviewed, then the fee actually
+   * charged once build-proof plans it. Absent on single-proof records written before splits were priced,
+   * where the per-proof fee equals `broadcasterFeeAmount`.
+   */
+  broadcasterFeePerProof?: bigint
+  /**
    * Plaintext memo the sender attached to the recipient's note. Recovered from the sent output on a
    * chain rescan (`sentOutputs[].memo`); absent when no memo was sent (or on pre-capture records).
    */

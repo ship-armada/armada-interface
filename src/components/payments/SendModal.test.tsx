@@ -1,6 +1,6 @@
 // ABOUTME: Tests for SendModal orchestrator — send flow: address-driven kind selection + the recipient→amount→review→progress flow.
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { SendModal } from './SendModal'
@@ -14,6 +14,8 @@ import {
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
 import { getChainById } from '@/config/network'
 import { withTestQueryClient } from '@/test-utils/queryClient'
+import { txListAtom } from '@/state/tx'
+import type { TxRecord } from '@/lib/tx/types'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults so the modal renders.
@@ -78,6 +80,22 @@ vi.mock('@/hooks/useFees', () => ({
   }),
   FEES_QUERY_KEY: ['fees'],
 }))
+
+// A private send is priced by planning it through the SDK (review-time split fee). The SDK can't load in
+// jsdom, so stub the pricing hook with a controllable plan; each test sets what the planner "found".
+const hoistedPlan = vi.hoisted(() => {
+  const defaults = () => ({
+    fee: 0n as bigint | null,
+    proofs: 1 as number | null,
+    maxInput: null as bigint | null,
+    error: null as string | null,
+    pending: false,
+    priceAt: vi.fn(async () => 0n),
+    invalidate: vi.fn(async () => {}),
+  })
+  return { defaults, plan: defaults() }
+})
+vi.mock('@/hooks/useTransferFeePlan', () => ({ useTransferFeePlan: () => hoistedPlan.plan }))
 
 // The private-send submit path strict-validates the 0zk recipient via the SDK
 // (validateShieldedAddressStrict → dynamic import), which crashes jsdom at load. Keep the sync
@@ -151,6 +169,10 @@ function completeRecipientStep(recipient: string, chainValue?: string) {
 }
 
 describe('<SendModal>', () => {
+  beforeEach(() => {
+    hoistedPlan.plan = hoistedPlan.defaults()
+  })
+
   it('renders nothing when no send/withdraw modal is open', () => {
     renderModal({ open: false })
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -292,4 +314,69 @@ describe('<SendModal>', () => {
 
   // The former `withdraw` variant (unshield to your own wallet) moved to the Shield/Unshield tabbed
   // modal — see ShieldModal.test.tsx's Unshield-tab coverage. SendModal is send-only now.
+
+  describe('private send — split fee priced at review', () => {
+    function reviewPrivateSend(amount = '3') {
+      const store = renderModal({ open: 'payment', shielded: 10_000_000n })
+      completeRecipientStep(VALID_0ZK)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: amount } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      return store
+    }
+
+    it('shows the planned split fee in the total and explains it', () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 40_000n, proofs: 2 }
+      reviewPrivateSend()
+      // 3 USDC + 0.04 fee (two proofs at 0.02) is what leaves the balance.
+      expect(screen.getByText(/3\.04/)).toBeInTheDocument()
+      expect(screen.getByText(/split into 2 proofs/)).toBeInTheDocument()
+    })
+
+    it('holds Confirm while the fee is still being worked out', () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: null, proofs: null, pending: true }
+      reviewPrivateSend()
+      expect(screen.getByText(/Working out the fee/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    })
+
+    it('blocks Confirm with the planner\'s reason when the send can\'t be made', () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: null, proofs: null, error: 'Send a smaller amount for now.' }
+      reviewPrivateSend()
+      expect(screen.getByText('Send a smaller amount for now.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    })
+
+    it('offers the fee-aware Max from the plan', () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), maxInput: 9_960_000n }
+      renderModal({ open: 'payment', shielded: 10_000_000n })
+      completeRecipientStep(VALID_0ZK)
+      fireEvent.click(screen.getByRole('button', { name: /Max/ }))
+      expect(screen.getByLabelText('Send amount')).toHaveValue('9.96')
+    })
+
+    it('submits the reviewed total and the per-proof fee it was priced at', async () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 0n, proofs: 1, priceAt: vi.fn(async () => 0n) }
+      const store = reviewPrivateSend()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(screen.getByText('Preparing transaction')).toBeInTheDocument())
+      const record = store.get(txListAtom).find((r) => r.kind === 'transfer-shielded') as TxRecord<'transfer-shielded'>
+      expect(record.meta.broadcasterFeeAmount).toBe(0n)
+      expect(record.meta.broadcasterFeePerProof).toBe(0n)
+      expect(hoistedPlan.plan.priceAt).toHaveBeenCalledOnce()
+    })
+
+    it('returns to Review with the fee-updated banner when the fee re-priced at submit differs', async () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 0n, proofs: 1, priceAt: vi.fn(async () => 20_000n) }
+      const store = reviewPrivateSend()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      expect(screen.getByText(/fee changed/)).toBeInTheDocument()
+      expect(hoistedPlan.plan.invalidate).toHaveBeenCalledOnce()
+      // Nothing was submitted.
+      expect(store.get(txListAtom).some((r) => r.kind === 'transfer-shielded')).toBe(false)
+    })
+  })
 })

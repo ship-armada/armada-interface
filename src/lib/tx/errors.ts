@@ -7,6 +7,7 @@ import { decodeRevertData, extractRevertHex } from './revertSelectors'
 import { isUserRejection, isChainMismatchError } from '../errors'
 import { mapRevertToMessage } from '../revert'
 import { getChainById } from '@/config/network'
+import { TransferFeeIncreasedError } from '@/lib/shielded/transfer-fee-error'
 import type { TxError } from './types'
 import type { RelayerErrorCode } from '@/config/relayer'
 
@@ -181,6 +182,17 @@ export function classifyHandlerError(
   // (often opaque) SDK message into "Something went wrong".
   const sdk = classifySdkError(err)
   if (sdk) return sdk
+
+  // A fragmented wallet's split fee rose between review and build. Rebuilding with the same record
+  // re-plans the same higher fee, so retry is futile — FEE_EXPIRED gates it off and the modal sends the
+  // user back to start a fresh send, where review shows the new fee.
+  if (err instanceof TransferFeeIncreasedError) {
+    return {
+      code: 'FEE_EXPIRED',
+      message:
+        'Your balance changed since you reviewed this send, and it now needs a higher fee. Nothing was sent — start the send again to review the new fee.',
+    }
+  }
 
   // Chain-mismatch: a pinned-chainId call hit a wallet that switched networks mid-flow (W-3/W-4).
   // Nothing was broadcast and retry is safe once the user switches back, so RPC_ERROR semantics

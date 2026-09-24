@@ -15,6 +15,7 @@ import {
   UnsupportedCircuitShapeError,
 } from '@armada/sdk'
 import { classifyHandlerError } from './errors'
+import { TransferFeeIncreasedError } from '@/lib/shielded/transfer-fee-error'
 import { asTxError } from './receipt'
 
 const STD_ERR_ABI = [
@@ -239,5 +240,13 @@ describe('classifyHandlerError — shape-aware planner errors', () => {
     const r = classifyHandlerError(new TooFragmentedError('needs 30 notes across 5 groups'), 'fallback')
     expect(r.code).toBe('PRE_FLIGHT_REVERT')
     expect(r.message).toMatch(/smaller amount|fewer notes/i)
+  })
+})
+
+describe('classifyHandlerError — transfer fee rose since review', () => {
+  it('maps TransferFeeIncreasedError to FEE_EXPIRED (retry is futile — start a new send to re-review)', () => {
+    const r = classifyHandlerError(new TransferFeeIncreasedError(20_000n, 40_000n), 'fallback')
+    expect(r.code).toBe('FEE_EXPIRED')
+    expect(r.message).toMatch(/higher fee/i)
   })
 })
