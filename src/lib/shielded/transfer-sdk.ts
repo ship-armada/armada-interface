@@ -1,13 +1,16 @@
 // ABOUTME: SDK-backed shielded-transfer builder — planTransfer → proveAll → buildTransactCalldata([...]), plus the
 // ABOUTME: review-time fee planning (planTransferFee / maxTransferAmount) that prices a split transfer before proving.
 
-import { buildTransactCalldata, type Plan } from '@armada/sdk'
+import { buildTransactCalldata, InsufficientBalanceError, type Plan } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { TransferFeeIncreasedError } from './transfer-fee-error'
 
 export { TransferFeeIncreasedError }
+
+/** The SDK planner's cap on proofs per atomic batch (`MAX_SPLIT_GROUPS`); a send never pays more fees. */
+const MAX_PROOFS_PER_SEND = 4n
 
 /** The relayer's per-proof fee and its 0zk address, or null for direct submission (no fee note). */
 type BroadcasterFee = { readonly amount: bigint; readonly recipientAddress: string } | null
@@ -91,22 +94,38 @@ export async function planTransferFee(inputs: {
 
 /**
  * The largest amount the user can send so that amount + its (possibly split) fee fits `balance`. Starts
- * one fee below the balance and, while the plan at that amount charges more fees than were reserved,
- * reserves the larger fee and re-plans. The reserved fee only grows and is bounded by the SDK's batch
- * cap, so this settles in a few cheap, local plans. Throws the planner's errors (e.g. too fragmented).
+ * one fee below the balance and re-plans while the plan needs more fees than were reserved:
+ *   - the plan charges a larger (split) fee → reserve that fee;
+ *   - the planner throws `InsufficientBalanceError` → the balance can't ALSO cover the extra per-proof
+ *     fees a split at this amount needs (the planner reports that rather than the larger fee) → reserve
+ *     one more per-proof fee.
+ * The reserved fee only grows and a send pays at most one fee per proof in the SDK's batch cap, so this
+ * settles in a few cheap, local plans. Other planner errors (too fragmented, …) and an insufficient
+ * balance that persists past the cap propagate for the caller to surface.
  */
 export async function maxTransferAmount(inputs: {
   readonly recipient: string
   readonly balance: bigint
   readonly broadcasterFee: BroadcasterFee
 }): Promise<bigint> {
-  let reservedFee = inputs.broadcasterFee?.amount ?? 0n
+  const perProofFee = inputs.broadcasterFee?.amount ?? 0n
+  let reservedFee = perProofFee
   for (;;) {
     const amount = inputs.balance - reservedFee
     if (amount <= 0n) return 0n
-    const { totalFee } = await planTransferFee({ recipient: inputs.recipient, amount, broadcasterFee: inputs.broadcasterFee })
-    if (totalFee <= reservedFee) return amount
-    reservedFee = totalFee
+    let plan: { totalFee: bigint }
+    try {
+      plan = await planTransferFee({ recipient: inputs.recipient, amount, broadcasterFee: inputs.broadcasterFee })
+    } catch (err) {
+      const canReserveMore = perProofFee > 0n && reservedFee < perProofFee * MAX_PROOFS_PER_SEND
+      if (err instanceof InsufficientBalanceError && canReserveMore) {
+        reservedFee += perProofFee
+        continue
+      }
+      throw err
+    }
+    if (plan.totalFee <= reservedFee) return amount
+    reservedFee = plan.totalFee
   }
 }
 
