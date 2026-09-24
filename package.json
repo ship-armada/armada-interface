@@ -19,7 +19,7 @@
     "postinstall": "node scripts/ensure-linux-native-modules.mjs"
   },
   "dependencies": {
-    "@armada/sdk": "github:ship-armada/armada-sdk#006142fc777d97f3a8ea7a8215ebce2b9ea368f9",
+    "@armada/sdk": "github:ship-armada/armada-sdk#e1fbdd43ccbab3b258d22c007a088beac9543c12",
     "@heroicons/react": "^2.2.0",
     "@noble/ciphers": "^0.4.1",
     "@noble/hashes": "^1.8.0",
