@@ -52,7 +52,7 @@ Key behaviour:
 
 ### Stage naming caveat — `'submit-relayer'` is a framework label
 
-The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `unshield-xchain`, `shield-xchain`). The name suggests the relayer submits the tx — that's the eventual model when `submitRelay` is wired (see `lib/relayer.ts`), but **today every handler submits via the user's own wallet** through `wagmi/actions::sendTransaction` / `writeContract`. The stage name is a stable framework label for "tx-on-the-wire," not an indicator of who sends it.
+The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `unshield-xchain`, `shield-xchain`). The name suggests the relayer submits the tx — that's the eventual model when `submitRelay` is wired (see `lib/relayer.ts`), but **today every handler submits via the user's own wallet** through `wagmi/actions::sendTransaction` / `writeContract`. The stage name is a stable framework label for "tx-on-the-wire," not an indicator of who sends it.
 
 This matters when scoping work like fee display, ETA estimation, or stage copy — don't assume `'submit-relayer'` means we're in relayer-mediated mode. Per-kind handler is the source of truth for submission shape.
 
@@ -114,7 +114,7 @@ newer state). Per non-terminal record:
 
 Resume thus only ever RE-WATCHES an already-broadcast tx; it never submits and never re-prompts on
 load. `maxDurationMs` is per-kind: 10 min same-chain (`shield`, `unshield-local`,
-`transfer-shielded`), 15 min yield, 60 min xchain. (`StageHandler.resumableFrom` is currently
+`transfer-shielded`), 15 min yield and `consolidate` (up to 4 serial proofs), 60 min xchain. (`StageHandler.resumableFrom` is currently
 unread — the has-hash test supersedes it; see WS7 docs cleanup.)
 
 ## Terminal-write guard
