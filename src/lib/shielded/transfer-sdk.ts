@@ -25,10 +25,11 @@ export interface SdkTransferInputs {
 
 /**
  * Build a shielded-transfer transaction via `@armada/sdk`: the wallet plans the transfer over its
- * spendable notes, proves it (Groth16), and the proved struct is serialized into `transact(...)`
- * calldata. Returns `{ to, data }` (value is always 0 — a shielded tx carries no native value).
- *
- * Proving runs on the instance's off-thread worker prover. Returns `{ to, data }` for the caller to submit.
+ * spendable notes as one or more supported-shape groups, proves every group (`proveAll`, one signing
+ * ceremony), and serializes all proved structs into ONE `transact([...])` calldata. A fragmented wallet
+ * that no single circuit shape can cover is split across groups (recipient receives multiple notes) and
+ * still settles in one atomic tx. Returns `{ to, data }` (value is always 0 — a shielded tx carries no
+ * native value); proving runs on the instance's off-thread worker prover.
  */
 export async function buildTransferSdk(
   inputs: SdkTransferInputs,
@@ -53,22 +54,20 @@ export async function buildTransferSdk(
     outputs: [{ to0zk: inputs.recipient, amount: inputs.amount }],
     fee,
   })
-  // Pre-proof gate PER GROUP: reject a stale root / already-spent input in <1s instead of proving for
-  // ~30s and reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
-  for (const plan of plans) await assertSpendPreflight(wallet, plan)
+  // Pre-proof gate over ALL groups in one batched preflight: reject a stale root / already-spent input
+  // in <1s instead of proving for ~30s and reverting on-chain. Maps to PRE_FLIGHT_REVERT.
+  await assertSpendPreflight(wallet, plans)
   // Stash the plan group(s) so the handler can mark ALL their inputs pending after broadcast (#55).
   // After preflight so an already-spent-input build never leaves a stale hold.
   if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plans)
-  // Prove each group serially on the one worker prover; progress spans all groups. selfMetadata rides
-  // the change note (last group) — prove() ignores it on a group with no change output.
-  const transactions = []
-  for (let i = 0; i < plans.length; i += 1) {
-    const handle = await wallet.prove(plans[i]!, {
-      ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.((i + p.fraction) / plans.length) } : {}),
-      ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
-    })
-    transactions.push(handle.toTransactionData())
-  }
-  const { to, data } = buildTransactCalldata(transactions, inputs.poolAddress)
+  // proveAll signs EVERY group's intent in one signing ceremony (the batch rule) and fails fast on a
+  // signer rejection BEFORE spending ~30s/group proving; selfMetadata rides the change note (last
+  // group) and is ignored on groups with no change output. Combine the proved txns into one atomic
+  // transact([...]).
+  const handles = await wallet.proveAll(plans, {
+    ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
+    ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
+  })
+  const { to, data } = buildTransactCalldata(handles.map((h) => h.toTransactionData()), inputs.poolAddress)
   return { to, data }
 }

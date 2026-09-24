@@ -87,3 +87,15 @@ describe('buildXchainUnshieldSdk', () => {
     })
   })
 })
+
+describe('buildXchainUnshieldSdk — split guard', () => {
+  it('throws if the planner returns more than one group (xchain unshields never split)', async () => {
+    hoisted.planTransfer.mockResolvedValue([{ plan: 1 }, { plan: 2 }])
+    await expect(
+      buildXchainUnshieldSdk({
+        amount: 5_000_000n, broadcasterFee: null, privacyPoolAddress: POOL,
+        finalRecipient: FINAL, destinationDomain: 6, maxFee: 1_000n, uniqueNonce: NONCE,
+      }),
+    ).rejects.toThrow(/single plan group/)
+  })
+})

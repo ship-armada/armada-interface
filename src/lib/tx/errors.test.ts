@@ -11,6 +11,8 @@ import {
   ProofExpiredError,
   RootMismatchError,
   StorageConflictError,
+  TooFragmentedError,
+  UnsupportedCircuitShapeError,
 } from '@armada/sdk'
 import { classifyHandlerError } from './errors'
 import { asTxError } from './receipt'
@@ -223,5 +225,19 @@ describe('classifyHandlerError — ChainMismatchError branch (W-4)', () => {
     const outer = new Error('write failed') as Error & { cause: unknown }
     outer.cause = inner
     expect(classifyHandlerError(outer, 'fallback', undefined, 31337).code).toBe('RPC_ERROR')
+  })
+})
+
+describe('classifyHandlerError — shape-aware planner errors', () => {
+  it('maps UnsupportedCircuitShapeError to PRE_FLIGHT_REVERT (nothing sent)', () => {
+    const r = classifyHandlerError(new UnsupportedCircuitShapeError('no circuit for 5x3'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/smaller amount/i)
+  })
+
+  it('maps TooFragmentedError to PRE_FLIGHT_REVERT with consolidation guidance', () => {
+    const r = classifyHandlerError(new TooFragmentedError('needs 30 notes across 5 groups'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/smaller amount|fewer notes/i)
   })
 })

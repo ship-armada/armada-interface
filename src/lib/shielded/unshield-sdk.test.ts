@@ -53,3 +53,12 @@ describe('buildUnshieldSdk', () => {
     })
   })
 })
+
+describe('buildUnshieldSdk — split guard', () => {
+  it('throws if the planner returns more than one group (unshields never split)', async () => {
+    hoisted.planTransfer.mockResolvedValue([{ plan: 1 }, { plan: 2 }])
+    await expect(
+      buildUnshieldSdk({ recipient: RECIPIENT, amount: 5_000_000n, broadcasterFee: null, poolAddress: POOL }),
+    ).rejects.toThrow(/single plan group/)
+  })
+})

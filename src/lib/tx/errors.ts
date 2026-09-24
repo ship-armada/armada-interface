@@ -95,14 +95,13 @@ function classifySdkError(err: unknown): TxError | null {
     case 'UNSUPPORTED_CIRCUIT_SHAPE':
       return {
         code: 'PRE_FLIGHT_REVERT',
-        message:
-          "This transaction needs a circuit shape the deployment doesn't provide. Try a different amount, or consolidate your notes first.",
+        message: "This transaction needs a circuit shape the deployment doesn't provide. Try sending a smaller amount.",
       }
     case 'TOO_FRAGMENTED':
       return {
         code: 'PRE_FLIGHT_REVERT',
         message:
-          'Your shielded balance is split across too many small notes to send in one transaction. Consolidate them into fewer notes, then try again.',
+          'This would spend too many of your smaller notes at once. Send a smaller amount for now — a few smaller sends will merge them into fewer notes.',
       }
     case 'ARTIFACT_INTEGRITY':
       return {

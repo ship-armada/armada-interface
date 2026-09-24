@@ -32,7 +32,7 @@ describe('markSpendPendingForRecord', () => {
   it('marks the stashed plan with the on-chain txid, then forgets it', async () => {
     stashSpendPlan('rec-1', [PLAN])
     await markSpendPendingForRecord('rec-1', '0xhash')
-    expect(hoisted.markSpendPending).toHaveBeenCalledWith(PLAN, '0xhash')
+    expect(hoisted.markSpendPending).toHaveBeenCalledWith([PLAN], '0xhash')
     // A second call is a no-op (the plan was consumed) — no double-mark.
     await markSpendPendingForRecord('rec-1', '0xhash')
     expect(hoisted.markSpendPending).toHaveBeenCalledTimes(1)

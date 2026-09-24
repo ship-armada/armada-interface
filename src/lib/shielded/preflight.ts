@@ -49,9 +49,11 @@ function findingToError(f: PreflightFinding): Error {
  * preflight itself surfaces as OTHER via the classifier and is retryable, same as it would be at submit.
  */
 export async function assertSpendPreflight(
-  wallet: { preflight(plan: Plan): Promise<PreflightResult> },
-  plan: Plan,
+  wallet: { preflight(plan: Plan | readonly Plan[]): Promise<PreflightResult> },
+  plan: Plan | readonly Plan[],
 ): Promise<void> {
+  // A split transfer passes ALL its groups so preflight verifies every group's root + nullifiers in one
+  // batched call (one PreflightResult over the union of findings).
   const result = await wallet.preflight(plan)
   if (result.ok) return
   const failed = result.findings.find((f) => !f.ok)

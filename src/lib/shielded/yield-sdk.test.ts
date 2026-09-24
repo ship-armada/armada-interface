@@ -132,3 +132,16 @@ describe('buildYieldAdaptSdk', () => {
     expect(r.feeShieldRandom).toBeUndefined()
   })
 })
+
+describe('buildYieldAdaptSdk — split guard', () => {
+  it('throws if the planner returns more than one group (yield ops never split)', async () => {
+    hoisted.buildShieldRequest.mockReturnValue(shieldReqReturning(FEE_NPK, '00'))
+    hoisted.planTransfer.mockResolvedValue([{ plan: 1 }, { plan: 2 }])
+    await expect(
+      buildYieldAdaptSdk({
+        mode: 'lend', amount: 5_000_000n, unshieldToken: USDC, shieldOutputToken: VAULT,
+        adapterAddress: ADAPTER, shieldedAddress: '0zk_user', broadcasterFee: null,
+      }),
+    ).rejects.toThrow(/single plan group/)
+  })
+})

@@ -1,12 +1,9 @@
 // ABOUTME: Optimistic in-flight spend bridge (armada-sdk #55) — stashes a spend's Plan at build time
 // ABOUTME: and marks its inputs pending after broadcast so a rapid follow-up spend won't reselect them.
 
+import { type Plan } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { trackError } from '../telemetry'
-
-// The SDK `Plan` type, derived from the wallet surface so we don't depend on it being re-exported.
-type SdkWallet = Awaited<ReturnType<typeof getSdkWallet>>
-type Plan = Parameters<SdkWallet['markSpendPending']>[0]
 
 // Module-scope stash of the in-flight Plan, keyed by the tx `record.id`. Deliberately NOT persisted:
 // the Plan is an in-memory object (not serializable), and the double-spend race it guards against only
@@ -39,7 +36,8 @@ export async function markSpendPendingForRecord(recordId: string, txid: string):
   pendingPlans.delete(recordId)
   try {
     const wallet = await getSdkWallet()
-    for (const plan of plans) wallet.markSpendPending(plan, txid)
+    // Hold every group's inputs in one call so a split spend can't leave later groups' notes unheld.
+    wallet.markSpendPending(plans, txid)
   } catch (err) {
     trackError('shielded.pendingSpend.mark', err)
   }

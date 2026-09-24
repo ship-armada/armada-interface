@@ -25,9 +25,10 @@ import type { TxError, TxRecord } from '@/lib/tx/types'
 
 /**
  * `transfer-shielded` stages (Phase A4 — relayer-mediated):
- *   1. `build-proof`    — generate the Groth16 transfer proof with broadcaster fee baked in
- *                          (~20-30s on local Anvil). The proof embeds a USDC output to the
- *                          relayer's 0zk address at the advertised fee amount.
+ *   1. `build-proof`    — generate the Groth16 transfer proof(s) with broadcaster fee baked in
+ *                          (~20-30s each on local Anvil). A fragmented wallet splits into several
+ *                          supported-shape proofs combined into one atomic `transact([...])`; each
+ *                          embeds its share of the USDC output to the relayer's 0zk address.
  *   2. `submit-relayer` — populate `transact()` calldata, POST to relayer's `/relay`, poll
  *                          `/status` until confirmed (or failed).
  *   3. `hub-confirmed`  — terminal. Kicks a balance refresh.
