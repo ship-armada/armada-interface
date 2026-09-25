@@ -20,7 +20,7 @@ export interface UseTransferFeePlanArgs {
   readonly amount: bigint
   /** The relayer quote; its `transfer` tier is the per-proof fee. Nothing is priced without one. */
   readonly quote: FeeSchedule | null
-  /** Spendable shielded balance — bounds Max, and re-prices when the wallet's notes change. */
+  /** Spendable shielded balance — re-prices the send and Max when the wallet's notes change. */
   readonly balance: bigint
 }
 
@@ -29,7 +29,7 @@ export interface TransferFeePlan {
   readonly fee: bigint | null
   /** How many proofs the send splits into; null until priced. */
   readonly proofs: number | null
-  /** Largest amount whose amount + fee fits the balance; null until computed or when it can't be planned. */
+  /** Largest amount the SDK can plan a send of, fee included (the Max); null until computed or on a read error. */
   readonly maxInput: bigint | null
   /** Friendly reason the current amount can't be sent (too fragmented, insufficient, …); null when fine. */
   readonly error: string | null
@@ -70,10 +70,10 @@ export function useTransferFeePlan(args: UseTransferFeePlanArgs): TransferFeePla
     staleTime: Infinity,
   })
 
+  // Max doesn't depend on the recipient; the balance keys it to the wallet's current notes.
   const maxQuery = useQuery({
-    queryKey: [QUERY_KEY, 'max', args.recipient, args.balance.toString(), ...quoteKey],
-    queryFn: () =>
-      maxTransferAmount({ recipient: args.recipient, balance: args.balance, broadcasterFee: broadcasterFeeOf(quote!) }),
+    queryKey: [QUERY_KEY, 'max', args.balance.toString(), ...quoteKey],
+    queryFn: () => maxTransferAmount({ broadcasterFee: broadcasterFeeOf(quote!) }),
     enabled: active && args.balance > 0n,
     retry: false,
     staleTime: Infinity,

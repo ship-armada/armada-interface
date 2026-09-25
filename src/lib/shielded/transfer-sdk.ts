@@ -1,16 +1,13 @@
 // ABOUTME: SDK-backed shielded-transfer builder — planTransfer → proveAll → buildTransactCalldata([...]), plus the
 // ABOUTME: review-time fee planning (planTransferFee / maxTransferAmount) that prices a split transfer before proving.
 
-import { buildTransactCalldata, InsufficientBalanceError, type Plan } from '@armada/sdk'
+import { buildTransactCalldata, type Plan } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { SpendFeeIncreasedError } from './spend-fee-error'
 
 export { SpendFeeIncreasedError }
-
-/** The SDK planner's cap on proofs per atomic batch (`MAX_SPLIT_GROUPS`); a send never pays more fees. */
-const MAX_PROOFS_PER_SEND = 4n
 
 /** The relayer's per-proof fee and its 0zk address, or null for direct submission (no fee note). */
 export type BroadcasterFee = { readonly amount: bigint; readonly recipientAddress: string } | null
@@ -93,40 +90,15 @@ export async function planTransferFee(inputs: {
 }
 
 /**
- * The largest amount the user can send so that amount + its (possibly split) fee fits `balance`. Starts
- * one fee below the balance and re-plans while the plan needs more fees than were reserved:
- *   - the plan charges a larger (split) fee → reserve that fee;
- *   - the planner throws `InsufficientBalanceError` → the balance can't ALSO cover the extra per-proof
- *     fees a split at this amount needs (the planner reports that rather than the larger fee) → reserve
- *     one more per-proof fee.
- * The reserved fee only grows and a send pays at most one fee per proof in the SDK's batch cap, so this
- * settles in a few cheap, local plans. Other planner errors (too fragmented, …) and an insufficient
- * balance that persists past the cap propagate for the caller to surface.
+ * The largest amount the user can send privately right now, fee included — the Send flow's Max. The SDK
+ * works it out with the planner's own rules: a send spends ONE tree's notes, a fragmented wallet's split
+ * pays the per-proof fee once per proof, and one send can only spend what four proofs hold — so it can
+ * be less than "balance minus a fee" (e.g. notes spread across trees), and `planTransfer` accepts it.
+ * 0n when nothing can be sent.
  */
-export async function maxTransferAmount(inputs: {
-  readonly recipient: string
-  readonly balance: bigint
-  readonly broadcasterFee: BroadcasterFee
-}): Promise<bigint> {
-  const perProofFee = inputs.broadcasterFee?.amount ?? 0n
-  let reservedFee = perProofFee
-  for (;;) {
-    const amount = inputs.balance - reservedFee
-    if (amount <= 0n) return 0n
-    let plan: { totalFee: bigint }
-    try {
-      plan = await planTransferFee({ recipient: inputs.recipient, amount, broadcasterFee: inputs.broadcasterFee })
-    } catch (err) {
-      const canReserveMore = perProofFee > 0n && reservedFee < perProofFee * MAX_PROOFS_PER_SEND
-      if (err instanceof InsufficientBalanceError && canReserveMore) {
-        reservedFee += perProofFee
-        continue
-      }
-      throw err
-    }
-    if (plan.totalFee <= reservedFee) return amount
-    reservedFee = plan.totalFee
-  }
+export async function maxTransferAmount(inputs: { readonly broadcasterFee: BroadcasterFee }): Promise<bigint> {
+  const wallet = await getSdkWallet()
+  return wallet.maxTransferAmount({ fee: feeQuoteFor(inputs.broadcasterFee) })
 }
 
 function transferRequest(recipient: string, amount: bigint, broadcasterFee: BroadcasterFee) {
@@ -134,9 +106,9 @@ function transferRequest(recipient: string, amount: bigint, broadcasterFee: Broa
 }
 
 /**
- * The SDK fee quote for a per-proof broadcaster fee. The planners (`planTransfer`, `consolidate`) read
- * only `schedule.transfer` + `broadcasterShieldedAddress`; `feesCacheId`/`expiresAt` are part of the
- * FeeQuote contract but unused here (the quote's staleness is the relayer's concern).
+ * The SDK fee quote for a per-proof broadcaster fee. The planners (`planTransfer`, `maxTransferAmount`,
+ * `consolidate`) read only `schedule.transfer` + `broadcasterShieldedAddress`; `feesCacheId`/`expiresAt`
+ * are part of the FeeQuote contract but unused here (the quote's staleness is the relayer's concern).
  */
 export function feeQuoteFor(broadcasterFee: BroadcasterFee) {
   return broadcasterFee

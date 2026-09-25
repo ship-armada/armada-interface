@@ -2,7 +2,6 @@
 // ABOUTME: threads plan(s) → batched preflight → proveAll → buildTransactCalldata; plus review-time fee planning + Max.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { InsufficientBalanceError } from '@armada/sdk'
 
 const hoisted = vi.hoisted(() => ({
   planTransfer: vi.fn(),
@@ -10,15 +9,18 @@ const hoisted = vi.hoisted(() => ({
   preflight: vi.fn(),
   buildTransactCalldata: vi.fn(),
   stashSpendPlan: vi.fn(),
+  maxTransferAmount: vi.fn(),
 }))
-// Real SDK error classes (the Max search matches the planner's InsufficientBalanceError); only the
-// calldata serializer is stubbed.
+// The real SDK module, with only the calldata serializer stubbed.
 vi.mock('@armada/sdk', async (importActual) => ({
   ...(await importActual<typeof import('@armada/sdk')>()),
   buildTransactCalldata: hoisted.buildTransactCalldata,
 }))
 vi.mock('./sdk-read', () => ({
-  getSdkWallet: async () => ({ planTransfer: hoisted.planTransfer, proveAll: hoisted.proveAll, preflight: hoisted.preflight }),
+  getSdkWallet: async () => ({
+    planTransfer: hoisted.planTransfer, proveAll: hoisted.proveAll, preflight: hoisted.preflight,
+    maxTransferAmount: hoisted.maxTransferAmount,
+  }),
 }))
 vi.mock('./pending-spend', () => ({ stashSpendPlan: hoisted.stashSpendPlan }))
 
@@ -145,54 +147,19 @@ describe('planTransferFee', () => {
 })
 
 describe('maxTransferAmount', () => {
-  it('is balance minus one fee when that plans as a single proof', async () => {
-    hoisted.planTransfer.mockResolvedValue([group(20_000n)])
-    expect(await maxTransferAmount({ recipient: '0zk_bob', balance: 1_000_000n, broadcasterFee: FEE })).toBe(980_000n)
-  })
-
-  it('lowers the amount until amount + the split fee fits the balance', async () => {
-    // Anything above 500_000 needs 2 proofs (2 fees); the search settles one fee lower than the naive max.
-    hoisted.planTransfer.mockImplementation(async ({ outputs }: { outputs: { amount: bigint }[] }) =>
-      outputs[0]!.amount > 500_000n ? [group(20_000n), group(20_000n)] : [group(20_000n)],
-    )
-    expect(await maxTransferAmount({ recipient: '0zk_bob', balance: 1_000_000n, broadcasterFee: FEE })).toBe(960_000n)
-  })
-
-  it('reserves more fees when the planner reports the balance can\'t also cover a split\'s fees', async () => {
-    // Like the real planner: anything above 500_000 needs 2 proofs, and when amount + 2 fees exceeds
-    // the balance it throws InsufficientBalanceError instead of reporting the 2-proof fee.
-    hoisted.planTransfer.mockImplementation(async ({ outputs }: { outputs: { amount: bigint }[] }) => {
-      const amount = outputs[0]!.amount
-      const proofs = amount > 500_000n ? 2 : 1
-      if (amount + 20_000n * BigInt(proofs) > 1_000_000n) throw new InsufficientBalanceError('no single tree covers it')
-      return Array.from({ length: proofs }, () => group(20_000n))
+  it('is the SDK\'s max at the per-proof transfer fee (it applies the planner\'s own rules)', async () => {
+    hoisted.maxTransferAmount.mockResolvedValue(5_213_411n)
+    expect(await maxTransferAmount({ broadcasterFee: FEE })).toBe(5_213_411n)
+    expect(hoisted.maxTransferAmount).toHaveBeenCalledWith({
+      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
     })
-    expect(await maxTransferAmount({ recipient: '0zk_bob', balance: 1_000_000n, broadcasterFee: FEE })).toBe(960_000n)
   })
 
-  it('gives up (rethrows) once it has reserved a full batch of per-proof fees', async () => {
-    hoisted.planTransfer.mockRejectedValue(new InsufficientBalanceError('balance split across trees'))
-    await expect(
-      maxTransferAmount({ recipient: '0zk_bob', balance: 1_000_000n, broadcasterFee: FEE }),
-    ).rejects.toBeInstanceOf(InsufficientBalanceError)
-    // One try per reserved fee: 1..4 per-proof fees (the SDK's 4-proof batch cap).
-    expect(hoisted.planTransfer).toHaveBeenCalledTimes(4)
-  })
-
-  it('is the whole balance when there is no fee', async () => {
-    hoisted.planTransfer.mockResolvedValue([group(0n)])
-    expect(await maxTransferAmount({ recipient: '0zk_bob', balance: 1_000_000n, broadcasterFee: null })).toBe(1_000_000n)
-  })
-
-  it('is zero when the balance cannot cover the fee', async () => {
-    expect(await maxTransferAmount({ recipient: '0zk_bob', balance: 10_000n, broadcasterFee: FEE })).toBe(0n)
-    expect(hoisted.planTransfer).not.toHaveBeenCalled()
-  })
-
-  it('propagates a planner error (e.g. too fragmented) for the caller to surface', async () => {
-    hoisted.planTransfer.mockRejectedValue(new Error('too fragmented'))
-    await expect(maxTransferAmount({ recipient: '0zk_bob', balance: 1_000_000n, broadcasterFee: FEE })).rejects.toThrow(
-      'too fragmented',
-    )
+  it('asks for the max with no fee note for direct submission', async () => {
+    hoisted.maxTransferAmount.mockResolvedValue(1_000_000n)
+    expect(await maxTransferAmount({ broadcasterFee: null })).toBe(1_000_000n)
+    expect(hoisted.maxTransferAmount).toHaveBeenCalledWith({
+      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+    })
   })
 })

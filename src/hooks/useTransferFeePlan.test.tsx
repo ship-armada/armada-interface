@@ -54,12 +54,10 @@ describe('useTransferFeePlan', () => {
     })
   })
 
-  it('computes the fee-aware Max from the balance', async () => {
+  it('takes the fee-aware Max from the SDK at the quoted per-proof fee', async () => {
     const { result } = renderPlan()
     await waitFor(() => expect(result.current.maxInput).toBe(4_960_000n))
     expect(hoisted.maxTransferAmount).toHaveBeenCalledWith({
-      recipient: '0zk_bob',
-      balance: 5_000_000n,
       broadcasterFee: { amount: 20_000n, recipientAddress: '0zk_relayer' },
     })
   })
