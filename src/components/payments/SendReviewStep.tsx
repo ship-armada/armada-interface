@@ -18,8 +18,8 @@ export interface SendReviewStepProps {
   amount: bigint
   /** Inclusive Fee total — broadcaster + protocol + CCTP. Tooltip breaks it down on the input card. */
   fee: bigint | null
-  /** USDC deducted from the user's shielded balance — `amount + fee` across all three kinds. */
-  totalDeducted: bigint
+  /** USDC deducted from the user's shielded balance — `amount + fee` across all three kinds; null ("—") until the fee is known. */
+  totalDeducted: bigint | null
   /** Destination chain name — shown on the summary's Network row for public (0x) recipients. */
   networkName?: string
   /** Wallet provider name for a public recipient's brand glyph (only when it's the user's own wallet). */

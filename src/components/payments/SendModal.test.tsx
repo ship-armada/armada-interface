@@ -377,6 +377,54 @@ describe('<SendModal>', () => {
       return store
     }
 
+    // A quote with a real per-proof fee, so showing it where the plan's fee belongs would be visible.
+    function withQuotedTransferFee(run: () => void) {
+      const original = hoistedFees.quote.fees.transfer
+      hoistedFees.quote.fees.transfer = '1286550'
+      try {
+        run()
+      } finally {
+        hoistedFees.quote.fees.transfer = original
+      }
+    }
+    function enterPrivateAmount(amount: string) {
+      renderModal({ open: 'payment', shielded: 10_000_000n })
+      completeRecipientStep(VALID_0ZK)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: amount } })
+    }
+
+    it('shows "Estimating fees…" on the amount step until the plan prices it, not the one-proof quote first', () => {
+      withQuotedTransferFee(() => {
+        hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: null, proofs: null, pending: true }
+        enterPrivateAmount('3')
+        expect(screen.getByText(/Estimating fees…/)).toBeInTheDocument()
+        expect(screen.queryByText(/1\.28655/)).toBeNull()
+      })
+    })
+
+    it('shows the planned fee on the amount step once it is priced', () => {
+      withQuotedTransferFee(() => {
+        hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 2_573_100n, proofs: 2 }
+        enterPrivateAmount('3')
+        expect(screen.getByText(/2\.5731/)).toBeInTheDocument()
+        expect(screen.queryByText(/Estimating fees…/)).toBeNull()
+      })
+    })
+
+    it('shows the fee as "—" on the amount step and at review when the send can\'t be priced', () => {
+      withQuotedTransferFee(() => {
+        hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: null, proofs: null, error: 'Merge your notes, then try again.', remedy: 'merge-notes' }
+        enterPrivateAmount('5')
+        expect(screen.getByText('+ — FEE')).toBeInTheDocument()
+        expect(screen.queryByText(/1\.28655/)).toBeNull()
+        fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+        // Neither the fee nor the total can be known; the one-proof quote would suggest the send fits.
+        expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2)
+        expect(screen.queryByText(/1\.28655/)).toBeNull()
+        expect(screen.queryByText(/6\.28655/)).toBeNull()
+      })
+    })
+
     it('shows the planned split fee in the total, with no extra explanation', () => {
       hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 40_000n, proofs: 2 }
       reviewPrivateSend()

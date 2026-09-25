@@ -284,6 +284,9 @@ export function SendModal() {
   // broadcaster + on-chain protocol + CCTP (when applicable). The breakdown tooltip exposes the
   // individual components.
   const displayedFee = fee + displayFees.protocolFee + cctpFee
+  // A private send's fee is the plan's, so until the plan settles (or when it refuses the amount) there
+  // is no fee to show — the one-proof quote it falls back to would suggest the send fits and then jump.
+  const planFeeUnknown = isPrivate && transferPlan.fee === null
   // The confirmation screen reports what the send actually charged, from its record (as the Activity
   // receipt does): a split send's fee is one per-proof fee per proof, and the live plan/quote above stop
   // pricing after review.
@@ -526,6 +529,8 @@ export function SendModal() {
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
             feeLoading={feeLoading || (isPrivate && transferPlan.pending)}
+            feeResolving={isPrivate && transferPlan.pending}
+            feeUnavailable={isPrivate && transferPlan.error !== null}
             // The user always signs on HUB regardless of kind — `transfer-shielded` runs the
             // proof-bearing tx on hub, `unshield-local` likewise, and `unshield-xchain` signs
             // `atomicCrossChainUnshield` on hub before CCTP delivers on the destination chain.
@@ -554,8 +559,8 @@ export function SendModal() {
           recipient={recipient}
           armadaAddress={shieldedWallet.shieldedAddress}
           amount={amount}
-          fee={displayedFee}
-          totalDeducted={totalDeducted}
+          fee={planFeeUnknown ? null : displayedFee}
+          totalDeducted={planFeeUnknown ? null : totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
           submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason ?? spendCheck.blockReason}

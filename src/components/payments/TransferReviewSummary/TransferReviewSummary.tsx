@@ -20,8 +20,8 @@ export interface TransferReviewSummaryProps {
   armadaAddress?: string
   /** Inclusive fee total — broadcaster + protocol + CCTP. Rendered as "—" when null (pre-quote-load). */
   fee: bigint | null
-  /** USDC deducted from the user's shielded balance. Fee-on-top, so this is `amount + fee`. */
-  totalDeducted: bigint
+  /** USDC deducted from the user's shielded balance. Fee-on-top, so this is `amount + fee`. Rendered as "—" when null (fee not yet known). */
+  totalDeducted: bigint | null
   variant: SendFlowVariant
   /** Destination chain name — rendered on the "Network" row for public (0x) recipients only. */
   networkName?: string
@@ -114,7 +114,7 @@ export function TransferReviewSummary({
       <div className={styles.summaryTotalRow}>
         <span className={styles.summaryTotalLabel}>Total</span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
-          {formatUsdcAmount(totalDeducted)} USDC
+          {totalDeducted === null ? '—' : `${formatUsdcAmount(totalDeducted)} USDC`}
         </span>
       </div>
       {/* Privacy notice — shown pre-confirmation only; the confirmation view carries the date row instead. */}
