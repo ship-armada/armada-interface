@@ -26,7 +26,7 @@ vi.mock('./sdk-read', () => ({
 }))
 vi.mock('./pending-spend', () => ({ stashSpendPlan: hoisted.stashSpendPlan }))
 
-import { buildConsolidateSdk, previewConsolidation } from './consolidate-sdk'
+import { buildConsolidateSdk, checkSpendPlans, previewConsolidation } from './consolidate-sdk'
 import { SpendFeeIncreasedError } from './spend-fee-error'
 
 const USDC = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' as const
@@ -121,5 +121,22 @@ describe('previewConsolidation', () => {
     await expect(previewConsolidation({ tokenAddress: USDC, broadcasterFee: FEE, blocked: BLOCKED })).rejects.toThrow(
       'wallet locked',
     )
+  })
+})
+
+describe('checkSpendPlans', () => {
+  const SPEND = { outputs: [], unshield: { recipient: `0x${'ab'.repeat(20)}` as const, amount: 5n }, fee: { schedule: {}, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 } }
+
+  it('dry-runs the spend against the current notes (no merge, no proving)', async () => {
+    hoisted.planTransferAfter.mockResolvedValue([{}])
+    await expect(checkSpendPlans(SPEND)).resolves.toBeUndefined()
+    expect(hoisted.planTransferAfter).toHaveBeenCalledWith([], SPEND)
+    expect(hoisted.consolidate).not.toHaveBeenCalled()
+    expect(hoisted.proveAll).not.toHaveBeenCalled()
+  })
+
+  it('throws the planner\'s error when the spend can\'t be planned', async () => {
+    hoisted.planTransferAfter.mockRejectedValue(new UnsupportedCircuitShapeError('5x3'))
+    await expect(checkSpendPlans(SPEND)).rejects.toBeInstanceOf(UnsupportedCircuitShapeError)
   })
 })

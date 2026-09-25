@@ -27,6 +27,8 @@ export interface EarnReviewStepProps {
    *  estimate (marks the total with `≈` + a caption). Deposit is exact. */
   estimated?: boolean
   submitBlockedReason?: string | null
+  /** Set when merging the wallet's notes would unblock the vault action — adds "Merge notes" to the notice. */
+  onMergeNotes?: () => void
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
@@ -44,6 +46,7 @@ export function EarnReviewStep({
   netLabel,
   estimated,
   submitBlockedReason,
+  onMergeNotes,
   isSubmitting,
   feeUpdated,
   onBack,
@@ -85,6 +88,9 @@ export function EarnReviewStep({
         {submitBlockedReason ? (
           <div className={styles.syncNotice} role="status" aria-live="polite">
             {submitBlockedReason}
+            {onMergeNotes ? (
+              <Button variant="secondary" size="sm" label="Merge notes" showIcon={false} onClick={onMergeNotes} />
+            ) : null}
           </div>
         ) : null}
       </div>

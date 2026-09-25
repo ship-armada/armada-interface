@@ -23,6 +23,9 @@ import type { FlowStep, FlowVisibleStep } from '@/components/flow'
 import type { DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxRecord } from '@/lib/tx/types'
+import { useSpendCheck } from './useSpendCheck'
+import { useMergeNotes } from './useMergeNotes'
+import type { BlockedSpend } from '@/lib/shielded/merge-intent'
 
 type SubmittedKind = 'unshield-local' | 'unshield-xchain'
 
@@ -58,6 +61,8 @@ export interface UnshieldFlow {
   networkName?: string
   destDeploymentError?: string
   submitBlockedReason?: string
+  /** Set when the wallet is too fragmented for this unshield — the review offers "Merge notes". */
+  onMergeNotes?: () => void
   // Flow state
   step: FlowStep
   isSubmitting: boolean
@@ -157,6 +162,16 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
   // Display fee per (kind, amount, quote): unshield-local → relayer's `unshield` tier;
   // unshield-xchain → `crossChainUnshield` tier + a CCTP fast-fee (~2 bps) on the destination mint.
   const fee: bigint = userFeeForKind(computedKind, amount, quote)
+  // Unshields never split: dry-run this one at review so a wallet too fragmented for it is offered
+  // "Merge notes" before anything is attempted.
+  const unshieldSpend: BlockedSpend = { kind: computedKind, amount, perProofFee: fee }
+  const spendCheck = useSpendCheck({
+    enabled: isOpen && step === 'review',
+    spend: unshieldSpend,
+    token: 'usdc',
+    balanceKey: `${max}`,
+  })
+  const { openMerge } = useMergeNotes()
   const cctpFee: bigint = isXchain ? cctpFastFeeForAmount(amount) : 0n
   const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
     computedKind,
@@ -320,7 +335,10 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     recipientWalletProvider: connector?.name,
     networkName: getChainById(toChainId)?.name,
     destDeploymentError,
-    submitBlockedReason: syncGate.reason ?? relayerBlock ?? undefined,
+    submitBlockedReason: syncGate.reason ?? relayerBlock ?? spendCheck.error ?? undefined,
+    ...(spendCheck.remedy === 'merge-notes'
+      ? { onMergeNotes: () => openMerge({ token: 'usdc', blocked: unshieldSpend }) }
+      : {}),
     step,
     isSubmitting,
     record,

@@ -41,7 +41,7 @@ The conversion path means the displayed "amount" is the **expected USDC output**
 - `useYieldRate()` polls `vault.convertToAssets(1e18)` + net APY (`spoke.annualYieldBps × (10_000 - vault.yieldFeeBps) / 10_000`) on the hub every 5 min (visibility-gated). EarnModal calls `refresh()` on open + post-submit so the user always sees fresh state at the moments that matter.
 - Withdraw slippage: the modal refreshes the rate immediately before computing shares to bound the slippage window to ~1 block. A `minUsdcOut` proof-bound parameter on the adapter would close the residual window — tracked in the polish doc.
 - `useShieldedBalanceSync` writes both `shieldedUsdcAtom` and `yieldSharesAtom` so the user's shielded ayUSDC balance is visible.
-- A spend that fails because the wallet's notes are too fragmented (error `remedy: 'merge-notes'`) offers **"Merge notes"** on the error step, opening the `merge` modal (`components/consolidate/`) with that spend as the one to unblock.
+- A spend the wallet's notes are too fragmented for offers **"Merge notes"** — at review (a `useSpendCheck` dry run: notice + disabled Confirm) and, as a fallback, on the error step (error `remedy: 'merge-notes'`) — opening the `merge` modal (`components/consolidate/`) with that spend as the one to unblock.
 
 ## Still stubbed
 

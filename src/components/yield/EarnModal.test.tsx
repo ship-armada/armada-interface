@@ -1,6 +1,6 @@
 // ABOUTME: Tests for EarnModal orchestrator — opens on both yield-deposit and yield-withdraw kinds, tab defaults from entry kind, switching tabs clears amount.
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { EarnModal } from './EarnModal'
@@ -85,6 +85,13 @@ const FAKE_QUOTE = {
   fees: { transfer: '0', unshield: '0', crossContract: '0', crossChainShield: '0', crossChainUnshield: '0', shield: '0', shieldXchain: '0' },
 }
 
+// Vault actions never split: they're dry-run at review for fragmentation; each test sets the outcome.
+const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null } }))
+vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
+beforeEach(() => {
+  hoistedCheck.result = { error: null, remedy: null }
+})
+
 function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false; shielded?: bigint }) {
   const store = createStore()
   if (opts?.open) store.set(openModalAtom, opts.open)
@@ -153,6 +160,18 @@ describe('<EarnModal>', () => {
     await waitFor(() => {
       expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
     })
+  })
+
+  it('a deposit the wallet is too fragmented for offers "Merge notes" at review, with Confirm disabled', () => {
+    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
+    const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText(/Merge your notes, then try again/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+    expect(store.get(openModalAtom)).toBe('merge')
+    expect(store.get(mergeIntentAtom)).toEqual({ token: 'usdc', blocked: { kind: 'yield-deposit', amount: 3_000_000n, perProofFee: 0n } })
   })
 
   it('offers "Merge notes" when the deposit failed because the wallet is too fragmented', async () => {

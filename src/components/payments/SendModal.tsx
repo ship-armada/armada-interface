@@ -14,6 +14,8 @@ import {
 } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
+import { useSpendCheck } from '@/hooks/useSpendCheck'
+import type { BlockedSpend } from '@/lib/shielded/merge-intent'
 import { useRecentRecipients } from '@/hooks/useRecentRecipients'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
 import { useFees } from '@/hooks/useFees'
@@ -253,6 +255,22 @@ export function SendModal() {
   const transferBlockReason = !isPrivate
     ? null
     : transferPlan.error ?? (transferPlan.pending ? 'Working out the fee for this send…' : null)
+  // A public (0x) send is an unshield, which never splits: dry-run it at review so a wallet too
+  // fragmented for it is offered "Merge notes" before anything is attempted.
+  const publicSpend: BlockedSpend | null = isPrivate ? null : { kind: computedKind, amount, perProofFee: quotedFee }
+  const spendCheck = useSpendCheck({
+    enabled: isOpen && step === 'review',
+    spend: publicSpend,
+    token: 'usdc',
+    balanceKey: `${max}`,
+  })
+  // The spend "Merge notes" should unblock, when the review knows the wallet is too fragmented for it.
+  const blockedByFragmentation: BlockedSpend | null =
+    isPrivate && transferPlan.remedy === 'merge-notes'
+      ? { kind: 'transfer-shielded', amount, recipient, perProofFee: quotedFee }
+      : !isPrivate && spendCheck.remedy === 'merge-notes'
+        ? publicSpend
+        : null
   const flowBreakdown = {
     broadcasterFee: fee,
     cctpFee: isXchain ? cctpFee : undefined,
@@ -527,16 +545,10 @@ export function SendModal() {
           totalDeducted={totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
-          submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason}
+          submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason ?? spendCheck.error}
           feeUpdated={feeChanged}
-          {...(isPrivate && transferPlan.remedy === 'merge-notes'
-            ? {
-                onMergeNotes: () =>
-                  openMerge({
-                    token: 'usdc',
-                    blocked: { kind: 'transfer-shielded', amount, recipient, perProofFee: quotedFee },
-                  }),
-              }
+          {...(blockedByFragmentation !== null
+            ? { onMergeNotes: () => openMerge({ token: 'usdc', blocked: blockedByFragmentation }) }
             : {})}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}

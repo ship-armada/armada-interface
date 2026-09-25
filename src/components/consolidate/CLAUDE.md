@@ -13,9 +13,11 @@ per proof.
 | `ConsolidationSummary` | Summary table: date (confirmed only), token, notes `N → M`, fees, and a Total that is just the fee (a merge moves no value out of the wallet). Reuses the deposit summary's styles. Used by the review step and the Activity receipt. |
 
 ## Entry points
-- A spend that failed for fragmentation: the error step's **"Merge notes"** (`useMergeNotes().remedyFor(record)`)
-  in Send, Unshield (local + xchain) and Earn (deposit + withdraw), plus Send's review step when the
-  planner already knows. The intent carries the blocked spend (`mergeIntentFromRecord`), so the preview
+- A spend the wallet is too fragmented for, caught at **review** before anything is attempted: Send
+  (private: the fee plan; public: `useSpendCheck`), Unshield (local + xchain) and Earn (deposit + withdraw)
+  show "Merge notes" in the review notice with Confirm disabled.
+- The same spend failing at build (e.g. a sync reshuffled the notes after review): the error step's
+  **"Merge notes"** (`useMergeNotes().remedyFor(record)`) in all of those flows. The intent carries the blocked spend (`mergeIntentFromRecord`), so the preview
   dry-runs it (`planTransferAfter`).
 - Settings → **Notes** card, per token with ≥ 5 notes.
 

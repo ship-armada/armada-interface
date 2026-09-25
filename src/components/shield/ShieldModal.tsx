@@ -202,6 +202,7 @@ export function ShieldModal() {
             networkName={unshieldFlow.networkName}
             recipientWalletProvider={unshieldFlow.recipientWalletProvider}
             submitBlockedReason={unshieldFlow.submitBlockedReason}
+            {...(unshieldFlow.onMergeNotes ? { onMergeNotes: unshieldFlow.onMergeNotes } : {})}
             feeUpdated={unshieldFlow.feeChanged}
             onBack={unshieldFlow.onBackToInput}
             isSubmitting={unshieldFlow.isSubmitting}

@@ -1,5 +1,5 @@
 // ABOUTME: SDK-backed consolidation builder — wallet.consolidate → reviewed-fee cap → batched preflight → proveAll
-// ABOUTME: → one transact([...]) merging a fragmented token's notes; plus the no-proving review preview + dry run.
+// ABOUTME: → one transact([...]) merging a fragmented token's notes; plus the no-proving review preview + spend dry runs.
 
 import { ArmadaError, buildTransactCalldata, type Plan, type PlanTransferRequest } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
@@ -97,4 +97,15 @@ function summarize(plans: readonly Plan[], tokenAddress: `0x${string}`): Consoli
     notesMerged: merging.reduce((n, p) => n + p.selectedInputs.length, 0),
     notesCreated: merging.filter((p) => p.summary.changeValue > 0n).length,
   }
+}
+
+/**
+ * Dry-run a spend against the wallet's CURRENT notes — plan it (no merkle proofs, no proving, no RPC)
+ * and throw the planner's typed error if it can't be made. Lets a review step catch a spend the wallet
+ * is too fragmented for (unshields / vault ops never split) before anything is attempted.
+ */
+export async function checkSpendPlans(request: PlanTransferRequest): Promise<void> {
+  const wallet = await getSdkWallet()
+  // `planTransferAfter` with no merge plans over the notes as they are now.
+  await wallet.planTransferAfter([], request)
 }

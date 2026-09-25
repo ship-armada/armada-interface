@@ -98,6 +98,10 @@ const hoistedPlan = vi.hoisted(() => {
 })
 vi.mock('@/hooks/useTransferFeePlan', () => ({ useTransferFeePlan: () => hoistedPlan.plan }))
 
+// Public (0x) sends are unshields, dry-run at review for fragmentation; each test sets the outcome.
+const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null } }))
+vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
+
 // The private-send submit path strict-validates the 0zk recipient via the SDK
 // (validateShieldedAddressStrict → dynamic import), which crashes jsdom at load. Keep the sync
 // validators real; stub only the strict async check to pass for the test's fake 0zk fixture.
@@ -172,6 +176,23 @@ function completeRecipientStep(recipient: string, chainValue?: string) {
 describe('<SendModal>', () => {
   beforeEach(() => {
     hoistedPlan.plan = hoistedPlan.defaults()
+    hoistedCheck.result = { error: null, remedy: null }
+  })
+
+  it('a public send the wallet is too fragmented for offers "Merge notes" at review, before anything is sent', () => {
+    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
+    const store = renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_EVM, '31337')
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText(/Merge your notes, then try again/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+    expect(store.get(openModalAtom)).toBe('merge')
+    expect(store.get(mergeIntentAtom)).toEqual({
+      token: 'usdc',
+      blocked: { kind: 'unshield-local', amount: 3_000_000n, perProofFee: 0n },
+    })
   })
 
   it('renders nothing when no send/withdraw modal is open', () => {

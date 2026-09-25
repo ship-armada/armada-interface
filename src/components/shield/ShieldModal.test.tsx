@@ -1,7 +1,7 @@
 // ABOUTME: Tests for ShieldModal orchestrator — open/closed gating, step advancement (input → review → progress), close resets state.
 // ABOUTME: Seeds openModalAtom + usdcBalancesAtom so the user can enter an amount and proceed.
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { ShieldModal } from './ShieldModal'
@@ -136,6 +136,13 @@ const FAKE_QUOTE = {
   broadcasterShieldedAddress: '',
   fees: { transfer: '0', unshield: '0', crossContract: '0', crossChainShield: '0', crossChainUnshield: '0', shield: '0', shieldXchain: '0' },
 }
+
+// Unshields are dry-run at review for fragmentation; each test sets the outcome.
+const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null } }))
+vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
+beforeEach(() => {
+  hoistedCheck.result = { error: null, remedy: null }
+})
 
 function renderModal(opts?: {
   open?: boolean
@@ -290,6 +297,18 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(screen.getByRole('dialog', { name: 'Unshield' })).toBeInTheDocument()
     expect(screen.getByText('Unshield your USDC')).toBeInTheDocument()
     expect(screen.getByLabelText('Unshield amount')).toBeInTheDocument()
+  })
+
+  it('an unshield the wallet is too fragmented for offers "Merge notes" at review, with Confirm disabled', () => {
+    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText(/Merge your notes, then try again/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+    expect(store.get(openModalAtom)).toBe('merge')
+    expect(store.get(mergeIntentAtom)).toEqual({ token: 'usdc', blocked: { kind: 'unshield-local', amount: 3_000_000n, perProofFee: 0n } })
   })
 
   it('offers "Merge notes" when an unshield failed because the wallet is too fragmented', async () => {

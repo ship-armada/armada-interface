@@ -35,6 +35,8 @@ import { useDisplayFees } from '@/hooks/useDisplayFees'
 import { EarnReviewStep } from './EarnReviewStep'
 import { EarnCompleteStep } from './EarnCompleteStep'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
+import { useSpendCheck } from '@/hooks/useSpendCheck'
+import type { BlockedSpend } from '@/lib/shielded/merge-intent'
 
 type LocalStep = FlowStep
 
@@ -96,6 +98,22 @@ export function EarnModal() {
   // (that would link the user's EVM address to a shielded spend — see #23).
   const yieldKind: 'yield-deposit' | 'yield-withdraw' = tab === 'add' ? 'yield-deposit' : 'yield-withdraw'
   const fee: bigint = userFeeForKind(yieldKind, amount, quote)
+  // Vault actions never split: dry-run this one at review so a wallet too fragmented for it is offered
+  // "Merge notes" before anything is attempted. A deposit spends USDC (+ its fee note); a withdrawal
+  // spends vault shares (its fee is taken contract-side — no fee note), estimated at the current rate.
+  const vaultSpend: BlockedSpend | null =
+    tab === 'add'
+      ? { kind: 'yield-deposit', amount, perProofFee: fee }
+      : yieldRate !== null && yieldRate.rate > 0n
+        ? { kind: 'yield-withdraw', amount: (amount * 1_000_000_000_000_000_000n) / yieldRate.rate, perProofFee: 0n }
+        : null
+  const vaultToken = tab === 'add' ? 'usdc' : 'shares'
+  const spendCheck = useSpendCheck({
+    enabled: isOpen && step === 'review',
+    spend: vaultSpend,
+    token: vaultToken,
+    balanceKey: `${spendableUsdc}:${yieldShares ?? ''}`,
+  })
   // Both yield ops are fee-on-top in `computeFeeBreakdown`'s model, but the balance flows differ:
   //   - Add Funds: user unshields (amount + fee) USDC. `totalDeducted = amount + fee` is the
   //     literal private-balance debit. `recipientReceives = amount` is what the vault gains.
@@ -162,7 +180,8 @@ export function EarnModal() {
   // relayer is unavailable.
   const relayerBlock = useRelayerSubmitBlock(isOpen)
   // Composed gate for the review step — sync gate OR private-USDC shortfall OR relayer unavailable.
-  const submitBlockedReason: string | null = syncGate.reason || withdrawFeeBlockedReason || relayerBlock
+  const submitBlockedReason: string | null =
+    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || spendCheck.error
 
   // Two useTx hooks; only one gets a record per flow.
   const txDeposit = useTx({ kind: 'yield-deposit' })
@@ -173,7 +192,7 @@ export function EarnModal() {
     : null
   const record = activeTx?.record ?? null
   // A spend blocked by fragmentation offers "Merge notes" on its error screen (a consolidate tx).
-  const { remedyFor } = useMergeNotes()
+  const { remedyFor, openMerge } = useMergeNotes()
 
   // Completion-screen figures. Once a record exists its meta is authoritative — for WITHDRAW the
   // handler reconciles meta.amount to the ACTUAL redeemed gross (shares × execution-rate), so "confirm"
@@ -382,6 +401,9 @@ export function EarnModal() {
           // Withdraw redeems fixed shares at the execution-rate → the net received is an estimate.
           estimated={tab === 'withdraw'}
           submitBlockedReason={submitBlockedReason}
+          {...(spendCheck.remedy === 'merge-notes' && vaultSpend !== null
+            ? { onMergeNotes: () => openMerge({ token: vaultToken, blocked: vaultSpend }) }
+            : {})}
           feeUpdated={feeChanged}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}

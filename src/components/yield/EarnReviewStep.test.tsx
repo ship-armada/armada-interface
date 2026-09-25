@@ -23,6 +23,26 @@ function setupAdd() {
 }
 
 describe('<EarnReviewStep>', () => {
+  it('offers "Merge notes" in the blocked notice when merging would unblock the vault action', () => {
+    const onMergeNotes = vi.fn()
+    render(
+      <EarnReviewStep
+        tab="add"
+        amount={100_000_000n}
+        rate={null}
+        fee={null}
+        netAmount={100_000_000n}
+        netLabel="Total deducted from balance"
+        submitBlockedReason="Merge your notes, then try again."
+        onMergeNotes={onMergeNotes}
+        onBack={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+    expect(onMergeNotes).toHaveBeenCalledOnce()
+  })
+
   it("tab=add: title 'Review USDC shielded transfer to the vault' and mode 'Add to vault'", () => {
     setupAdd()
     expect(screen.getByRole('heading', { name: 'Review USDC shielded transfer to the vault' })).toBeInTheDocument()
