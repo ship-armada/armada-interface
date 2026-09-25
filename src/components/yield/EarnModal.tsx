@@ -181,7 +181,7 @@ export function EarnModal() {
   const relayerBlock = useRelayerSubmitBlock(isOpen)
   // Composed gate for the review step — sync gate OR private-USDC shortfall OR relayer unavailable.
   const submitBlockedReason: string | null =
-    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || spendCheck.error
+    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || spendCheck.blockReason
 
   // Two useTx hooks; only one gets a record per flow.
   const txDeposit = useTx({ kind: 'yield-deposit' })

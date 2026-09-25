@@ -22,9 +22,14 @@ export interface SpendCheck {
   /** Why the spend can't be made as the wallet stands — set only when merging notes would fix it. */
   readonly error: string | null
   readonly remedy: 'merge-notes' | null
+  /** True while the check runs — the review holds Confirm, so a quick click can't slip past it. */
+  readonly pending: boolean
+  /** Why the review should hold Confirm: the fragmentation message, or "Checking your notes…" while running. */
+  readonly blockReason: string | null
 }
 
-const CLEAR: SpendCheck = { error: null, remedy: null }
+const CHECKING = 'Checking your notes…'
+const CLEAR: SpendCheck = { error: null, remedy: null, pending: false, blockReason: null }
 
 /**
  * Plan the spend without proving (local, no RPC) and report it ONLY when the wallet is too fragmented for
@@ -48,12 +53,16 @@ export function useSpendCheck(args: UseSpendCheckArgs): SpendCheck {
         return CLEAR
       } catch (err) {
         const classified = classifyHandlerError(err, '')
-        return classified.remedy === 'merge-notes' ? { error: classified.message, remedy: 'merge-notes' } : CLEAR
+        return classified.remedy === 'merge-notes'
+          ? { error: classified.message, remedy: 'merge-notes', pending: false, blockReason: classified.message }
+          : CLEAR
       }
     },
     enabled: active,
     retry: false,
     staleTime: Infinity,
   })
-  return active && query.data ? query.data : CLEAR
+  if (!active) return CLEAR
+  if (query.isFetching || query.data === undefined) return { ...CLEAR, pending: true, blockReason: CHECKING }
+  return query.data
 }

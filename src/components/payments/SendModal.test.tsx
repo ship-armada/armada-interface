@@ -99,7 +99,7 @@ const hoistedPlan = vi.hoisted(() => {
 vi.mock('@/hooks/useTransferFeePlan', () => ({ useTransferFeePlan: () => hoistedPlan.plan }))
 
 // Public (0x) sends are unshields, dry-run at review for fragmentation; each test sets the outcome.
-const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null } }))
+const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null, pending: false, blockReason: null as string | null } }))
 vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
 
 // The private-send submit path strict-validates the 0zk recipient via the SDK
@@ -176,11 +176,21 @@ function completeRecipientStep(recipient: string, chainValue?: string) {
 describe('<SendModal>', () => {
   beforeEach(() => {
     hoistedPlan.plan = hoistedPlan.defaults()
-    hoistedCheck.result = { error: null, remedy: null }
+    hoistedCheck.result = { error: null, remedy: null, pending: false, blockReason: null }
+  })
+
+  it('a public send holds Confirm while its notes are being checked', () => {
+    hoistedCheck.result = { error: null, remedy: null, pending: true, blockReason: 'Checking your notes…' }
+    renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_EVM, '31337')
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText('Checking your notes…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
   })
 
   it('a public send the wallet is too fragmented for offers "Merge notes" at review, before anything is sent', () => {
-    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
+    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.' }
     const store = renderModal({ open: 'payment', shielded: 10_000_000n })
     completeRecipientStep(VALID_EVM, '31337')
     fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })

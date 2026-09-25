@@ -545,7 +545,7 @@ export function SendModal() {
           totalDeducted={totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
-          submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason ?? spendCheck.error}
+          submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason ?? spendCheck.blockReason}
           feeUpdated={feeChanged}
           {...(blockedByFragmentation !== null
             ? { onMergeNotes: () => openMerge({ token: 'usdc', blocked: blockedByFragmentation }) }

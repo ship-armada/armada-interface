@@ -34,7 +34,18 @@ describe('useSpendCheck', () => {
     const request = hoisted.checkSpendPlans.mock.calls[0]![0] as { tokenAddress: string; unshield: { amount: bigint } }
     expect(request.tokenAddress).toBe(USDC)
     expect(request.unshield.amount).toBe(16_000_000n)
-    expect(result.current).toEqual({ error: null, remedy: null })
+    await waitFor(() => expect(result.current).toEqual({ error: null, remedy: null, pending: false, blockReason: null }))
+  })
+
+  it('is pending while the check runs, so the review can hold Confirm', async () => {
+    let finish: () => void = () => {}
+    hoisted.checkSpendPlans.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve }))
+    const { result } = renderCheck()
+    expect(result.current.pending).toBe(true)
+    expect(result.current.blockReason).toBe('Checking your notes…')
+    await waitFor(() => expect(hoisted.checkSpendPlans).toHaveBeenCalled())
+    finish()
+    await waitFor(() => expect(result.current.pending).toBe(false))
   })
 
   it('flags a spend the wallet is too fragmented for, with the merge-notes remedy', async () => {
@@ -42,20 +53,21 @@ describe('useSpendCheck', () => {
     const { result } = renderCheck()
     await waitFor(() => expect(result.current.remedy).toBe('merge-notes'))
     expect(result.current.error).toMatch(/merge your notes/i)
+    expect(result.current.blockReason).toBe(result.current.error)
+    expect(result.current.pending).toBe(false)
   })
 
   it('never blocks on other outcomes — the real build reports those', async () => {
     hoisted.checkSpendPlans.mockRejectedValue(new InsufficientBalanceError('no single tree covers it'))
     const { result } = renderCheck()
     await waitFor(() => expect(hoisted.checkSpendPlans).toHaveBeenCalled())
-    await new Promise((r) => setTimeout(r, 10))
-    expect(result.current).toEqual({ error: null, remedy: null })
+    await waitFor(() => expect(result.current).toEqual({ error: null, remedy: null, pending: false, blockReason: null }))
   })
 
   it('does nothing while disabled, without a spend, or for a zero amount', async () => {
     for (const overrides of [{ enabled: false }, { spend: null }, { spend: { ...SPEND, amount: 0n } }]) {
       const { result } = renderCheck(overrides)
-      expect(result.current).toEqual({ error: null, remedy: null })
+      expect(result.current).toEqual({ error: null, remedy: null, pending: false, blockReason: null })
     }
     await new Promise((r) => setTimeout(r, 10))
     expect(hoisted.checkSpendPlans).not.toHaveBeenCalled()

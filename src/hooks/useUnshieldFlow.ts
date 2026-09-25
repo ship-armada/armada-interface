@@ -335,7 +335,7 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     recipientWalletProvider: connector?.name,
     networkName: getChainById(toChainId)?.name,
     destDeploymentError,
-    submitBlockedReason: syncGate.reason ?? relayerBlock ?? spendCheck.error ?? undefined,
+    submitBlockedReason: syncGate.reason ?? relayerBlock ?? spendCheck.blockReason ?? undefined,
     ...(spendCheck.remedy === 'merge-notes'
       ? { onMergeNotes: () => openMerge({ token: 'usdc', blocked: unshieldSpend }) }
       : {}),

@@ -86,10 +86,10 @@ const FAKE_QUOTE = {
 }
 
 // Vault actions never split: they're dry-run at review for fragmentation; each test sets the outcome.
-const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null } }))
+const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null, pending: false, blockReason: null as string | null } }))
 vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
 beforeEach(() => {
-  hoistedCheck.result = { error: null, remedy: null }
+  hoistedCheck.result = { error: null, remedy: null, pending: false, blockReason: null }
 })
 
 function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false; shielded?: bigint }) {
@@ -162,8 +162,17 @@ describe('<EarnModal>', () => {
     })
   })
 
+  it('a vault deposit holds Confirm while its notes are being checked', () => {
+    hoistedCheck.result = { error: null, remedy: null, pending: true, blockReason: 'Checking your notes…' }
+    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText('Checking your notes…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeDisabled()
+  })
+
   it('a deposit the wallet is too fragmented for offers "Merge notes" at review, with Confirm disabled', () => {
-    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
+    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.' }
     const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
