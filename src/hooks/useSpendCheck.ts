@@ -24,7 +24,8 @@ export interface SpendCheck {
   readonly remedy: 'merge-notes' | null
   /** True while the check runs — the review holds Confirm, so a quick click can't slip past it. */
   readonly pending: boolean
-  /** Why the review should hold Confirm: the fragmentation message, or "Checking your notes…" while running. */
+  /** "Checking your notes…" while the check runs (the review holds Confirm). Fragmentation isn't a
+   *  blockReason: the review shows its "Too many small notes" callout for `remedy` and holds Confirm itself. */
   readonly blockReason: string | null
 }
 
@@ -54,7 +55,7 @@ export function useSpendCheck(args: UseSpendCheckArgs): SpendCheck {
       } catch (err) {
         const classified = classifyHandlerError(err, '')
         return classified.remedy === 'merge-notes'
-          ? { error: classified.message, remedy: 'merge-notes', pending: false, blockReason: classified.message }
+          ? { error: classified.message, remedy: 'merge-notes', pending: false, blockReason: null }
           : CLEAR
       }
     },

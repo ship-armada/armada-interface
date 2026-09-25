@@ -309,11 +309,11 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
   })
 
   it('an unshield the wallet is too fragmented for offers "Merge notes" at review, with Confirm disabled', () => {
-    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.' }
+    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: null }
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-    expect(screen.getByText(/Merge your notes, then try again/)).toBeInTheDocument()
+    expect(screen.getByText('Too many small notes')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
     expect(store.get(openModalAtom)).toBe('merge')

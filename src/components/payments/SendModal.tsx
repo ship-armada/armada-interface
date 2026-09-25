@@ -252,7 +252,8 @@ export function SendModal() {
   // Max: the plan's fee-aware cap for a private send (falls back to the one-proof cap until it's known).
   const sendMax = isPrivate && transferPlan.maxInput !== null ? transferPlan.maxInput : inputMax
   // Why a private send can't be confirmed yet (still pricing, or the planner refused it).
-  const transferBlockReason = !isPrivate
+  // A too-fragmented send shows the review's "Too many small notes" callout instead (see onMergeNotes).
+  const transferBlockReason = !isPrivate || transferPlan.remedy === 'merge-notes'
     ? null
     : transferPlan.error ?? (transferPlan.pending ? 'Working out the fee for this send…' : null)
   // A public (0x) send is an unshield, which never splits: dry-run it at review so a wallet too

@@ -1,7 +1,8 @@
 // ABOUTME: Merge-notes complete step — "Notes merged" with notes N → M and the fee summary, then what's next:
 // ABOUTME: retry the blocked action, or "Merge again" when one round wasn't enough. Dumb: the modal decides.
 
-import { Button, ConfirmedScreenLayout } from '@/design'
+import { ConfirmedScreenLayout } from '@/design'
+import { MergeNotesNotice } from './MergeNotesNotice'
 import { ConsolidationSummary } from './ConsolidationSummary'
 import styles from '../payments/SendReviewStep.module.css'
 
@@ -51,10 +52,12 @@ export function MergeCompleteStep({
         confirmedAt={confirmedAt}
       />
       {blockedAction !== undefined && onMergeAgain ? (
-        <div className={styles.feeNote} role="note">
-          {`One more merge is needed before your ${blockedAction} will go through.`}
-          <Button variant="secondary" size="sm" label="Merge again" showIcon={false} onClick={onMergeAgain} />
-        </div>
+        <MergeNotesNotice
+          title="One more merge needed"
+          body={`Your ${blockedAction} still spans too many notes. Merge again to finish.`}
+          actionLabel="Merge again"
+          onAction={onMergeAgain}
+        />
       ) : blockedAction !== undefined ? (
         <div className={styles.feeNote} role="note">
           {`You can now retry your ${blockedAction}.`}

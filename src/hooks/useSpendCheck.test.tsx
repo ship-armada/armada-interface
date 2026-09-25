@@ -53,7 +53,8 @@ describe('useSpendCheck', () => {
     const { result } = renderCheck()
     await waitFor(() => expect(result.current.remedy).toBe('merge-notes'))
     expect(result.current.error).toMatch(/merge your notes/i)
-    expect(result.current.blockReason).toBe(result.current.error)
+    // The review shows the merge callout for this; the plain blocked notice stays for other reasons.
+    expect(result.current.blockReason).toBeNull()
     expect(result.current.pending).toBe(false)
   })
 

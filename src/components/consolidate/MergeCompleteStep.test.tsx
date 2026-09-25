@@ -36,6 +36,7 @@ describe('<MergeCompleteStep>', () => {
   it('offers another round when one merge wasn\'t enough', () => {
     const onMergeAgain = vi.fn()
     renderComplete({ blockedAction: 'withdrawal', onMergeAgain })
+    expect(screen.getByText('One more merge needed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Merge again' }))
     expect(onMergeAgain).toHaveBeenCalledOnce()
   })

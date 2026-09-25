@@ -4,6 +4,7 @@
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { TransferReviewSummary } from './TransferReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
+import { MergeNotesNotice } from '@/components/consolidate/MergeNotesNotice'
 import { formatUsdcPlain } from '@/lib/format'
 import { isShieldedAddress } from '@/lib/address'
 import type { SendFlowVariant } from './SendRecipientStep'
@@ -28,7 +29,8 @@ export interface SendReviewStepProps {
   isSubmitting?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
   feeUpdated?: boolean
-  /** Set when merging the wallet's notes would unblock the send — adds "Merge notes" to the blocked notice. */
+  /** Set when the wallet is too fragmented for the send — shows the "Too many small notes" callout (with its
+   *  "Merge notes" button) and holds Confirm. */
   onMergeNotes?: () => void
   onBack: () => void
   onConfirm: () => void
@@ -80,12 +82,11 @@ export function SendReviewStep({
           recipientWalletProvider={recipientWalletProvider}
         />
 
+        {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
+
         {submitBlockedReason ? (
           <div className={styles.syncNotice} role="status" aria-live="polite">
             {submitBlockedReason}
-            {onMergeNotes ? (
-              <Button variant="secondary" size="sm" label="Merge notes" showIcon={false} onClick={onMergeNotes} />
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -106,7 +107,7 @@ export function SendReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={Boolean(submitBlockedReason) || isSubmitting}
+          disabled={Boolean(submitBlockedReason) || Boolean(onMergeNotes) || isSubmitting}
         />
       </div>
     </div>

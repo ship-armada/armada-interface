@@ -33,12 +33,13 @@ describe('<EarnReviewStep>', () => {
         fee={null}
         netAmount={100_000_000n}
         netLabel="Total deducted from balance"
-        submitBlockedReason="Merge your notes, then try again."
         onMergeNotes={onMergeNotes}
         onBack={vi.fn()}
         onConfirm={vi.fn()}
       />,
     )
+    expect(screen.getByText('Too many small notes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
     expect(onMergeNotes).toHaveBeenCalledOnce()
   })

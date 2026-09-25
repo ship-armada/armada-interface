@@ -190,12 +190,12 @@ describe('<SendModal>', () => {
   })
 
   it('a public send the wallet is too fragmented for offers "Merge notes" at review, before anything is sent', () => {
-    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.' }
+    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: null }
     const store = renderModal({ open: 'payment', shielded: 10_000_000n })
     completeRecipientStep(VALID_EVM, '31337')
     fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-    expect(screen.getByText(/Merge your notes, then try again/)).toBeInTheDocument()
+    expect(screen.getByText('Too many small notes')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
     expect(store.get(openModalAtom)).toBe('merge')

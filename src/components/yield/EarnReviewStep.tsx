@@ -4,6 +4,7 @@
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { EarnReviewSummary } from './EarnReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
+import { MergeNotesNotice } from '@/components/consolidate/MergeNotesNotice'
 import { formatUsdcPlain } from '@/lib/format'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import type { EarnTab } from './EarnInputStep'
@@ -27,7 +28,8 @@ export interface EarnReviewStepProps {
    *  estimate (marks the total with `≈` + a caption). Deposit is exact. */
   estimated?: boolean
   submitBlockedReason?: string | null
-  /** Set when merging the wallet's notes would unblock the vault action — adds "Merge notes" to the notice. */
+  /** Set when the wallet is too fragmented for the vault action — shows the "Too many small notes" callout
+   *  (with its "Merge notes" button) and holds Confirm. */
   onMergeNotes?: () => void
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean
@@ -85,12 +87,11 @@ export function EarnReviewStep({
           </p>
         ) : null}
 
+        {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
+
         {submitBlockedReason ? (
           <div className={styles.syncNotice} role="status" aria-live="polite">
             {submitBlockedReason}
-            {onMergeNotes ? (
-              <Button variant="secondary" size="sm" label="Merge notes" showIcon={false} onClick={onMergeNotes} />
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -111,7 +112,7 @@ export function EarnReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={Boolean(submitBlockedReason) || isSubmitting}
+          disabled={Boolean(submitBlockedReason) || Boolean(onMergeNotes) || isSubmitting}
         />
       </div>
     </div>

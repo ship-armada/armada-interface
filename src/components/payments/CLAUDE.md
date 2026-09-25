@@ -53,8 +53,8 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   back to Review with the FeeUpdatedBanner. The record stores the approved total
   (`broadcasterFeeAmount`) and the per-proof fee (`broadcasterFeePerProof`). Unshields never split,
   so they keep the quoted fee.
-- A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's blocked
-  notice before any attempt (private sends from the fee plan; public sends, which are unshields, from a
+- A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's
+  "Too many small notes" callout (`MergeNotesNotice`, Confirm held) before any attempt (private sends from the fee plan; public sends, which are unshields, from a
   `useSpendCheck` dry run) and on the error step (from the record's
   `remedy: 'merge-notes'`). It opens the `merge` modal (`components/consolidate/`) with the blocked
   send, so the merge preview can say whether one merge unblocks it.
