@@ -281,6 +281,9 @@ export interface MetaShieldXchain extends MetaCommon {
 export interface MetaUnshieldLocal extends MetaCommon, MetaBroadcaster {
   /** EVM recipient on the hub chain. */
   recipient: string
+  /** The on-chain protocol unshield fee shown at review (taken from the unshielded amount). Absent on
+   *  records written before it was stored, and on chain-recovered ones. */
+  protocolFee?: bigint
 }
 
 export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
@@ -288,6 +291,11 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
   toChainId: number
   /** EVM recipient on the destination chain. */
   recipient: string
+  /** The on-chain protocol unshield fee shown at review. Absent on older / chain-recovered records. */
+  protocolFee?: bigint
+  /** The CCTP fast fee shown at review (taken from the destination mint). Absent on older /
+   *  chain-recovered records. */
+  cctpFee?: bigint
 }
 
 /**

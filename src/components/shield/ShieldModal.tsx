@@ -88,12 +88,7 @@ export function ShieldModal() {
   // An unshield's confirmation reports what it actually charged, from its record (the live quote keeps
   // refreshing after submit), matching the Activity receipt.
   const unshieldReceipt =
-    !isShield && record
-      ? spendReceiptFromMeta(record.meta as { amount: bigint; broadcasterFeeAmount: bigint }, {
-          protocolFee: unshieldFlow.displayFees.protocolFee,
-          cctpFee: unshieldFlow.flowBreakdown.cctpFee ?? 0n,
-        })
-      : null
+    !isShield && record ? spendReceiptFromMeta(record.meta as Parameters<typeof spendReceiptFromMeta>[0]) : null
 
   // Per-tab step indicator: shield has the extra Wallet segment (4), unshield doesn't (3). The
   // unshield step is always a FlowStep (never 'wallet'), so the shared helpers apply there.

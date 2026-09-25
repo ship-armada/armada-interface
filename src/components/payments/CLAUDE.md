@@ -52,9 +52,10 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   planner refuses). At Confirm the send is re-priced at the fresh quote; a different total bounces
   back to Review with the FeeUpdatedBanner. The record stores the approved total
   (`broadcasterFeeAmount`) and the per-proof fee (`broadcasterFeePerProof`). Unshields never split,
-  so they keep the quoted fee. The confirmation screen (and the Unshield tab's) reads the fee actually
-  charged from the record (`spendReceiptFromMeta`), not the live plan/quote, which stop pricing after
-  review and keep refreshing — matching the Activity receipt.
+  so they keep the quoted fee; an unshield record also stores the protocol fee (`protocolFee`) and,
+  cross-chain, the CCTP fee (`cctpFee`) shown at review. The confirmation screen (and the Unshield
+  tab's) and the Activity receipt all derive the fee from the record alone (`spendReceiptFromMeta`),
+  not the live plan/quote, which stop pricing after review and keep refreshing.
 - A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's
   "Too many small notes" callout (`MergeNotesNotice`, Confirm held) before any attempt (private sends from the fee plan; public sends, which are unshields, from a
   `useSpendCheck` dry run) and on the error step (from the record's

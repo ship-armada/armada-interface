@@ -16,6 +16,7 @@ import { getChainById } from '@/config/network'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import { txListAtom } from '@/state/tx'
 import type { TxRecord } from '@/lib/tx/types'
+import { cctpFastFeeForAmount } from '@/lib/relayer'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults so the modal renders.
@@ -331,6 +332,22 @@ describe('<SendModal>', () => {
     await waitFor(() => {
       expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
     })
+  })
+
+  it('an unshield-xchain record keeps the CCTP fee shown at review, so its receipt reports the full fee', async () => {
+    const store = renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_EVM, '31338')
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+    })
+    await waitFor(() => {
+      expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true)
+    })
+    const record = store.get(txListAtom).find((r) => r.kind === 'unshield-xchain') as TxRecord<'unshield-xchain'>
+    expect(record.meta.cctpFee).toBe(cctpFastFeeForAmount(3_000_000n))
+    expect(record.meta.cctpFee).toBeGreaterThan(0n)
   })
 
   it('the close button closes the modal', () => {

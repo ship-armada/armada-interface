@@ -19,7 +19,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
-import { shieldReceiptFromMeta, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
+import { shieldReceiptFromMeta, spendReceiptFromMeta, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -99,7 +99,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'unshield-xchain': {
       const meta = (record as TxRecord<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>)
         .meta
-      const fee = meta.broadcasterFeeAmount
+      const { fee, totalDeducted } = spendReceiptFromMeta(meta)
       const isPrivate = record.kind === 'transfer-shielded'
       // A public unshield to your own wallet is a withdraw; otherwise (and private 0zk) it's a send.
       const asWithdraw = !isPrivate && isWithdrawToSelf(meta.recipient, ownWalletAddress)
@@ -121,7 +121,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           <TransferReviewSummary
             recipient={meta.recipient}
             fee={fee}
-            totalDeducted={meta.amount + fee}
+            totalDeducted={totalDeducted}
             variant={asWithdraw ? 'withdraw' : 'send'}
             networkName={networkName}
             confirmedAt={confirmedAt}

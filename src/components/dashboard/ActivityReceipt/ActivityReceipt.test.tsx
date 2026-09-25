@@ -33,6 +33,20 @@ function mergeRecord(): TxRecord {
 }
 
 describe('<ActivityReceipt>', () => {
+  it('a cross-chain unshield receipt includes the CCTP fee it recorded, as the confirmation screen does', () => {
+    const xchain = {
+      ...shieldRecord(),
+      kind: 'unshield-xchain',
+      stage: 'client-mint-confirmed',
+      meta: {
+        amount: 100_000_000n, feeCacheId: 'x', toChainId: 84532, recipient: '0x1234567890abcdef1234567890abcdef12345678',
+        broadcasterFeeAmount: 1_500_000n, broadcasterShieldedAddress: '0zk_r', cctpFee: 20_000n,
+      },
+    } as unknown as TxRecord
+    render(<ActivityReceipt record={xchain} open onClose={vi.fn()} />)
+    expect(screen.getByText('1.52 USDC')).toBeInTheDocument()
+  })
+
   it('a received payment shows no Fees row (the recipient pays none, and can\'t see the sender\'s)', () => {
     const received = {
       ...shieldRecord(),

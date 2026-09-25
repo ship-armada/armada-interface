@@ -171,14 +171,18 @@ describe('shieldProtocolFeeBase', () => {
 
 describe('spendReceiptFromMeta', () => {
   it('uses the fee actually charged (a split send pays one fee per proof), not a live quote', () => {
-    const r = spendReceiptFromMeta({ amount: 10_000_000n, broadcasterFeeAmount: 2_786_240n }, { protocolFee: 0n, cctpFee: 0n })
+    const r = spendReceiptFromMeta({ amount: 10_000_000n, broadcasterFeeAmount: 2_786_240n })
     expect(r).toEqual({ fee: 2_786_240n, totalDeducted: 12_786_240n })
   })
 
-  it('adds the protocol and CCTP fees to the shown fee, but only the broadcaster fee to the total deducted', () => {
+  it('adds the recorded protocol + CCTP fees to the shown fee, but only the broadcaster fee to the total deducted', () => {
     // CCTP's fast fee comes out of the destination mint and the protocol fee out of the recipient's side,
     // so neither is drawn from the shielded balance on top of `amount`.
-    const r = spendReceiptFromMeta({ amount: 5_000_000n, broadcasterFeeAmount: 1_000n }, { protocolFee: 20n, cctpFee: 300n })
+    const r = spendReceiptFromMeta({ amount: 5_000_000n, broadcasterFeeAmount: 1_000n, protocolFee: 20n, cctpFee: 300n })
     expect(r).toEqual({ fee: 1_320n, totalDeducted: 5_001_000n })
+  })
+
+  it('a record written before these fees were stored shows the broadcaster fee alone', () => {
+    expect(spendReceiptFromMeta({ amount: 5_000_000n, broadcasterFeeAmount: 1_000n })).toEqual({ fee: 1_000n, totalDeducted: 5_001_000n })
   })
 })

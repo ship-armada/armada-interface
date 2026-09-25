@@ -15,6 +15,7 @@ import {
 } from '@/state/wallet'
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
 import { txListAtom } from '@/state/tx'
+import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -338,6 +339,21 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     })
     await waitFor(() => expect(screen.getAllByText('0.025 USDC').length).toBeGreaterThan(0))
     expect(screen.getByText(/3\.025/)).toBeInTheDocument()
+  })
+
+  it('a cross-chain unshield record keeps the CCTP fee shown at review, so its receipt reports the full fee', async () => {
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.click(screen.getByLabelText('Network'))
+    fireEvent.click(screen.getByRole('option', { name: /Anvil Client A/ }))
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
+    const record = store.get(txListAtom).find((r) => r.kind === 'unshield-xchain') as TxRecord<'unshield-xchain'>
+    expect(record.meta.cctpFee).toBe(cctpFastFeeForAmount(3_000_000n))
+    expect(record.meta.cctpFee).toBeGreaterThan(0n)
   })
 
   it('offers "Merge notes" when an unshield failed because the wallet is too fragmented', async () => {

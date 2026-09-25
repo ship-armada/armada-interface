@@ -284,13 +284,11 @@ export function SendModal() {
   // broadcaster + on-chain protocol + CCTP (when applicable). The breakdown tooltip exposes the
   // individual components.
   const displayedFee = fee + displayFees.protocolFee + cctpFee
-  // The confirmation screen reports what the send actually charged, from its record: a split send's fee
-  // is one per-proof fee per proof, and the live plan/quote above stop pricing after review.
+  // The confirmation screen reports what the send actually charged, from its record (as the Activity
+  // receipt does): a split send's fee is one per-proof fee per proof, and the live plan/quote above stop
+  // pricing after review.
   const completeReceipt = record
-    ? spendReceiptFromMeta(record.meta as { amount: bigint; broadcasterFeeAmount: bigint }, {
-        protocolFee: displayFees.protocolFee,
-        cctpFee,
-      })
+    ? spendReceiptFromMeta(record.meta as Parameters<typeof spendReceiptFromMeta>[0])
     : null
 
   // Reset local state on close.
@@ -423,6 +421,8 @@ export function SendModal() {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.unshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+          // The protocol fee shown at review, so the receipt reports the full fee.
+          ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
           devForceError: forcedOutcome ?? undefined,
         })
       } else {
@@ -444,6 +444,9 @@ export function SendModal() {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.crossChainUnshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+          // The protocol + CCTP fees shown at review, so the receipt reports the full fee.
+          ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
+          ...(cctpFee > 0n ? { cctpFee } : {}),
           devForceError: forcedOutcome ?? undefined,
         })
       }

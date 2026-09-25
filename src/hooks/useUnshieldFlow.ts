@@ -269,6 +269,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.unshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+          // The protocol fee shown at review, so the receipt reports the full fee.
+          ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
         })
       } else {
         setSubmittedKind('unshield-xchain')
@@ -279,6 +281,9 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           recipient,
           broadcasterFeeAmount: BigInt(activeQuote.fees.crossChainUnshield),
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+          // The protocol + CCTP fees shown at review, so the receipt reports the full fee.
+          ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
+          ...(cctpFee > 0n ? { cctpFee } : {}),
         })
       }
       if (submittedId === null) return
