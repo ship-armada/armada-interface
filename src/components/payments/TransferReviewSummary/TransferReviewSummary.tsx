@@ -34,6 +34,8 @@ export interface TransferReviewSummaryProps {
   recipientWalletProvider?: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row and hides the privacy notice. */
   confirmedAt?: number
+  /** Omit the Fees row — for a received payment, where the recipient pays nothing and can't see the sender's fee. */
+  hideFees?: boolean
 }
 
 // `variant` is accepted for API symmetry with the review/complete steps; the summary copy no longer
@@ -46,6 +48,7 @@ export function TransferReviewSummary({
   networkName,
   recipientWalletProvider,
   confirmedAt,
+  hideFees = false,
 }: TransferReviewSummaryProps) {
   // Private (0zk → 0zk) transfers stay inside the shielded pool; anything else exits to a public
   // wallet. Drives the recipient-row icon, whether the network row shows, and the privacy notice.
@@ -97,12 +100,14 @@ export function TransferReviewSummary({
             </span>
           </span>
         </div>
-        <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>Fees</span>
-          <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
-            {fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`}
-          </span>
-        </div>
+        {hideFees ? null : (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Fees</span>
+            <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
+              {fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`}
+            </span>
+          </div>
+        )}
       </div>
       {/* Send/withdraw fees are fee-on-top: the shielded balance is charged `amount + fee`, so the
           total is the full deduction (not a net "you'll receive" figure like the deposit flow). */}

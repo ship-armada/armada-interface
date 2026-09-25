@@ -33,6 +33,18 @@ function mergeRecord(): TxRecord {
 }
 
 describe('<ActivityReceipt>', () => {
+  it('a received payment shows no Fees row (the recipient pays none, and can\'t see the sender\'s)', () => {
+    const received = {
+      ...shieldRecord(),
+      kind: 'transfer-shielded-received',
+      stage: 'observed',
+      meta: { amount: 10_000_000n },
+    } as unknown as TxRecord
+    render(<ActivityReceipt record={received} open onClose={vi.fn()} />)
+    expect(screen.getByText('USDC received')).toBeInTheDocument()
+    expect(screen.queryByText('Fees')).toBeNull()
+  })
+
   it('shows a note merge by its fee, with the notes merged', () => {
     render(<ActivityReceipt record={mergeRecord()} open onClose={vi.fn()} />)
     expect(screen.getByText('Notes merged')).toBeInTheDocument()

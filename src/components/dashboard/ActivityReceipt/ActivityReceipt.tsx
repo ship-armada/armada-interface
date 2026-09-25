@@ -199,6 +199,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           <TransferReviewSummary
             recipient=""
             fee={null}
+            hideFees
             totalDeducted={meta.amount}
             variant="send"
             confirmedAt={confirmedAt}
