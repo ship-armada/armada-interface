@@ -253,10 +253,6 @@ export function SendModal() {
   const transferBlockReason = !isPrivate
     ? null
     : transferPlan.error ?? (transferPlan.pending ? 'Working out the fee for this send…' : null)
-  const splitFeeNote =
-    isPrivate && transferPlan.proofs !== null && transferPlan.proofs > 1
-      ? `Your balance is spread across many small notes, so this send is split into ${transferPlan.proofs} proofs. The fee covers each one.`
-      : null
   const flowBreakdown = {
     broadcasterFee: fee,
     cctpFee: isXchain ? cctpFee : undefined,
@@ -533,7 +529,6 @@ export function SendModal() {
           recipientWalletProvider={recipientWalletProvider}
           submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason}
           feeUpdated={feeChanged}
-          feeNote={splitFeeNote}
           {...(isPrivate && transferPlan.remedy === 'merge-notes'
             ? {
                 onMergeNotes: () =>

@@ -325,12 +325,12 @@ describe('<SendModal>', () => {
       return store
     }
 
-    it('shows the planned split fee in the total and explains it', () => {
+    it('shows the planned split fee in the total, with no extra explanation', () => {
       hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 40_000n, proofs: 2 }
       reviewPrivateSend()
-      // 3 USDC + 0.04 fee (two proofs at 0.02) is what leaves the balance.
+      // 3 USDC + 0.04 fee (two proofs at 0.02) is what leaves the balance — the fee speaks for itself.
       expect(screen.getByText(/3\.04/)).toBeInTheDocument()
-      expect(screen.getByText(/split into 2 proofs/)).toBeInTheDocument()
+      expect(screen.queryByText(/proofs/)).toBeNull()
     })
 
     it('holds Confirm while the fee is still being worked out', () => {

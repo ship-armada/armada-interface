@@ -66,11 +66,6 @@ export function MergeReviewStep({
           fee={preview?.totalFee ?? null}
         />
 
-        <div className={styles.feeNote} role="note">
-          Merging combines your small notes into fewer, larger ones, so bigger payments and withdrawals fit
-          in one transaction. Your balance stays the same apart from the fee.
-        </div>
-
         {outcome ? (
           <div className={styles.feeNote} role="note">
             {outcome}

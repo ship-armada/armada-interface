@@ -28,8 +28,6 @@ export interface SendReviewStepProps {
   isSubmitting?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
   feeUpdated?: boolean
-  /** Explains the fee below the summary (e.g. why a fragmented wallet's split send costs more). */
-  feeNote?: string | null
   /** Set when merging the wallet's notes would unblock the send — adds "Merge notes" to the blocked notice. */
   onMergeNotes?: () => void
   onBack: () => void
@@ -48,7 +46,6 @@ export function SendReviewStep({
   submitBlockedReason,
   isSubmitting,
   feeUpdated,
-  feeNote,
   onMergeNotes,
   onBack,
   onConfirm,
@@ -82,12 +79,6 @@ export function SendReviewStep({
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
         />
-
-        {feeNote ? (
-          <div className={styles.feeNote} role="note">
-            {feeNote}
-          </div>
-        ) : null}
 
         {submitBlockedReason ? (
           <div className={styles.syncNotice} role="status" aria-live="polite">

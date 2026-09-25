@@ -17,7 +17,6 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     totalDeducted: extras?.totalDeducted ?? 5_000_000n,
     networkName: extras?.networkName,
     submitBlockedReason: extras?.submitBlockedReason,
-    feeNote: extras?.feeNote,
     onMergeNotes: extras?.onMergeNotes,
     isSubmitting: extras?.isSubmitting,
     onBack: extras?.onBack ?? vi.fn(),
@@ -28,23 +27,11 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
 }
 
 describe('<SendReviewStep>', () => {
-  it('shows the fee note when one is given (a split send explains its higher fee)', () => {
-    renderReview({ feeNote: 'The fee covers 2 proofs.' })
-    expect(screen.getByText('The fee covers 2 proofs.')).toBeInTheDocument()
-    // A note, not a blocker — Confirm stays enabled.
-    expect(screen.getByRole('button', { name: 'Confirm send' })).not.toBeDisabled()
-  })
-
   it('offers "Merge notes" in the blocked notice when merging would unblock the send', () => {
     const onMergeNotes = vi.fn()
     renderReview({ submitBlockedReason: 'Merge your notes, then try again.', onMergeNotes })
     fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
     expect(onMergeNotes).toHaveBeenCalledOnce()
-  })
-
-  it('shows no fee note by default', () => {
-    renderReview()
-    expect(screen.queryByText(/proofs/)).toBeNull()
   })
 
   it('private: shows the "Private transfer." notice and no network row', () => {

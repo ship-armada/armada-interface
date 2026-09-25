@@ -27,6 +27,11 @@ describe('<MergeReviewStep>', () => {
     expect(screen.getAllByText('0.04 USDC')).toHaveLength(2)
   })
 
+  it('shows no explainer copy — the notes and fee speak for themselves', () => {
+    renderReview()
+    expect(screen.queryByText(/Merging combines/)).toBeNull()
+  })
+
   it('says the blocked action will go through after the merge', () => {
     renderReview({ blockedAction: 'withdrawal', preview: { ...PREVIEW, blockedWillWork: true } })
     expect(screen.getByText('After this merge, your withdrawal will go through.')).toBeInTheDocument()

@@ -16,7 +16,7 @@ which the Unshield tab and `ActivityReceipt` reuse to render unshield reviews/re
 | `SendRecipientStep` | First step. Editable recipient (0zk or 0x), a privacy indicator, a destination-chain selector shown **only** for public 0x recipients, and a **recent-recipients list** below the action row. Continue is gated on a valid address. |
 | `RecentAddressList` | Presentational "Recent address" list — previously-used recipients as one-tap rows (arrow badge + truncated address + relative time). Data comes from `useRecentRecipients` (derived from settled tx history); a click fills the recipient and restores its destination chain. Empty history renders nothing. Hidden on mobile once a valid address is typed. |
 | `SendInputStep` | Amount step. `DepositAmountCard` with the chain rendered **statically** (chosen on the recipient step). Gates Review on the amount only. |
-| `SendReviewStep` | Read-only echo. Shows the resolved mode label (Private transfer / External wallet) + cross-chain tag when applicable. Variant drives the headline + confirm label. Optional `feeNote` explains a split private send's higher fee. |
+| `SendReviewStep` | Read-only echo. Shows the resolved mode label (Private transfer / External wallet) + cross-chain tag when applicable. Variant drives the headline + confirm label. |
 | `SendCompleteStep` | Frost-card confirmation; title by variant (send → "USDC send confirmed", withdraw → "USDC unshield confirmed"). |
 
 ## Step machine
@@ -48,7 +48,7 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   shared across the kinds.
 - A private (0zk) send's fee is **planned, not quoted**: a wallet of many small notes splits into
   several proofs, each paying the quoted `transfer` fee. `useTransferFeePlan` prices the send at
-  review (total fee, fee-aware Max, a note when it splits, Confirm blocked while pricing or when the
+  review (total fee, fee-aware Max, Confirm blocked while pricing or when the
   planner refuses). At Confirm the send is re-priced at the fresh quote; a different total bounces
   back to Review with the FeeUpdatedBanner. The record stores the approved total
   (`broadcasterFeeAmount`) and the per-proof fee (`broadcasterFeePerProof`). Unshields never split,
