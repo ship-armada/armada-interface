@@ -4,6 +4,7 @@
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { EarnReviewSummary } from './EarnReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
+import { MergeNotesNotice } from '@/components/consolidate/MergeNotesNotice'
 import { formatUsdcPlain } from '@/lib/format'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import type { EarnTab } from './EarnInputStep'
@@ -20,13 +21,16 @@ export interface EarnReviewStepProps {
    * is the private-balance debit (`amount + fee`); for Withdraw it's the net private-balance gain
    * (`amount - fee`, the fee skimmed from the redeemed proceeds).
    */
-  netAmount: bigint
+  netAmount: bigint | null
   /** Label paired with `netAmount` — also per-tab from the modal. */
   netLabel: string
   /** Cross-tab estimate flag — withdraw redeems fixed shares at the execution-rate, so the net is an
    *  estimate (marks the total with `≈` + a caption). Deposit is exact. */
   estimated?: boolean
   submitBlockedReason?: string | null
+  /** Set when the wallet is too fragmented for the vault action — shows the "Too many small notes" callout
+   *  (with its "Merge notes" button) and holds Confirm. */
+  onMergeNotes?: () => void
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
@@ -44,6 +48,7 @@ export function EarnReviewStep({
   netLabel,
   estimated,
   submitBlockedReason,
+  onMergeNotes,
   isSubmitting,
   feeUpdated,
   onBack,
@@ -82,6 +87,8 @@ export function EarnReviewStep({
           </p>
         ) : null}
 
+        {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
+
         {submitBlockedReason ? (
           <div className={styles.syncNotice} role="status" aria-live="polite">
             {submitBlockedReason}
@@ -105,7 +112,7 @@ export function EarnReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={Boolean(submitBlockedReason) || isSubmitting}
+          disabled={Boolean(submitBlockedReason) || Boolean(onMergeNotes) || isSubmitting}
         />
       </div>
     </div>

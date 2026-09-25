@@ -10,6 +10,8 @@ Auxiliary dialogs for the Settings page — destructive actions are gated here s
 | `ResetWalletDialog` | Destructive — requires typing "reset" before the Reset CTA enables. Calls `useShieldedWallet().reset()`. |
 | `ClearHistoryDialog` | V1 Phase 9 — wipes the local `txHistory` IDB store + per-wallet checkpoint, then bumps `historyRecoveryTriggerAtom` (`silent: false` — a user-initiated rebuild surfaces the recovery banner) so the recovery hook rebuilds from chain. Single-confirm (no typed phrase) because the action is reversible via re-scan. |
 
+The Settings modal also shows a **Notes** card when a shielded token is spread across `MERGE_SUGGEST_NOTE_COUNT` (5) or more notes (`useNoteCounts`) — each such token gets a "Merge" button that opens the `merge` modal (`components/consolidate/`). Hidden when nothing needs merging.
+
 ## Conventions
 
 - Dialogs use the `Modal` primitive directly (not `ActionFlowShell`) since they're single-screen, not multi-step flows.

@@ -10,6 +10,7 @@ export type TxKind =
   | 'transfer-shielded-received'
   | 'yield-deposit'
   | 'yield-withdraw'
+  | 'consolidate'
 
 /**
  * Execution lifecycle state — separate from the protocol stage so they don't
@@ -133,6 +134,13 @@ export type StageYieldWithdraw =
   | 'hub-pending'
   | 'hub-confirmed'
 
+/** Note consolidation (armada-sdk #98): relayer-submitted like a private send. */
+export type StageConsolidate =
+  | 'build-proof'
+  | 'submit-relayer'
+  | 'hub-pending'
+  | 'hub-confirmed'
+
 export type TxStage =
   | StageShield
   | StageShieldXchain
@@ -142,6 +150,7 @@ export type TxStage =
   | StageReceived
   | StageYieldDeposit
   | StageYieldWithdraw
+  | StageConsolidate
 
 /* Per-kind stage map — used to constrain `TxRecord<K>['stage']` to legal values. */
 export type StageFor<K extends TxKind> =
@@ -153,6 +162,7 @@ export type StageFor<K extends TxKind> =
   : K extends 'transfer-shielded-received' ? StageReceived
   : K extends 'yield-deposit' ? StageYieldDeposit
   : K extends 'yield-withdraw' ? StageYieldWithdraw
+  : K extends 'consolidate' ? StageConsolidate
   : never
 
 /* Meta — input parameters captured at tx submit time. */
@@ -271,6 +281,9 @@ export interface MetaShieldXchain extends MetaCommon {
 export interface MetaUnshieldLocal extends MetaCommon, MetaBroadcaster {
   /** EVM recipient on the hub chain. */
   recipient: string
+  /** The on-chain protocol unshield fee shown at review (taken from the unshielded amount). Absent on
+   *  records written before it was stored, and on chain-recovered ones. */
+  protocolFee?: bigint
 }
 
 export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
@@ -278,6 +291,11 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
   toChainId: number
   /** EVM recipient on the destination chain. */
   recipient: string
+  /** The on-chain protocol unshield fee shown at review. Absent on older / chain-recovered records. */
+  protocolFee?: bigint
+  /** The CCTP fast fee shown at review (taken from the destination mint). Absent on older /
+   *  chain-recovered records. */
+  cctpFee?: bigint
 }
 
 /**
@@ -287,8 +305,16 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
  * cacheId already gates against the relayer rotating the schedule mid-flight.
  */
 interface MetaBroadcaster {
-  /** USDC raw amount paid to the relayer's broadcaster output. */
+  /** USDC raw amount paid to the relayer's broadcaster output(s) — the spend's TOTAL fee (see below). */
   broadcasterFeeAmount: bigint
+  /**
+   * The relayer's quoted fee PER PROOF. `broadcasterFeeAmount` is then the TOTAL: the fee the user reviewed,
+   * then the fee actually charged once build-proof plans it — one per-proof fee per proof for a multi-proof
+   * spend (a fragmented wallet's split send, a merge), or one plus a small change the SDK folded into it.
+   * Absent on records written before spends were planned at review, and on a yield withdrawal (its fee is
+   * taken from the redeemed proceeds, not a note), where the per-proof fee equals `broadcasterFeeAmount`.
+   */
+  broadcasterFeePerProof?: bigint
   /** Relayer's shielded (`0zk`) address that the broadcaster output pays. */
   broadcasterShieldedAddress: string
 }
@@ -330,6 +356,23 @@ export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster, MetaYiel
   shares: bigint
 }
 
+/**
+ * Note consolidation (armada-sdk #98): merges one token's notes into fewer notes the wallet owns. No value
+ * leaves the wallet except the relayer fee, so `amount` is always 0n and the total deducted is
+ * `broadcasterFeeAmount` (USDC) — which keeps the fee-on-top math and the balance ledger right.
+ */
+export interface MetaConsolidate extends MetaCommon, MetaBroadcaster {
+  /** The token merged (USDC or vault shares). The fee is always USDC. On a record recovered from chain
+   *  this is the USDC fee leg's token (the scan can't see which token was merged). */
+  tokenAddress: `0x${string}`
+  /** The merged token's display name at submit ("USDC", "Vault shares"). Absent on recovered records. */
+  tokenSymbol?: string
+  /** How many of the token's notes the merge spends, and how many it leaves in their place. Absent on
+   *  records recovered from chain (the scan sees the fee leg, not the note counts). */
+  notesMerged?: number
+  notesCreated?: number
+}
+
 export type MetaFor<K extends TxKind> =
   K extends 'shield' ? MetaShield
   : K extends 'shield-xchain' ? MetaShieldXchain
@@ -339,6 +382,7 @@ export type MetaFor<K extends TxKind> =
   : K extends 'transfer-shielded-received' ? MetaTransferShieldedReceived
   : K extends 'yield-deposit' ? MetaYieldDeposit
   : K extends 'yield-withdraw' ? MetaYieldWithdraw
+  : K extends 'consolidate' ? MetaConsolidate
   : never
 
 /* Artifacts — opaque outputs accumulated as stages complete. */
@@ -394,6 +438,11 @@ export interface TxError {
   code: TxErrorCode
   message: string
   txHash?: `0x${string}`
+  /**
+   * An in-app fix the error screen can offer. `merge-notes`: the wallet's notes were too fragmented for
+   * the spend's circuit shape — merging them (a `consolidate` tx) unblocks it.
+   */
+  remedy?: 'merge-notes'
 }
 
 export interface ArtifactsCommon {
@@ -604,6 +653,19 @@ export interface ArtifactsUnshieldLocal extends ArtifactsCommon {
   }
 }
 
+export interface ArtifactsConsolidate extends ArtifactsCommon {
+  /**
+   * The consolidation's `transact([...])` calldata built during build-proof, so submit-relayer dispatches
+   * it without re-proving and it survives a reload. `value` is '0'; stringified for IDB. Mirrors
+   * `ArtifactsTransfer.transferTx`.
+   */
+  consolidateTx?: {
+    to: `0x${string}`
+    data: `0x${string}`
+    value: string
+  }
+}
+
 export type ArtifactsFor<K extends TxKind> =
   K extends 'unshield-xchain' ? ArtifactsXchain
   : K extends 'unshield-local' ? ArtifactsUnshieldLocal
@@ -612,6 +674,7 @@ export type ArtifactsFor<K extends TxKind> =
   : K extends 'yield-deposit' ? ArtifactsYield
   : K extends 'yield-withdraw' ? ArtifactsYield
   : K extends 'transfer-shielded' ? ArtifactsTransfer
+  : K extends 'consolidate' ? ArtifactsConsolidate
   : ArtifactsCommon
 
 /* Ownership / session context — captured at submit. Required for history

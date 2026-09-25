@@ -49,6 +49,7 @@ export function relayerFeeKeyForKind(kind: TxKind): RelayerFeeKey {
     case 'unshield-local':
       return 'unshield'
     case 'transfer-shielded':
+    case 'consolidate':
       return 'transfer'
     case 'transfer-shielded-received':
       // Synthetic received-transfer records are reconstructed from chain and never submitted, so
@@ -161,4 +162,24 @@ export function computeDisplayFees(
 /** @deprecated Use maxSpendableAmount from useDisplayFees.ts */
 export function maxInputAmount(balance: bigint, totalFee: bigint): bigint {
   return balance > totalFee ? balance - totalFee : 0n
+}
+
+/**
+ * Derive a send / unshield's confirmed receipt figures from its stored `meta` alone — the single source
+ * for the confirmation screen AND the Activity receipt. The fee is what was actually charged
+ * (`broadcasterFeeAmount`, recorded at build: a fragmented wallet's split send pays one per-proof fee per
+ * proof) plus the protocol / CCTP fees recorded at review; the total deducted is fee-on-top
+ * (`amount + broadcaster fee`), since those two come out of the recipient's side, not the shielded
+ * balance. Records written before the protocol / CCTP fees were stored show the broadcaster fee alone.
+ */
+export function spendReceiptFromMeta(meta: {
+  amount: bigint
+  broadcasterFeeAmount: bigint
+  protocolFee?: bigint
+  cctpFee?: bigint
+}): { fee: bigint; totalDeducted: bigint } {
+  return {
+    fee: meta.broadcasterFeeAmount + (meta.protocolFee ?? 0n) + (meta.cctpFee ?? 0n),
+    totalDeducted: meta.amount + meta.broadcasterFeeAmount,
+  }
 }

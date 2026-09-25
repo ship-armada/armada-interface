@@ -206,6 +206,13 @@ describe('DepositAmountCard — fee caption', () => {
     expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
     expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
   })
+
+  it('shows the fee as "—" (no figure) when it can\'t be worked out', () => {
+    // feeUnavailable = the send can't be priced (e.g. the planner refused it); the quote would mislead.
+    renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 1_286_550n }, feeUnavailable: true })
+    expect(screen.getByText('+ — FEE')).toBeInTheDocument()
+    expect(screen.queryByText(/1\.28655/)).not.toBeInTheDocument()
+  })
 })
 
 describe('DepositAmountCard — incomplete-CTA nudge shake', () => {

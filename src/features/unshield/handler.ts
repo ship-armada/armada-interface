@@ -10,7 +10,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildUnshieldSdk } from '@/lib/shielded/unshield-sdk'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
-import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
+import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { advance, markFailed } from '@/lib/tx/reducer'
@@ -59,6 +59,9 @@ export const unshieldLocalHandler: StageHandler<'unshield-local'> = {
       // hub-confirmed is terminal; advance() flips executionState to 'completed' so the executor
       // loop won't re-enter this handler. Defensive no-op for resume-on-load.
     } catch (err) {
+      // Nothing was broadcast on this path (or the stash was already consumed at broadcast) — drop any
+      // stashed plans (#55) rather than keep them for the session.
+      forgetSpendPlan(record.id)
       // Abort-during-handler path: if the user cancelled (or the executor dismissed) we've
       // already written the terminal cancelled/dismissed state via abortAndMark / dismissTx.
       // Returning without upserting prevents us from clobbering it with a failed record (OCC
@@ -71,12 +74,16 @@ export const unshieldLocalHandler: StageHandler<'unshield-local'> = {
   },
 }
 
-/** The broadcaster fee note context — always present (spends are relayer-submitted; #23). */
+/**
+ * The broadcaster fee note context — always present (spends are relayer-submitted; #23). The plan pays
+ * the PER-PROOF fee; `broadcasterFeeAmount` is the reviewed total, which can include small change the SDK
+ * folds into the fee. Records from before review-time planning carry no per-proof fee — it equals the total.
+ */
 function broadcasterFeeFromRecord(
   record: TxRecord<'unshield-local'>,
 ): { amount: bigint; recipientAddress: string } {
   return {
-    amount: record.meta.broadcasterFeeAmount,
+    amount: record.meta.broadcasterFeePerProof ?? record.meta.broadcasterFeeAmount,
     recipientAddress: record.meta.broadcasterShieldedAddress,
   }
 }
@@ -102,17 +109,25 @@ async function runBuildProof(
   // Build (plan → prove off-thread → serialize) the transact calldata and stash it, so submit-relayer
   // dispatches it without re-proving — and, persisted in the record, it survives a reload. `recordId`
   // lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
-  const { to, data } = await buildUnshieldSdk({
+  // `maxTotalFee` is the fee the user reviewed: the build refuses to charge more (the wallet's notes may
+  // have changed since review, so the change can no longer be folded into the fee).
+  const { to, data, totalFee } = await buildUnshieldSdk({
     recipient: record.meta.recipient as `0x${string}`,
     amount: record.meta.amount,
     broadcasterFee: bf,
+    maxTotalFee: record.meta.broadcasterFeeAmount,
     poolAddress: deployments.hub.contracts.privacyPool as `0x${string}`,
     onProgress: progress.write,
     recordId: record.id,
     ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
-  await ctx.upsert(advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } }))
+  const built = advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } })
+  // Record the fee actually charged (≤ the reviewed fee) so the receipt shows what was paid.
+  const charged = totalFee === record.meta.broadcasterFeeAmount
+    ? built
+    : { ...built, meta: { ...built.meta, broadcasterFeeAmount: totalFee } }
+  await ctx.upsert(charged)
 }
 
 async function runSubmitAndConfirm(

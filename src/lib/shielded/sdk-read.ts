@@ -20,6 +20,7 @@ import { createInterfaceArtifactSource, createInterfaceProver } from './sdk-prov
 import { emitBalanceChange, emitScanStatus } from './balance-bus'
 import { sdkTelemetrySink } from './sdk-telemetry'
 import { track } from '../telemetry'
+import type { MergeToken } from './merge-intent'
 
 /** The shielded yield-vault share token (ayUSDC), if a yield deployment exists. */
 async function vaultTokenAddress(): Promise<`0x${string}` | undefined> {
@@ -306,6 +307,25 @@ export async function readSdkYieldShares(): Promise<bigint> {
   const vaultHash = getTokenDataHash(getTokenDataERC20(vault))
   const shares = (await wallet.balances()).find(b => b.tokenHash === vaultHash)
   return shares ? shares.spendable + shares.pending : 0n
+}
+
+/** The token address a note merge targets: the hub USDC, or the yield-vault share token (undefined with
+ *  no yield deployment). */
+export async function mergeTokenAddress(token: MergeToken): Promise<`0x${string}` | undefined> {
+  if (token === 'shares') return vaultTokenAddress()
+  return (await readPathConfig()).pool.usdcAddress
+}
+
+/** How many spendable notes back each mergeable token's balance — the cue to offer a merge. Does not sync. */
+export async function readSdkNoteCounts(): Promise<Record<MergeToken, number>> {
+  const [{ wallet }, usdc, shares] = await Promise.all([ensureInstance(), mergeTokenAddress('usdc'), mergeTokenAddress('shares')])
+  const balances = await wallet.balances()
+  const notesOf = (address: `0x${string}` | undefined): number => {
+    if (address === undefined) return 0
+    const hash = getTokenDataHash(getTokenDataERC20(address))
+    return balances.find(b => b.tokenHash === hash)?.spendableNotes ?? 0
+  }
+  return { usdc: notesOf(usdc), shares: notesOf(shares) }
 }
 
 /** Reconstruct the SDK wallet's tx history from the current scan state (optionally only entries at/after `sinceBlock`). Does not sync. */

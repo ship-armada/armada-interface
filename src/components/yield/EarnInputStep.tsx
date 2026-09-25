@@ -42,6 +42,10 @@ export interface EarnInputStepProps {
   displayFees: DisplayFees
   flowBreakdown?: FlowFeeBreakdown
   feeLoading?: boolean
+  /** The deposit's fee is still being planned: the caption says "Estimating fees…" instead of a figure. */
+  feeResolving?: boolean
+  /** The deposit can't be planned at this amount: the caption shows the fee as "—". */
+  feeUnavailable?: boolean
   gasChainId: number
   /**
    * When true, the relayer pays gas — suppresses the GasBalanceNotice. Both `yield-deposit` and
@@ -95,6 +99,8 @@ export function EarnInputStepContent({
   displayFees,
   flowBreakdown,
   feeLoading = false,
+  feeResolving = false,
+  feeUnavailable = false,
   gasChainId,
   gaslessMode = true,
   rate,
@@ -114,6 +120,8 @@ export function EarnInputStepContent({
   | 'displayFees'
   | 'flowBreakdown'
   | 'feeLoading'
+  | 'feeResolving'
+  | 'feeUnavailable'
   | 'gasChainId'
   | 'gaslessMode'
   | 'rate'
@@ -178,6 +186,8 @@ export function EarnInputStepContent({
         displayFees={displayFees}
         flowBreakdown={flowBreakdown}
         feeLoading={feeLoading}
+        feeResolving={feeResolving}
+        feeUnavailable={feeUnavailable}
         // maxInput drives the 25% / 50% / 75% / Max percent pills; onMax keeps the exact fee-aware cap.
         maxInput={maxInput}
         balanceRaw={max}

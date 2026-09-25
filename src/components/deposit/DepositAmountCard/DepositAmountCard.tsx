@@ -57,6 +57,11 @@ export interface DepositAmountCardProps {
    */
   feeResolving?: boolean
   /**
+   * True when the fee can't be worked out for this amount (e.g. a fragmented wallet's send the planner
+   * refuses). The caption shows "—" instead of a figure, since any quote would suggest the send fits.
+   */
+  feeUnavailable?: boolean
+  /**
    * True when the user pays network gas themselves — the direct shield path (`!gaslessMode`). Gates
    * the "+ ~X ETH gas" caption segment + the tooltip's network-gas line. Relayer-mediated flows
    * (all spends, gasless shield) pass false: the relayer covers gas, so no ETH figure is shown.
@@ -107,6 +112,7 @@ export function DepositAmountCard({
   displayFees,
   feeLoading = false,
   feeResolving = false,
+  feeUnavailable = false,
   userPaysNativeGas = false,
   flowBreakdown,
   onMax,
@@ -225,7 +231,8 @@ export function DepositAmountCard({
   // While the fee path is still resolving we don't yet know if it's gasless (USDC) or direct (ETH
   // gas), so surface a neutral "Estimating…" caption instead of either committed segment.
   const showResolving = showActiveAmount && feeResolving
-  const showFee = showActiveAmount && !feeResolving && displayFees !== undefined && totalFeeRaw > 0n
+  const showUnavailable = showActiveAmount && !feeResolving && feeUnavailable
+  const showFee = showActiveAmount && !feeResolving && !feeUnavailable && displayFees !== undefined && totalFeeRaw > 0n
   // The ETH network-gas segment shows ONLY when the caller says the user pays gas themselves — the
   // direct shield path (`!gaslessMode`). This is an explicit signal, NOT inferred from a zero
   // broadcaster fee: a relayer-submitted spend with a not-yet-loaded fee is also 0, and must not
@@ -310,6 +317,8 @@ export function DepositAmountCard({
         <div className={`armada-text-ui-label-md ${styles.feeCaption}`} role="status">
           {showResolving ? (
             <span className={styles.feeResolving}>Estimating fees…</span>
+          ) : showUnavailable ? (
+            <span>+ — FEE</span>
           ) : (showFee || showGas) && displayFees ? (
             <>
               {showFee ? <span>+ ${formatUsdcAmount(totalFeeRaw)} FEE</span> : null}

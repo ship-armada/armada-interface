@@ -6,6 +6,7 @@ import { transactionToTuple, encodeCctpBinding } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
+import { assertReviewedFee, totalFeeOf } from './spend-fee'
 
 /**
  * PrivacyPool.atomicCrossChainUnshield ABI — the proved Transaction struct wrapped with the CCTP
@@ -74,6 +75,9 @@ export interface SdkXchainUnshieldInputs {
   readonly amount: bigint
   /** Broadcaster (relayer) fee note, or null for direct user submission (no fee output). */
   readonly broadcasterFee: { readonly amount: bigint; readonly recipientAddress: string } | null
+  /** The total fee the user reviewed. The build refuses (`SpendFeeIncreasedError`) if planning now charges
+   *  more — e.g. a sync moved the notes so the change can no longer be folded into the fee. Omit to skip. */
+  readonly maxTotalFee?: bigint
   /** PrivacyPool address — the unshield note's recipient (pool forwards via CCTP) AND the tx `to`. */
   readonly privacyPoolAddress: `0x${string}`
   /** Final USDC recipient on the destination chain — bound into adaptParams, NOT the unshield npk. */
@@ -98,11 +102,12 @@ export interface SdkXchainUnshieldInputs {
  * recipient on another chain); the real destination (`finalRecipient` + `destinationDomain` + `maxFee`)
  * is bound into `boundParams.adaptParams` via `encodeCctpBinding`, so a relayer/front-runner cannot
  * redirect the exit (#364/#378/#399). The proved struct is embedded into `atomicCrossChainUnshield`
- * calldata via `transactionToTuple` (which applies the G2 swap). Returns `{ to, data }`.
+ * calldata via `transactionToTuple` (which applies the G2 swap). Returns `{ to, data }` and `totalFee`,
+ * the fee the plan actually charges (the per-proof fee, plus any small change the SDK folded into it).
  */
 export async function buildXchainUnshieldSdk(
   inputs: SdkXchainUnshieldInputs,
-): Promise<{ to: `0x${string}`; data: `0x${string}` }> {
+): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint }> {
   const wallet = await getSdkWallet()
   const fee = inputs.broadcasterFee
     ? {
@@ -114,17 +119,23 @@ export async function buildXchainUnshieldSdk(
     : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
 
   const adaptParams = encodeCctpBinding(inputs.finalRecipient, inputs.destinationDomain, inputs.maxFee)
-  const plan = await wallet.planTransfer({
+  // Cross-chain unshield is an adaptParams unshield — not split (planSpend only splits plain transfers),
+  // so this is exactly one group; atomicCrossChainUnshield takes a single proved Transaction tuple.
+  const plans = await wallet.planTransfer({
     outputs: [],
     unshield: { recipient: inputs.privacyPoolAddress, amount: inputs.amount, adaptParams },
     fee,
   })
+  const plan = plans[0]
+  if (plans.length !== 1 || !plan) throw new Error('unshield-xchain: expected a single plan group')
+  const totalFee = totalFeeOf(plans)
+  assertReviewedFee(totalFee, inputs.maxTotalFee)
   // Pre-proof gate: reject a stale root / already-spent input in <1s instead of proving for ~30s and
   // reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
   await assertSpendPreflight(wallet, plan)
   // Stash the plan so the handler can mark its inputs pending after broadcast (#55). After preflight
   // so an already-spent-input build never leaves a stale hold.
-  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plan)
+  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plans)
   const handle = await wallet.prove(plan, {
     ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
@@ -136,5 +147,5 @@ export async function buildXchainUnshieldSdk(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args: [transactionToTuple(handle.toTransactionData()) as any, inputs.destinationDomain, inputs.finalRecipient, inputs.maxFee, inputs.uniqueNonce],
   })
-  return { to: inputs.privacyPoolAddress, data }
+  return { to: inputs.privacyPoolAddress, data, totalFee }
 }
