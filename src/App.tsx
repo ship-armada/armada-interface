@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/AppLayout'
 import { SignInFlow } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
 import { SendModal } from '@/components/payments'
+import { MergeModal } from '@/components/consolidate/MergeModal'
 import { ReceiveDialog } from '@/components/receive'
 import { RequestModal } from '@/components/request'
 import { EarnModal } from '@/components/yield'
@@ -211,6 +212,7 @@ export function App() {
       <ReceiveDialog />
       <RequestModal />
       <SettingsModal />
+      <MergeModal />
     </>
   )
 }

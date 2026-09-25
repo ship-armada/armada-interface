@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { ShieldModal } from './ShieldModal'
-import { openModalAtom } from '@/state/ui'
+import { mergeIntentAtom, openModalAtom } from '@/state/ui'
 import {
   activeShieldedWalletIdAtom,
   evmAddressAtom,
@@ -290,6 +290,26 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(screen.getByRole('dialog', { name: 'Unshield' })).toBeInTheDocument()
     expect(screen.getByText('Unshield your USDC')).toBeInTheDocument()
     expect(screen.getByLabelText('Unshield amount')).toBeInTheDocument()
+  })
+
+  it('offers "Merge notes" when an unshield failed because the wallet is too fragmented', async () => {
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'unshield-local'
+          ? ({ ...r, executionState: 'failed', artifacts: { ...r.artifacts, error: { code: 'PRE_FLIGHT_REVERT', message: 'Merge your notes, then try again.', remedy: 'merge-notes' } } } as TxRecord)
+          : r,
+      ))
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Merge notes' }))
+    expect(store.get(openModalAtom)).toBe('merge')
+    expect(store.get(mergeIntentAtom)).toMatchObject({ token: 'usdc', blocked: { kind: 'unshield-local', amount: 3_000_000n } })
   })
 
   it('opens on the Shield tab from openModal=shield with both tabs present', () => {

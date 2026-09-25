@@ -67,7 +67,9 @@ describe('useTransferFeePlan', () => {
   it('surfaces a planner error as friendly copy and leaves the fee unknown', async () => {
     hoisted.planTransferFee.mockRejectedValue(new TooFragmentedError('needs 40 notes'))
     const { result } = renderPlan()
-    await waitFor(() => expect(result.current.error).toMatch(/smaller amount/i))
+    await waitFor(() => expect(result.current.error).toMatch(/merge your notes/i))
+    // Too fragmented is fixable in-app: review offers "Merge notes".
+    expect(result.current.remedy).toBe('merge-notes')
     expect(result.current.fee).toBeNull()
     expect(result.current.pending).toBe(false)
   })

@@ -30,6 +30,8 @@ export interface SendReviewStepProps {
   feeUpdated?: boolean
   /** Explains the fee below the summary (e.g. why a fragmented wallet's split send costs more). */
   feeNote?: string | null
+  /** Set when merging the wallet's notes would unblock the send — adds "Merge notes" to the blocked notice. */
+  onMergeNotes?: () => void
   onBack: () => void
   onConfirm: () => void
 }
@@ -47,6 +49,7 @@ export function SendReviewStep({
   isSubmitting,
   feeUpdated,
   feeNote,
+  onMergeNotes,
   onBack,
   onConfirm,
 }: SendReviewStepProps) {
@@ -89,6 +92,9 @@ export function SendReviewStep({
         {submitBlockedReason ? (
           <div className={styles.syncNotice} role="status" aria-live="polite">
             {submitBlockedReason}
+            {onMergeNotes ? (
+              <Button variant="secondary" size="sm" label="Merge notes" showIcon={false} onClick={onMergeNotes} />
+            ) : null}
           </div>
         ) : null}
       </div>

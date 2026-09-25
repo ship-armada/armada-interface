@@ -31,6 +31,7 @@ import { ShieldWalletStep } from './ShieldWalletStep'
 import { ShieldCompleteStep } from './ShieldCompleteStep'
 import { SendReviewStep } from '@/components/payments/SendReviewStep'
 import { SendCompleteStep } from '@/components/payments/SendCompleteStep'
+import { useMergeNotes } from '@/hooks/useMergeNotes'
 
 // Shield has a dedicated Wallet step (approve/sign); Unshield is relayer-submitted (no wallet sign).
 const SHIELD_TAB_STEPS = ['Amount', 'Review', 'Wallet', 'Confirm']
@@ -59,6 +60,8 @@ export function ShieldModal() {
   // The nudge shakes the amount CARD (mockup), so the hook lives here — the common parent of the
   // card (Content) + CTA (Footer). Tapping the incomplete CTA fires nudge() + focus.
   const { shaking, nudge, onShakeAnimationEnd } = useNudgeShake()
+  // A spend blocked by fragmentation offers "Merge notes" on its error screen (a consolidate tx).
+  const { remedyFor } = useMergeNotes()
   const nudgeIncomplete = () => {
     nudge()
     amountInputRef.current?.focus()
@@ -251,6 +254,7 @@ export function ShieldModal() {
 
       {step === 'error' && (
         <ErrorStep
+          remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
           message={active.submitError ?? undefined}
           explorerUrl={explorerUrl}

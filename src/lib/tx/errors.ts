@@ -93,16 +93,18 @@ function classifySdkError(err: unknown): TxError | null {
         code: 'PRE_FLIGHT_REVERT',
         message: "This wallet is unlocked in view-only mode and can't spend. Unlock with your signature to send.",
       }
+    // Both mean the wallet's notes are too fragmented for the spend's circuit shape; merging them fixes it.
     case 'UNSUPPORTED_CIRCUIT_SHAPE':
       return {
         code: 'PRE_FLIGHT_REVERT',
-        message: "This transaction needs a circuit shape the deployment doesn't provide. Try sending a smaller amount.",
+        message: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.',
+        remedy: 'merge-notes',
       }
     case 'TOO_FRAGMENTED':
       return {
         code: 'PRE_FLIGHT_REVERT',
-        message:
-          'This would spend too many of your smaller notes at once. Send a smaller amount for now — a few smaller sends will merge them into fewer notes.',
+        message: 'This would spend too many of your small notes at once. Merge your notes, then try again.',
+        remedy: 'merge-notes',
       }
     case 'NOTHING_TO_CONSOLIDATE':
       return {

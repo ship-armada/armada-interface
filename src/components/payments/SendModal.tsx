@@ -13,6 +13,7 @@ import {
   shieldedWalletAtom,
 } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
+import { useMergeNotes } from '@/hooks/useMergeNotes'
 import { useRecentRecipients } from '@/hooks/useRecentRecipients'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
 import { useFees } from '@/hooks/useFees'
@@ -202,6 +203,8 @@ export function SendModal() {
     : submittedKind === 'unshield-xchain' ? txUnshieldXchain
     : null
   const record = activeTx?.record ?? null
+  // A spend blocked by fragmentation offers "Merge notes" on its error screen (a consolidate tx).
+  const { remedyFor, openMerge } = useMergeNotes()
 
   // Quoted fee per (kind, amount, quote):
   //   transfer-shielded → relayer's `transfer` tier from the quote (A4) — the PER-PROOF fee; the
@@ -531,6 +534,15 @@ export function SendModal() {
           submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason}
           feeUpdated={feeChanged}
           feeNote={splitFeeNote}
+          {...(isPrivate && transferPlan.remedy === 'merge-notes'
+            ? {
+                onMergeNotes: () =>
+                  openMerge({
+                    token: 'usdc',
+                    blocked: { kind: 'transfer-shielded', amount, recipient, perProofFee: quotedFee },
+                  }),
+              }
+            : {})}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}
           onConfirm={handleSubmit}
@@ -560,6 +572,7 @@ export function SendModal() {
       )}
       {step === 'error' && (
         <ErrorStep
+          remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
           message={submitError ?? undefined}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { SendModal } from './SendModal'
-import { openModalAtom, paymentIntentAtom } from '@/state/ui'
+import { mergeIntentAtom, openModalAtom, paymentIntentAtom } from '@/state/ui'
 import {
   activeShieldedWalletIdAtom,
   evmAddressAtom,
@@ -89,6 +89,7 @@ const hoistedPlan = vi.hoisted(() => {
     proofs: 1 as number | null,
     maxInput: null as bigint | null,
     error: null as string | null,
+    remedy: null as 'merge-notes' | null,
     pending: false,
     priceAt: vi.fn(async () => 0n),
     invalidate: vi.fn(async () => {}),
@@ -344,6 +345,36 @@ describe('<SendModal>', () => {
       reviewPrivateSend()
       expect(screen.getByText('Send a smaller amount for now.')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    })
+
+    it('offers "Merge notes" when the planner says the wallet is too fragmented, carrying the blocked send', () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: null, proofs: null, error: 'Merge your notes, then try again.', remedy: 'merge-notes' }
+      const store = reviewPrivateSend()
+      fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+      expect(store.get(openModalAtom)).toBe('merge')
+      expect(store.get(mergeIntentAtom)).toEqual({
+        token: 'usdc',
+        blocked: { kind: 'transfer-shielded', amount: 3_000_000n, recipient: VALID_0ZK, perProofFee: 0n },
+      })
+    })
+
+    it('offers "Merge notes" on the error screen when the send failed for fragmentation', async () => {
+      const store = reviewPrivateSend()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(screen.getByText('Preparing transaction')).toBeInTheDocument())
+      // The handler failed the build: too fragmented, fixable by merging.
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === 'transfer-shielded'
+            ? ({ ...r, executionState: 'failed', artifacts: { ...r.artifacts, error: { code: 'PRE_FLIGHT_REVERT', message: 'Merge your notes, then try again.', remedy: 'merge-notes' } } } as TxRecord)
+            : r,
+        ))
+      })
+      fireEvent.click(await screen.findByRole('button', { name: 'Merge notes' }))
+      expect(store.get(openModalAtom)).toBe('merge')
+      expect(store.get(mergeIntentAtom)?.blocked?.kind).toBe('transfer-shielded')
     })
 
     it('offers the fee-aware Max from the plan', () => {

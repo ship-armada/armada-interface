@@ -4,7 +4,9 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { EarnModal } from './EarnModal'
-import { openModalAtom } from '@/state/ui'
+import { mergeIntentAtom, openModalAtom } from '@/state/ui'
+import { txListAtom } from '@/state/tx'
+import type { TxRecord } from '@/lib/tx/types'
 import { activeShieldedWalletIdAtom, shieldedUsdcAtom, shieldedUsdcSpendableAtom } from '@/state/wallet'
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
 import { withTestQueryClient } from '@/test-utils/queryClient'
@@ -151,6 +153,26 @@ describe('<EarnModal>', () => {
     await waitFor(() => {
       expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
     })
+  })
+
+  it('offers "Merge notes" when the deposit failed because the wallet is too fragmented', async () => {
+    const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
+    })
+    await waitFor(() => expect(screen.getByText('Preparing transaction')).toBeInTheDocument())
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'yield-deposit'
+          ? ({ ...r, executionState: 'failed', artifacts: { ...r.artifacts, error: { code: 'PRE_FLIGHT_REVERT', message: 'Merge your notes, then try again.', remedy: 'merge-notes' } } } as TxRecord)
+          : r,
+      ))
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Merge notes' }))
+    expect(store.get(openModalAtom)).toBe('merge')
+    expect(store.get(mergeIntentAtom)).toMatchObject({ token: 'usdc', blocked: { kind: 'yield-deposit', amount: 3_000_000n } })
   })
 
   it('Cancel closes the modal', () => {

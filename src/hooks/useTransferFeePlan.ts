@@ -33,6 +33,8 @@ export interface TransferFeePlan {
   readonly maxInput: bigint | null
   /** Friendly reason the current amount can't be sent (too fragmented, insufficient, …); null when fine. */
   readonly error: string | null
+  /** The in-app fix for `error`, when there is one (`merge-notes`: the wallet's notes are too fragmented). */
+  readonly remedy: 'merge-notes' | null
   /** True while the current amount is being priced — Confirm must wait for the real fee. */
   readonly pending: boolean
   /** Re-price the current amount at a freshly fetched quote (submit time); resolves the total fee. */
@@ -96,14 +98,14 @@ export function useTransferFeePlan(args: UseTransferFeePlanArgs): TransferFeePla
 
   const priceable = active && args.amount > 0n
   const settled = priceable && debouncedAmount === args.amount && !feeQuery.isFetching
+  const failure =
+    settled && feeQuery.error ? classifyHandlerError(feeQuery.error, 'Could not work out the fee for this send.') : null
   return {
     fee: settled && feeQuery.data ? feeQuery.data.totalFee : null,
     proofs: settled && feeQuery.data ? feeQuery.data.proofs : null,
     maxInput: maxQuery.data ?? null,
-    error:
-      settled && feeQuery.error
-        ? classifyHandlerError(feeQuery.error, 'Could not work out the fee for this send.').message
-        : null,
+    error: failure?.message ?? null,
+    remedy: failure?.remedy ?? null,
     pending: priceable && !settled,
     priceAt,
     invalidate,

@@ -37,9 +37,9 @@ vi.mock('../../config/network', () => ({
   }),
 }))
 
-import { syncTracked, getSdkWallet, closeSdkRead } from './sdk-read'
+import { syncTracked, getSdkWallet, closeSdkRead, readSdkNoteCounts, mergeTokenAddress } from './sdk-read'
 import { track } from '@/lib/telemetry'
-import { createArmadaSdk } from '@armada/sdk'
+import { createArmadaSdk, getTokenDataERC20, getTokenDataHash } from '@armada/sdk'
 
 describe('syncTracked', () => {
   it('emits sdk.sync with the exact { fromBlock, syncedThrough, scanned } sync returned', async () => {
@@ -143,5 +143,34 @@ describe('ensureInstance — concurrency guard (getSdkWallet)', () => {
     expect(fakeSdk.close).toHaveBeenCalled() // the superseded build closed its freshly-opened SDK
     // The singleton is clean afterward: a fresh unlock rebuilds normally.
     await expect(getSdkWallet()).resolves.toBeDefined()
+  })
+})
+
+describe('note consolidation readers', () => {
+  const USDC = '0x0000000000000000000000000000000000000002'
+  beforeEach(async () => {
+    await closeSdkRead()
+    // Token hash = a readable function of the address, so balances can be matched by token.
+    vi.mocked(getTokenDataERC20).mockImplementation(((address: string) => address) as never)
+    vi.mocked(getTokenDataHash).mockImplementation(((data: string) => `hash:${data}`) as never)
+    const fakeWallet = {
+      on: vi.fn(),
+      balances: vi.fn(async () => [
+        { tokenHash: `hash:${USDC}`, spendable: 50n, pending: 0n, spendableNotes: 23 },
+        { tokenHash: 'hash:0xother', spendable: 5n, pending: 0n, spendableNotes: 9 },
+      ]),
+    }
+    const fakeSdk = { wallet: { fromRootSecret: vi.fn(async () => fakeWallet) }, close: vi.fn(async () => {}) }
+    vi.mocked(createArmadaSdk).mockReset()
+    vi.mocked(createArmadaSdk).mockResolvedValue(fakeSdk as unknown as Awaited<ReturnType<typeof createArmadaSdk>>)
+  })
+
+  it('reads the spendable note count per mergeable token (0 without a yield deployment)', async () => {
+    expect(await readSdkNoteCounts()).toEqual({ usdc: 23, shares: 0 })
+  })
+
+  it('resolves a merge target to its token address (undefined when the token has no deployment)', async () => {
+    expect(await mergeTokenAddress('usdc')).toBe(USDC)
+    expect(await mergeTokenAddress('shares')).toBeUndefined()
   })
 })

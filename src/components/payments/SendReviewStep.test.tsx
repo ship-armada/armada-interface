@@ -18,6 +18,7 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     networkName: extras?.networkName,
     submitBlockedReason: extras?.submitBlockedReason,
     feeNote: extras?.feeNote,
+    onMergeNotes: extras?.onMergeNotes,
     isSubmitting: extras?.isSubmitting,
     onBack: extras?.onBack ?? vi.fn(),
     onConfirm: extras?.onConfirm ?? vi.fn(),
@@ -32,6 +33,13 @@ describe('<SendReviewStep>', () => {
     expect(screen.getByText('The fee covers 2 proofs.')).toBeInTheDocument()
     // A note, not a blocker — Confirm stays enabled.
     expect(screen.getByRole('button', { name: 'Confirm send' })).not.toBeDisabled()
+  })
+
+  it('offers "Merge notes" in the blocked notice when merging would unblock the send', () => {
+    const onMergeNotes = vi.fn()
+    renderReview({ submitBlockedReason: 'Merge your notes, then try again.', onMergeNotes })
+    fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+    expect(onMergeNotes).toHaveBeenCalledOnce()
   })
 
   it('shows no fee note by default', () => {

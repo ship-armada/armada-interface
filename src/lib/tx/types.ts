@@ -431,6 +431,11 @@ export interface TxError {
   code: TxErrorCode
   message: string
   txHash?: `0x${string}`
+  /**
+   * An in-app fix the error screen can offer. `merge-notes`: the wallet's notes were too fragmented for
+   * the spend's circuit shape — merging them (a `consolidate` tx) unblocks it.
+   */
+  remedy?: 'merge-notes'
 }
 
 export interface ArtifactsCommon {

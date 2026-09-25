@@ -34,6 +34,7 @@ import { EarnInputStepContent, EarnInputStepFooter, type EarnTab } from './EarnI
 import { useDisplayFees } from '@/hooks/useDisplayFees'
 import { EarnReviewStep } from './EarnReviewStep'
 import { EarnCompleteStep } from './EarnCompleteStep'
+import { useMergeNotes } from '@/hooks/useMergeNotes'
 
 type LocalStep = FlowStep
 
@@ -171,6 +172,8 @@ export function EarnModal() {
     : submittedKind === 'yield-withdraw' ? txWithdraw
     : null
   const record = activeTx?.record ?? null
+  // A spend blocked by fragmentation offers "Merge notes" on its error screen (a consolidate tx).
+  const { remedyFor } = useMergeNotes()
 
   // Completion-screen figures. Once a record exists its meta is authoritative — for WITHDRAW the
   // handler reconciles meta.amount to the ACTUAL redeemed gross (shares × execution-rate), so "confirm"
@@ -408,6 +411,7 @@ export function EarnModal() {
       )}
       {step === 'error' && (
         <ErrorStep
+          remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
           message={submitError ?? undefined}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

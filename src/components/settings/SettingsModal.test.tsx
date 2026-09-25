@@ -1,12 +1,16 @@
 // ABOUTME: Tests for the Settings overlay — opens via openModalAtom, three sections render, gated buttons honor wallet state, preference selects/toggles wire to atom.
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { SettingsModal } from './SettingsModal'
-import { openModalAtom } from '@/state/ui'
+import { mergeIntentAtom, openModalAtom } from '@/state/ui'
 import { activeShieldedWalletIdAtom, shieldedWalletsAtom } from '@/state/wallet'
 import { preferencesAtom, DEFAULT_PREFERENCES } from '@/state/preferences'
+
+// Note counts come from the SDK scan state; stub the hook so each test sets what the wallet holds.
+const hoistedNotes = vi.hoisted(() => ({ counts: null as { usdc: number; shares: number } | null }))
+vi.mock('@/hooks/useNoteCounts', () => ({ useNoteCounts: () => hoistedNotes.counts }))
 
 function renderSettings(opts?: { walletUnlocked?: boolean; noWallet?: boolean }) {
   const store = createStore()
@@ -32,6 +36,25 @@ function renderSettings(opts?: { walletUnlocked?: boolean; noWallet?: boolean })
 describe('<SettingsModal>', () => {
   beforeEach(() => {
     window.localStorage.clear()
+    hoistedNotes.counts = null
+  })
+
+  it('offers "Merge" for each token spread across 5 or more notes, with the count', () => {
+    hoistedNotes.counts = { usdc: 23, shares: 2 }
+    const store = renderSettings({ walletUnlocked: true })
+    expect(screen.getByRole('heading', { name: 'Notes' })).toBeInTheDocument()
+    expect(screen.getByText('USDC — 23 notes')).toBeInTheDocument()
+    // Two share notes don't need merging (every spend fits), so there's no row for them.
+    expect(screen.queryByText(/Vault shares/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }))
+    expect(store.get(openModalAtom)).toBe('merge')
+    expect(store.get(mergeIntentAtom)).toEqual({ token: 'usdc' })
+  })
+
+  it('hides the Notes card when no token needs merging', () => {
+    hoistedNotes.counts = { usdc: 4, shares: 0 }
+    renderSettings({ walletUnlocked: true })
+    expect(screen.queryByRole('heading', { name: 'Notes' })).toBeNull()
   })
 
   it('renders the three section titles', () => {

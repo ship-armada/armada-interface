@@ -231,16 +231,22 @@ describe('classifyHandlerError — ChainMismatchError branch (W-4)', () => {
 })
 
 describe('classifyHandlerError — shape-aware planner errors', () => {
-  it('maps UnsupportedCircuitShapeError to PRE_FLIGHT_REVERT (nothing sent)', () => {
+  it('maps UnsupportedCircuitShapeError to PRE_FLIGHT_REVERT (nothing sent) with the merge-notes remedy', () => {
     const r = classifyHandlerError(new UnsupportedCircuitShapeError('no circuit for 5x3'), 'fallback')
     expect(r.code).toBe('PRE_FLIGHT_REVERT')
-    expect(r.message).toMatch(/smaller amount/i)
+    expect(r.message).toMatch(/merge your notes/i)
+    expect(r.remedy).toBe('merge-notes')
   })
 
-  it('maps TooFragmentedError to PRE_FLIGHT_REVERT with consolidation guidance', () => {
+  it('maps TooFragmentedError to PRE_FLIGHT_REVERT with the merge-notes remedy', () => {
     const r = classifyHandlerError(new TooFragmentedError('needs 30 notes across 5 groups'), 'fallback')
     expect(r.code).toBe('PRE_FLIGHT_REVERT')
-    expect(r.message).toMatch(/smaller amount|fewer notes/i)
+    expect(r.message).toMatch(/merge your notes/i)
+    expect(r.remedy).toBe('merge-notes')
+  })
+
+  it('other pre-flight failures carry no remedy', () => {
+    expect(classifyHandlerError(new NothingToConsolidateError('x'), 'fallback').remedy).toBeUndefined()
   })
 })
 
