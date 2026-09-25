@@ -20,6 +20,7 @@ EVM wallet), as two tabs on the amount step. Owned by `ShieldModal`, opened via 
 - **Shield tab** → `useShieldFlow`: `shield` / `shield-xchain` by from-chain; wallet-signs (or gasless permit).
 - **Unshield tab** → `useUnshieldFlow`: `unshield-local` / `unshield-xchain` by **to-chain picker**; recipient is pinned to the connected wallet; relayer-submitted.
 - **Shield** step machine: `'input' → 'review' → 'wallet' → 'progress' → 'complete'` (or `'error'`). The `wallet` step shows the approve/sign checklist; `useShieldFlow` advances it → `progress` once `shieldWalletInteractionsComplete(record)`. Step indicator has 4 segments (Amount/Review/Wallet/Confirm).
+- A spend that fails because the wallet's notes are too fragmented (error `remedy: 'merge-notes'`) offers **"Merge notes"** on the error step, opening the `merge` modal (`components/consolidate/`) with that spend as the one to unblock.
 - **Unshield** step machine: `'input' → 'review' → 'progress' → 'complete'` (no wallet step; relayer-submitted). 3-segment indicator.
 - Each controller owns its chain + step + submit; the shared `amountStr` lives at the modal and is synced across the toggle.
 
