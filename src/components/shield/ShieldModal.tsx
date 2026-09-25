@@ -9,6 +9,7 @@ import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
 import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcPlain } from '@/lib/format'
+import { spendReceiptFromMeta } from '@/lib/fees/displayFees'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import {
   ProgressStep,
@@ -84,6 +85,15 @@ export function ShieldModal() {
   const step = active.step
   const record = active.record
   const explorerUrl = txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))
+  // An unshield's confirmation reports what it actually charged, from its record (the live quote keeps
+  // refreshing after submit), matching the Activity receipt.
+  const unshieldReceipt =
+    !isShield && record
+      ? spendReceiptFromMeta(record.meta as { amount: bigint; broadcasterFeeAmount: bigint }, {
+          protocolFee: unshieldFlow.displayFees.protocolFee,
+          cctpFee: unshieldFlow.flowBreakdown.cctpFee ?? 0n,
+        })
+      : null
 
   // Per-tab step indicator: shield has the extra Wallet segment (4), unshield doesn't (3). The
   // unshield step is always a FlowStep (never 'wallet'), so the shared helpers apply there.
@@ -240,8 +250,8 @@ export function ShieldModal() {
             recipient={unshieldFlow.recipient}
             armadaAddress={unshieldFlow.shieldedAddress}
             amount={unshieldFlow.amount}
-            fee={unshieldFlow.feeInclusive}
-            totalDeducted={unshieldFlow.totalDeducted}
+            fee={unshieldReceipt?.fee ?? unshieldFlow.feeInclusive}
+            totalDeducted={unshieldReceipt?.totalDeducted ?? unshieldFlow.totalDeducted}
             networkName={unshieldFlow.networkName}
             recipientWalletProvider={unshieldFlow.recipientWalletProvider}
             confirmedAt={record?.updatedAt ?? Date.now()}

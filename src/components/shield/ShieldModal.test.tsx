@@ -320,6 +320,26 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(store.get(mergeIntentAtom)).toEqual({ token: 'usdc', blocked: { kind: 'unshield-local', amount: 3_000_000n, perProofFee: 0n } })
   })
 
+  it('the unshield confirmation shows the fee its record says was charged, not the live quote', async () => {
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+    // The live quote says 0; the record carries what the unshield was actually charged.
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'unshield-local'
+          ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed', meta: { ...r.meta, broadcasterFeeAmount: 25_000n } } as TxRecord)
+          : r,
+      ))
+    })
+    await waitFor(() => expect(screen.getAllByText('0.025 USDC').length).toBeGreaterThan(0))
+    expect(screen.getByText(/3\.025/)).toBeInTheDocument()
+  })
+
   it('offers "Merge notes" when an unshield failed because the wallet is too fragmented', async () => {
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })

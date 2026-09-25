@@ -163,3 +163,20 @@ export function computeDisplayFees(
 export function maxInputAmount(balance: bigint, totalFee: bigint): bigint {
   return balance > totalFee ? balance - totalFee : 0n
 }
+
+/**
+ * Derive a send / unshield's confirmed receipt figures from its stored `meta` — the fee actually charged
+ * (`broadcasterFeeAmount`, recorded at build: a fragmented wallet's split send pays one per-proof fee per
+ * proof) rather than the live quote, which prices one proof and keeps refreshing after submit. The shown
+ * fee adds the protocol / CCTP fees; the total deducted is fee-on-top (`amount + broadcaster fee`), since
+ * those two come out of the recipient's side, not the shielded balance. Mirrors the Activity receipt.
+ */
+export function spendReceiptFromMeta(
+  meta: { amount: bigint; broadcasterFeeAmount: bigint },
+  extras: { protocolFee: bigint; cctpFee: bigint },
+): { fee: bigint; totalDeducted: bigint } {
+  return {
+    fee: meta.broadcasterFeeAmount + extras.protocolFee + extras.cctpFee,
+    totalDeducted: meta.amount + meta.broadcasterFeeAmount,
+  }
+}

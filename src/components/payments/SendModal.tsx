@@ -29,6 +29,7 @@ import {
 } from '@/config/deployments'
 import { parseUsdcInput } from '@/lib/format'
 import { cctpFastFeeForAmount, computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
+import { spendReceiptFromMeta } from '@/lib/fees/displayFees'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
@@ -283,6 +284,14 @@ export function SendModal() {
   // broadcaster + on-chain protocol + CCTP (when applicable). The breakdown tooltip exposes the
   // individual components.
   const displayedFee = fee + displayFees.protocolFee + cctpFee
+  // The confirmation screen reports what the send actually charged, from its record: a split send's fee
+  // is one per-proof fee per proof, and the live plan/quote above stop pricing after review.
+  const completeReceipt = record
+    ? spendReceiptFromMeta(record.meta as { amount: bigint; broadcasterFeeAmount: bigint }, {
+        protocolFee: displayFees.protocolFee,
+        cctpFee,
+      })
+    : null
 
   // Reset local state on close.
   useEffect(() => {
@@ -563,8 +572,8 @@ export function SendModal() {
           recipient={recipient}
           armadaAddress={shieldedWallet.shieldedAddress}
           amount={amount}
-          fee={displayedFee}
-          totalDeducted={totalDeducted}
+          fee={completeReceipt?.fee ?? displayedFee}
+          totalDeducted={completeReceipt?.totalDeducted ?? totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
           confirmedAt={record?.updatedAt ?? Date.now()}

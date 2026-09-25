@@ -96,7 +96,11 @@ const hoistedPlan = vi.hoisted(() => {
   })
   return { defaults, plan: defaults() }
 })
-vi.mock('@/hooks/useTransferFeePlan', () => ({ useTransferFeePlan: () => hoistedPlan.plan }))
+// Like the real hook, it prices nothing once disabled (it only runs on the amount + review steps).
+vi.mock('@/hooks/useTransferFeePlan', () => ({
+  useTransferFeePlan: (args: { enabled: boolean }) =>
+    args.enabled ? hoistedPlan.plan : { ...hoistedPlan.plan, fee: null, proofs: null, maxInput: null, pending: false },
+}))
 
 // Public (0x) sends are unshields, dry-run at review for fragmentation; each test sets the outcome.
 const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null, pending: false, blockReason: null as string | null } }))
@@ -427,6 +431,23 @@ describe('<SendModal>', () => {
       expect(record.meta.broadcasterFeeAmount).toBe(0n)
       expect(record.meta.broadcasterFeePerProof).toBe(0n)
       expect(hoistedPlan.plan.priceAt).toHaveBeenCalledOnce()
+    })
+
+    it('the completion screen shows the fee actually charged (the split total), not the one-proof quote', async () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 40_000n, proofs: 2, priceAt: vi.fn(async () => 40_000n) }
+      const store = reviewPrivateSend()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(screen.getByText('Preparing transaction')).toBeInTheDocument())
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === 'transfer-shielded' ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+        ))
+      })
+      // The quote's per-proof fee is 0 here; the record carries the 2-proof total the send was charged.
+      await waitFor(() => expect(screen.getByText(/3\.04/)).toBeInTheDocument())
+      expect(screen.getAllByText('0.04 USDC').length).toBeGreaterThan(0)
     })
 
     it('returns to Review with the fee-updated banner when the fee re-priced at submit differs', async () => {
