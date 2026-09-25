@@ -5,8 +5,8 @@ import { ArmadaError, buildTransactCalldata, type Plan, type PlanTransferRequest
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
-import { SpendFeeIncreasedError } from './spend-fee-error'
-import { feeQuoteFor, totalFeeOf, type BroadcasterFee } from './transfer-sdk'
+import { feeQuoteFor, type BroadcasterFee } from './transfer-sdk'
+import { assertReviewedFee, totalFeeOf } from './spend-fee'
 
 export interface SdkConsolidateInputs {
   /** The ONE token to merge (USDC or vault shares). */
@@ -47,9 +47,7 @@ export async function buildConsolidateSdk(
   const wallet = await getSdkWallet()
   const plans = await wallet.consolidate({ tokenAddress: inputs.tokenAddress, fee: feeQuoteFor(inputs.broadcasterFee) })
   const { totalFee, notesMerged, notesCreated } = summarize(plans, inputs.tokenAddress)
-  if (inputs.maxTotalFee !== undefined && totalFee > inputs.maxTotalFee) {
-    throw new SpendFeeIncreasedError(inputs.maxTotalFee, totalFee)
-  }
+  assertReviewedFee(totalFee, inputs.maxTotalFee)
   // Pre-proof gate over every group: reject a stale root / already-spent input in <1s, not after proving.
   await assertSpendPreflight(wallet, plans)
   // Stash after preflight so an already-spent-input build never leaves a stale hold (#55).
@@ -102,10 +100,11 @@ function summarize(plans: readonly Plan[], tokenAddress: `0x${string}`): Consoli
 /**
  * Dry-run a spend against the wallet's CURRENT notes — plan it (no merkle proofs, no proving, no RPC)
  * and throw the planner's typed error if it can't be made. Lets a review step catch a spend the wallet
- * is too fragmented for (unshields / vault ops never split) before anything is attempted.
+ * is too fragmented for (unshields / vault ops never split) before anything is attempted, and price it:
+ * `totalFee` is the fee the plan charges (the per-proof fee, plus any small change the SDK folds into it).
  */
-export async function checkSpendPlans(request: PlanTransferRequest): Promise<void> {
+export async function checkSpendPlans(request: PlanTransferRequest): Promise<{ totalFee: bigint }> {
   const wallet = await getSdkWallet()
   // `planTransferAfter` with no merge plans over the notes as they are now.
-  await wallet.planTransferAfter([], request)
+  return { totalFee: totalFeeOf(await wallet.planTransferAfter([], request)) }
 }

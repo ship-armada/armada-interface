@@ -49,6 +49,12 @@ export interface UnshieldFlow {
   flowBreakdown: FlowFeeBreakdown
   /** Inclusive fee (broadcaster + on-chain protocol + CCTP) shown on the review/complete cards. */
   feeInclusive: bigint
+  /** The unshield's planned fee is known — until then (and when it can't be planned) the fee reads "—". */
+  feeKnown: boolean
+  /** The unshield is being planned: the amount card says "Estimating fees…" instead of a figure. */
+  feeResolving: boolean
+  /** The unshield can't be planned at this amount: the amount card shows the fee as "—". */
+  feeUnavailable: boolean
   /** True when a submit-time fee refetch changed the fee — the review step shows the FeeUpdatedBanner. */
   feeChanged: boolean
   totalDeducted: bigint
@@ -159,18 +165,22 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
         : null
   const record = activeTx?.record ?? null
 
-  // Display fee per (kind, amount, quote): unshield-local → relayer's `unshield` tier;
-  // unshield-xchain → `crossChainUnshield` tier + a CCTP fast-fee (~2 bps) on the destination mint.
-  const fee: bigint = userFeeForKind(computedKind, amount, quote)
-  // Unshields never split: dry-run this one at review so a wallet too fragmented for it is offered
-  // "Merge notes" before anything is attempted.
-  const unshieldSpend: BlockedSpend = { kind: computedKind, amount, perProofFee: fee }
+  // The relayer's per-proof quote per (kind, amount): unshield-local → its `unshield` tier;
+  // unshield-xchain → `crossChainUnshield` tier (+ a CCTP fast-fee ~2 bps on the destination mint).
+  const quotedFee: bigint = userFeeForKind(computedKind, amount, quote)
+  // Unshields never split. It's planned — on the amount and review steps, like a private send — for the
+  // fee its plan charges (the SDK folds small change into the fee when that's what makes it fit) and so a
+  // wallet too fragmented for it is offered "Merge notes" before anything is attempted.
+  const unshieldSpend: BlockedSpend = { kind: computedKind, amount, perProofFee: quotedFee }
   const spendCheck = useSpendCheck({
-    enabled: isOpen && step === 'review',
+    enabled: isOpen && (step === 'input' || step === 'review'),
     spend: unshieldSpend,
     token: 'usdc',
     balanceKey: `${max}`,
   })
+  // The fee the unshield's plan charges. The quote only stands in for the arithmetic below until it's
+  // known; the fee itself reads as pending / "—" meanwhile.
+  const fee: bigint = spendCheck.fee ?? quotedFee
   const { openMerge } = useMergeNotes()
   const cctpFee: bigint = isXchain ? cctpFastFeeForAmount(amount) : 0n
   const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
@@ -234,7 +244,7 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
       // if the fee moved since Review, bounce back with the banner rather than silently swapping it.
       const { quote: activeQuote, feeChanged: changed } = await resolveFreshQuote({
         refresh,
-        reviewedFee: fee,
+        reviewedFee: quotedFee,
         feeOf: (s) => userFeeForKind(computedKind, amount, s),
       })
       if (!activeQuote) {
@@ -246,12 +256,19 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
         return
       }
       const feeCacheId = activeQuote.cacheId
+      // The unshield is re-planned at the fresh quote: the wallet's notes may plan differently than at
+      // review (a sync landed), e.g. change that can no longer be folded into the fee. A different total
+      // means the user hasn't approved it — re-review.
+      const perProofFee = userFeeForKind(computedKind, amount, activeQuote)
+      const freshFee = await spendCheck.priceAt(perProofFee)
+      if (freshFee !== fee) {
+        await spendCheck.invalidate()
+        setFeeChanged(true)
+        setStep('review')
+        return
+      }
       // S-M5: re-validate amount + the FRESH relayer fee against the balance before proof gen. Both
       // kinds draw the fee from the shielded balance (fee-on-top) on the relayer path.
-      const freshFee =
-        computedKind === 'unshield-local'
-          ? BigInt(activeQuote.fees.unshield)
-          : BigInt(activeQuote.fees.crossChainUnshield)
       assertSpendableForFeeOnTop({ amount, fee: freshFee, balance: max })
       // Fail fast if the relayer published a malformed broadcaster address — avoid a 20-30s proof
       // gen doomed to surface an opaque SDK throw deep in the pipeline.
@@ -267,7 +284,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           amount,
           feeCacheId,
           recipient,
-          broadcasterFeeAmount: BigInt(activeQuote.fees.unshield),
+          broadcasterFeeAmount: freshFee,
+          broadcasterFeePerProof: perProofFee,
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
           // The protocol fee shown at review, so the receipt reports the full fee.
           ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
@@ -279,7 +297,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
           feeCacheId,
           toChainId,
           recipient,
-          broadcasterFeeAmount: BigInt(activeQuote.fees.crossChainUnshield),
+          broadcasterFeeAmount: freshFee,
+          broadcasterFeePerProof: perProofFee,
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
           // The protocol + CCTP fees shown at review, so the receipt reports the full fee.
           ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
@@ -328,9 +347,12 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     max,
     pendingUsdc,
     displayFees,
-    feeLoading,
+    feeLoading: feeLoading || spendCheck.pending,
     flowBreakdown,
     feeInclusive,
+    feeKnown: spendCheck.fee !== null,
+    feeResolving: spendCheck.pending,
+    feeUnavailable: spendCheck.error !== null,
     feeChanged,
     totalDeducted,
     inputMax,

@@ -74,12 +74,16 @@ export const unshieldLocalHandler: StageHandler<'unshield-local'> = {
   },
 }
 
-/** The broadcaster fee note context — always present (spends are relayer-submitted; #23). */
+/**
+ * The broadcaster fee note context — always present (spends are relayer-submitted; #23). The plan pays
+ * the PER-PROOF fee; `broadcasterFeeAmount` is the reviewed total, which can include small change the SDK
+ * folds into the fee. Records from before review-time planning carry no per-proof fee — it equals the total.
+ */
 function broadcasterFeeFromRecord(
   record: TxRecord<'unshield-local'>,
 ): { amount: bigint; recipientAddress: string } {
   return {
-    amount: record.meta.broadcasterFeeAmount,
+    amount: record.meta.broadcasterFeePerProof ?? record.meta.broadcasterFeeAmount,
     recipientAddress: record.meta.broadcasterShieldedAddress,
   }
 }
@@ -105,17 +109,25 @@ async function runBuildProof(
   // Build (plan → prove off-thread → serialize) the transact calldata and stash it, so submit-relayer
   // dispatches it without re-proving — and, persisted in the record, it survives a reload. `recordId`
   // lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
-  const { to, data } = await buildUnshieldSdk({
+  // `maxTotalFee` is the fee the user reviewed: the build refuses to charge more (the wallet's notes may
+  // have changed since review, so the change can no longer be folded into the fee).
+  const { to, data, totalFee } = await buildUnshieldSdk({
     recipient: record.meta.recipient as `0x${string}`,
     amount: record.meta.amount,
     broadcasterFee: bf,
+    maxTotalFee: record.meta.broadcasterFeeAmount,
     poolAddress: deployments.hub.contracts.privacyPool as `0x${string}`,
     onProgress: progress.write,
     recordId: record.id,
     ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
-  await ctx.upsert(advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } }))
+  const built = advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } })
+  // Record the fee actually charged (≤ the reviewed fee) so the receipt shows what was paid.
+  const charged = totalFee === record.meta.broadcasterFeeAmount
+    ? built
+    : { ...built, meta: { ...built.meta, broadcasterFeeAmount: totalFee } }
+  await ctx.upsert(charged)
 }
 
 async function runSubmitAndConfirm(

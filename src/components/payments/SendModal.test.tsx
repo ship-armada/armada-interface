@@ -104,8 +104,25 @@ vi.mock('@/hooks/useTransferFeePlan', () => ({
 }))
 
 // Public (0x) sends are unshields, dry-run at review for fragmentation; each test sets the outcome.
-const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null, pending: false, blockReason: null as string | null } }))
-vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
+// Like the real hook, it plans the spend's fee (the SDK can fold small change into it) and does nothing once disabled.
+const hoistedCheck = vi.hoisted(() => {
+  const defaults = () => ({
+    fee: 0n as bigint | null,
+    error: null as string | null,
+    remedy: null as 'merge-notes' | null,
+    pending: false,
+    blockReason: null as string | null,
+    priceAt: vi.fn(async (_perProofFee: bigint) => 0n),
+    invalidate: vi.fn(async () => {}),
+  })
+  return { defaults, result: defaults() }
+})
+vi.mock('@/hooks/useSpendCheck', () => ({
+  useSpendCheck: (args: { enabled: boolean }) =>
+    args.enabled
+      ? hoistedCheck.result
+      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+}))
 
 // The private-send submit path strict-validates the 0zk recipient via the SDK
 // (validateShieldedAddressStrict → dynamic import), which crashes jsdom at load. Keep the sync
@@ -181,11 +198,11 @@ function completeRecipientStep(recipient: string, chainValue?: string) {
 describe('<SendModal>', () => {
   beforeEach(() => {
     hoistedPlan.plan = hoistedPlan.defaults()
-    hoistedCheck.result = { error: null, remedy: null, pending: false, blockReason: null }
+    hoistedCheck.result = hoistedCheck.defaults()
   })
 
   it('a public send holds Confirm while its notes are being checked', () => {
-    hoistedCheck.result = { error: null, remedy: null, pending: true, blockReason: 'Checking your notes…' }
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, pending: true, blockReason: 'Checking your notes…' }
     renderModal({ open: 'payment', shielded: 10_000_000n })
     completeRecipientStep(VALID_EVM, '31337')
     fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
@@ -195,7 +212,7 @@ describe('<SendModal>', () => {
   })
 
   it('a public send the wallet is too fragmented for offers "Merge notes" at review, before anything is sent', () => {
-    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: null }
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
     const store = renderModal({ open: 'payment', shielded: 10_000_000n })
     completeRecipientStep(VALID_EVM, '31337')
     fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
@@ -367,6 +384,96 @@ describe('<SendModal>', () => {
 
   // The former `withdraw` variant (unshield to your own wallet) moved to the Shield/Unshield tabbed
   // modal — see ShieldModal.test.tsx's Unshield-tab coverage. SendModal is send-only now.
+
+  describe('public send (an unshield) — fee planned at review', () => {
+    // A quote with real per-proof fees, so showing the quote where the planned fee belongs would be visible.
+    function withQuotedUnshieldFees(run: () => Promise<void> | void) {
+      return async () => {
+        const { unshield, crossChainUnshield } = hoistedFees.quote.fees
+        hoistedFees.quote.fees.unshield = '1286550'
+        hoistedFees.quote.fees.crossChainUnshield = '1500000'
+        try {
+          await run()
+        } finally {
+          hoistedFees.quote.fees.unshield = unshield
+          hoistedFees.quote.fees.crossChainUnshield = crossChainUnshield
+        }
+      }
+    }
+    function enterPublicAmount(amount: string, chain = '31337') {
+      const store = renderModal({ open: 'payment', shielded: 10_000_000n })
+      completeRecipientStep(VALID_EVM, chain)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: amount } })
+      return store
+    }
+
+    it('shows the fee the unshield\'s plan charges (change folded in), not the one-proof quote', withQuotedUnshieldFees(() => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n }
+      enterPublicAmount('5')
+      expect(screen.getByText(/2\.118648/)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(screen.getAllByText(/2\.118648/).length).toBeGreaterThan(0)
+      expect(screen.getByText(/7\.118648/)).toBeInTheDocument() // 5 + the planned fee
+      expect(screen.queryByText(/1\.28655/)).toBeNull()
+    }))
+
+    it('shows "Estimating fees…" on the amount step while the unshield is planned', withQuotedUnshieldFees(() => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, pending: true, blockReason: 'Checking your notes…' }
+      enterPublicAmount('5')
+      expect(screen.getByText(/Estimating fees…/)).toBeInTheDocument()
+      expect(screen.queryByText(/1\.28655/)).toBeNull()
+    }))
+
+    it('shows the fee as "—" and holds Confirm with the planner\'s reason when the unshield can\'t be made', withQuotedUnshieldFees(() => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, error: 'Insufficient shielded balance for this transaction.', blockReason: 'Insufficient shielded balance for this transaction.' }
+      enterPublicAmount('5')
+      expect(screen.getByText('+ — FEE')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(screen.getByText('Insufficient shielded balance for this transaction.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+      expect(screen.queryByText(/1\.28655/)).toBeNull()
+    }))
+
+    it('re-prices at the fresh quote and submits the reviewed total with its per-proof fee', withQuotedUnshieldFees(async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n, priceAt: vi.fn(async () => 2_118_648n) }
+      const store = enterPublicAmount('5')
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+      expect(hoistedCheck.result.priceAt).toHaveBeenCalledWith(1_286_550n)
+      const record = store.get(txListAtom).find((r) => r.kind === 'unshield-local') as TxRecord<'unshield-local'>
+      expect(record.meta.broadcasterFeeAmount).toBe(2_118_648n)
+      expect(record.meta.broadcasterFeePerProof).toBe(1_286_550n)
+    }))
+
+    it('a cross-chain unshield records its planned total and per-proof fee too', withQuotedUnshieldFees(async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_527_000n, priceAt: vi.fn(async () => 1_527_000n) }
+      const store = enterPublicAmount('3', '31338')
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
+      expect(hoistedCheck.result.priceAt).toHaveBeenCalledWith(1_500_000n)
+      const record = store.get(txListAtom).find((r) => r.kind === 'unshield-xchain') as TxRecord<'unshield-xchain'>
+      expect(record.meta.broadcasterFeeAmount).toBe(1_527_000n)
+      expect(record.meta.broadcasterFeePerProof).toBe(1_500_000n)
+    }))
+
+    it('returns to Review with the fee-updated banner when the re-priced fee differs', withQuotedUnshieldFees(async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_286_550n, priceAt: vi.fn(async () => 2_118_648n) }
+      const store = enterPublicAmount('5')
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
+      expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(false)
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeInTheDocument()
+    }))
+  })
 
   describe('private send — split fee priced at review', () => {
     function reviewPrivateSend(amount = '3') {

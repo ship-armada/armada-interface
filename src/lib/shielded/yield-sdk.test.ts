@@ -30,6 +30,7 @@ vi.mock('./sdk-read', () => ({
 }))
 
 import { buildYieldAdaptSdk } from './yield-sdk'
+import { SpendFeeIncreasedError } from './spend-fee-error'
 
 const USDC = '0xaaaa000000000000000000000000000000000000' as const
 const VAULT = '0xbbbb000000000000000000000000000000000000' as const
@@ -48,7 +49,7 @@ function shieldReqReturning(npk: string, random: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue([{ plan: true }]) // unsplittable → single group
+  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: {} }]) // unsplittable → single group, no fee note
   hoisted.prove.mockResolvedValue({ toTransactionData: () => ({ tx: 'data' }) })
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.transactionToTuple.mockReturnValue(['TUPLE'])
@@ -81,7 +82,7 @@ describe('buildYieldAdaptSdk', () => {
     })
     // lendAndShield(transaction tuple, npk, shieldCiphertext).
     expect(hoisted.encodeFunctionData).toHaveBeenCalledWith('lendAndShield', [['TUPLE'], NPK, { encryptedBundle: BUNDLE, shieldKey: SHIELD_KEY }])
-    expect(r).toEqual({ to: ADAPTER, data: '0xcalldata' })
+    expect(r).toEqual({ to: ADAPTER, data: '0xcalldata', totalFee: 0n })
     expect(r.feeShieldRandom).toBeUndefined() // deposit has no contract-side fee note
   })
 
@@ -143,5 +144,30 @@ describe('buildYieldAdaptSdk — split guard', () => {
         adapterAddress: ADAPTER, shieldedAddress: '0zk_user', broadcasterFee: null,
       }),
     ).rejects.toThrow(/single plan group/)
+  })
+})
+
+describe('buildYieldAdaptSdk (deposit) — fee actually charged', () => {
+  const FEE = { amount: 20_000n, recipientAddress: '0zk_relayer' }
+  const planCharging = (fee: bigint) => [{ plan: true, summary: { feeOutput: { value: fee } } }]
+  beforeEach(() => { hoisted.buildShieldRequest.mockResolvedValue(shieldReqReturning(NPK, 'r-user')) })
+
+  it('returns the fee the plan charges (more than the quote when small change is folded into it)', async () => {
+    hoisted.planTransfer.mockResolvedValue(planCharging(27_000n))
+    const r = await buildYieldAdaptSdk({ mode: 'lend', amount: 1n, unshieldToken: USDC, shieldOutputToken: VAULT, adapterAddress: ADAPTER, shieldedAddress: '0zk_user', broadcasterFee: FEE, })
+    expect(r.totalFee).toBe(27_000n)
+  })
+
+  it('refuses to build when the fee exceeds what the user reviewed, before proving', async () => {
+    hoisted.planTransfer.mockResolvedValue(planCharging(27_000n))
+    await expect(buildYieldAdaptSdk({ mode: 'lend', amount: 1n, unshieldToken: USDC, shieldOutputToken: VAULT, adapterAddress: ADAPTER, shieldedAddress: '0zk_user', broadcasterFee: FEE, maxTotalFee: 20_000n, })).rejects.toBeInstanceOf(SpendFeeIncreasedError)
+    expect(hoisted.preflight).not.toHaveBeenCalled()
+    expect(hoisted.prove).not.toHaveBeenCalled()
+  })
+
+  it('builds when the fee is at or below what the user reviewed', async () => {
+    hoisted.planTransfer.mockResolvedValue(planCharging(20_000n))
+    const r = await buildYieldAdaptSdk({ mode: 'lend', amount: 1n, unshieldToken: USDC, shieldOutputToken: VAULT, adapterAddress: ADAPTER, shieldedAddress: '0zk_user', broadcasterFee: FEE, maxTotalFee: 20_000n, })
+    expect(r.totalFee).toBe(20_000n)
   })
 })

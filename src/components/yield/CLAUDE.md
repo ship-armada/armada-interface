@@ -41,7 +41,8 @@ The conversion path means the displayed "amount" is the **expected USDC output**
 - `useYieldRate()` polls `vault.convertToAssets(1e18)` + net APY (`spoke.annualYieldBps × (10_000 - vault.yieldFeeBps) / 10_000`) on the hub every 5 min (visibility-gated). EarnModal calls `refresh()` on open + post-submit so the user always sees fresh state at the moments that matter.
 - Withdraw slippage: the modal refreshes the rate immediately before computing shares to bound the slippage window to ~1 block. A `minUsdcOut` proof-bound parameter on the adapter would close the residual window — tracked in the polish doc.
 - `useShieldedBalanceSync` writes both `shieldedUsdcAtom` and `yieldSharesAtom` so the user's shielded ayUSDC balance is visible.
-- A spend the wallet's notes are too fragmented for offers **"Merge notes"** — at review (a `useSpendCheck` dry run: notice + disabled Confirm) and, as a fallback, on the error step (error `remedy: 'merge-notes'`) — opening the `merge` modal (`components/consolidate/`) with that spend as the one to unblock.
+- A vault **deposit** is planned (`useSpendCheck`, amount + review steps), so the fee shown is the one its plan charges — the SDK can fold small change into it — with "Estimating fees…" / "—" until it's known; Confirm re-prices it at the fresh quote and the record stores total + per-proof fee. (A vault **withdrawal** keeps the quoted fee: it's taken contract-side from the proceeds, so its plan has no fee note.) 
+- A spend the wallet's notes are too fragmented for offers **"Merge notes"** — at review (from `useSpendCheck`: notice + disabled Confirm) and, as a fallback, on the error step (error `remedy: 'merge-notes'`) — opening the `merge` modal (`components/consolidate/`) with that spend as the one to unblock.
 
 ## Still stubbed
 

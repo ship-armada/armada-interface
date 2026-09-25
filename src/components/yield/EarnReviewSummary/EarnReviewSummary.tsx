@@ -22,7 +22,8 @@ export interface EarnReviewSummaryProps {
    * debit (`amount + fee`); for Withdraw it's the net private-balance gain (`amount - fee`, the fee
    * skimmed from the redeemed proceeds). NOT a blind `amount + fee` — the two tabs' balance flows differ.
    */
-  netAmount: bigint
+  /** Rendered as "—" when null (the deposit's fee isn't known yet). */
+  netAmount: bigint | null
   /** Label paired with `netAmount` — also per-tab from the modal. */
   netLabel: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row for confirmations. */
@@ -103,7 +104,7 @@ export function EarnReviewSummary({
       <div className={styles.summaryTotalRow}>
         <span className={styles.summaryTotalLabel}>{netLabel}</span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
-          {estimated ? '≈ ' : ''}{formatUsdcAmount(netAmount)} USDC
+          {netAmount === null ? '—' : `${estimated ? '≈ ' : ''}${formatUsdcAmount(netAmount)} USDC`}
         </span>
       </div>
       {estimated ? (

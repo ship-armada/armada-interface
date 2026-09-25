@@ -1,11 +1,12 @@
 // ABOUTME: SDK-backed shielded-transfer builder — planTransfer → proveAll → buildTransactCalldata([...]), plus the
 // ABOUTME: review-time fee planning (planTransferFee / maxTransferAmount) that prices a split transfer before proving.
 
-import { buildTransactCalldata, type Plan } from '@armada/sdk'
+import { buildTransactCalldata } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { SpendFeeIncreasedError } from './spend-fee-error'
+import { assertReviewedFee, totalFeeOf } from './spend-fee'
 
 export { SpendFeeIncreasedError }
 
@@ -52,9 +53,7 @@ export async function buildTransferSdk(
   // wallet is too fragmented for one batch (consolidate first) — surfaced to the user by the handler.
   const plans = await wallet.planTransfer(transferRequest(inputs.recipient, inputs.amount, inputs.broadcasterFee))
   const totalFee = totalFeeOf(plans)
-  if (inputs.maxTotalFee !== undefined && totalFee > inputs.maxTotalFee) {
-    throw new SpendFeeIncreasedError(inputs.maxTotalFee, totalFee)
-  }
+  assertReviewedFee(totalFee, inputs.maxTotalFee)
   // Pre-proof gate over ALL groups in one batched preflight: reject a stale root / already-spent input
   // in <1s instead of proving for ~30s and reverting on-chain. Maps to PRE_FLIGHT_REVERT.
   await assertSpendPreflight(wallet, plans)
@@ -119,9 +118,4 @@ export function feeQuoteFor(broadcasterFee: BroadcasterFee) {
         expiresAt: 0,
       }
     : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
-}
-
-/** The fee actually charged across a spend's groups: the sum of their broadcaster fee notes. */
-export function totalFeeOf(plans: readonly Pick<Plan, 'summary'>[]): bigint {
-  return plans.reduce((sum, p) => sum + (p.summary.feeOutput?.value ?? 0n), 0n)
 }

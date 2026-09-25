@@ -21,7 +21,7 @@ export interface EarnReviewStepProps {
    * is the private-balance debit (`amount + fee`); for Withdraw it's the net private-balance gain
    * (`amount - fee`, the fee skimmed from the redeemed proceeds).
    */
-  netAmount: bigint
+  netAmount: bigint | null
   /** Label paired with `netAmount` — also per-tab from the modal. */
   netLabel: string
   /** Cross-tab estimate flag — withdraw redeems fixed shares at the execution-rate, so the net is an

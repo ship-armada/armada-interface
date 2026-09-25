@@ -46,7 +46,10 @@ export function mergeIntentFromRecord(record: TxRecord): MergeIntent | null {
     case 'unshield-xchain':
     case 'yield-deposit': {
       const meta = (record as TxRecord<'unshield-local' | 'unshield-xchain' | 'yield-deposit'>).meta
-      return { token: 'usdc', blocked: { kind: record.kind, amount: meta.amount, perProofFee: meta.broadcasterFeeAmount } }
+      return {
+        token: 'usdc',
+        blocked: { kind: record.kind, amount: meta.amount, perProofFee: meta.broadcasterFeePerProof ?? meta.broadcasterFeeAmount },
+      }
     }
     case 'yield-withdraw': {
       // A redeem spends vault shares and pays its fee contract-side, so its proof has no fee note.

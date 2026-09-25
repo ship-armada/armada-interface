@@ -127,9 +127,10 @@ describe('previewConsolidation', () => {
 describe('checkSpendPlans', () => {
   const SPEND = { outputs: [], unshield: { recipient: `0x${'ab'.repeat(20)}` as const, amount: 5n }, fee: { schedule: {}, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 } }
 
-  it('dry-runs the spend against the current notes (no merge, no proving)', async () => {
-    hoisted.planTransferAfter.mockResolvedValue([{}])
-    await expect(checkSpendPlans(SPEND)).resolves.toBeUndefined()
+  it('dry-runs the spend against the current notes (no merge, no proving) and returns the fee it plans', async () => {
+    // One fee note of 27: a per-proof fee plus small change the SDK folded into it.
+    hoisted.planTransferAfter.mockResolvedValue([{ summary: { feeOutput: { value: 27n } } }])
+    await expect(checkSpendPlans(SPEND)).resolves.toEqual({ totalFee: 27n })
     expect(hoisted.planTransferAfter).toHaveBeenCalledWith([], SPEND)
     expect(hoisted.consolidate).not.toHaveBeenCalled()
     expect(hoisted.proveAll).not.toHaveBeenCalled()

@@ -51,9 +51,12 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   review (total fee, fee-aware Max, Confirm blocked while pricing or when the
   planner refuses). At Confirm the send is re-priced at the fresh quote; a different total bounces
   back to Review with the FeeUpdatedBanner. The record stores the approved total
-  (`broadcasterFeeAmount`) and the per-proof fee (`broadcasterFeePerProof`). Unshields never split,
-  so they keep the quoted fee; an unshield record also stores the protocol fee (`protocolFee`) and,
-  cross-chain, the CCTP fee (`cctpFee`) shown at review. The confirmation screen (and the Unshield
+  (`broadcasterFeeAmount`) and the per-proof fee (`broadcasterFeePerProof`). A public send (an
+  unshield) never splits, but its fee is **planned too** (`useSpendCheck`, on the amount and review
+  steps): the SDK folds small change into the fee when that's what lets the unshield fit a circuit, so
+  it can exceed the quote. It gets the same treatment — "Estimating fees…" / "—" until priced, re-priced
+  at Confirm, total + per-proof stored, the build capped at the reviewed total. An unshield record also
+  stores the protocol fee (`protocolFee`) and, cross-chain, the CCTP fee (`cctpFee`) shown at review. The confirmation screen (and the Unshield
   tab's) and the Activity receipt all derive the fee from the record alone (`spendReceiptFromMeta`),
   not the live plan/quote, which stop pricing after review and keep refreshing.
 - A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's

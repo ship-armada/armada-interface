@@ -26,6 +26,14 @@ describe('mergeIntentFromRecord', () => {
     })
   })
 
+  it.each(['unshield-local', 'unshield-xchain', 'yield-deposit'])(
+    'a blocked %s remembers its per-proof fee, not a total with folded change',
+    (kind) => {
+      const intent = mergeIntentFromRecord(record(kind, { amount: 7n, broadcasterFeeAmount: 37n, broadcasterFeePerProof: 30n }))
+      expect(intent?.blocked?.perProofFee).toBe(30n)
+    },
+  )
+
   it('a blocked vault withdrawal merges shares, with no fee note (its fee is taken contract-side)', () => {
     expect(mergeIntentFromRecord(record('yield-withdraw', { amount: 9n, shares: 8n, broadcasterFeeAmount: 30n }))).toEqual({
       token: 'shares',

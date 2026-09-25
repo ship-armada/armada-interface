@@ -150,7 +150,8 @@ export function ShieldModal() {
             displayFees={active.displayFees}
             flowBreakdown={active.flowBreakdown}
             feeLoading={active.feeLoading}
-            feeResolving={isShield ? shieldFlow.relayerResolving : false}
+            feeResolving={isShield ? shieldFlow.relayerResolving : unshieldFlow.feeResolving}
+            feeUnavailable={!isShield && unshieldFlow.feeUnavailable}
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
             inputRef={amountInputRef}
@@ -202,8 +203,9 @@ export function ShieldModal() {
             recipient={unshieldFlow.recipient}
             armadaAddress={unshieldFlow.shieldedAddress}
             amount={unshieldFlow.amount}
-            fee={unshieldFlow.feeInclusive}
-            totalDeducted={unshieldFlow.totalDeducted}
+            // "—" until the unshield's plan prices it (the quote would suggest it fits, then jump).
+            fee={unshieldFlow.feeKnown ? unshieldFlow.feeInclusive : null}
+            totalDeducted={unshieldFlow.feeKnown ? unshieldFlow.totalDeducted : null}
             networkName={unshieldFlow.networkName}
             recipientWalletProvider={unshieldFlow.recipientWalletProvider}
             submitBlockedReason={unshieldFlow.submitBlockedReason}

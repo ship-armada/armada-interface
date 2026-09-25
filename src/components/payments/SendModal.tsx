@@ -227,7 +227,23 @@ export function SendModal() {
     quote,
     balance: max,
   })
-  const fee: bigint = isPrivate && transferPlan.fee !== null ? transferPlan.fee : quotedFee
+  // A public (0x) send is an unshield, which never splits. It's planned too — on the amount and review
+  // steps, like a private send — for the fee its plan charges (the SDK folds small change into the fee
+  // when that's what makes it fit) and so a wallet too fragmented for it is offered "Merge notes" before
+  // anything is attempted.
+  const publicSpend: BlockedSpend | null = isPrivate ? null : { kind: computedKind, amount, perProofFee: quotedFee }
+  const spendCheck = useSpendCheck({
+    enabled: isOpen && !isPrivate && (step === 'input' || step === 'review'),
+    spend: publicSpend,
+    token: 'usdc',
+    balanceKey: `${max}`,
+  })
+  // The fee the send's plan charges — the private send's (possibly split) plan, or the unshield's. The
+  // quote only stands in for the arithmetic below until it's known; the fee itself reads as pending / "—".
+  const plannedFee: bigint | null = isPrivate ? transferPlan.fee : spendCheck.fee
+  const fee: bigint = plannedFee ?? quotedFee
+  const planPending = isPrivate ? transferPlan.pending : spendCheck.pending
+  const planFailed = isPrivate ? transferPlan.error !== null : spendCheck.error !== null
   // CCTP fast-fee — paid out of the destination mint on xchain, not the user's shielded balance.
   // Distinct semantics from `fee` (which is the on-top relayer fee). Zero for non-xchain kinds.
   const cctpFee: bigint = isXchain ? cctpFastFeeForAmount(amount) : 0n
@@ -257,15 +273,6 @@ export function SendModal() {
   const transferBlockReason = !isPrivate || transferPlan.remedy === 'merge-notes'
     ? null
     : transferPlan.error ?? (transferPlan.pending ? 'Working out the fee for this send…' : null)
-  // A public (0x) send is an unshield, which never splits: dry-run it at review so a wallet too
-  // fragmented for it is offered "Merge notes" before anything is attempted.
-  const publicSpend: BlockedSpend | null = isPrivate ? null : { kind: computedKind, amount, perProofFee: quotedFee }
-  const spendCheck = useSpendCheck({
-    enabled: isOpen && step === 'review',
-    spend: publicSpend,
-    token: 'usdc',
-    balanceKey: `${max}`,
-  })
   // The spend "Merge notes" should unblock, when the review knows the wallet is too fragmented for it.
   const blockedByFragmentation: BlockedSpend | null =
     isPrivate && transferPlan.remedy === 'merge-notes'
@@ -284,9 +291,9 @@ export function SendModal() {
   // broadcaster + on-chain protocol + CCTP (when applicable). The breakdown tooltip exposes the
   // individual components.
   const displayedFee = fee + displayFees.protocolFee + cctpFee
-  // A private send's fee is the plan's, so until the plan settles (or when it refuses the amount) there
-  // is no fee to show — the one-proof quote it falls back to would suggest the send fits and then jump.
-  const planFeeUnknown = isPrivate && transferPlan.fee === null
+  // The fee is the plan's, so until the plan settles (or when it refuses the amount) there is no fee to
+  // show — the one-proof quote it falls back to would suggest the send fits, then jump.
+  const planFeeUnknown = plannedFee === null
   // The confirmation screen reports what the send actually charged, from its record (as the Activity
   // receipt does): a split send's fee is one per-proof fee per proof, and the live plan/quote above stop
   // pricing after review.
@@ -358,23 +365,19 @@ export function SendModal() {
         return
       }
       const feeCacheId = activeQuote.cacheId
-      // A private send is re-priced at the fresh quote: the wallet's notes may split differently than
-      // at review (a sync landed). A different total means the user hasn't approved it — re-review.
-      const repricedTransferFee =
-        computedKind === 'transfer-shielded' ? await transferPlan.priceAt(activeQuote) : undefined
-      if (repricedTransferFee !== undefined && repricedTransferFee !== fee) {
-        await transferPlan.invalidate()
+      // The send is re-planned at the fresh quote: the wallet's notes may plan differently than at review
+      // (a sync landed) — a different split, or change that can no longer be folded into the fee. A
+      // different total means the user hasn't approved it — re-review.
+      const perProofFee = userFeeForKind(computedKind, amount, activeQuote)
+      const freshFee = isPrivate ? await transferPlan.priceAt(activeQuote) : await spendCheck.priceAt(perProofFee)
+      if (freshFee !== fee) {
+        await (isPrivate ? transferPlan.invalidate() : spendCheck.invalidate())
         setFeeChanged(true)
         setStep('review')
         return
       }
       // S-M5: re-validate amount + the FRESH relayer fee against the balance before proof gen. All
       // three kinds draw the fee from the shielded balance (fee-on-top) on the relayer path.
-      const freshFee = repricedTransferFee !== undefined
-        ? repricedTransferFee
-        : computedKind === 'unshield-local'
-          ? BigInt(activeQuote.fees.unshield)
-          : BigInt(activeQuote.fees.crossChainUnshield)
       assertSpendableForFeeOnTop({ amount, fee: freshFee, balance: max })
       if (computedKind === 'transfer-shielded') {
         // Strict-validate the user's typed 0zk recipient (bech32m checksum, not just shape) at the
@@ -402,7 +405,7 @@ export function SendModal() {
           recipient,
           // The approved total across every proof, and the per-proof fee the build re-plans at.
           broadcasterFeeAmount: freshFee,
-          broadcasterFeePerProof: BigInt(activeQuote.fees.transfer),
+          broadcasterFeePerProof: perProofFee,
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
           devForceError: forcedOutcome ?? undefined,
         })
@@ -422,7 +425,8 @@ export function SendModal() {
           amount,
           feeCacheId,
           recipient,
-          broadcasterFeeAmount: BigInt(activeQuote.fees.unshield),
+          broadcasterFeeAmount: freshFee,
+          broadcasterFeePerProof: perProofFee,
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
           // The protocol fee shown at review, so the receipt reports the full fee.
           ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
@@ -445,7 +449,8 @@ export function SendModal() {
           feeCacheId,
           toChainId: destChainId,
           recipient,
-          broadcasterFeeAmount: BigInt(activeQuote.fees.crossChainUnshield),
+          broadcasterFeeAmount: freshFee,
+          broadcasterFeePerProof: perProofFee,
           broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
           // The protocol + CCTP fees shown at review, so the receipt reports the full fee.
           ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
@@ -528,9 +533,9 @@ export function SendModal() {
             pending={pendingUsdc}
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
-            feeLoading={feeLoading || (isPrivate && transferPlan.pending)}
-            feeResolving={isPrivate && transferPlan.pending}
-            feeUnavailable={isPrivate && transferPlan.error !== null}
+            feeLoading={feeLoading || planPending}
+            feeResolving={planPending}
+            feeUnavailable={planFailed}
             // The user always signs on HUB regardless of kind — `transfer-shielded` runs the
             // proof-bearing tx on hub, `unshield-local` likewise, and `unshield-xchain` signs
             // `atomicCrossChainUnshield` on hub before CCTP delivers on the destination chain.

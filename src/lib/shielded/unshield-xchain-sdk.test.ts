@@ -24,6 +24,7 @@ vi.mock('./sdk-read', () => ({
 }))
 
 import { buildXchainUnshieldSdk } from './unshield-xchain-sdk'
+import { SpendFeeIncreasedError } from './spend-fee-error'
 
 const POOL = '0xpool000000000000000000000000000000000000' as const
 const FINAL = '0xbob0000000000000000000000000000000000000' as const
@@ -32,7 +33,7 @@ const BINDING = `0x${'cd'.repeat(32)}` as const
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue([{ plan: true }]) // unsplittable → single group
+  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: {} }]) // unsplittable → single group, no fee note
   hoisted.prove.mockResolvedValue({ toTransactionData: () => ({ tx: 'data' }) })
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.transactionToTuple.mockReturnValue(['TUPLE'])
@@ -67,7 +68,7 @@ describe('buildXchainUnshieldSdk', () => {
         args: [['TUPLE'], 6, FINAL, 1_000n, NONCE],
       }),
     )
-    expect(r).toEqual({ to: POOL, data: '0xcalldata' })
+    expect(r).toEqual({ to: POOL, data: '0xcalldata', totalFee: 0n })
   })
 
   it('emits a zero fee (no broadcaster output) for direct submission', async () => {
@@ -97,5 +98,29 @@ describe('buildXchainUnshieldSdk — split guard', () => {
         finalRecipient: FINAL, destinationDomain: 6, maxFee: 1_000n, uniqueNonce: NONCE,
       }),
     ).rejects.toThrow(/single plan group/)
+  })
+})
+
+describe('buildXchainUnshieldSdk — fee actually charged', () => {
+  const FEE = { amount: 20_000n, recipientAddress: '0zk_relayer' }
+  const planCharging = (fee: bigint) => [{ plan: true, summary: { feeOutput: { value: fee } } }]
+
+  it('returns the fee the plan charges (more than the quote when small change is folded into it)', async () => {
+    hoisted.planTransfer.mockResolvedValue(planCharging(27_000n))
+    const r = await buildXchainUnshieldSdk({ amount: 1n, broadcasterFee: FEE, privacyPoolAddress: POOL, finalRecipient: FINAL, destinationDomain: 6, maxFee: 1_000n, uniqueNonce: NONCE })
+    expect(r.totalFee).toBe(27_000n)
+  })
+
+  it('refuses to build when the fee exceeds what the user reviewed, before proving', async () => {
+    hoisted.planTransfer.mockResolvedValue(planCharging(27_000n))
+    await expect(buildXchainUnshieldSdk({ amount: 1n, broadcasterFee: FEE, maxTotalFee: 20_000n, privacyPoolAddress: POOL, finalRecipient: FINAL, destinationDomain: 6, maxFee: 1_000n, uniqueNonce: NONCE })).rejects.toBeInstanceOf(SpendFeeIncreasedError)
+    expect(hoisted.preflight).not.toHaveBeenCalled()
+    expect(hoisted.prove).not.toHaveBeenCalled()
+  })
+
+  it('builds when the fee is at or below what the user reviewed', async () => {
+    hoisted.planTransfer.mockResolvedValue(planCharging(20_000n))
+    const r = await buildXchainUnshieldSdk({ amount: 1n, broadcasterFee: FEE, maxTotalFee: 20_000n, privacyPoolAddress: POOL, finalRecipient: FINAL, destinationDomain: 6, maxFee: 1_000n, uniqueNonce: NONCE })
+    expect(r.totalFee).toBe(20_000n)
   })
 })

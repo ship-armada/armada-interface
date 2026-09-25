@@ -305,8 +305,16 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
  * cacheId already gates against the relayer rotating the schedule mid-flight.
  */
 interface MetaBroadcaster {
-  /** USDC raw amount paid to the relayer's broadcaster output. */
+  /** USDC raw amount paid to the relayer's broadcaster output(s) — the spend's TOTAL fee (see below). */
   broadcasterFeeAmount: bigint
+  /**
+   * The relayer's quoted fee PER PROOF. `broadcasterFeeAmount` is then the TOTAL: the fee the user reviewed,
+   * then the fee actually charged once build-proof plans it — one per-proof fee per proof for a multi-proof
+   * spend (a fragmented wallet's split send, a merge), or one plus a small change the SDK folded into it.
+   * Absent on records written before spends were planned at review, and on a yield withdrawal (its fee is
+   * taken from the redeemed proceeds, not a note), where the per-proof fee equals `broadcasterFeeAmount`.
+   */
+  broadcasterFeePerProof?: bigint
   /** Relayer's shielded (`0zk`) address that the broadcaster output pays. */
   broadcasterShieldedAddress: string
 }
@@ -314,13 +322,6 @@ interface MetaBroadcaster {
 export interface MetaTransferShielded extends MetaCommon, MetaBroadcaster {
   /** 0zk recipient. */
   recipient: string
-  /**
-   * The relayer's quoted fee PER PROOF. A fragmented wallet's transfer splits into several proofs, each
-   * paying it, so `broadcasterFeeAmount` is the TOTAL: the fee the user reviewed, then the fee actually
-   * charged once build-proof plans it. Absent on single-proof records written before splits were priced,
-   * where the per-proof fee equals `broadcasterFeeAmount`.
-   */
-  broadcasterFeePerProof?: bigint
   /**
    * Plaintext memo the sender attached to the recipient's note. Recovered from the sent output on a
    * chain rescan (`sentOutputs[].memo`); absent when no memo was sent (or on pre-capture records).
@@ -366,8 +367,6 @@ export interface MetaConsolidate extends MetaCommon, MetaBroadcaster {
   tokenAddress: `0x${string}`
   /** The merged token's display name at submit ("USDC", "Vault shares"). Absent on recovered records. */
   tokenSymbol?: string
-  /** The relayer's quoted fee PER PROOF; `broadcasterFeeAmount` is the total (as on `MetaTransferShielded`). */
-  broadcasterFeePerProof?: bigint
   /** How many of the token's notes the merge spends, and how many it leaves in their place. Absent on
    *  records recovered from chain (the scan sees the fee leg, not the note counts). */
   notesMerged?: number

@@ -85,12 +85,42 @@ const FAKE_QUOTE = {
   fees: { transfer: '0', unshield: '0', crossContract: '0', crossChainShield: '0', crossChainUnshield: '0', shield: '0', shieldXchain: '0' },
 }
 
-// Vault actions never split: they're dry-run at review for fragmentation; each test sets the outcome.
-const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null, pending: false, blockReason: null as string | null } }))
-vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
-beforeEach(() => {
-  hoistedCheck.result = { error: null, remedy: null, pending: false, blockReason: null }
+// Vault actions never split: they're planned (fee + fragmentation) at the amount and review steps; each test
+// sets the outcome. Like the real hook, it does nothing once disabled.
+const hoistedCheck = vi.hoisted(() => {
+  const defaults = () => ({
+    fee: 0n as bigint | null,
+    error: null as string | null,
+    remedy: null as 'merge-notes' | null,
+    pending: false,
+    blockReason: null as string | null,
+    priceAt: vi.fn(async (_perProofFee: bigint) => 0n),
+    invalidate: vi.fn(async () => {}),
+  })
+  return { defaults, result: defaults() }
 })
+vi.mock('@/hooks/useSpendCheck', () => ({
+  useSpendCheck: (args: { enabled: boolean }) =>
+    args.enabled
+      ? hoistedCheck.result
+      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+}))
+beforeEach(() => {
+  hoistedCheck.result = hoistedCheck.defaults()
+})
+
+// A quote with a real per-proof fee, so showing the quote where the planned fee belongs would be visible.
+function withQuotedVaultFee(run: () => Promise<void> | void) {
+  return async () => {
+    const original = hoistedFees.quote.fees.crossContract
+    hoistedFees.quote.fees.crossContract = '1286550'
+    try {
+      await run()
+    } finally {
+      hoistedFees.quote.fees.crossContract = original
+    }
+  }
+}
 
 function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false; shielded?: bigint }) {
   const store = createStore()
@@ -162,8 +192,72 @@ describe('<EarnModal>', () => {
     })
   })
 
+  it('a vault deposit shows the fee its plan charges (change folded in), not the one-proof quote', withQuotedVaultFee(() => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n }
+    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
+    expect(screen.getByText(/2\.118648/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText(/7\.118648/)).toBeInTheDocument() // 5 + the planned fee
+    expect(screen.queryByText(/1\.28655/)).toBeNull()
+  }))
+
+  it('a vault deposit shows "Estimating fees…" while it is planned, not the one-proof quote', withQuotedVaultFee(() => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, pending: true, blockReason: 'Checking your notes…' }
+    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
+    expect(screen.getByText(/Estimating fees…/)).toBeInTheDocument()
+    expect(screen.queryByText(/1\.28655/)).toBeNull()
+  }))
+
+  it('a vault deposit that can\'t be made shows its fee as "—" and holds Confirm with the reason', withQuotedVaultFee(() => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, error: 'Insufficient shielded balance for this transaction.', blockReason: 'Insufficient shielded balance for this transaction.' }
+    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
+    expect(screen.getByText('+ — FEE')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText('Insufficient shielded balance for this transaction.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeDisabled()
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2) // Fees and Total
+  }))
+
+  it('a vault deposit re-prices at the fresh quote and records its planned total with the per-proof fee', withQuotedVaultFee(async () => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n, priceAt: vi.fn(async () => 2_118_648n) }
+    const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-deposit')).toBe(true))
+    expect(hoistedCheck.result.priceAt).toHaveBeenCalledWith(1_286_550n)
+    const record = store.get(txListAtom).find((r) => r.kind === 'yield-deposit') as TxRecord<'yield-deposit'>
+    expect(record.meta.broadcasterFeeAmount).toBe(2_118_648n)
+    expect(record.meta.broadcasterFeePerProof).toBe(1_286_550n)
+  }))
+
+  it('a vault deposit returns to Review with the fee-updated banner when the re-priced fee differs', withQuotedVaultFee(async () => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_286_550n, priceAt: vi.fn(async () => 2_118_648n) }
+    const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
+    })
+    await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
+    expect(store.get(txListAtom).some((r) => r.kind === 'yield-deposit')).toBe(false)
+    expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeInTheDocument()
+  }))
+
+  it('a vault withdrawal keeps the quoted fee: its plan has no fee note (the fee comes from the proceeds)', withQuotedVaultFee(() => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n }
+    renderModal({ open: 'yield-withdraw', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '5' } })
+    expect(screen.getByText(/1\.28655/)).toBeInTheDocument()
+  }))
+
   it('a vault deposit holds Confirm while its notes are being checked', () => {
-    hoistedCheck.result = { error: null, remedy: null, pending: true, blockReason: 'Checking your notes…' }
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, pending: true, blockReason: 'Checking your notes…' }
     renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
@@ -172,7 +266,7 @@ describe('<EarnModal>', () => {
   })
 
   it('a deposit the wallet is too fragmented for offers "Merge notes" at review, with Confirm disabled', () => {
-    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: null }
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
     const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))

@@ -139,10 +139,27 @@ const FAKE_QUOTE = {
 }
 
 // Unshields are dry-run at review for fragmentation; each test sets the outcome.
-const hoistedCheck = vi.hoisted(() => ({ result: { error: null as string | null, remedy: null as 'merge-notes' | null, pending: false, blockReason: null as string | null } }))
-vi.mock('@/hooks/useSpendCheck', () => ({ useSpendCheck: () => hoistedCheck.result }))
+// Like the real hook, it plans the spend's fee (the SDK can fold small change into it) and does nothing once disabled.
+const hoistedCheck = vi.hoisted(() => {
+  const defaults = () => ({
+    fee: 0n as bigint | null,
+    error: null as string | null,
+    remedy: null as 'merge-notes' | null,
+    pending: false,
+    blockReason: null as string | null,
+    priceAt: vi.fn(async (_perProofFee: bigint) => 0n),
+    invalidate: vi.fn(async () => {}),
+  })
+  return { defaults, result: defaults() }
+})
+vi.mock('@/hooks/useSpendCheck', () => ({
+  useSpendCheck: (args: { enabled: boolean }) =>
+    args.enabled
+      ? hoistedCheck.result
+      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+}))
 beforeEach(() => {
-  hoistedCheck.result = { error: null, remedy: null, pending: false, blockReason: null }
+  hoistedCheck.result = hoistedCheck.defaults()
 })
 
 function renderModal(opts?: {
@@ -300,8 +317,96 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(screen.getByLabelText('Unshield amount')).toBeInTheDocument()
   })
 
+  // A quote with real per-proof fees, so showing the quote where the planned fee belongs would be visible.
+  function withQuotedUnshieldFees(run: () => Promise<void> | void) {
+    return async () => {
+      const { unshield, crossChainUnshield } = STUB_FEE_QUOTE.fees
+      STUB_FEE_QUOTE.fees.unshield = '1286550'
+      STUB_FEE_QUOTE.fees.crossChainUnshield = '1500000'
+      try {
+        await run()
+      } finally {
+        STUB_FEE_QUOTE.fees.unshield = unshield
+        STUB_FEE_QUOTE.fees.crossChainUnshield = crossChainUnshield
+      }
+    }
+  }
+
+  it('an unshield shows the fee its plan charges (change folded in), not the one-proof quote', withQuotedUnshieldFees(() => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n }
+    renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
+    expect(screen.getByText(/2\.118648/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText(/7\.118648/)).toBeInTheDocument() // 5 + the planned fee
+    expect(screen.queryByText(/1\.28655/)).toBeNull()
+  }))
+
+  it('an unshield shows "Estimating fees…" while it is planned, not the one-proof quote', withQuotedUnshieldFees(() => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, pending: true, blockReason: 'Checking your notes…' }
+    renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
+    expect(screen.getByText(/Estimating fees…/)).toBeInTheDocument()
+    expect(screen.queryByText(/1\.28655/)).toBeNull()
+  }))
+
+  it('an unshield that can\'t be made shows its fee as "—" and holds Confirm with the reason', withQuotedUnshieldFees(() => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, error: 'Insufficient shielded balance for this transaction.', blockReason: 'Insufficient shielded balance for this transaction.' }
+    renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
+    expect(screen.getByText('+ — FEE')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(screen.getByText('Insufficient shielded balance for this transaction.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+  }))
+
+  it('an unshield re-prices at the fresh quote and records its planned total with the per-proof fee', withQuotedUnshieldFees(async () => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n, priceAt: vi.fn(async () => 2_118_648n) }
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+    expect(hoistedCheck.result.priceAt).toHaveBeenCalledWith(1_286_550n)
+    const record = store.get(txListAtom).find((r) => r.kind === 'unshield-local') as TxRecord<'unshield-local'>
+    expect(record.meta.broadcasterFeeAmount).toBe(2_118_648n)
+    expect(record.meta.broadcasterFeePerProof).toBe(1_286_550n)
+  }))
+
+  it('a cross-chain unshield records its planned total with the per-proof fee too', withQuotedUnshieldFees(async () => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_527_000n, priceAt: vi.fn(async () => 1_527_000n) }
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.click(screen.getByLabelText('Network'))
+    fireEvent.click(screen.getByRole('option', { name: /Anvil Client A/ }))
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
+    expect(hoistedCheck.result.priceAt).toHaveBeenCalledWith(1_500_000n)
+    const record = store.get(txListAtom).find((r) => r.kind === 'unshield-xchain') as TxRecord<'unshield-xchain'>
+    expect(record.meta.broadcasterFeeAmount).toBe(1_527_000n)
+    expect(record.meta.broadcasterFeePerProof).toBe(1_500_000n)
+  }))
+
+  it('an unshield returns to Review with the fee-updated banner when the re-priced fee differs', withQuotedUnshieldFees(async () => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_286_550n, priceAt: vi.fn(async () => 2_118_648n) }
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+    })
+    await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
+    expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(false)
+    expect(screen.getByRole('button', { name: /^Confirm/ })).toBeInTheDocument()
+  }))
+
   it('an unshield holds Confirm while its notes are being checked', () => {
-    hoistedCheck.result = { error: null, remedy: null, pending: true, blockReason: 'Checking your notes…' }
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, pending: true, blockReason: 'Checking your notes…' }
     renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
@@ -310,7 +415,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
   })
 
   it('an unshield the wallet is too fragmented for offers "Merge notes" at review, with Confirm disabled', () => {
-    hoistedCheck.result = { error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes', pending: false, blockReason: null }
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: null, error: 'Your balance is spread across too many small notes for this transaction. Merge your notes, then try again.', remedy: 'merge-notes' }
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
