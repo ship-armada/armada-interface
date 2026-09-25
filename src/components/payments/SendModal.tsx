@@ -266,8 +266,10 @@ export function SendModal() {
     max,
     { secondaryFee: cctpFee, protocolFee: displayFees.protocolFee },
   )
-  // Max: the plan's fee-aware cap for a private send (falls back to the one-proof cap until it's known).
-  const sendMax = isPrivate && transferPlan.maxInput !== null ? transferPlan.maxInput : inputMax
+  // Max: the SDK's fee-aware cap — a private send's (it may split) or an unshield's (one proof) — falling
+  // back to the one-fee cap until it's known.
+  const plannedMax: bigint | null = isPrivate ? transferPlan.maxInput : spendCheck.maxInput
+  const sendMax = plannedMax ?? inputMax
   // Why a private send can't be confirmed yet (still pricing, or the planner refused it).
   // A too-fragmented send shows the review's "Too many small notes" callout instead (see onMergeNotes).
   const transferBlockReason = !isPrivate || transferPlan.remedy === 'merge-notes'

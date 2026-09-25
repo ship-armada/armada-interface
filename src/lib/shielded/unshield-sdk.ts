@@ -1,5 +1,5 @@
 // ABOUTME: SDK-backed unshield builder — planTransfer(unshield) → prove → toTransactionData → buildTransactCalldata,
-// ABOUTME: returning the raw { to, data } the handler submits. The @armada/sdk analogue of lib/shielded/unshield.ts.
+// ABOUTME: returning the raw { to, data } the handler submits; plus the unshield flows' Max (maxUnshieldAmount).
 
 import { buildTransactCalldata } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
@@ -77,4 +77,19 @@ export async function buildUnshieldSdk(
   })
   const { to, data } = buildTransactCalldata([handle.toTransactionData()], inputs.poolAddress)
   return { to, data, totalFee }
+}
+
+/**
+ * The largest amount the user can unshield right now, fee included — the unshield flows' Max (a vault
+ * deposit is an unshield to the adapter, so it shares it). The SDK works it out with the planner's own
+ * rules: an unshield never splits, so it's what ONE proof can spend from ONE tree, less one per-proof fee
+ * — which can be less than "balance minus a fee" (e.g. many small notes, or notes spread across trees),
+ * and `planTransfer` accepts it. 0n when nothing can be unshielded.
+ */
+export async function maxUnshieldAmount(inputs: { readonly perProofFee: bigint }): Promise<bigint> {
+  const wallet = await getSdkWallet()
+  // The fee tier is chosen here, so it rides in `schedule.transfer` (the tier the SDK falls back to).
+  return wallet.maxUnshieldAmount({
+    fee: { schedule: { transfer: inputs.perProofFee.toString() }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+  })
 }

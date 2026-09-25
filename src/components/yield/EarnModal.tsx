@@ -152,7 +152,9 @@ export function EarnModal() {
   // cap is the FULL vault balance — don't subtract the fee from `max`. The only lower bound is that
   // the withdrawal must exceed its own fee (else the redeem can't pay it); that's enforced via the
   // pre-flight `continueBlockedReason` below.
-  const inputMax: bigint = tab === 'add' ? feeOnTopInputMax : max
+  // A deposit's Max is the SDK's unshield max (one proof, one tree), falling back to the one-fee cap until
+  // it's known.
+  const inputMax: bigint = tab === 'add' ? (spendCheck.maxInput ?? feeOnTopInputMax) : max
   // Per-tab display values handed down to the step components. The step components stay dumb;
   // EarnModal owns the per-tab semantic translation.
   //

@@ -8,13 +8,17 @@ const hoisted = vi.hoisted(() => ({
   prove: vi.fn(),
   preflight: vi.fn(),
   buildTransactCalldata: vi.fn(),
+  maxUnshieldAmount: vi.fn(),
 }))
 vi.mock('@armada/sdk', () => ({ buildTransactCalldata: hoisted.buildTransactCalldata }))
 vi.mock('./sdk-read', () => ({
-  getSdkWallet: async () => ({ planTransfer: hoisted.planTransfer, prove: hoisted.prove, preflight: hoisted.preflight }),
+  getSdkWallet: async () => ({
+    planTransfer: hoisted.planTransfer, prove: hoisted.prove, preflight: hoisted.preflight,
+    maxUnshieldAmount: hoisted.maxUnshieldAmount,
+  }),
 }))
 
-import { buildUnshieldSdk } from './unshield-sdk'
+import { buildUnshieldSdk, maxUnshieldAmount } from './unshield-sdk'
 import { SpendFeeIncreasedError } from './spend-fee-error'
 
 const POOL = '0xpool000000000000000000000000000000000000' as const
@@ -85,5 +89,15 @@ describe('buildUnshieldSdk — fee actually charged', () => {
     hoisted.planTransfer.mockResolvedValue(planCharging(20_000n))
     const r = await buildUnshieldSdk({ recipient: RECIPIENT, amount: 1n, broadcasterFee: FEE, maxTotalFee: 20_000n, poolAddress: POOL })
     expect(r.totalFee).toBe(20_000n)
+  })
+})
+
+describe('maxUnshieldAmount', () => {
+  it('is the SDK\'s unshield max at the per-proof fee (one proof, the planner\'s own rules)', async () => {
+    hoisted.maxUnshieldAmount.mockResolvedValue(5_832_098n)
+    expect(await maxUnshieldAmount({ perProofFee: 1_286_550n })).toBe(5_832_098n)
+    expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({
+      fee: { schedule: { transfer: '1286550' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+    })
   })
 })

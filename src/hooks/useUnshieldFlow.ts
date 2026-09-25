@@ -355,7 +355,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     feeUnavailable: spendCheck.error !== null,
     feeChanged,
     totalDeducted,
-    inputMax,
+    // Max: the SDK's unshield max (one proof, one tree), falling back to the one-fee cap until it's known.
+    inputMax: spendCheck.maxInput ?? inputMax,
     isXchain,
     recipient,
     shieldedAddress: shieldedWallet.shieldedAddress,

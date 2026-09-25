@@ -90,6 +90,7 @@ const FAKE_QUOTE = {
 const hoistedCheck = vi.hoisted(() => {
   const defaults = () => ({
     fee: 0n as bigint | null,
+    maxInput: null as bigint | null,
     error: null as string | null,
     remedy: null as 'merge-notes' | null,
     pending: false,
@@ -248,6 +249,13 @@ describe('<EarnModal>', () => {
     expect(store.get(txListAtom).some((r) => r.kind === 'yield-deposit')).toBe(false)
     expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeInTheDocument()
   }))
+
+  it('a vault deposit offers its Max from the SDK (one proof, one tree), not balance minus a fee', () => {
+    hoistedCheck.result = { ...hoistedCheck.defaults(), maxInput: 5_832_098n }
+    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.click(screen.getByRole('button', { name: /Max/ }))
+    expect(screen.getByLabelText('Shielded vault deposit amount')).toHaveValue('5.832098')
+  })
 
   it('a vault withdrawal keeps the quoted fee: its plan has no fee note (the fee comes from the proceeds)', withQuotedVaultFee(() => {
     hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n }

@@ -7,9 +7,10 @@ import type { ReactNode } from 'react'
 import { InsufficientBalanceError, UnsupportedCircuitShapeError } from '@armada/sdk'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 
-const hoisted = vi.hoisted(() => ({ checkSpendPlans: vi.fn(), mergeTokenAddress: vi.fn() }))
+const hoisted = vi.hoisted(() => ({ checkSpendPlans: vi.fn(), mergeTokenAddress: vi.fn(), maxUnshieldAmount: vi.fn() }))
 vi.mock('@/lib/shielded/consolidate-sdk', () => ({ checkSpendPlans: hoisted.checkSpendPlans }))
 vi.mock('@/lib/shielded/sdk-read', () => ({ mergeTokenAddress: hoisted.mergeTokenAddress }))
+vi.mock('@/lib/shielded/unshield-sdk', () => ({ maxUnshieldAmount: hoisted.maxUnshieldAmount }))
 
 import { useSpendCheck, type UseSpendCheckArgs } from './useSpendCheck'
 
@@ -26,6 +27,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   hoisted.mergeTokenAddress.mockResolvedValue(USDC)
   hoisted.checkSpendPlans.mockResolvedValue({ totalFee: 1_500_000n })
+  hoisted.maxUnshieldAmount.mockResolvedValue(5_832_098n)
 })
 
 describe('useSpendCheck', () => {
@@ -98,6 +100,19 @@ describe('useSpendCheck', () => {
     expect(request.fee.schedule.transfer).toBe('1600000')
   })
 
+  it('offers the SDK\'s unshield max (one proof, one tree) at the per-proof fee, even before an amount is typed', async () => {
+    const { result } = renderCheck({ spend: { ...SPEND, amount: 0n } })
+    await waitFor(() => expect(result.current.maxInput).toBe(5_832_098n))
+    expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({ perProofFee: 1_500_000n })
+  })
+
+  it('has no max for a vault withdrawal (it spends shares; its Max is the vault balance)', async () => {
+    const { result } = renderCheck({ spend: { kind: 'yield-withdraw', amount: 1_000n, perProofFee: 0n }, token: 'shares' })
+    await waitFor(() => expect(hoisted.checkSpendPlans).toHaveBeenCalled())
+    expect(result.current.maxInput).toBeNull()
+    expect(hoisted.maxUnshieldAmount).not.toHaveBeenCalled()
+  })
+
   it('does nothing while disabled, without a spend, or for a zero amount', async () => {
     for (const overrides of [{ enabled: false }, { spend: null }, { spend: { ...SPEND, amount: 0n } }]) {
       const { result } = renderCheck(overrides)
@@ -105,5 +120,7 @@ describe('useSpendCheck', () => {
     }
     await new Promise((r) => setTimeout(r, 400))
     expect(hoisted.checkSpendPlans).not.toHaveBeenCalled()
+    // Max is still worked out at a zero amount (the Max button comes before typing), but not while disabled.
+    expect(hoisted.maxUnshieldAmount).toHaveBeenCalledTimes(1)
   })
 })

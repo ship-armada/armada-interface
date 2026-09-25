@@ -108,6 +108,7 @@ vi.mock('@/hooks/useTransferFeePlan', () => ({
 const hoistedCheck = vi.hoisted(() => {
   const defaults = () => ({
     fee: 0n as bigint | null,
+    maxInput: null as bigint | null,
     error: null as string | null,
     remedy: null as 'merge-notes' | null,
     pending: false,
@@ -461,6 +462,14 @@ describe('<SendModal>', () => {
       expect(record.meta.broadcasterFeeAmount).toBe(1_527_000n)
       expect(record.meta.broadcasterFeePerProof).toBe(1_500_000n)
     }))
+
+    it('offers the unshield\'s Max from the SDK (one proof, one tree), not balance minus a fee', () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), maxInput: 5_832_098n }
+      renderModal({ open: 'payment', shielded: 10_000_000n })
+      completeRecipientStep(VALID_EVM, '31337')
+      fireEvent.click(screen.getByRole('button', { name: /Max/ }))
+      expect(screen.getByLabelText('Send amount')).toHaveValue('5.832098')
+    })
 
     it('returns to Review with the fee-updated banner when the re-priced fee differs', withQuotedUnshieldFees(async () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_286_550n, priceAt: vi.fn(async () => 2_118_648n) }

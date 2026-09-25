@@ -1,10 +1,11 @@
-// ABOUTME: useSpendCheck — plans an unsplittable spend (unshield / vault op) at review without proving: the fee its
-// ABOUTME: plan charges, a wallet too fragmented for it ("Merge notes" instead of failing after Confirm), and re-pricing at submit.
+// ABOUTME: useSpendCheck — plans an unsplittable spend (unshield / vault op) without proving: the fee its plan charges,
+// ABOUTME: its Max, a wallet too fragmented for it ("Merge notes" instead of failing after Confirm), and re-pricing at submit.
 
 import { useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { checkSpendPlans } from '@/lib/shielded/consolidate-sdk'
 import { mergeTokenAddress } from '@/lib/shielded/sdk-read'
+import { maxUnshieldAmount } from '@/lib/shielded/unshield-sdk'
 import { blockedSpendRequest, type BlockedSpend, type MergeToken } from '@/lib/shielded/merge-intent'
 import { classifyHandlerError } from '@/lib/tx/errors'
 import { useDebouncedValue } from './useDebouncedValue'
@@ -32,6 +33,12 @@ export interface SpendCheck {
    * Null until planned, and when the spend can't be planned.
    */
   readonly fee: bigint | null
+  /**
+   * The largest amount the spend can take out, fee included — the flow's Max: the SDK's unshield max (one
+   * proof, one tree, one per-proof fee). Worked out before any amount is typed. Null until known, and for
+   * a vault withdrawal (it spends shares, and its Max is the vault balance).
+   */
+  readonly maxInput: bigint | null
   /** Why the spend can't be made as the wallet stands (friendly copy); null when it can. */
   readonly error: string | null
   /** The in-app fix for `error`, when there is one (`merge-notes`: the wallet's notes are too fragmented). */
@@ -75,6 +82,17 @@ export function useSpendCheck(args: UseSpendCheckArgs): SpendCheck {
     staleTime: Infinity,
   })
 
+  // Every spend here but a vault withdrawal is a USDC unshield paying a fee note, so it shares one max.
+  const hasMax = args.enabled && spend !== null && spend.kind !== 'yield-withdraw'
+  const maxQuery = useQuery({
+    queryKey: [QUERY_KEY, 'max', token, spend?.perProofFee.toString(), args.balanceKey],
+    queryFn: () => maxUnshieldAmount({ perProofFee: spend!.perProofFee }),
+    enabled: hasMax,
+    retry: false,
+    staleTime: Infinity,
+  })
+  const maxInput = hasMax ? (maxQuery.data ?? null) : null
+
   const priceAt = useCallback(
     async (perProofFee: bigint) => {
       if (spend === null) throw new Error('No spend to price.')
@@ -90,7 +108,7 @@ export function useSpendCheck(args: UseSpendCheckArgs): SpendCheck {
     [queryClient],
   )
 
-  const inert = { fee: null, error: null, remedy: null, pending: false, blockReason: null, priceAt, invalidate }
+  const inert = { fee: null, maxInput, error: null, remedy: null, pending: false, blockReason: null, priceAt, invalidate }
   if (!active) return inert
   const settled = debouncedAmount === spend.amount && !query.isFetching
   if (!settled || (query.data === undefined && query.error === null)) {
