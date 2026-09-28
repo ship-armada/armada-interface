@@ -40,7 +40,7 @@ src/
 │   └── tx/                  lifecycle model — types, lifecycles, reducer, storage, poller
 ├── state/                   Jotai atoms (tx, wallet, fees, visibility, ui)
 ├── hooks/                   per-concern hooks (useWallet, useShieldedWallet, useBalances, useYieldRate, useFees, useTx, useTxHistory, useTabVisible)
-├── components/              AppLayout, WalletConnector, plus subfolders for each feature (dashboard/, shield/, yield/, payments/, tx/, settings/) — payments/ is the shared Send/Withdraw flow
+├── components/              AppLayout, WalletConnector, plus subfolders for each feature (dashboard/, shield/, yield/, payments/, consolidate/, tx/, settings/) — payments/ is the shared Send/Withdraw flow
 └── pages/                   Dashboard, Debug, AddressBook, PayViaLinkLanding (Settings is a modal)
 ```
 
@@ -81,7 +81,7 @@ For Sepolia, set `VITE_NETWORK=sepolia` and ensure manifest files exist in `depl
 
 ## Tx lifecycle model — required reading
 
-The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and `src/lib/tx/executor.ts`. Every transaction kind (`shield`, `unshield-local`, `unshield-xchain`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `payment-xchain`) declares its own stage sequence with a per-kind `maxDurationMs` + `retry` policy. Records carry an `executionState` (lifecycle position: `pending | active | waiting | retrying | completed | failed | expired | cancelled`) separate from the protocol `stage`. The same `useTx()` hook handles all kinds; the same future `<TxLifecycleStepper>` component renders any record. Adding a new kind is a 3-file change:
+The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and `src/lib/tx/executor.ts`. Every transaction kind (`shield`, `unshield-local`, `unshield-xchain`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `payment-xchain`) declares its own stage sequence with a per-kind `maxDurationMs` + `retry` policy. Records carry an `executionState` (lifecycle position: `pending | active | waiting | retrying | completed | failed | expired | cancelled`) separate from the protocol `stage`. The same `useTx()` hook handles all kinds; the same future `<TxLifecycleStepper>` component renders any record. Adding a new kind is a 3-file change:
 
 1. Extend the `TxKind` union and add a stage union in `lib/tx/types.ts`.
 2. Add a lifecycle entry in `lib/tx/lifecycles.ts`.

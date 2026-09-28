@@ -7,6 +7,7 @@ import {
   userFeeForKind,
   cctpFastFeeForAmount,
   cctpMaxFeeForKind,
+  cctpFeeEstimateFromMaxFee,
   computeFeeBreakdown,
   feeModelForKind,
   submitRelay,
@@ -217,6 +218,14 @@ describe('cctpFastFeeForAmount', () => {
     expect(cctpFastFeeForAmount(HUNDRED_USDC)).toBe(20_000n)
     expect(cctpFastFeeForAmount(ONE_USDC)).toBe(200n)
     expect(cctpFastFeeForAmount(0n)).toBe(0n)
+  })
+})
+
+describe('cctpFeeEstimateFromMaxFee', () => {
+  it('recovers the estimate a cross-chain tx bound as its CCTP maxFee', () => {
+    for (const amount of [1_000_000n, 3_333_333n, 490_000n]) {
+      expect(cctpFeeEstimateFromMaxFee(cctpMaxFeeForKind('unshield-xchain', amount))).toBe(cctpFastFeeForAmount(amount))
+    }
   })
 })
 

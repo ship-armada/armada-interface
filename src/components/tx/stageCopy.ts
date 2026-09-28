@@ -65,6 +65,12 @@ const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
     'hub-pending': 'Withdrawing',
     'hub-confirmed': 'Returned to balance',
   },
+  consolidate: {
+    'build-proof': 'Preparing transaction',
+    'submit-relayer': 'Submitting privately',
+    'hub-pending': 'Merging notes',
+    'hub-confirmed': 'Notes merged',
+  },
 }
 
 /**
@@ -98,6 +104,8 @@ const KIND_TITLES: Record<TxKind, string> = {
   'transfer-shielded-received': 'Received',
   'yield-deposit': 'Vault deposit',
   'yield-withdraw': 'Vault withdrawal',
+  // Note consolidation: merges the wallet's small notes into fewer, larger ones (a self-spend).
+  consolidate: 'Merge notes',
 }
 
 export function kindTitle(kind: TxKind): string {
@@ -137,6 +145,11 @@ export function recordTitle(record: TxRecord): string {
       return 'Added to earn vault'
     case 'yield-withdraw':
       return 'Withdrawn from earn vault'
+    case 'consolidate': {
+      // Chain-recovered merges carry no note counts, so the count is optional.
+      const meta = record.meta as { notesMerged?: number }
+      return meta.notesMerged !== undefined ? `Merged ${meta.notesMerged} notes` : 'Merged notes'
+    }
   }
   // Defensive fallback for any future kind not covered above.
   return kindTitle(record.kind)

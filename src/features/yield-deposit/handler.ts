@@ -11,7 +11,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
-import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
+import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { advance, markFailed } from '@/lib/tx/reducer'
@@ -56,18 +56,25 @@ export const yieldDepositHandler: StageHandler<'yield-deposit'> = {
       }
       // hub-confirmed is terminal.
     } catch (err) {
+      // Nothing was broadcast on this path (or the stash was already consumed at broadcast) — drop any
+      // stashed plans (#55) rather than keep them for the session.
+      forgetSpendPlan(record.id)
       if (ctx.signal.aborted) return
       await ctx.upsert(markFailed(record, classifyHandlerError(err, 'Vault deposit failed.', record.artifacts.sourceTxHash, getNetworkConfig().hub.chainId)))
     }
   },
 }
 
-/** The broadcaster fee note context — always present (spends are relayer-submitted; #23). */
+/**
+ * The broadcaster fee note context — always present (spends are relayer-submitted; #23). The plan pays
+ * the PER-PROOF fee; `broadcasterFeeAmount` is the reviewed total, which can include small change the SDK
+ * folds into the fee. Records from before review-time planning carry no per-proof fee — it equals the total.
+ */
 function broadcasterFeeFromRecord(
   record: TxRecord<'yield-deposit'>,
 ): { amount: bigint; recipientAddress: string } {
   return {
-    amount: record.meta.broadcasterFeeAmount,
+    amount: record.meta.broadcasterFeePerProof ?? record.meta.broadcasterFeeAmount,
     recipientAddress: record.meta.broadcasterShieldedAddress,
   }
 }
@@ -103,7 +110,9 @@ async function runBuildProof(
     // Persist the reviewed net APY (Tier 4) so the recovered receipt can show the APY row.
     yieldApyBps: record.meta.apyBps,
   })
-  const { to, data } = await buildYieldAdaptSdk({
+  // `maxTotalFee` is the fee the user reviewed: the build refuses to charge more (the wallet's notes may
+  // have changed since review, so the change can no longer be folded into the fee).
+  const { to, data, totalFee } = await buildYieldAdaptSdk({
     mode: 'lend',
     amount: record.meta.amount,
     unshieldToken: usdcAddress as `0x${string}`,
@@ -111,6 +120,7 @@ async function runBuildProof(
     adapterAddress: adapterAddress as `0x${string}`,
     shieldedAddress,
     broadcasterFee: bf,
+    maxTotalFee: record.meta.broadcasterFeeAmount,
     onProgress: progress.write,
     // `recordId` lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
     recordId: record.id,
@@ -121,9 +131,14 @@ async function runBuildProof(
   // Stash the populated calldata so submit-relayer skips re-proving. The build runs a ~20-30s
   // proof off-thread; without persisting the result, a resume after a transient relayer error
   // would pay that cost again.
-  await ctx.upsert(advance(progress.latest(), 'submit-relayer', {
+  const built = advance(progress.latest(), 'submit-relayer', {
     yieldTx: { to, data, value: '0' },
-  }))
+  })
+  // Record the fee actually charged (≤ the reviewed fee) so the receipt shows what was paid.
+  const charged = totalFee === record.meta.broadcasterFeeAmount
+    ? built
+    : { ...built, meta: { ...built.meta, broadcasterFeeAmount: totalFee } }
+  await ctx.upsert(charged)
 }
 
 async function runSubmitAndConfirm(

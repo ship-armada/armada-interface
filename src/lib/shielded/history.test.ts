@@ -15,6 +15,9 @@ vi.mock('./network', () => ({ getHubBlockTimestamps: hoisted.getHubBlockTimestam
 
 import { historyEntryToTxRecord, isSyntheticTxId, runHistoryScan, syntheticTxId } from './history'
 import { getChainByDomain } from '@/config/network'
+import { spendReceiptFromMeta } from '@/lib/fees/displayFees'
+import { cctpFastFeeForAmount, cctpMaxFeeForKind } from '@/lib/relayer'
+import type { TxRecord } from '@/lib/tx/types'
 
 // Local CCTP domains (VITE_NETWORK=local): hub 100/31337, client A 101/31338, client B 102/31339.
 const POOL = '0xpool00000000000000000000000000000000abcd'
@@ -73,6 +76,27 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { memoText: 'gm' } })
   })
 
+  it('a tagged merge (no recipient output → transfer-sent) is recovered as a consolidation', () => {
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'transfer-sent', value: -40_000n, broadcasterFee: 40_000n, broadcasterShieldedAddress: '0zk_relayer', selfMetadata: '{"v":1,"c":"q1","m":1}' }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({
+      kind: 'consolidate',
+      id: 'synth:0xabc:transfer-sent',
+      executionState: 'completed',
+      stage: 'hub-confirmed',
+      meta: { amount: 0n, feeCacheId: 'q1', tokenAddress: USDC_ADDR, broadcasterFeeAmount: 40_000n, broadcasterShieldedAddress: '0zk_relayer' },
+    })
+    // The scan sees the fee leg, not how many notes were merged.
+    expect((r!.meta as { notesMerged?: number }).notesMerged).toBeUndefined()
+  })
+
+  it('an untagged transfer-sent with no recipient stays a send (only the tag marks a merge)', () => {
+    const r = historyEntryToTxRecord(sdkEntry({ category: 'transfer-sent', value: -40_000n, broadcasterFee: 40_000n }), 'w', SDK_CTX, 5000)
+    expect(r?.kind).toBe('transfer-shielded')
+  })
+
   it('self-transfer → transfer-shielded with amount = fee, not a phantom outgoing (#39)', () => {
     // The pre-#88 SDK misclassified a send-to-self as a big negative transfer-sent (the "−194" bug).
     // Now it is a distinct `self-transfer` (value = −fee); the record must NOT be dropped and its
@@ -118,9 +142,29 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r!.meta).not.toHaveProperty('senderShieldedAddress')
   })
 
-  it('unshield → unshield-local, recipient + net amount (minus fees)', () => {
+  it('unshield → unshield-local: the gross amount (as the authored record stores it) + the protocol fee as a fee', () => {
+    // Wallet delta 500_000 = unshielded 490_000 + relayer fee 10_000; of the 490_000 a protocol unshield fee
+    // of 2_500 would go to the treasury (Armada charges none today — the event's fee is 0 — but recovery
+    // mustn't depend on that).
     const r = historyEntryToTxRecord(sdkEntry({ category: 'unshield', value: -500_000n, broadcasterFee: 10_000n, unshieldFee: 2_500n, recipient: '0xrecipient' }), 'w', SDK_CTX, 5000)
-    expect(r).toMatchObject({ kind: 'unshield-local', meta: { amount: 487_500n, recipient: '0xrecipient', broadcasterFeeAmount: 10_000n } })
+    expect(r).toMatchObject({ kind: 'unshield-local', meta: { amount: 490_000n, protocolFee: 2_500n, recipient: '0xrecipient', broadcasterFeeAmount: 10_000n } })
+  })
+
+  it('a recovered unshield reads the same receipt as the one the app recorded, with or without a protocol fee', () => {
+    for (const unshieldFee of [0n, 2_500n]) {
+      // What the app records for this unshield: the typed amount, the relayer fee, the protocol fee shown.
+      const authored = {
+        amount: 490_000n,
+        broadcasterFeeAmount: 10_000n,
+        ...(unshieldFee > 0n ? { protocolFee: unshieldFee } : {}),
+      }
+      const recovered = historyEntryToTxRecord(
+        sdkEntry({ category: 'unshield', value: -500_000n, broadcasterFee: 10_000n, unshieldFee, recipient: '0xrecipient' }),
+        'w', SDK_CTX, 5000,
+      ) as TxRecord<'unshield-local'>
+      expect(spendReceiptFromMeta(recovered.meta)).toEqual(spendReceiptFromMeta(authored))
+      if (unshieldFee === 0n) expect(recovered.meta).not.toHaveProperty('protocolFee')
+    }
   })
 
   it('yield deposit + withdraw map natively (no adapter heuristic)', () => {
@@ -222,6 +266,22 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     const ctx = { ...SDK_CTX, poolAddress: POOL, xchainByTxid: new Map([['0xabc', { destinationDomain: 102, recipient: '0xdead00000000000000000000000000000000beef' as const }]]) }
     const r = historyEntryToTxRecord(sdkEntry({ category: 'unshield', value: -500_000n, recipient: POOL }), 'w', ctx, 5000)
     expect(r).toMatchObject({ kind: 'unshield-xchain', meta: { toChainId: dest.chainId, recipient: '0xdead00000000000000000000000000000000beef' } })
+  })
+
+  it('a recovered cross-chain unshield carries the CCTP fee estimate its tx bound, matching the authored receipt', () => {
+    // The app records the Review-time estimate (cctpFastFeeForAmount); the tx bound 2× that as the CCTP
+    // maxFee, which the hub MessageSent carries — so recovery reads back exactly the authored estimate.
+    const amount = 490_000n
+    const ctx = {
+      ...SDK_CTX, poolAddress: POOL,
+      xchainByTxid: new Map([['0xabc', { destinationDomain: 102, recipient: '0xr' as const, maxFee: cctpMaxFeeForKind('unshield-xchain', amount) }]]),
+    }
+    const recovered = historyEntryToTxRecord(
+      sdkEntry({ category: 'unshield', value: -(amount + 10_000n), broadcasterFee: 10_000n, recipient: POOL }), 'w', ctx, 5000,
+    ) as TxRecord<'unshield-xchain'>
+    expect(recovered.meta.cctpFee).toBe(cctpFastFeeForAmount(amount))
+    const authored = { amount, broadcasterFeeAmount: 10_000n, cctpFee: cctpFastFeeForAmount(amount) }
+    expect(spendReceiptFromMeta(recovered.meta)).toEqual(spendReceiptFromMeta(authored))
   })
 
   it('keeps an unshield to a non-pool EOA as unshield-local even with a dest domain in the map (Tier 2)', () => {

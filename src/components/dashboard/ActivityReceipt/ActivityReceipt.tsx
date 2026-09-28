@@ -8,6 +8,7 @@ import { useFlowExit } from '@/components/flow/useFlowExit'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
+import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSummary'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
@@ -18,7 +19,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
-import { shieldReceiptFromMeta, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
+import { shieldReceiptFromMeta, spendReceiptFromMeta, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -34,6 +35,8 @@ export interface ActivityReceiptProps {
 /** Step-bar labels per originating flow — shown all-confirmed on the receipt (matches the mockup). */
 const DEPOSIT_STEPS = ['Amount', 'Review', 'Confirm']
 const SEND_STEPS = ['Recipient', 'Amount', 'Review', 'Confirm']
+// A merge has no recipient or amount to pick — just review the plan and confirm.
+const MERGE_STEPS = ['Review', 'Confirm']
 
 interface ReceiptView {
   /** Header label (matches the originating flow: Shield / Send / Unshield / Earn). */
@@ -96,7 +99,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'unshield-xchain': {
       const meta = (record as TxRecord<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>)
         .meta
-      const fee = meta.broadcasterFeeAmount
+      const { fee, totalDeducted } = spendReceiptFromMeta(meta)
       const isPrivate = record.kind === 'transfer-shielded'
       // A public unshield to your own wallet is a withdraw; otherwise (and private 0zk) it's a send.
       const asWithdraw = !isPrivate && isWithdrawToSelf(meta.recipient, ownWalletAddress)
@@ -118,7 +121,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           <TransferReviewSummary
             recipient={meta.recipient}
             fee={fee}
-            totalDeducted={meta.amount + fee}
+            totalDeducted={totalDeducted}
             variant={asWithdraw ? 'withdraw' : 'send'}
             networkName={networkName}
             confirmedAt={confirmedAt}
@@ -160,6 +163,28 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         ),
       }
     }
+    case 'consolidate': {
+      const meta = (record as TxRecord<'consolidate'>).meta
+      return {
+        flowLabel: 'Merge notes',
+        steps: MERGE_STEPS,
+        title: 'Notes merged',
+        // A merge moves no value — the big numeral is the fee, the only USDC that left the wallet.
+        amount: meta.broadcasterFeeAmount,
+        explorerUrl,
+        status,
+        errorCopy,
+        summary: (
+          <ConsolidationSummary
+            {...(meta.tokenSymbol !== undefined ? { tokenLabel: meta.tokenSymbol } : {})}
+            {...(meta.notesMerged !== undefined ? { notesMerged: meta.notesMerged } : {})}
+            {...(meta.notesCreated !== undefined ? { notesCreated: meta.notesCreated } : {})}
+            fee={meta.broadcasterFeeAmount}
+            {...(confirmedAt !== undefined ? { confirmedAt } : {})}
+          />
+        ),
+      }
+    }
     case 'transfer-shielded-received': {
       const meta = (record as TxRecord<'transfer-shielded-received'>).meta
       return {
@@ -174,6 +199,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           <TransferReviewSummary
             recipient=""
             fee={null}
+            hideFees
             totalDeducted={meta.amount}
             variant="send"
             confirmedAt={confirmedAt}

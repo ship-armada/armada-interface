@@ -12,6 +12,7 @@ import {
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
+import { assertReviewedFee, totalFeeOf } from './spend-fee'
 
 const ZERO_BYTES32 = `0x${'00'.repeat(32)}` as const
 
@@ -76,6 +77,9 @@ export interface SdkYieldInputs {
   /** Broadcaster (relayer) fee. On lend it's a shielded fee note (SDK fee leg); on redeem it's the
    *  contract-side fee shielded to the relayer's 0zk from the redeemed USDC, bound into adaptParams. */
   readonly broadcasterFee: { readonly amount: bigint; readonly recipientAddress: string } | null
+  /** Lend only: the total fee the user reviewed. The build refuses (`SpendFeeIncreasedError`) if planning
+   *  now charges more — e.g. a sync moved the notes so the change can no longer be folded into the fee. */
+  readonly maxTotalFee?: bigint
   readonly onProgress?: (fraction: number) => void
   /** Tx `record.id` — when set, the built Plan is stashed so the handler can `markSpendPending`
    *  its inputs after broadcast (armada-sdk #55 in-flight double-spend guard). */
@@ -93,10 +97,13 @@ export interface SdkYieldInputs {
  *
  * `feeShieldRandom` is surfaced on redeem so the relayer can recompute the fee note's npk =
  * poseidon(itsMasterPublicKey, feeShieldRandom) and confirm the fee is addressed to itself (#312).
+ *
+ * `totalFee` is the fee the plan's fee note charges — on lend, the per-proof fee plus any small change the
+ * SDK folded into it. A redeem's plan has no fee note (its fee is the contract-side re-shield), so it's 0.
  */
 export async function buildYieldAdaptSdk(
   inputs: SdkYieldInputs,
-): Promise<{ to: `0x${string}`; data: `0x${string}`; feeShieldRandom?: string }> {
+): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint; feeShieldRandom?: string }> {
   const isRedeem = inputs.mode === 'redeem'
   const wallet = await getSdkWallet()
 
@@ -133,18 +140,24 @@ export async function buildYieldAdaptSdk(
       }
     : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
 
-  const plan = await wallet.planTransfer({
+  // Yield ops are adaptParams unshields — not split (planSpend only splits plain transfers), so this is
+  // exactly one group; the adapter call takes a single proved Transaction tuple.
+  const plans = await wallet.planTransfer({
     outputs: [],
     unshield: { recipient: inputs.adapterAddress, amount: inputs.amount, adaptContract: inputs.adapterAddress, adaptParams },
     tokenAddress: inputs.unshieldToken,
     fee,
   })
+  const plan = plans[0]
+  if (plans.length !== 1 || !plan) throw new Error('yield: expected a single plan group')
+  const totalFee = totalFeeOf(plans)
+  assertReviewedFee(totalFee, inputs.maxTotalFee)
   // Pre-proof gate: reject a stale root / already-spent input in <1s instead of proving for ~30s and
   // reverting on-chain. Throws a typed ArmadaError the handler's classifier maps to PRE_FLIGHT_REVERT.
   await assertSpendPreflight(wallet, plan)
   // Stash the plan so the handler can mark its inputs pending after broadcast (#55). After preflight
   // so an already-spent-input build never leaves a stale hold.
-  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plan)
+  if (inputs.recordId !== undefined) stashSpendPlan(inputs.recordId, plans)
   const handle = await wallet.prove(plan, {
     ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
@@ -165,5 +178,5 @@ export async function buildYieldAdaptSdk(
       : iface.encodeFunctionData('lendAndShield', [tuple, user.npk, { encryptedBundle: user.encryptedBundle, shieldKey: user.shieldKey }])
   ) as `0x${string}`
 
-  return { to: inputs.adapterAddress, data, ...(feeShieldRandom !== undefined ? { feeShieldRandom } : {}) }
+  return { to: inputs.adapterAddress, data, totalFee, ...(feeShieldRandom !== undefined ? { feeShieldRandom } : {}) }
 }

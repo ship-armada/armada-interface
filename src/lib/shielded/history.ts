@@ -5,6 +5,7 @@ import { lifecycleFor } from '@/lib/tx/lifecycles'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
 import { getChainByDomain, getNetworkConfig } from '@/config/network'
 import { getCachedDeployments } from '@/config/deployments'
+import { cctpFeeEstimateFromMaxFee } from '@/lib/relayer'
 import { getHubBlockTimestamps } from './network'
 import { readSdkHistory } from './sdk-read'
 import { decodeTxSelfMetadata } from './selfMetadata'
@@ -147,6 +148,22 @@ export function historyEntryToTxRecord(
   const entryToken = (entry.tokenAddress ?? '').toLowerCase()
   if (usdcAddress !== '' && entryToken !== '' && entryToken !== usdcAddress) return null
 
+  // A note consolidation (armada-sdk #98) spends into a fee note + self-owned change only — no recipient
+  // output — so the SDK recovers it as an anonymous `transfer-sent` (or a `self-transfer`). Its
+  // self-metadata tag marks it; map it back to a merge: no value moved, only the fee left the wallet.
+  if (recovered.consolidation && (entry.category === 'transfer-sent' || entry.category === 'self-transfer')) {
+    const stages = terminalizeStages('consolidate')
+    return {
+      id: syntheticTxId(entry.txid, entry.category), kind: 'consolidate', executionState: 'completed',
+      stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
+      meta: {
+        amount: 0n, feeCacheId: recoveredFeeCacheId,
+        tokenAddress: (entry.tokenAddress ?? ctx.usdcAddress) as `0x${string}`,
+        broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
+      },
+    }
+  }
+
   switch (entry.category) {
     case 'shield': {
       const shieldFee = entry.shieldFee ?? 0n
@@ -235,10 +252,16 @@ export function historyEntryToTxRecord(
       }
     }
     case 'unshield': {
-      const amount = abs - broadcasterFee - (entry.unshieldFee ?? 0n)
+      // The wallet delta is the unshielded value + the relayer fee, so `amount` is the unshielded value —
+      // the GROSS the user typed, as an authored record stores it. A protocol unshield fee comes out of that
+      // value (the recipient gets `amount − fee`) and is recorded as a fee, so the receipt matches the
+      // authored one. Armada's pool charges none today (its Unshield event's fee is 0, "unshield is free
+      // per spec"), but recovery doesn't rely on that.
+      const unshieldFee = entry.unshieldFee ?? 0n
       const unshieldMeta = {
-        amount, feeCacheId: recoveredFeeCacheId,
+        amount: abs - broadcasterFee, feeCacheId: recoveredFeeCacheId,
         broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
+        ...(unshieldFee > 0n ? { protocolFee: unshieldFee } : {}),
       }
       // An unshield addressed to the pool that carried a CCTP `MessageSent` was a cross-chain exit
       // (Tier 2) — recover the destination chain + the REAL final recipient (the on-chain unshield
@@ -253,7 +276,12 @@ export function historyEntryToTxRecord(
         return {
           id: syntheticTxId(entry.txid, entry.category), kind: 'unshield-xchain', executionState: 'completed',
           stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-          meta: { ...unshieldMeta, recipient: x?.recipient ?? entry.recipient ?? 'unknown', toChainId: destChainId },
+          meta: {
+            ...unshieldMeta, recipient: x?.recipient ?? entry.recipient ?? 'unknown', toChainId: destChainId,
+            // The CCTP fee the app showed (and recorded) at review, read back from the maxFee the burn bound.
+            // The actual fee is only known on the destination chain, so both receipts carry the estimate.
+            ...(x?.maxFee !== undefined ? { cctpFee: cctpFeeEstimateFromMaxFee(x.maxFee) } : {}),
+          },
         }
       }
       const stages = terminalizeStages('unshield-local')

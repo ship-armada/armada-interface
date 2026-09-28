@@ -13,7 +13,7 @@ Transaction lifecycle model. The most important architectural surface in this ap
 | `executor.ts` | **Module-scope** execution engine. Runs stage handlers outside React, owns AbortControllers, leader-elected via `navigator.locks`. |
 | `poller.ts` | Generic abortable / jittered / backoff-aware poll loop. Stage-specific adapters (Iris, RPC, relayer) plug in here. |
 | `recentRecipients.ts` | Pure `deriveRecentRecipients(records, {hubChainId, limit})` — the Send flow's recent-recipients list from settled history (dedupe by normalized address, newest-first, completed-only, per-kind destination chain). Consumed via `hooks/useRecentRecipients`. |
-| `submitQuote.ts` | `resolveFreshQuote({refresh, reviewedFee, feeOf})` — every submit path (shield/unshield/transfer/yield) refetches a fresh `cacheId` right before proof gen (a stale cacheId is the relayer `FEE_EXPIRED` cause) and flags `feeChanged` when the fresh fee differs from the reviewed one, so the modal re-reviews (FeeUpdatedBanner) instead of silently swapping the fee. |
+| `submitQuote.ts` | `resolveFreshQuote({refresh, reviewedFee, feeOf})` — every submit path (shield/unshield/transfer/yield) refetches a fresh `cacheId` right before proof gen (a stale cacheId is the relayer `FEE_EXPIRED` cause) and flags `feeChanged` when the fresh fee differs from the reviewed one, so the modal re-reviews (FeeUpdatedBanner) instead of silently swapping the fee. A private send additionally re-prices its split fee at the fresh quote (`useTransferFeePlan.priceAt`) and re-reviews on a different total. |
 | `errorCopy.ts` | `TX_ERROR_COPY` + `resolveTxErrorCopy(error, fallback)` — category-aware failed/cancelled copy shared by the live `ErrorStep` modal + the `ActivityReceipt`. |
 | `failureReport.ts` | `reportTerminalFailure(record)` — called once from the executor when a record settles `failed`. Always emits `tx.failed`; forwards the unexpected-failure codes (`OTHER` / `TX_REVERTED` / `POLL_TIMEOUT`) to Sentry via `trackError`. |
 
@@ -52,7 +52,7 @@ Key behaviour:
 
 ### Stage naming caveat — `'submit-relayer'` is a framework label
 
-The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `unshield-xchain`, `shield-xchain`). The name suggests the relayer submits the tx — that's the eventual model when `submitRelay` is wired (see `lib/relayer.ts`), but **today every handler submits via the user's own wallet** through `wagmi/actions::sendTransaction` / `writeContract`. The stage name is a stable framework label for "tx-on-the-wire," not an indicator of who sends it.
+The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `unshield-xchain`, `shield-xchain`). The name suggests the relayer submits the tx — that's the eventual model when `submitRelay` is wired (see `lib/relayer.ts`), but **today every handler submits via the user's own wallet** through `wagmi/actions::sendTransaction` / `writeContract`. The stage name is a stable framework label for "tx-on-the-wire," not an indicator of who sends it.
 
 This matters when scoping work like fee display, ETA estimation, or stage copy — don't assume `'submit-relayer'` means we're in relayer-mediated mode. Per-kind handler is the source of truth for submission shape.
 
@@ -114,7 +114,7 @@ newer state). Per non-terminal record:
 
 Resume thus only ever RE-WATCHES an already-broadcast tx; it never submits and never re-prompts on
 load. `maxDurationMs` is per-kind: 10 min same-chain (`shield`, `unshield-local`,
-`transfer-shielded`), 15 min yield, 60 min xchain. (`StageHandler.resumableFrom` is currently
+`transfer-shielded`), 15 min yield and `consolidate` (up to 4 serial proofs), 60 min xchain. (`StageHandler.resumableFrom` is currently
 unread — the has-hash test supersedes it; see WS7 docs cleanup.)
 
 ## Terminal-write guard

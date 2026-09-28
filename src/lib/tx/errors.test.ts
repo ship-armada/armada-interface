@@ -11,8 +11,12 @@ import {
   ProofExpiredError,
   RootMismatchError,
   StorageConflictError,
+  TooFragmentedError,
+  UnsupportedCircuitShapeError,
+  NothingToConsolidateError,
 } from '@armada/sdk'
 import { classifyHandlerError } from './errors'
+import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
 import { asTxError } from './receipt'
 
 const STD_ERR_ABI = [
@@ -223,5 +227,41 @@ describe('classifyHandlerError — ChainMismatchError branch (W-4)', () => {
     const outer = new Error('write failed') as Error & { cause: unknown }
     outer.cause = inner
     expect(classifyHandlerError(outer, 'fallback', undefined, 31337).code).toBe('RPC_ERROR')
+  })
+})
+
+describe('classifyHandlerError — shape-aware planner errors', () => {
+  it('maps UnsupportedCircuitShapeError to PRE_FLIGHT_REVERT (nothing sent) with the merge-notes remedy', () => {
+    const r = classifyHandlerError(new UnsupportedCircuitShapeError('no circuit for 5x3'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/merge your notes/i)
+    expect(r.remedy).toBe('merge-notes')
+  })
+
+  it('maps TooFragmentedError to PRE_FLIGHT_REVERT with the merge-notes remedy', () => {
+    const r = classifyHandlerError(new TooFragmentedError('needs 30 notes across 5 groups'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/merge your notes/i)
+    expect(r.remedy).toBe('merge-notes')
+  })
+
+  it('other pre-flight failures carry no remedy', () => {
+    expect(classifyHandlerError(new NothingToConsolidateError('x'), 'fallback').remedy).toBeUndefined()
+  })
+})
+
+describe('classifyHandlerError — transfer fee rose since review', () => {
+  it('maps SpendFeeIncreasedError to FEE_EXPIRED (retry is futile — start a new send to re-review)', () => {
+    const r = classifyHandlerError(new SpendFeeIncreasedError(20_000n, 40_000n), 'fallback')
+    expect(r.code).toBe('FEE_EXPIRED')
+    expect(r.message).toMatch(/higher fee/i)
+  })
+})
+
+describe('classifyHandlerError — consolidation', () => {
+  it('maps NothingToConsolidateError to PRE_FLIGHT_REVERT with plain "nothing to merge" copy', () => {
+    const r = classifyHandlerError(new NothingToConsolidateError('nothing worth merging'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/nothing to merge/i)
   })
 })

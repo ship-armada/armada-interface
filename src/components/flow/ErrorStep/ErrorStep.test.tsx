@@ -123,4 +123,22 @@ describe('<ErrorStep>', () => {
     fireEvent.click(screen.getByRole('button', { name: /View details/ }))
     expect(onViewDetails).toHaveBeenCalledTimes(1)
   })
+
+  it('leads with an in-app remedy, keeping the flow\'s own action as the secondary button', () => {
+    const onMerge = vi.fn()
+    const onRetry = vi.fn()
+    render(
+      <ErrorStep
+        error={{ code: 'PRE_FLIGHT_REVERT', message: 'Merge your notes, then try again.', remedy: 'merge-notes' }}
+        remedy={{ label: 'Merge notes', onClick: onMerge }}
+        primaryLabel="Start over"
+        onRetry={onRetry}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+    expect(onMerge).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Start over' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
 })
+

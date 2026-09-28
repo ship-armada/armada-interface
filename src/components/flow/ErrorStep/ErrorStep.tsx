@@ -34,6 +34,11 @@ export interface ErrorStepProps {
   primaryLabel?: string
   /** View Details handler — typically expands the TechnicalDetailsDisclosure inside the body. */
   onViewDetails?: () => void
+  /**
+   * An in-app fix for this error (e.g. "Merge notes" for a too-fragmented wallet). When set it becomes the
+   * primary button and the retry / start-over action moves to the secondary slot.
+   */
+  remedy?: { label: string; onClick: () => void }
 }
 
 export function ErrorStep({
@@ -43,6 +48,7 @@ export function ErrorStep({
   onRetry,
   primaryLabel = 'Try again',
   onViewDetails,
+  remedy,
 }: ErrorStepProps) {
   // Category-aware copy (shared with the ActivityReceipt) — prefers the code's stock body over the
   // raw error.message (often technical), falling back to the bare message prop for submit-time throws.
@@ -65,13 +71,21 @@ export function ErrorStep({
           View on block explorer <ExternalLink size={14} aria-hidden="true" />
         </a>
       ) : null}
-      <FlowFooter
-        className={styles.footer}
-        primary={{ label: primaryLabel, onClick: onRetry, disabled: !onRetry }}
-        secondary={
-          onViewDetails ? { label: 'View details', onClick: onViewDetails } : undefined
-        }
-      />
+      {remedy ? (
+        <FlowFooter
+          className={styles.footer}
+          primary={{ label: remedy.label, onClick: remedy.onClick }}
+          secondary={onRetry ? { label: primaryLabel, onClick: onRetry } : undefined}
+        />
+      ) : (
+        <FlowFooter
+          className={styles.footer}
+          primary={{ label: primaryLabel, onClick: onRetry, disabled: !onRetry }}
+          secondary={
+            onViewDetails ? { label: 'View details', onClick: onViewDetails } : undefined
+          }
+        />
+      )}
     </div>
   )
 }

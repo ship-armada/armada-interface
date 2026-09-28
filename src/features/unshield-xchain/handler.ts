@@ -19,7 +19,7 @@ import {
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildXchainUnshieldSdk } from '@/lib/shielded/unshield-xchain-sdk'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
-import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
+import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import {
   extractCctpMessageFromReceipt,
   messageReceivedTopic,
@@ -112,6 +112,9 @@ export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
           return
       }
     } catch (err) {
+      // Nothing was broadcast on this path (or the stash was already consumed at broadcast) — drop any
+      // stashed plans (#55) rather than keep them for the session.
+      forgetSpendPlan(record.id)
       if (ctx.signal.aborted) return
       const failed = markFailed(record, classifyHandlerError(err, 'Cross-chain withdraw failed.', record.artifacts.sourceTxHash, getNetworkConfig().hub.chainId))
       await ctx.upsert(failed)
@@ -119,12 +122,16 @@ export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
   },
 }
 
-/** The broadcaster fee note context — always present (spends are relayer-submitted; #23). */
+/**
+ * The broadcaster fee note context — always present (spends are relayer-submitted; #23). The plan pays
+ * the PER-PROOF fee; `broadcasterFeeAmount` is the reviewed total, which can include small change the SDK
+ * folds into the fee. Records from before review-time planning carry no per-proof fee — it equals the total.
+ */
 function broadcasterFeeFromRecord(
   record: TxRecord<'unshield-xchain'>,
 ): { amount: bigint; recipientAddress: string } {
   return {
-    amount: record.meta.broadcasterFeeAmount,
+    amount: record.meta.broadcasterFeePerProof ?? record.meta.broadcasterFeeAmount,
     recipientAddress: record.meta.broadcasterShieldedAddress,
   }
 }
@@ -168,9 +175,12 @@ async function runBuildProof(
   const selfMetadata = encodeTxSelfMetadata({
     feeCacheId: record.meta.feeCacheId,
   })
-  const { to, data } = await buildXchainUnshieldSdk({
+  // `maxTotalFee` is the fee the user reviewed: the build refuses to charge more (the wallet's notes may
+  // have changed since review, so the change can no longer be folded into the fee).
+  const { to, data, totalFee } = await buildXchainUnshieldSdk({
     amount: record.meta.amount,
     broadcasterFee: broadcasterFeeFromRecord(record),
+    maxTotalFee: record.meta.broadcasterFeeAmount,
     privacyPoolAddress: privacyPoolAddress as `0x${string}`,
     finalRecipient: record.meta.recipient as `0x${string}`,
     destinationDomain,
@@ -182,7 +192,12 @@ async function runBuildProof(
     ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
-  await ctx.upsert(advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } }))
+  const built = advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } })
+  // Record the fee actually charged (≤ the reviewed fee) so the receipt shows what was paid.
+  const charged = totalFee === record.meta.broadcasterFeeAmount
+    ? built
+    : { ...built, meta: { ...built.meta, broadcasterFeeAmount: totalFee } }
+  await ctx.upsert(charged)
 }
 
 async function runSubmitAndBurn(

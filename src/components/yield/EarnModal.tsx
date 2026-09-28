@@ -34,6 +34,9 @@ import { EarnInputStepContent, EarnInputStepFooter, type EarnTab } from './EarnI
 import { useDisplayFees } from '@/hooks/useDisplayFees'
 import { EarnReviewStep } from './EarnReviewStep'
 import { EarnCompleteStep } from './EarnCompleteStep'
+import { useMergeNotes } from '@/hooks/useMergeNotes'
+import { useSpendCheck } from '@/hooks/useSpendCheck'
+import type { BlockedSpend } from '@/lib/shielded/merge-intent'
 
 type LocalStep = FlowStep
 
@@ -94,7 +97,30 @@ export function EarnModal() {
   // (deposit + withdraw) submit via the relayer's broadcaster path; there's no wallet-submit fallback
   // (that would link the user's EVM address to a shielded spend — see #23).
   const yieldKind: 'yield-deposit' | 'yield-withdraw' = tab === 'add' ? 'yield-deposit' : 'yield-withdraw'
-  const fee: bigint = userFeeForKind(yieldKind, amount, quote)
+  const quotedFee: bigint = userFeeForKind(yieldKind, amount, quote)
+  // Vault actions never split. They're planned — on the amount and review steps, like a private send — so
+  // a wallet too fragmented for one is offered "Merge notes" before anything is attempted. A deposit spends
+  // USDC (+ its fee note, whose planned value is the fee: the SDK folds small change into it when that's
+  // what makes it fit); a withdrawal spends vault shares (its fee is taken contract-side — no fee note, so
+  // it keeps the quoted fee), estimated at the current rate.
+  const vaultSpend: BlockedSpend | null =
+    tab === 'add'
+      ? { kind: 'yield-deposit', amount, perProofFee: quotedFee }
+      : yieldRate !== null && yieldRate.rate > 0n
+        ? { kind: 'yield-withdraw', amount: (amount * 1_000_000_000_000_000_000n) / yieldRate.rate, perProofFee: 0n }
+        : null
+  const vaultToken = tab === 'add' ? 'usdc' : 'shares'
+  const spendCheck = useSpendCheck({
+    enabled: isOpen && (step === 'input' || step === 'review'),
+    spend: vaultSpend,
+    token: vaultToken,
+    balanceKey: `${spendableUsdc}:${yieldShares ?? ''}`,
+  })
+  // The deposit's fee is its plan's; the quote only stands in for the arithmetic below until it's known
+  // (the fee itself reads as pending / "—" meanwhile). A withdrawal's fee is the quote.
+  const isDeposit = tab === 'add'
+  const fee: bigint = isDeposit ? (spendCheck.fee ?? quotedFee) : quotedFee
+  const depositFeeUnknown = isDeposit && spendCheck.fee === null
   // Both yield ops are fee-on-top in `computeFeeBreakdown`'s model, but the balance flows differ:
   //   - Add Funds: user unshields (amount + fee) USDC. `totalDeducted = amount + fee` is the
   //     literal private-balance debit. `recipientReceives = amount` is what the vault gains.
@@ -126,7 +152,9 @@ export function EarnModal() {
   // cap is the FULL vault balance — don't subtract the fee from `max`. The only lower bound is that
   // the withdrawal must exceed its own fee (else the redeem can't pay it); that's enforced via the
   // pre-flight `continueBlockedReason` below.
-  const inputMax: bigint = tab === 'add' ? feeOnTopInputMax : max
+  // A deposit's Max is the SDK's unshield max (one proof, one tree), falling back to the one-fee cap until
+  // it's known.
+  const inputMax: bigint = tab === 'add' ? (spendCheck.maxInput ?? feeOnTopInputMax) : max
   // Per-tab display values handed down to the step components. The step components stay dumb;
   // EarnModal owns the per-tab semantic translation.
   //
@@ -161,7 +189,8 @@ export function EarnModal() {
   // relayer is unavailable.
   const relayerBlock = useRelayerSubmitBlock(isOpen)
   // Composed gate for the review step — sync gate OR private-USDC shortfall OR relayer unavailable.
-  const submitBlockedReason: string | null = syncGate.reason || withdrawFeeBlockedReason || relayerBlock
+  const submitBlockedReason: string | null =
+    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || spendCheck.blockReason
 
   // Two useTx hooks; only one gets a record per flow.
   const txDeposit = useTx({ kind: 'yield-deposit' })
@@ -171,6 +200,8 @@ export function EarnModal() {
     : submittedKind === 'yield-withdraw' ? txWithdraw
     : null
   const record = activeTx?.record ?? null
+  // A spend blocked by fragmentation offers "Merge notes" on its error screen (a consolidate tx).
+  const { remedyFor, openMerge } = useMergeNotes()
 
   // Completion-screen figures. Once a record exists its meta is authoritative — for WITHDRAW the
   // handler reconciles meta.amount to the ACTUAL redeemed gross (shares × execution-rate), so "confirm"
@@ -233,7 +264,7 @@ export function EarnModal() {
       // if the fee moved since Review, bounce back with the banner rather than silently swapping it.
       const { quote: activeQuote, feeChanged: changed } = await resolveFreshQuote({
         refresh,
-        reviewedFee: fee,
+        reviewedFee: quotedFee,
         feeOf: (s) => userFeeForKind(yieldKind, amount, s),
       })
       if (!activeQuote) {
@@ -253,22 +284,35 @@ export function EarnModal() {
             'problem persists, the relayer may be misconfigured.',
         )
       }
+      // A withdrawal's fee is the quote (taken contract-side from the proceeds — no fee note to plan).
       const broadcasterFeeAmount = BigInt(activeQuote.fees.crossContract)
       const broadcasterShieldedAddress = activeQuote.broadcasterShieldedAddress
       if (tab === 'add') {
+        // The deposit is re-planned at the fresh quote: the wallet's notes may plan differently than at
+        // review (a sync landed), e.g. change that can no longer be folded into the fee. A different
+        // total means the user hasn't approved it — re-review.
+        const perProofFee = userFeeForKind(yieldKind, amount, activeQuote)
+        const freshFee = await spendCheck.priceAt(perProofFee)
+        if (freshFee !== fee) {
+          await spendCheck.invalidate()
+          setFeeChanged(true)
+          setStep('review')
+          return
+        }
         // S-M5: a deposit unshields amount + fee from the shielded balance (fee-on-top), so
         // re-validate against the FRESH fee before proof gen. (Withdraw takes its fee from the
         // redeemed output, not the share balance — no fee-on-top check needed.)
         assertSpendableForFeeOnTop({
           amount,
-          fee: broadcasterFeeAmount,
+          fee: freshFee,
           balance: max,
         })
         setSubmittedKind('yield-deposit')
         submittedId = await txDeposit.submit({
           amount,
           feeCacheId,
-          broadcasterFeeAmount,
+          broadcasterFeeAmount: freshFee,
+          broadcasterFeePerProof: perProofFee,
           broadcasterShieldedAddress,
           // Freeze the reviewed net APY so the receipt can show it (persisted for rescan via selfMetadata).
           ...(yieldRate !== null ? { apyBps: yieldRate.apyBps } : {}),
@@ -347,7 +391,9 @@ export function EarnModal() {
             pending={pendingUsdc}
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
-            feeLoading={feeLoading}
+            feeLoading={feeLoading || (isDeposit && spendCheck.pending)}
+            feeResolving={isDeposit && spendCheck.pending}
+            feeUnavailable={isDeposit && spendCheck.error !== null}
             gasChainId={hubChainId}
             // Both tabs are relayer-mediated (gasless) — no wallet-submit fallback (#23).
             gaslessMode={true}
@@ -372,13 +418,17 @@ export function EarnModal() {
           tab={tab}
           amount={amount}
           rate={yieldRate}
-          // Inclusive Fee total — broadcaster + protocol. No CCTP on yield kinds.
-          fee={displayFeeTotal}
-          netAmount={displayNetAmount}
+          // Inclusive Fee total — broadcaster + protocol. No CCTP on yield kinds. "—" (fee and total) until
+          // the deposit's plan prices it: the quote would suggest it fits, then jump.
+          fee={depositFeeUnknown ? null : displayFeeTotal}
+          netAmount={depositFeeUnknown ? null : displayNetAmount}
           netLabel={displayNetLabel}
           // Withdraw redeems fixed shares at the execution-rate → the net received is an estimate.
           estimated={tab === 'withdraw'}
           submitBlockedReason={submitBlockedReason}
+          {...(spendCheck.remedy === 'merge-notes' && vaultSpend !== null
+            ? { onMergeNotes: () => openMerge({ token: vaultToken, blocked: vaultSpend }) }
+            : {})}
           feeUpdated={feeChanged}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}
@@ -408,6 +458,7 @@ export function EarnModal() {
       )}
       {step === 'error' && (
         <ErrorStep
+          remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
           message={submitError ?? undefined}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

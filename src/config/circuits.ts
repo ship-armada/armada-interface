@@ -53,8 +53,10 @@ export function circuitsRelease(): string {
 /**
  * The supported circuit shapes in the `@armada/sdk` shape-key format (`<nullifiers>x<commitments>`,
  * UNPADDED — e.g. `"5x2"`), derived from the committed manifest. Fed to the SDK's `pool.supportedShapes`
- * guard so `planTransfer` rejects an unprovable shape up front with `UnsupportedCircuitShapeError`,
- * instead of failing late at artifact fetch (a 404) or on-chain. The manifest keys are PADDED (`NNxMM`)
+ * so the planner works only in registered shapes: a fragmented transfer is split across supported-shape
+ * groups, while an unsplittable spend (or one too fragmented for one batch) fails fast up front with
+ * `UnsupportedCircuitShapeError` / `TooFragmentedError` — instead of failing late at artifact fetch (a
+ * 404) or on-chain. The manifest keys are PADDED (`NNxMM`)
  * but the SDK's `shapeKey` is unpadded, so we strip the padding here — a padded key would never match
  * and the guard would silently never fire.
  */

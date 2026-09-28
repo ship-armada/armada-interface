@@ -22,7 +22,7 @@ beforeEach(() => {
   hoisted.readCctpFromLogs.mockImplementation(({ logs }: { logs: Array<{ hash: string }> }) => {
     const hash = logs[0]!.hash
     if (hash === '0xshieldtx') return { received: { sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n } }
-    if (hash === '0xunshieldtx') return { sent: { destinationDomain: 102, mintRecipient: '0xrec' } }
+    if (hash === '0xunshieldtx') return { sent: { destinationDomain: 102, mintRecipient: '0xrec', maxFee: 1_200n } }
     return {}
   })
 })
@@ -42,7 +42,8 @@ describe('buildXchainCctpMap', () => {
     })
     // Shield candidate carries the true deposit (burnAmount) + actual CCTP fee recovered from the mint.
     expect(map.get('shieldtx')).toEqual({ sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n })
-    expect(map.get('unshieldtx')).toEqual({ destinationDomain: 102, recipient: '0xrec' })
+    // Unshield candidate carries the CCTP maxFee bound the tx set (the estimate × 2, see cctpMaxFeeForKind).
+    expect(map.get('unshieldtx')).toEqual({ destinationDomain: 102, recipient: '0xrec', maxFee: 1_200n })
     expect(map.has('unshieldeoa')).toBe(false)
     expect(map.has('transfertx')).toBe(false)
     // Only the two candidates were fetched.

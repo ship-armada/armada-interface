@@ -9,6 +9,7 @@ import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
 import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcPlain } from '@/lib/format'
+import { spendReceiptFromMeta } from '@/lib/fees/displayFees'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import {
   ProgressStep,
@@ -31,6 +32,7 @@ import { ShieldWalletStep } from './ShieldWalletStep'
 import { ShieldCompleteStep } from './ShieldCompleteStep'
 import { SendReviewStep } from '@/components/payments/SendReviewStep'
 import { SendCompleteStep } from '@/components/payments/SendCompleteStep'
+import { useMergeNotes } from '@/hooks/useMergeNotes'
 
 // Shield has a dedicated Wallet step (approve/sign); Unshield is relayer-submitted (no wallet sign).
 const SHIELD_TAB_STEPS = ['Amount', 'Review', 'Wallet', 'Confirm']
@@ -59,6 +61,8 @@ export function ShieldModal() {
   // The nudge shakes the amount CARD (mockup), so the hook lives here — the common parent of the
   // card (Content) + CTA (Footer). Tapping the incomplete CTA fires nudge() + focus.
   const { shaking, nudge, onShakeAnimationEnd } = useNudgeShake()
+  // A spend blocked by fragmentation offers "Merge notes" on its error screen (a consolidate tx).
+  const { remedyFor } = useMergeNotes()
   const nudgeIncomplete = () => {
     nudge()
     amountInputRef.current?.focus()
@@ -81,6 +85,10 @@ export function ShieldModal() {
   const step = active.step
   const record = active.record
   const explorerUrl = txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))
+  // An unshield's confirmation reports what it actually charged, from its record (the live quote keeps
+  // refreshing after submit), matching the Activity receipt.
+  const unshieldReceipt =
+    !isShield && record ? spendReceiptFromMeta(record.meta as Parameters<typeof spendReceiptFromMeta>[0]) : null
 
   // Per-tab step indicator: shield has the extra Wallet segment (4), unshield doesn't (3). The
   // unshield step is always a FlowStep (never 'wallet'), so the shared helpers apply there.
@@ -142,7 +150,8 @@ export function ShieldModal() {
             displayFees={active.displayFees}
             flowBreakdown={active.flowBreakdown}
             feeLoading={active.feeLoading}
-            feeResolving={isShield ? shieldFlow.relayerResolving : false}
+            feeResolving={isShield ? shieldFlow.relayerResolving : unshieldFlow.feeResolving}
+            feeUnavailable={!isShield && unshieldFlow.feeUnavailable}
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
             inputRef={amountInputRef}
@@ -194,11 +203,13 @@ export function ShieldModal() {
             recipient={unshieldFlow.recipient}
             armadaAddress={unshieldFlow.shieldedAddress}
             amount={unshieldFlow.amount}
-            fee={unshieldFlow.feeInclusive}
-            totalDeducted={unshieldFlow.totalDeducted}
+            // "—" until the unshield's plan prices it (the quote would suggest it fits, then jump).
+            fee={unshieldFlow.feeKnown ? unshieldFlow.feeInclusive : null}
+            totalDeducted={unshieldFlow.feeKnown ? unshieldFlow.totalDeducted : null}
             networkName={unshieldFlow.networkName}
             recipientWalletProvider={unshieldFlow.recipientWalletProvider}
             submitBlockedReason={unshieldFlow.submitBlockedReason}
+            {...(unshieldFlow.onMergeNotes ? { onMergeNotes: unshieldFlow.onMergeNotes } : {})}
             feeUpdated={unshieldFlow.feeChanged}
             onBack={unshieldFlow.onBackToInput}
             isSubmitting={unshieldFlow.isSubmitting}
@@ -236,8 +247,8 @@ export function ShieldModal() {
             recipient={unshieldFlow.recipient}
             armadaAddress={unshieldFlow.shieldedAddress}
             amount={unshieldFlow.amount}
-            fee={unshieldFlow.feeInclusive}
-            totalDeducted={unshieldFlow.totalDeducted}
+            fee={unshieldReceipt?.fee ?? unshieldFlow.feeInclusive}
+            totalDeducted={unshieldReceipt?.totalDeducted ?? unshieldFlow.totalDeducted}
             networkName={unshieldFlow.networkName}
             recipientWalletProvider={unshieldFlow.recipientWalletProvider}
             confirmedAt={record?.updatedAt ?? Date.now()}
@@ -251,6 +262,7 @@ export function ShieldModal() {
 
       {step === 'error' && (
         <ErrorStep
+          remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
           message={active.submitError ?? undefined}
           explorerUrl={explorerUrl}

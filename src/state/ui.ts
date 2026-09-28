@@ -2,6 +2,7 @@
 // ABOUTME: Page-level modal controllers live here so any component can open a flow.
 
 import { atom } from 'jotai'
+import type { MergeIntent } from '@/lib/shielded/merge-intent'
 
 export type ModalKind =
   | null
@@ -15,11 +16,12 @@ export type ModalKind =
   | 'settings'
   | 'wallet-unlock'
   | 'wallet-reset'
+  | 'merge'
 
 /** Dashboard / action flows that require a connected EVM wallet before opening. */
 export type ActionModalKind = Exclude<
   ModalKind,
-  null | 'wallet-unlock' | 'wallet-reset' | 'receive' | 'settings'
+  null | 'wallet-unlock' | 'wallet-reset' | 'receive' | 'settings' | 'merge'
 >
 
 export const openModalAtom = atom<ModalKind>(null)
@@ -44,6 +46,13 @@ export interface PaymentIntent {
 }
 
 export const paymentIntentAtom = atom<PaymentIntent | null>(null)
+
+/**
+ * What the `merge` modal opens with: the token to merge and, when a spend was blocked by fragmentation,
+ * that spend (so the preview can say whether one merge unblocks it). Set by whoever opens the modal —
+ * a blocked flow's "Merge notes" button or Settings. Carries no funds/keys — just a prefill intent.
+ */
+export const mergeIntentAtom = atom<MergeIntent | null>(null)
 
 /**
  * Whether balances are hidden across the app. Shared so the dashboard eye toggle and the wallet

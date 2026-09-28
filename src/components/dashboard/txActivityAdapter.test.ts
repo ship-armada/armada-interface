@@ -95,6 +95,14 @@ describe('txRecordToActivityItem', () => {
     expect(txRecordToActivityItem(makeRecord('yield-deposit')).kind).toBe('earn')
   })
 
+  it('maps a note merge to merge, showing only the fee as the outflow', () => {
+    const merge = { ...makeRecord('consolidate', { amount: 0n }), meta: { amount: 0n, broadcasterFeeAmount: 40_000n, notesMerged: 11 } } as unknown as TxRecord
+    const item = txRecordToActivityItem(merge)
+    expect(item.kind).toBe('merge')
+    expect(item.amount).toBe(-0.04)
+    expect(item.label).toBe('Merged 11 notes')
+  })
+
   it('flags non-terminal records as pending', () => {
     expect(txRecordToActivityItem(makeRecord('shield', { executionState: 'active' })).pending).toBe(true)
     expect(txRecordToActivityItem(makeRecord('shield', { executionState: 'waiting' })).pending).toBe(true)

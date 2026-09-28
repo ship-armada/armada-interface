@@ -13,11 +13,16 @@ import {
   ResetWalletDialog,
 } from '@/components/settings'
 import { useShieldedWallet } from '@/hooks/useShieldedWallet'
+import { useNoteCounts } from '@/hooks/useNoteCounts'
+import { useMergeNotes } from '@/hooks/useMergeNotes'
+import { MERGE_SUGGEST_NOTE_COUNT, mergeTokenSymbol, type MergeToken } from '@/lib/shielded/merge-intent'
 import { openModalAtom } from '@/state/ui'
 import { preferencesAtom, type AutoLockMinutes } from '@/state/preferences'
 import {
   activeShieldedWalletIdAtom,
   autoLockDeadlineAtom,
+  shieldedUsdcSpendableAtom,
+  yieldSharesAtom,
 } from '@/state/wallet'
 import { historyRecoveryAtom, historyRecoveryTriggerAtom } from '@/state/history'
 import { clearHistoryCheckpoint } from '@/lib/shielded/history-checkpoint'
@@ -43,6 +48,15 @@ export function SettingsModal() {
 
   const walletUnlocked = state?.status === 'unlocked'
   const isScanning = recovery.state === 'scanning'
+
+  // Tokens spread across enough notes to block spends — each gets a "Merge" (note consolidation).
+  const usdcBalance = useAtomValue(shieldedUsdcSpendableAtom)
+  const sharesBalance = useAtomValue(yieldSharesAtom)
+  const noteCounts = useNoteCounts(isOpen && walletUnlocked, `${usdcBalance ?? ''}:${sharesBalance ?? ''}`)
+  const { openMerge } = useMergeNotes()
+  const fragmented = (['usdc', 'shares'] as const)
+    .map((token: MergeToken) => ({ token, notes: noteCounts?.[token] ?? 0 }))
+    .filter(({ notes }) => notes >= MERGE_SUGGEST_NOTE_COUNT)
 
   // Route the close through useFlowExit so the overlay fades + the panel sinks before unmounting.
   // The atom stays set (isOpen true) until the animation completes; reduced motion closes instantly.
@@ -124,6 +138,34 @@ export function SettingsModal() {
               </li>
             </ul>
           </Card>
+
+          {fragmented.length > 0 ? (
+            <Card className={styles.section}>
+              <h3 className={styles.sectionTitle}>Notes</h3>
+              <ul className={styles.rows}>
+                {fragmented.map(({ token, notes }) => (
+                  <li key={token} className={styles.row}>
+                    <div className={styles.rowLabel}>
+                      {`${mergeTokenSymbol(token)} — ${notes} notes`}
+                      <div className={styles.rowSubLabel}>
+                        Spread across many small notes, larger withdrawals and vault actions can fail.
+                        Merging combines them into fewer notes for a small fee.
+                      </div>
+                    </div>
+                    <div className={styles.rowAction}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        showIcon={false}
+                        label="Merge"
+                        onClick={() => openMerge({ token })}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
 
           <Card className={styles.section}>
             <h3 className={styles.sectionTitle}>Preferences</h3>

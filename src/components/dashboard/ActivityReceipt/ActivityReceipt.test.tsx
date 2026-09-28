@@ -21,7 +21,51 @@ function shieldRecord(): TxRecord {
   } as unknown as TxRecord
 }
 
+function mergeRecord(): TxRecord {
+  return {
+    ...shieldRecord(),
+    kind: 'consolidate',
+    meta: {
+      amount: 0n, feeCacheId: 'x', tokenAddress: '0xusdc', tokenSymbol: 'USDC',
+      broadcasterFeeAmount: 40_000n, broadcasterShieldedAddress: '0zk_r', notesMerged: 11, notesCreated: 2,
+    },
+  } as unknown as TxRecord
+}
+
 describe('<ActivityReceipt>', () => {
+  it('a cross-chain unshield receipt includes the CCTP fee it recorded, as the confirmation screen does', () => {
+    const xchain = {
+      ...shieldRecord(),
+      kind: 'unshield-xchain',
+      stage: 'client-mint-confirmed',
+      meta: {
+        amount: 100_000_000n, feeCacheId: 'x', toChainId: 84532, recipient: '0x1234567890abcdef1234567890abcdef12345678',
+        broadcasterFeeAmount: 1_500_000n, broadcasterShieldedAddress: '0zk_r', cctpFee: 20_000n,
+      },
+    } as unknown as TxRecord
+    render(<ActivityReceipt record={xchain} open onClose={vi.fn()} />)
+    expect(screen.getByText('1.52 USDC')).toBeInTheDocument()
+  })
+
+  it('a received payment shows no Fees row (the recipient pays none, and can\'t see the sender\'s)', () => {
+    const received = {
+      ...shieldRecord(),
+      kind: 'transfer-shielded-received',
+      stage: 'observed',
+      meta: { amount: 10_000_000n },
+    } as unknown as TxRecord
+    render(<ActivityReceipt record={received} open onClose={vi.fn()} />)
+    expect(screen.getByText('USDC received')).toBeInTheDocument()
+    expect(screen.queryByText('Fees')).toBeNull()
+  })
+
+  it('shows a note merge by its fee, with the notes merged', () => {
+    render(<ActivityReceipt record={mergeRecord()} open onClose={vi.fn()} />)
+    expect(screen.getByText('Notes merged')).toBeInTheDocument()
+    expect(screen.getByText('0.04')).toBeInTheDocument()
+    expect(screen.getByText('11 → 2')).toBeInTheDocument()
+  })
+
   it('renders nothing when record is null', () => {
     render(<ActivityReceipt record={null} open onClose={vi.fn()} />)
     expect(screen.queryByText('USDC shield')).toBeNull()

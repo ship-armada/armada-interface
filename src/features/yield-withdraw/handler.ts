@@ -13,7 +13,7 @@ import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
 import { redeemedGrossFromLogs, type TransferLog } from './redeemedGross'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
-import { markSpendPendingForRecord, clearSpendPendingForTx } from '@/lib/shielded/pending-spend'
+import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { advance, markFailed, patchMeta } from '@/lib/tx/reducer'
@@ -49,6 +49,9 @@ export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
         return
       }
     } catch (err) {
+      // Nothing was broadcast on this path (or the stash was already consumed at broadcast) — drop any
+      // stashed plans (#55) rather than keep them for the session.
+      forgetSpendPlan(record.id)
       if (ctx.signal.aborted) return
       await ctx.upsert(markFailed(record, classifyHandlerError(err, 'Vault withdrawal failed.', record.artifacts.sourceTxHash, getNetworkConfig().hub.chainId)))
     }

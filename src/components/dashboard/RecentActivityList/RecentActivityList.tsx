@@ -15,6 +15,7 @@ import {
   ArrowDownIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
+  ArrowsPointingInIcon,
   ChartBarIcon,
   ClockIcon,
   LinkIcon,
@@ -45,6 +46,7 @@ const ACTIVITY_ICONS: Record<DashboardActivityKind, ComponentType<SVGProps<SVGSV
   withdraw: ArrowLeftIcon,
   receive: ArrowDownIcon,
   requestLink: LinkIcon,
+  merge: ArrowsPointingInIcon,
 }
 
 function formatActivityAmount(item: DashboardActivityItem): string {

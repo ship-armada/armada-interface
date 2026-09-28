@@ -78,6 +78,19 @@ const transferShielded: TxLifecycle<'transfer-shielded'> = {
 }
 
 /**
+ * Note consolidation (armada-sdk #98) — relayer-submitted like a private send, but up to 4 proofs
+ * (proving is serial), so a little more time than a transfer before the expiry backstop trips.
+ */
+const consolidate: TxLifecycle<'consolidate'> = {
+  kind: 'consolidate',
+  stages: ['build-proof', 'submit-relayer', 'hub-pending', 'hub-confirmed'],
+  terminalSuccess: 'hub-confirmed',
+  retryableStages: ['submit-relayer', 'hub-pending'],
+  estDuration: { p50: 30_000, p90: 120_000 },
+  maxDurationMs: YIELD_CAP,
+}
+
+/**
  * Synthetic received-transfer lifecycle. Single terminal stage — we reconstruct the record from
  * chain only once the commitment is already on the merkle tree, so there's nothing to drive or
  * resume. `maxDurationMs: 0` + empty `retryableStages` means the executor's resume probe never
@@ -122,6 +135,7 @@ const LIFECYCLES = {
   'transfer-shielded-received': transferShieldedReceived,
   'yield-deposit': yieldDeposit,
   'yield-withdraw': yieldWithdraw,
+  consolidate,
 } as const
 
 export function lifecycleFor<K extends TxKind>(kind: K): TxLifecycle<K> {

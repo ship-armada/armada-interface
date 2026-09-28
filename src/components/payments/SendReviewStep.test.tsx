@@ -17,6 +17,7 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     totalDeducted: extras?.totalDeducted ?? 5_000_000n,
     networkName: extras?.networkName,
     submitBlockedReason: extras?.submitBlockedReason,
+    onMergeNotes: extras?.onMergeNotes,
     isSubmitting: extras?.isSubmitting,
     onBack: extras?.onBack ?? vi.fn(),
     onConfirm: extras?.onConfirm ?? vi.fn(),
@@ -26,6 +27,21 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
 }
 
 describe('<SendReviewStep>', () => {
+  it('shows the too-many-notes callout with its own "Merge notes" button, and holds Confirm', () => {
+    const onMergeNotes = vi.fn()
+    renderReview({ onMergeNotes })
+    expect(screen.getByText('Too many small notes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm send' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Merge notes' }))
+    expect(onMergeNotes).toHaveBeenCalledOnce()
+  })
+
+  it('still shows another blocked reason alongside the callout', () => {
+    renderReview({ onMergeNotes: vi.fn(), submitBlockedReason: 'The relayer is unavailable.' })
+    expect(screen.getByText('Too many small notes')).toBeInTheDocument()
+    expect(screen.getByText('The relayer is unavailable.')).toBeInTheDocument()
+  })
+
   it('private: shows the "Private transfer." notice and no network row', () => {
     renderReview({ recipient: VALID_0ZK })
     expect(screen.getByText('Private transfer.')).toBeInTheDocument()

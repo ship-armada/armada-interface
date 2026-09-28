@@ -23,6 +23,16 @@ function record(): TxRecord<'unshield-xchain'> {
 }
 
 describe('<TxRow>', () => {
+  it('shows a note merge by its fee (it moves no value)', () => {
+    const merge = {
+      ...record(), kind: 'consolidate', stage: 'hub-confirmed', executionState: 'completed',
+      meta: { amount: 0n, feeCacheId: 'fc', broadcasterFeeAmount: 40_000n, notesMerged: 6 },
+    } as unknown as TxRecord
+    render(<TxRow record={merge} />)
+    expect(screen.getByText('Merged 6 notes')).toBeInTheDocument()
+    expect(screen.getByText('$0.04')).toBeInTheDocument()
+  })
+
   it('renders the recipient-derived title for a public unshield', () => {
     render(<TxRow record={record()} />)
     expect(screen.getByText(/^Sent to /)).toBeInTheDocument()

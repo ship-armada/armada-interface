@@ -15,7 +15,7 @@ which the Unshield tab and `ActivityReceipt` reuse to render unshield reviews/re
 | `SendModal` | Orchestrator. Owns step + form state; derives `variant` from the open modal kind. Three `useTx` hooks mounted (`transfer-shielded` / `unshield-local` / `unshield-xchain`); the submitted one's record drives Progress + Complete. |
 | `SendRecipientStep` | First step. Editable recipient (0zk or 0x), a privacy indicator, a destination-chain selector shown **only** for public 0x recipients, and a **recent-recipients list** below the action row. Continue is gated on a valid address. |
 | `RecentAddressList` | Presentational "Recent address" list — previously-used recipients as one-tap rows (arrow badge + truncated address + relative time). Data comes from `useRecentRecipients` (derived from settled tx history); a click fills the recipient and restores its destination chain. Empty history renders nothing. Hidden on mobile once a valid address is typed. |
-| `SendInputStep` | Amount step. `DepositAmountCard` with the chain rendered **statically** (chosen on the recipient step). Gates Review on the amount only. |
+| `SendInputStep` | Amount step. `DepositAmountCard` with the chain rendered **statically** (chosen on the recipient step). Gates Review on the amount only. The fee caption reads "Estimating fees…" until the send's plan (private: the fee plan; public: the unshield's) prices the amount (never the one-proof quote first), and "—" when the planner refuses it (Review's fee and Total rows too). |
 | `SendReviewStep` | Read-only echo. Shows the resolved mode label (Private transfer / External wallet) + cross-chain tag when applicable. Variant drives the headline + confirm label. |
 | `SendCompleteStep` | Frost-card confirmation; title by variant (send → "USDC send confirmed", withdraw → "USDC unshield confirmed"). |
 
@@ -46,6 +46,25 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   private, external-to-hub, and external-to-client all run end-to-end. Submit-meta shapes + fee
   math (`userFeeForKind`, `cctpFastFeeForAmount`, `computeFeeBreakdown`, `useDisplayFees`) are
   shared across the kinds.
+- A private (0zk) send's fee is **planned, not quoted**: a wallet of many small notes splits into
+  several proofs, each paying the quoted `transfer` fee. `useTransferFeePlan` prices the send at
+  review (total fee, fee-aware Max, Confirm blocked while pricing or when the
+  planner refuses). At Confirm the send is re-priced at the fresh quote; a different total bounces
+  back to Review with the FeeUpdatedBanner. The record stores the approved total
+  (`broadcasterFeeAmount`) and the per-proof fee (`broadcasterFeePerProof`). A public send (an
+  unshield) never splits, but its fee is **planned too** (`useSpendCheck`, on the amount and review
+  steps): the SDK folds small change into the fee when that's what lets the unshield fit a circuit, so
+  it can exceed the quote. It gets the same treatment — "Estimating fees…" / "—" until priced, re-priced
+  at Confirm, total + per-proof stored, the build capped at the reviewed total — and its Max comes from
+  the SDK too (`wallet.maxUnshieldAmount`: one proof, one tree). An unshield record also
+  stores the protocol fee (`protocolFee`) and, cross-chain, the CCTP fee (`cctpFee`) shown at review. The confirmation screen (and the Unshield
+  tab's) and the Activity receipt all derive the fee from the record alone (`spendReceiptFromMeta`),
+  not the live plan/quote, which stop pricing after review and keep refreshing.
+- A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's
+  "Too many small notes" callout (`MergeNotesNotice`, Confirm held) before any attempt (private sends from the fee plan; public sends, which are unshields, from a
+  `useSpendCheck` dry run) and on the error step (from the record's
+  `remedy: 'merge-notes'`). It opens the `merge` modal (`components/consolidate/`) with the blocked
+  send, so the merge preview can say whether one merge unblocks it.
 
 ## Folder name
 

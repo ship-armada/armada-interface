@@ -18,6 +18,9 @@ export interface XchainCctp {
   burnAmount?: bigint
   /** Cross-chain shield: the actual CCTP fee (`feeExecuted`) charged on the mint. */
   cctpFee?: bigint
+  /** Cross-chain unshield: the CCTP `maxFee` the burn bound (the review estimate × 2 — `cctpMaxFeeForKind`).
+   *  Its actual fee is only known on the destination chain. */
+  maxFee?: bigint
 }
 
 // How many receipt fetches to run at once. Cross-chain candidates are a minority of history, but a
@@ -71,6 +74,7 @@ export async function buildXchainCctpMap(opts: {
         if (info.sent !== undefined) {
           entry.destinationDomain = info.sent.destinationDomain
           entry.recipient = info.sent.mintRecipient
+          if (info.sent.maxFee !== undefined) entry.maxFee = info.sent.maxFee
         }
         if (entry.sourceDomain !== undefined || entry.destinationDomain !== undefined) map.set(txid, entry)
       }),

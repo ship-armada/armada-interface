@@ -5,9 +5,10 @@ import type { TxRecord, TxKind, TxErrorCode } from '@/lib/tx/types'
 import { historySortTime, isTerminalState } from '@/lib/tx/types'
 import { recordTitle } from '@/components/tx/stageCopy'
 import type { RequestLinkRecord } from '@/lib/shielded/requestLinks'
+import { headlineAmount } from '@/lib/tx/headlineAmount'
 
 /** Icon/semantic kind for an activity row — a coarser grouping than TxKind. */
-export type DashboardActivityKind = 'send' | 'deposit' | 'earn' | 'withdraw' | 'receive' | 'requestLink'
+export type DashboardActivityKind = 'send' | 'deposit' | 'earn' | 'withdraw' | 'receive' | 'requestLink' | 'merge'
 
 /**
  * Outcome bucket for an activity row.
@@ -79,6 +80,8 @@ const DIRECTION: Record<TxKind, { kind: DashboardActivityKind; sign: 1 | -1 }> =
   'transfer-shielded-received': { kind: 'receive', sign: 1 },
   'yield-deposit': { kind: 'earn', sign: -1 },
   'yield-withdraw': { kind: 'earn', sign: 1 },
+  // A merge moves no value; its only outflow is the fee (see `headlineAmount`).
+  consolidate: { kind: 'merge', sign: -1 },
 }
 
 /** USDC is a 6-decimal bigint; the activity list renders plain numbers. */
@@ -129,7 +132,7 @@ export function txRecordToActivityItem(
     ...base,
     kind: direction.kind,
     label: recordTitle(record),
-    amount: direction.sign * usdcToNumber(record.meta.amount),
+    amount: direction.sign * usdcToNumber(headlineAmount(record)),
   }
 }
 

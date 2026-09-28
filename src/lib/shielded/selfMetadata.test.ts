@@ -22,6 +22,12 @@ describe('encodeTxSelfMetadata / decodeTxSelfMetadata', () => {
     expect(decodeTxSelfMetadata(encodeTxSelfMetadata({ yieldApyBps: 0n }))).toEqual({ yieldApyBps: 0n })
   })
 
+  it('round-trips the consolidation tag (so a chain rescan recovers a merge as one)', () => {
+    const blob = encodeTxSelfMetadata({ consolidation: true })
+    expect(blob).toBe('{"v":1,"m":1}')
+    expect(decodeTxSelfMetadata(blob)).toEqual({ consolidation: true })
+  })
+
   it('returns undefined when nothing is worth persisting (skips the change memo)', () => {
     // WHY: an empty blob would still write a change memo — calldata gas + a metadata-presence signal
     // for no recovered value. The caller skips prove({ selfMetadata }) when this is undefined.

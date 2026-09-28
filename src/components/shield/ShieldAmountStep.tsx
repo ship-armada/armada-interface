@@ -39,9 +39,12 @@ interface ShieldAmountStepContentProps {
   displayFees: DisplayFees
   flowBreakdown: FlowFeeBreakdown
   feeLoading?: boolean
-  /** True while the shield's relayer-reachability probe is in flight — shows "Estimating fees…"
-   *  and suppresses the premature direct-path ETH gas caption until the path is known (#23). */
+  /** True while the fee is still being worked out — the shield's relayer-reachability probe (which also
+   *  suppresses the premature direct-path ETH gas caption until the path is known, #23), or an unshield
+   *  being planned. Shows "Estimating fees…" instead of a figure. */
   feeResolving?: boolean
+  /** The fee can't be worked out for this amount (an unshield the planner refuses): the caption shows "—". */
+  feeUnavailable?: boolean
   /** True when the relayer covers gas (shield gasless / unshield relayer). Suppresses the gas notice. */
   gaslessMode?: boolean
   /** Chain whose native balance is checked for the direct-submit gas notice. */
@@ -69,6 +72,7 @@ export function ShieldAmountStepContent({
   flowBreakdown,
   feeLoading = false,
   feeResolving = false,
+  feeUnavailable = false,
   gaslessMode = true,
   gasChainId,
   inputRef,
@@ -119,6 +123,7 @@ export function ShieldAmountStepContent({
         flowBreakdown={flowBreakdown}
         feeLoading={feeLoading}
         feeResolving={feeResolving}
+        feeUnavailable={feeUnavailable}
         // Only the DIRECT shield path (gasless off) has the user pay ETH network gas. The Unshield
         // tab (relayer-submitted) passes gaslessMode true → no gas caption.
         userPaysNativeGas={!gaslessMode}
