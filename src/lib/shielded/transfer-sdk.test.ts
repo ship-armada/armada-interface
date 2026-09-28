@@ -10,6 +10,7 @@ const hoisted = vi.hoisted(() => ({
   buildTransactCalldata: vi.fn(),
   stashSpendPlan: vi.fn(),
   maxTransferAmount: vi.fn(),
+  warmPlannedCircuits: vi.fn(async () => {}),
 }))
 // The real SDK module, with only the calldata serializer stubbed.
 vi.mock('@armada/sdk', async (importActual) => ({
@@ -23,6 +24,7 @@ vi.mock('./sdk-read', () => ({
   }),
 }))
 vi.mock('./pending-spend', () => ({ stashSpendPlan: hoisted.stashSpendPlan }))
+vi.mock('./artifacts', () => ({ warmPlannedCircuits: hoisted.warmPlannedCircuits }))
 
 import { buildTransferSdk, planTransferFee, maxTransferAmount, SpendFeeIncreasedError } from './transfer-sdk'
 
@@ -143,6 +145,13 @@ describe('planTransferFee', () => {
     })
     expect(hoisted.proveAll).not.toHaveBeenCalled()
     expect(hoisted.preflight).not.toHaveBeenCalled()
+  })
+
+  it('starts loading the circuits the planned send will prove', async () => {
+    const plans = [{ ...group(20_000n), shape: { nullifiers: 4, commitments: 3 } }]
+    hoisted.planTransfer.mockResolvedValue(plans)
+    await planTransferFee({ recipient: '0zk_bob', amount: 5n, broadcasterFee: FEE })
+    expect(hoisted.warmPlannedCircuits).toHaveBeenCalledWith(plans)
   })
 })
 

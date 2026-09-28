@@ -11,6 +11,7 @@ const hoisted = vi.hoisted(() => ({
   preflight: vi.fn(),
   buildTransactCalldata: vi.fn(),
   stashSpendPlan: vi.fn(),
+  warmPlannedCircuits: vi.fn(async () => {}),
 }))
 vi.mock('@armada/sdk', async (importActual) => ({
   ...(await importActual<typeof import('@armada/sdk')>()),
@@ -25,6 +26,7 @@ vi.mock('./sdk-read', () => ({
   }),
 }))
 vi.mock('./pending-spend', () => ({ stashSpendPlan: hoisted.stashSpendPlan }))
+vi.mock('./artifacts', () => ({ warmPlannedCircuits: hoisted.warmPlannedCircuits }))
 
 import { buildConsolidateSdk, checkSpendPlans, previewConsolidation } from './consolidate-sdk'
 import { SpendFeeIncreasedError } from './spend-fee-error'
@@ -102,6 +104,11 @@ describe('previewConsolidation', () => {
     expect(hoisted.planTransferAfter).not.toHaveBeenCalled()
   })
 
+  it('starts loading the circuits the merge will prove', async () => {
+    await previewConsolidation({ tokenAddress: USDC, broadcasterFee: FEE })
+    expect(hoisted.warmPlannedCircuits).toHaveBeenCalledWith(await hoisted.consolidate.mock.results[0]!.value)
+  })
+
   it('reports that the blocked spend will work after the merge', async () => {
     hoisted.planTransferAfter.mockResolvedValue([{}])
     const r = await previewConsolidation({ tokenAddress: USDC, broadcasterFee: FEE, blocked: BLOCKED })
@@ -134,6 +141,13 @@ describe('checkSpendPlans', () => {
     expect(hoisted.planTransferAfter).toHaveBeenCalledWith([], SPEND)
     expect(hoisted.consolidate).not.toHaveBeenCalled()
     expect(hoisted.proveAll).not.toHaveBeenCalled()
+  })
+
+  it('starts loading the circuits the spend will prove', async () => {
+    const plans = [{ summary: {}, shape: { nullifiers: 5, commitments: 2 } }]
+    hoisted.planTransferAfter.mockResolvedValue(plans)
+    await checkSpendPlans(SPEND)
+    expect(hoisted.warmPlannedCircuits).toHaveBeenCalledWith(plans)
   })
 
   it('throws the planner\'s error when the spend can\'t be planned', async () => {

@@ -7,6 +7,7 @@ import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { feeQuoteFor, type BroadcasterFee } from './transfer-sdk'
 import { assertReviewedFee, totalFeeOf } from './spend-fee'
+import { warmPlannedCircuits } from './artifacts'
 
 export interface SdkConsolidateInputs {
   /** The ONE token to merge (USDC or vault shares). */
@@ -72,6 +73,8 @@ export async function previewConsolidation(inputs: {
 }): Promise<ConsolidationSummary & { blockedWillWork?: boolean }> {
   const wallet = await getSdkWallet()
   const plans = await wallet.consolidate({ tokenAddress: inputs.tokenAddress, fee: feeQuoteFor(inputs.broadcasterFee) })
+  // Fetch the circuits this merge will prove while the user reviews it, not after Confirm.
+  void warmPlannedCircuits(plans)
   const summary = summarize(plans, inputs.tokenAddress)
   if (inputs.blocked === undefined) return summary
   try {
@@ -106,5 +109,8 @@ function summarize(plans: readonly Plan[], tokenAddress: `0x${string}`): Consoli
 export async function checkSpendPlans(request: PlanTransferRequest): Promise<{ totalFee: bigint }> {
   const wallet = await getSdkWallet()
   // `planTransferAfter` with no merge plans over the notes as they are now.
-  return { totalFee: totalFeeOf(await wallet.planTransferAfter([], request)) }
+  const plans = await wallet.planTransferAfter([], request)
+  // Fetch the circuits this spend will prove while the user reviews it, not after Confirm.
+  void warmPlannedCircuits(plans)
+  return { totalFee: totalFeeOf(plans) }
 }

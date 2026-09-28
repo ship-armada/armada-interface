@@ -7,6 +7,7 @@ import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { SpendFeeIncreasedError } from './spend-fee-error'
 import { assertReviewedFee, totalFeeOf } from './spend-fee'
+import { warmPlannedCircuits } from './artifacts'
 
 export { SpendFeeIncreasedError }
 
@@ -85,6 +86,8 @@ export async function planTransferFee(inputs: {
 }): Promise<{ totalFee: bigint; proofs: number }> {
   const wallet = await getSdkWallet()
   const plans = await wallet.planTransfer(transferRequest(inputs.recipient, inputs.amount, inputs.broadcasterFee))
+  // Fetch the circuits this send will prove while the user reviews it, not after Confirm.
+  void warmPlannedCircuits(plans)
   return { totalFee: totalFeeOf(plans), proofs: plans.length }
 }
 

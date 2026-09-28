@@ -1,5 +1,5 @@
-// ABOUTME: Warms the common ZK circuit shapes into the in-memory registry on app mount so the first
-// ABOUTME: proof doesn't pay a fetch. Every other shape lazy-loads on demand via the SDK ArtifactSource.
+// ABOUTME: Warms ZK circuit shapes into the in-memory registry so a proof doesn't wait on a fetch: the common ones on
+// ABOUTME: app mount, and each spend's own planned shapes as soon as review plans it. Anything else lazy-loads on demand.
 
 import { armadaVariantKey } from './artifactGetter'
 import { ensureCircuitLoaded } from './circuitFetch'
@@ -29,4 +29,22 @@ export async function preloadArtifactsFromOrigin(): Promise<void> {
       }),
     ),
   )
+}
+
+/**
+ * Start loading the circuits a planned spend will prove, as soon as the plan is known (the amount / review
+ * steps plan every spend), so the download runs while the user reviews rather than after Confirm. Covers
+ * whatever the planner picked — a fragmented wallet's swept 4x3, a fold-in's 5x2 / 6x2, a split's groups —
+ * without guessing ahead of time. Fire-and-forget: already-loaded shapes return at once and concurrent
+ * requests share one download (circuitFetch); a failure is swallowed here and surfaces at proof time.
+ */
+export async function warmPlannedCircuits(
+  plans: readonly { readonly shape: { readonly nullifiers: number; readonly commitments: number } }[],
+): Promise<void> {
+  try {
+    const keys = new Set(plans.map((p) => armadaVariantKey(p.shape.nullifiers, p.shape.commitments)))
+    await Promise.allSettled([...keys].map((key) => ensureCircuitLoaded(key)))
+  } catch {
+    // A warm-up miss must never break planning (callers don't await it); the proof's own load reports it.
+  }
 }
