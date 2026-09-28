@@ -33,7 +33,27 @@ function buildBurnMessage(amount: bigint, feeExecuted: bigint): `0x${string}` {
   return `0x${u32(1)}${word(0n)}${word(0n)}${word(amount)}${word(0n)}${word(0n)}${word(feeExecuted)}` as `0x${string}`
 }
 
+// A full outbound envelope whose BurnMessage runs through maxFee: version | burnToken | mintRecipient |
+// amount | messageSender | maxFee (body byte 132 → envelope byte 280).
+function buildMessageWithMaxFee(destDomain: number, recipient: string, maxFee: bigint): `0x${string}` {
+  const u32 = (n: number) => n.toString(16).padStart(8, '0')
+  const word = (hex: string) => hex.padStart(64, '0')
+  const header = u32(1) + u32(0) + u32(destDomain) + word('') + word('') + word('') + word('') + u32(0) + u32(0)
+  const body = u32(1) + word('') + word(recipient.replace(/^0x/, '')) + word('') + word('') + word(maxFee.toString(16))
+  return `0x${header}${body}` as `0x${string}`
+}
+
 describe('readCctpMessage', () => {
+  it('reads the burn\'s maxFee when the envelope carries it', () => {
+    const msg = buildMessageWithMaxFee(6, '0x4d25f9d0b0cd67f6fb2e6e1f2e9b072e750b0c30', 1_200n)
+    expect(readCctpMessage(msg)).toEqual({
+      sourceDomain: 0,
+      destinationDomain: 6,
+      mintRecipient: '0x4d25f9d0b0cd67f6fb2e6e1f2e9b072e750b0c30',
+      maxFee: 1_200n,
+    })
+  })
+
   it('parses source/destination domains + mintRecipient from a V2 envelope', () => {
     const msg = buildMessage(0, 6, '0x4d25f9d0b0cd67f6fb2e6e1f2e9b072e750b0c30')
     expect(readCctpMessage(msg)).toEqual({
@@ -78,6 +98,18 @@ describe('readCctpFromLogs', () => {
     })
     expect(info.sent).toEqual({ destinationDomain: 6, mintRecipient: '0x4d25f9d0b0cd67f6fb2e6e1f2e9b072e750b0c30' })
     expect(info.received).toBeUndefined()
+  })
+
+  it('also extracts the burn\'s maxFee from a MessageSent log that carries it', () => {
+    const raw = buildMessageWithMaxFee(6, '0x4d25f9d0b0cd67f6fb2e6e1f2e9b072e750b0c30', 1_200n).slice(2)
+    const len = (raw.length / 2).toString(16).padStart(64, '0')
+    const padded = raw.padEnd(Math.ceil(raw.length / 64) * 64, '0')
+    const data = `0x${(32).toString(16).padStart(64, '0')}${len}${padded}` as `0x${string}`
+    const info = readCctpFromLogs({
+      logs: [{ address: TRANSMITTER, topics: sentTopics, data } as never],
+      messageTransmitterAddress: TRANSMITTER,
+    })
+    expect(info.sent?.maxFee).toBe(1_200n)
   })
 
   it('extracts source domain + burnAmount + cctpFee from a MessageReceived log', () => {

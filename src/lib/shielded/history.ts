@@ -5,6 +5,7 @@ import { lifecycleFor } from '@/lib/tx/lifecycles'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
 import { getChainByDomain, getNetworkConfig } from '@/config/network'
 import { getCachedDeployments } from '@/config/deployments'
+import { cctpFeeEstimateFromMaxFee } from '@/lib/relayer'
 import { getHubBlockTimestamps } from './network'
 import { readSdkHistory } from './sdk-read'
 import { decodeTxSelfMetadata } from './selfMetadata'
@@ -275,7 +276,12 @@ export function historyEntryToTxRecord(
         return {
           id: syntheticTxId(entry.txid, entry.category), kind: 'unshield-xchain', executionState: 'completed',
           stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-          meta: { ...unshieldMeta, recipient: x?.recipient ?? entry.recipient ?? 'unknown', toChainId: destChainId },
+          meta: {
+            ...unshieldMeta, recipient: x?.recipient ?? entry.recipient ?? 'unknown', toChainId: destChainId,
+            // The CCTP fee the app showed (and recorded) at review, read back from the maxFee the burn bound.
+            // The actual fee is only known on the destination chain, so both receipts carry the estimate.
+            ...(x?.maxFee !== undefined ? { cctpFee: cctpFeeEstimateFromMaxFee(x.maxFee) } : {}),
+          },
         }
       }
       const stages = terminalizeStages('unshield-local')

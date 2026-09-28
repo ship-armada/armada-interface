@@ -295,8 +295,9 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
   /** The on-chain protocol unshield fee: shown at review, or recovered from the Unshield event on a
    *  rescan. Absent when there's none (Armada charges none today) and on older records. */
   protocolFee?: bigint
-  /** The CCTP fast fee shown at review (taken from the destination mint). Absent on older /
-   *  chain-recovered records. */
+  /** The CCTP fast fee shown at review (taken from the destination mint) — an estimate; the actual fee is
+   *  only known on the destination chain. A chain-recovered record carries the same estimate, read back from
+   *  the burn's `maxFee`. Absent on older records. */
   cctpFee?: bigint
 }
 

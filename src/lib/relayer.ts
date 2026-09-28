@@ -278,6 +278,18 @@ export function cctpFastFeeForAmount(amount: bigint): bigint {
   return (amount * CCTP_FAST_FEE_BPS) / 10_000n
 }
 
+/** How many times the displayed CCTP fast-fee estimate a cross-chain tx binds as its on-chain `maxFee`. */
+const CCTP_MAX_FEE_MULTIPLIER = 2n
+
+/**
+ * The CCTP fee estimate a cross-chain tx showed at review, read back from the `maxFee` it bound on-chain
+ * (`cctpMaxFeeForKind`'s inverse). History recovery uses it for a cross-chain unshield, whose actual fee is
+ * only known on the destination chain, so the recovered receipt matches the authored one exactly.
+ */
+export function cctpFeeEstimateFromMaxFee(maxFee: bigint): bigint {
+  return maxFee / CCTP_MAX_FEE_MULTIPLIER
+}
+
 /**
  * 2× multiple over the CCTP fast-fee to use as CCTP V2's on-chain `maxFee` bound. The displayed
  * fee is a realistic estimate (matches the server's conservative bps buffer); the on-chain
@@ -288,7 +300,7 @@ export function cctpMaxFeeForKind(kind: TxKind, amount: bigint): bigint {
   switch (kind) {
     case 'shield-xchain':
     case 'unshield-xchain':
-      return cctpFastFeeForAmount(amount) * 2n
+      return cctpFastFeeForAmount(amount) * CCTP_MAX_FEE_MULTIPLIER
     default:
       return 0n
   }

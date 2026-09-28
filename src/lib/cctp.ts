@@ -109,6 +109,8 @@ export interface CctpMessageInfo {
   sourceDomain: number
   destinationDomain: number
   mintRecipient: `0x${string}`
+  /** The BurnMessage's `maxFee` (the most CCTP may take at mint), when the envelope carries it. */
+  maxFee?: bigint
 }
 
 /**
@@ -116,7 +118,8 @@ export interface CctpMessageInfo {
  * layout: `version(4) | sourceDomain(4) | destDomain(4) | nonce(32) | sender(32) | recipient(32) |
  * destinationCaller(32) | minFinality(4) | finalityExecuted(4) | messageBody(...)`; the BurnMessage
  * body is `version(4) | burnToken(32) | mintRecipient(32) | …`, so `mintRecipient` (the final EVM
- * recipient = last 20 bytes) sits at envelope byte offset 184. Returns null if the bytes are too short.
+ * recipient = last 20 bytes) sits at envelope byte offset 184, and `maxFee` (body byte 132) at envelope
+ * byte 280 — read when present. Returns null if the bytes are too short for the recipient.
  */
 export function readCctpMessage(message: `0x${string}`): CctpMessageInfo | null {
   const raw = message.slice(2)
@@ -127,6 +130,8 @@ export function readCctpMessage(message: `0x${string}`): CctpMessageInfo | null 
     destinationDomain: u32(8),
     // mintRecipient bytes32 at byte 184; the address is its last 20 bytes → hex [392, 432).
     mintRecipient: `0x${raw.slice(392, 432)}` as `0x${string}`,
+    // maxFee uint256 at byte 280 → hex [560, 624).
+    ...(raw.length >= 624 ? { maxFee: BigInt(`0x${raw.slice(560, 624)}`) } : {}),
   }
 }
 
@@ -146,8 +151,9 @@ export function readBurnMessage(body: `0x${string}`): { amount: bigint; feeExecu
 /** Cross-chain markers found in a hub tx's logs — the outbound send (xchain unshield) and/or the
  *  inbound mint (xchain shield), keyed off the CCTP MessageTransmitter events. */
 export interface CctpReceiptInfo {
-  /** From an outbound `MessageSent` (e.g. a cross-chain unshield): destination + final recipient. */
-  sent?: { destinationDomain: number; mintRecipient: `0x${string}` }
+  /** From an outbound `MessageSent` (e.g. a cross-chain unshield): destination + final recipient, and the
+   *  burn's `maxFee` bound when present. */
+  sent?: { destinationDomain: number; mintRecipient: `0x${string}`; maxFee?: bigint }
   /** From an inbound `MessageReceived` (e.g. a cross-chain shield's hub mint): the origin domain, plus
    *  the true deposit (`burnAmount`) + CCTP fee (`cctpFee`) recovered from the message's BurnMessage. */
   received?: { sourceDomain: number; burnAmount?: bigint; cctpFee?: bigint }
@@ -171,7 +177,13 @@ export function readCctpFromLogs(opts: {
       try {
         const decoded = decodeEventLog({ abi: [sentEvent], data: log.data, topics: log.topics })
         const info = readCctpMessage((decoded.args as { message: `0x${string}` }).message)
-        if (info) out.sent = { destinationDomain: info.destinationDomain, mintRecipient: info.mintRecipient }
+        if (info) {
+          out.sent = {
+            destinationDomain: info.destinationDomain,
+            mintRecipient: info.mintRecipient,
+            ...(info.maxFee !== undefined ? { maxFee: info.maxFee } : {}),
+          }
+        }
       } catch { /* decoder mismatch — skip */ }
     } else if (log.topics[0] === MESSAGE_RECEIVED_TOPIC && out.received === undefined) {
       try {
