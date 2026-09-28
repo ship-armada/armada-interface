@@ -251,10 +251,16 @@ export function historyEntryToTxRecord(
       }
     }
     case 'unshield': {
-      const amount = abs - broadcasterFee - (entry.unshieldFee ?? 0n)
+      // The wallet delta is the unshielded value + the relayer fee, so `amount` is the unshielded value —
+      // the GROSS the user typed, as an authored record stores it. A protocol unshield fee comes out of that
+      // value (the recipient gets `amount − fee`) and is recorded as a fee, so the receipt matches the
+      // authored one. Armada's pool charges none today (its Unshield event's fee is 0, "unshield is free
+      // per spec"), but recovery doesn't rely on that.
+      const unshieldFee = entry.unshieldFee ?? 0n
       const unshieldMeta = {
-        amount, feeCacheId: recoveredFeeCacheId,
+        amount: abs - broadcasterFee, feeCacheId: recoveredFeeCacheId,
         broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
+        ...(unshieldFee > 0n ? { protocolFee: unshieldFee } : {}),
       }
       // An unshield addressed to the pool that carried a CCTP `MessageSent` was a cross-chain exit
       // (Tier 2) — recover the destination chain + the REAL final recipient (the on-chain unshield

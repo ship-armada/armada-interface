@@ -15,6 +15,8 @@ vi.mock('./network', () => ({ getHubBlockTimestamps: hoisted.getHubBlockTimestam
 
 import { historyEntryToTxRecord, isSyntheticTxId, runHistoryScan, syntheticTxId } from './history'
 import { getChainByDomain } from '@/config/network'
+import { spendReceiptFromMeta } from '@/lib/fees/displayFees'
+import type { TxRecord } from '@/lib/tx/types'
 
 // Local CCTP domains (VITE_NETWORK=local): hub 100/31337, client A 101/31338, client B 102/31339.
 const POOL = '0xpool00000000000000000000000000000000abcd'
@@ -139,9 +141,29 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r!.meta).not.toHaveProperty('senderShieldedAddress')
   })
 
-  it('unshield → unshield-local, recipient + net amount (minus fees)', () => {
+  it('unshield → unshield-local: the gross amount (as the authored record stores it) + the protocol fee as a fee', () => {
+    // Wallet delta 500_000 = unshielded 490_000 + relayer fee 10_000; of the 490_000 a protocol unshield fee
+    // of 2_500 would go to the treasury (Armada charges none today — the event's fee is 0 — but recovery
+    // mustn't depend on that).
     const r = historyEntryToTxRecord(sdkEntry({ category: 'unshield', value: -500_000n, broadcasterFee: 10_000n, unshieldFee: 2_500n, recipient: '0xrecipient' }), 'w', SDK_CTX, 5000)
-    expect(r).toMatchObject({ kind: 'unshield-local', meta: { amount: 487_500n, recipient: '0xrecipient', broadcasterFeeAmount: 10_000n } })
+    expect(r).toMatchObject({ kind: 'unshield-local', meta: { amount: 490_000n, protocolFee: 2_500n, recipient: '0xrecipient', broadcasterFeeAmount: 10_000n } })
+  })
+
+  it('a recovered unshield reads the same receipt as the one the app recorded, with or without a protocol fee', () => {
+    for (const unshieldFee of [0n, 2_500n]) {
+      // What the app records for this unshield: the typed amount, the relayer fee, the protocol fee shown.
+      const authored = {
+        amount: 490_000n,
+        broadcasterFeeAmount: 10_000n,
+        ...(unshieldFee > 0n ? { protocolFee: unshieldFee } : {}),
+      }
+      const recovered = historyEntryToTxRecord(
+        sdkEntry({ category: 'unshield', value: -500_000n, broadcasterFee: 10_000n, unshieldFee, recipient: '0xrecipient' }),
+        'w', SDK_CTX, 5000,
+      ) as TxRecord<'unshield-local'>
+      expect(spendReceiptFromMeta(recovered.meta)).toEqual(spendReceiptFromMeta(authored))
+      if (unshieldFee === 0n) expect(recovered.meta).not.toHaveProperty('protocolFee')
+    }
   })
 
   it('yield deposit + withdraw map natively (no adapter heuristic)', () => {
