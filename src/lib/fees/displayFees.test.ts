@@ -6,12 +6,15 @@ const quote: FeeSchedule = {
   cacheId: 'test',
   expiresAt: Date.now() + 60_000,
   chainId: 11155111,
+  broadcasterShieldedAddress: '0zkbroadcaster',
   fees: {
     transfer: '100000',
     unshield: '200000',
     crossContract: '300000',
     crossChainShield: '400000',
     crossChainUnshield: '500000',
+    shield: '600000',
+    shieldXchain: '700000',
   },
 }
 

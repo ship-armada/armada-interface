@@ -81,7 +81,7 @@ describe('aggregate3', () => {
     const provider = providerReturning(raw)
     await aggregate3(provider, [{ contract, functionName: 'phase' }])
 
-    const call = (provider.call as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    const call = (provider.call as ReturnType<typeof vi.fn>).mock.calls[0]![0]
     expect(call.to).toBe(MULTICALL3_ADDRESS)
     expect((provider.call as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
   })

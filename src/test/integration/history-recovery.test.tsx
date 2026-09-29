@@ -91,21 +91,21 @@ function Harness() {
 
 function shieldRecord(txid: string, blockNumber: number, amount: bigint): TxRecord {
   return historyEntryToTxRecord(
-    { txid, blockNumber, category: 'shield', tokenAddress: '0xusdc', value: amount },
+    { txid, blockNumber, category: 'shield', tokenAddress: '0xusdc', tokenHash: 'usdc', value: amount },
     'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, blockNumber * 1000,
   )!
 }
 
 function receiveRecord(txid: string, blockNumber: number, amount: bigint): TxRecord {
   return historyEntryToTxRecord(
-    { txid, blockNumber, category: 'transfer-received', tokenAddress: '0xusdc', value: amount },
+    { txid, blockNumber, category: 'transfer-received', tokenAddress: '0xusdc', tokenHash: 'usdc', value: amount },
     'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, blockNumber * 1000,
   )!
 }
 
 function unshieldRecord(txid: string, blockNumber: number, amount: bigint): TxRecord {
   return historyEntryToTxRecord(
-    { txid, blockNumber, category: 'unshield', tokenAddress: '0xusdc', value: -amount, recipient: '0xrecipient' },
+    { txid, blockNumber, category: 'unshield', tokenAddress: '0xusdc', tokenHash: 'usdc', value: -amount, recipient: '0xrecipient' },
     'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, blockNumber * 1000,
   )!
 }
@@ -394,7 +394,7 @@ describe('Phase 9 — chain history recovery + incoming detector integration', (
     function recoveredHubMint(): TxRecord {
       const clientDomain = getNetworkConfig().clients[0]!.domain
       return historyEntryToTxRecord(
-        { txid: '0xhubmint', blockNumber: 100_002, category: 'shield', tokenAddress: '0xusdc', value: 999_000n, shieldFee: 900n },
+        { txid: '0xhubmint', blockNumber: 100_002, category: 'shield', tokenAddress: '0xusdc', tokenHash: 'usdc', value: 999_000n, shieldFee: 900n },
         'rg-1',
         {
           hubChainId: 31337, usdcAddress: '0xusdc',
@@ -441,7 +441,7 @@ describe('Phase 9 — chain history recovery + incoming detector integration', (
     // WHY: a row recovered before a mapping fix — or before its cross-chain routing could be read — would otherwise keep
     // its wrong figures for good: the scan finds it by its own hash and skipped it as already complete.
     const clientDomain = () => getNetworkConfig().clients[0]!.domain
-    const entry = { txid: '0xhubmint', blockNumber: 100_002, category: 'shield', tokenAddress: '0xusdc', value: 999_000n, shieldFee: 900n } as const
+    const entry = { txid: '0xhubmint', blockNumber: 100_002, category: 'shield', tokenAddress: '0xusdc', tokenHash: 'usdc', value: 999_000n, shieldFee: 900n } as const
     const sameChain = () => historyEntryToTxRecord(entry, 'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, 100_002_000)!
     const crossChain = () => historyEntryToTxRecord(entry, 'rg-1', {
       hubChainId: 31337, usdcAddress: '0xusdc',

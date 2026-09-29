@@ -30,7 +30,7 @@ describe('buildTransports (P1-18)', () => {
   it('uses a fallback transport for a chain with multiple configured RPC URLs', () => {
     const transports = buildTransports(
       [HUB],
-      [{ chainId: 31337, name: 'Hub', rpcUrls: ['http://primary', 'http://fallback'] }],
+      [{ chainId: 31337, name: 'Hub', domain: 100, rpcUrls: ['http://primary', 'http://fallback'] }],
     )
     expect(transportType(transports[31337]!)).toBe('fallback')
   })
@@ -38,15 +38,15 @@ describe('buildTransports (P1-18)', () => {
   it('uses a plain http transport for a chain with a single configured RPC URL', () => {
     const transports = buildTransports(
       [CLIENT],
-      [{ chainId: 31338, name: 'Client A', rpcUrls: ['http://only'] }],
+      [{ chainId: 31338, name: 'Client A', domain: 101, rpcUrls: ['http://only'] }],
     )
     expect(transportType(transports[31338]!)).toBe('http')
   })
 
   it('builds exactly one transport per chain', () => {
     const transports = buildTransports([HUB, CLIENT], [
-      { chainId: 31337, name: 'Hub', rpcUrls: ['http://primary', 'http://fallback'] },
-      { chainId: 31338, name: 'Client A', rpcUrls: ['http://only'] },
+      { chainId: 31337, name: 'Hub', domain: 100, rpcUrls: ['http://primary', 'http://fallback'] },
+      { chainId: 31338, name: 'Client A', domain: 101, rpcUrls: ['http://only'] },
     ])
     expect(Object.keys(transports).sort()).toEqual(['31337', '31338'])
   })

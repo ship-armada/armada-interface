@@ -40,7 +40,7 @@ describe('shieldWalletSteps', () => {
     }
     const steps = shieldWalletSteps(record, 5_000_000n)
     expect(steps.map(s => s.label)).toEqual(['Submit 5.00 USDC shield'])
-    expect(steps[0].status).toBe('loading')
+    expect(steps[0]!.status).toBe('loading')
   })
 
   it('gasless: authorize + sign rows, both done once build-proof captures the signatures (S-M4)', () => {
