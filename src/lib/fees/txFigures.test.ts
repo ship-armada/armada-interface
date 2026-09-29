@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { moneyMoved, txFigures, txFiguresAs, txHeadline } from './txFigures'
+import { selfSendAsMerge } from '@/lib/tx/selfSend'
 import { A, C, C_ACTUAL, F, FOLD, G, P, txRecord } from '@/test/fixtures/txValues'
 
 const RELAYER_0ZK = '0zk' + 'b'.repeat(64)
@@ -65,7 +66,11 @@ describe('txFigures', () => {
         .toEqual({ model: 'spend', headline: A, fee, totalDeducted: A + fee, cctpFee: null })
     })
 
-    it.todo('PS-7 a record whose recipient is the wallet\'s own 0zk reads as a merge: amount 0, Fees = Total = fee — F1/F10, #71')
+    it('PS-7 a send to the wallet\'s own 0zk, as Activity shows it (selfSendAsMerge): amount 0, Fees = Total = the fee', () => {
+      const own = '0zk' + 'd'.repeat(40)
+      const shown = selfSendAsMerge(txRecord('transfer-shielded', spend(F, { recipient: own })), own)
+      expect(txFigures(shown)).toEqual({ model: 'merge', headline: F, fee: F })
+    })
 
     it('PS-10, PS-11 received: the amount, no fees', () => {
       expect(txFigures(txRecord('transfer-shielded-received', { amount: A }))).toEqual({ model: 'received', headline: A })

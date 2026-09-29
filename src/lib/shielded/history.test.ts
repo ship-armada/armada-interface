@@ -98,19 +98,19 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r?.kind).toBe('transfer-shielded')
   })
 
-  it('self-transfer → transfer-shielded with amount = fee, not a phantom outgoing (#39)', () => {
-    // The pre-#88 SDK misclassified a send-to-self as a big negative transfer-sent (the "−194" bug).
-    // Now it is a distinct `self-transfer` (value = −fee); the record must NOT be dropped and its
-    // amount is the fee (net cost), so the balance-from-history fallback debits the fee only.
+  it('self-transfer → a merge: amount 0, the fee its only charge — not a phantom outgoing (#39) or 2× the fee (PS-7)', () => {
+    // A send to the wallet's own 0zk: the SDK reports a `self-transfer` whose value is −fee, with no `sentOutputs` (the
+    // self output is left out — sdk sync/history.ts). Only the fee left the wallet, so it reads as a merge.
     const r = historyEntryToTxRecord(
-      sdkEntry({ category: 'self-transfer', value: -1_500n, broadcasterFee: 1_500n, broadcasterShieldedAddress: '0zk_relayer', sentOutputs: [{ recipientShieldedAddress: '0zk_self', value: 0n }] }),
+      sdkEntry({ category: 'self-transfer', value: -1_500n, broadcasterFee: 1_500n, broadcasterShieldedAddress: '0zk_relayer' }),
       'w', SDK_CTX, 5000,
     )
     expect(r).toMatchObject({
-      kind: 'transfer-shielded',
+      kind: 'consolidate',
       id: 'synth:0xabc:self-transfer',
-      meta: { amount: 1_500n, recipient: '0zk_self', broadcasterFeeAmount: 1_500n, broadcasterShieldedAddress: '0zk_relayer' },
+      meta: { amount: 0n, broadcasterFeeAmount: 1_500n, broadcasterShieldedAddress: '0zk_relayer' },
     })
+    expect(txFigures(r!)).toEqual({ model: 'merge', headline: 1_500n, fee: 1_500n })
   })
 
   it('gasless shield reconstructs the deposit total; receipt nets to entry.value (#43)', () => {

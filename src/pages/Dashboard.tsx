@@ -15,6 +15,7 @@ import { RecentActivityList, ActivityAllPanel } from '@/components/dashboard/Rec
 import { useDepositTooltipHandoff, useEarnBannerHandoff } from '@/hooks/useEarnBannerHandoff'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt'
 import { buildActivityItems, type DashboardActivityItem } from '@/components/dashboard/txActivityAdapter'
+import { selfSendAsMerge } from '@/lib/tx/selfSend'
 import { formatUsdcAmount } from '@/components/dashboard/dashboardFormat'
 import type { BalanceRollMode } from '@/components/dashboard/RollingBalanceValue'
 import { SyncGate, isInitialSyncGated } from '@/components/sync'
@@ -49,6 +50,12 @@ export function Dashboard() {
   const { rate: yieldRate } = useYieldRate()
   const shieldedWallet = useAtomValue(shieldedWalletAtom)
   const txList = useAtomValue(activeTxListAtom)
+  // The records as Activity shows them — a send to the wallet's own 0zk reads as a merge (only its fee left); the row
+  // and its receipt both read this list, so they agree.
+  const activityTxList = useMemo(
+    () => txList.map((record) => selfSendAsMerge(record, shieldedWallet.shieldedAddress)),
+    [txList, shieldedWallet.shieldedAddress],
+  )
   const requestLinks = useAtomValue(requestLinksAtom)
   const evmAddress = useAtomValue(evmAddressAtom)
 
@@ -157,8 +164,8 @@ export function Dashboard() {
   // Full activity list (uncapped) so the panel can show everything up to its ceiling and we can tell
   // whether that ceiling was hit. The dashboard preview + the panel then slice their own views.
   const allActivityItems = useMemo(
-    () => buildActivityItems(txList, requestLinks, evmAddress, Infinity),
-    [txList, requestLinks, evmAddress],
+    () => buildActivityItems(activityTxList, requestLinks, evmAddress, Infinity),
+    [activityTxList, requestLinks, evmAddress],
   )
   const previewActivityItems = useMemo(
     () => allActivityItems.slice(0, ACTIVITY_PREVIEW_MAX),
@@ -313,7 +320,7 @@ export function Dashboard() {
         onItemClick={handleActivityItemClick}
       />
       <ActivityReceipt
-        record={txList.find((record) => record.id === receiptId) ?? null}
+        record={activityTxList.find((record) => record.id === receiptId) ?? null}
         ownWalletAddress={evmAddress ?? undefined}
         open={receiptId !== null}
         onClose={() => setReceiptId(null)}

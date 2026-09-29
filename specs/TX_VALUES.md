@@ -55,7 +55,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-5 Estimates are marked.** A figure that is an estimate (CCTP fee before reconciliation, a vault
   withdrawal's gross before execution) carries "≈" / "est." wherever it is shown.
 - **G-6 Recovered = authored.** For the same on-chain tx, REC shows the same headline, fees and totals as
-  the authored RCPT, except where a kind lists an allowed difference. *Deviations F1, F2, F8, F13.*
+  the authored RCPT, except where a kind lists an allowed difference. *Deviations F2, F8, F13.*
 - **G-7 The rows add up.** Fee-on-top kinds: Amount + Fees = Total deducted. Fee-inclusive kinds (shields,
   a vault withdrawal): Amount − Fees = You'll receive. A fee that is neither on top nor inside the user's own
   figure — the CCTP fee of a cross-chain unshield, taken from the amount in transit — gets its own row,
@@ -160,9 +160,7 @@ A sweep grows the change note only — every figure is unchanged.
   A fold-in has no change note, so its self-metadata (`feeCacheId`) is lost — not displayed, accepted.
 - **Allowed differences:** CNF/RCPT fee < REV fee when the build charges less than planned (the build can
   never charge more — `SpendFeeIncreasedError`); CNF shows the actual.
-- **Deviations:** F1 (recovered send-to-self: `amount = F` and fee `F` → Total `2F`), F10 (authored
-  send-to-self shows Total `A + F` and row `−A`; only `F` left the wallet), F17 (a recovered send whose fee note
-  wasn't attributed shows Fees `0.00`).
+- **Deviations:** F17 (a recovered send whose fee note wasn't attributed shows Fees `0.00`).
 
 ### `transfer-shielded-received` (history-only)
 
@@ -270,13 +268,11 @@ fallback / old records; **S4** cosmetic or labelling.
 
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
-| F1 | S1 | transfer (self) | Recovered send-to-self: Total deducted = `2Φ`; only `Φ` left the wallet. | #71 |
 | F2 | S1 | unshield-xchain | Recovery never recognises cross-chain unshields (matches the pool as recipient; the event carries the final recipient): wrong network, CCTP fee dropped. F2b latent recipient = destination pool. | #72 |
 | F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
 | F6 | S2 | unshield-xchain | #68 — every surface shows the CCTP estimate; the actual is available at delivery (relayer status / dest `MessageReceived`) but discarded. | #68 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
 | F9 | S2 | shield-xchain | Duplicate authored + recovered rows when delivery times out or recovery races the final write. | #77 |
-| F10 | S2 | transfer (self) | Authored send-to-self shows `A + Φ` deducted and row `−A`. | #71 |
 | F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
 | F16 | S3 | consolidate | Exact-cover non-USDC merge recovered as "USDC sent 0 to unknown". | #81 |
@@ -286,7 +282,7 @@ fallback / old records; **S4** cosmetic or labelling.
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F27 | S3 | all | The balance shown before the SDK sync lands is derived from local history, ignoring fees, received payments and merges (G-11). | #80 |
-| F28 | S4 | docs/tests | Stale comments (shield "runs short", self-transfer = consolidation, `cctp.ts` mintRecipient = final recipient, yield handler/components docs) and three test fixtures that encode shapes the SDK never emits (self-transfer `sentOutputs`, withdraw USDC-leg `selfMetadata`, pool-recipient xchain unshield). | #71, #72, #76, #81, #83 |
+| F28 | S4 | docs/tests | Stale comments (shield "runs short", `cctp.ts` mintRecipient = final recipient) and test fixtures that encode shapes the SDK never emits (withdraw USDC-leg `selfMetadata`, pool-recipient xchain unshield). | #72, #76, #81 |
 
 ## 9. Decisions
 

@@ -149,9 +149,11 @@ export function historyEntryToTxRecord(
   if (usdcAddress !== '' && entryToken !== '' && entryToken !== usdcAddress) return null
 
   // A note consolidation (armada-sdk #98) spends into a fee note + self-owned change only — no recipient
-  // output — so the SDK recovers it as an anonymous `transfer-sent` (or a `self-transfer`). Its
-  // self-metadata tag marks it; map it back to a merge: no value moved, only the fee left the wallet.
-  if (recovered.consolidation && (entry.category === 'transfer-sent' || entry.category === 'self-transfer')) {
+  // output (the merged note is a Change output, left out of the recovered sends) — so the SDK recovers it as an
+  // anonymous `transfer-sent`. Its self-metadata tag marks it; map it back to a merge: no value moved, only the fee
+  // left the wallet. A send to the wallet's own 0zk — the SDK's `self-transfer` (value = −fee; the self output is
+  // left out too) — likewise moved nothing but the fee, so it reads as a merge as well (spec PS-7, decision D3).
+  if ((recovered.consolidation && entry.category === 'transfer-sent') || entry.category === 'self-transfer') {
     const stages = terminalizeStages('consolidate')
     return {
       id: syntheticTxId(entry.txid, entry.category), kind: 'consolidate', executionState: 'completed',
@@ -204,23 +206,6 @@ export function historyEntryToTxRecord(
         id: syntheticTxId(entry.txid, entry.category), kind: 'shield', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
         meta: { amount, fromChainId: ctx.hubChainId, ...shieldMeta },
-      }
-    }
-    case 'self-transfer': {
-      // A shielded send to the wallet's own 0zk (a consolidation/rebalance) — the principal comes
-      // straight back, so the only real cost is the fee. Recorded as a `transfer-shielded` whose
-      // amount IS the fee (issue #39): this keeps the balance-from-history fallback correct (it
-      // debits `meta.amount`) and shows a small fee-sized row instead of the old phantom "−194"
-      // outgoing that the pre-#88 SDK misclassified as a `transfer-sent`.
-      const stages = terminalizeStages('transfer-shielded')
-      return {
-        id: syntheticTxId(entry.txid, entry.category), kind: 'transfer-shielded', executionState: 'completed',
-        stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
-        meta: {
-          amount: abs, feeCacheId: recoveredFeeCacheId,
-          recipient: entry.sentOutputs?.[0]?.recipientShieldedAddress ?? 'self',
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
-        },
       }
     }
     case 'transfer-received': {
