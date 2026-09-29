@@ -101,9 +101,11 @@ export function extractCctpMessageFromReceipt(opts: {
 }
 
 /**
- * Domains + final recipient parsed from a CCTP V2 message envelope. `sourceDomain`/`destinationDomain`
+ * Domains + mint recipient parsed from a CCTP V2 message envelope. `sourceDomain`/`destinationDomain`
  * are the CCTP domain ids (map to a chain via `getChainByDomain`); `mintRecipient` is the BurnMessage's
- * final recipient as a 0x EVM address.
+ * mint recipient as a 0x EVM address — the contract CCTP mints to on the destination chain. For an Armada
+ * cross-chain unshield that's the destination pool (`TransactModule` burns to `remotePools[dest]`), which
+ * forwards to the final recipient carried in the hook data — so it is NOT the user's wallet.
  */
 export interface CctpMessageInfo {
   sourceDomain: number
@@ -117,8 +119,8 @@ export interface CctpMessageInfo {
  * Parse a CCTP V2 message envelope (the `MessageSent` bytes) → domains + `mintRecipient`. Envelope
  * layout: `version(4) | sourceDomain(4) | destDomain(4) | nonce(32) | sender(32) | recipient(32) |
  * destinationCaller(32) | minFinality(4) | finalityExecuted(4) | messageBody(...)`; the BurnMessage
- * body is `version(4) | burnToken(32) | mintRecipient(32) | …`, so `mintRecipient` (the final EVM
- * recipient = last 20 bytes) sits at envelope byte offset 184, and `maxFee` (body byte 132) at envelope
+ * body is `version(4) | burnToken(32) | mintRecipient(32) | …`, so `mintRecipient` (last 20 bytes)
+ * sits at envelope byte offset 184, and `maxFee` (body byte 132) at envelope
  * byte 280 — read when present. Returns null if the bytes are too short for the recipient.
  */
 export function readCctpMessage(message: `0x${string}`): CctpMessageInfo | null {
@@ -151,8 +153,8 @@ export function readBurnMessage(body: `0x${string}`): { amount: bigint; feeExecu
 /** Cross-chain markers found in a hub tx's logs — the outbound send (xchain unshield) and/or the
  *  inbound mint (xchain shield), keyed off the CCTP MessageTransmitter events. */
 export interface CctpReceiptInfo {
-  /** From an outbound `MessageSent` (e.g. a cross-chain unshield): destination + final recipient, and the
-   *  burn's `maxFee` bound when present. */
+  /** From an outbound `MessageSent` (e.g. a cross-chain unshield): destination + mint recipient (the destination
+   *  pool on an Armada exit, not the user), and the burn's `maxFee` bound when present. */
   sent?: { destinationDomain: number; mintRecipient: `0x${string}`; maxFee?: bigint }
   /** From an inbound `MessageReceived` (e.g. a cross-chain shield's hub mint): the origin domain, plus
    *  the true deposit (`burnAmount`) + CCTP fee (`cctpFee`) recovered from the message's BurnMessage. */

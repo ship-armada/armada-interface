@@ -1,4 +1,4 @@
-// ABOUTME: Unit tests for buildXchainCctpMap — candidate selection (shields + unshields-to-pool) and
+// ABOUTME: Unit tests for buildXchainCctpMap — candidate selection (every shield + every unshield) and
 // ABOUTME: fetch/parse orchestration into the txid→routing map. Provider + CCTP parser are mocked.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -11,8 +11,6 @@ vi.mock('./network', () => ({ timeoutProvider: () => ({ getTransactionReceipt: h
 vi.mock('../cctp', () => ({ readCctpFromLogs: hoisted.readCctpFromLogs }))
 
 import { buildXchainCctpMap } from './xchain-recovery'
-
-const POOL = '0xPOOL00000000000000000000000000000000abcd'
 
 beforeEach(() => {
   hoisted.getTransactionReceipt.mockReset()
@@ -28,32 +26,34 @@ beforeEach(() => {
 })
 
 describe('buildXchainCctpMap', () => {
-  it('maps shields (source) + unshields-to-pool (destination), skipping non-candidates', async () => {
+  it('maps shields (source) + unshields (destination) by the CCTP event in their hub tx, skipping non-candidates', async () => {
     const map = await buildXchainCctpMap({
       entries: [
         { txid: 'shieldtx', category: 'shield' },
-        { txid: 'unshieldtx', category: 'unshield', recipient: POOL },
-        { txid: 'unshieldeoa', category: 'unshield', recipient: '0xEOA' }, // to an EOA → not cross-chain
+        // A cross-chain exit's Unshield event names the FINAL recipient (TransactModule), so the recipient can't
+        // tell it apart from a local unshield — only the CCTP message in its tx can (#72).
+        { txid: 'unshieldtx', category: 'unshield', recipient: '0xEOA' },
+        { txid: 'unshieldlocal', category: 'unshield', recipient: '0xEOA' }, // no CCTP message → stays local
         { txid: 'transfertx', category: 'transfer-sent' }, // not a candidate
       ] as never,
-      poolAddress: POOL,
       transmitterAddress: '0xtransmitter',
       hubRpcUrl: 'http://hub',
     })
     // Shield candidate carries the true deposit (burnAmount) + actual CCTP fee recovered from the mint.
     expect(map.get('shieldtx')).toEqual({ sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n })
-    // Unshield candidate carries the CCTP maxFee bound the tx set (the estimate × 2, see cctpMaxFeeForKind).
-    expect(map.get('unshieldtx')).toEqual({ destinationDomain: 102, recipient: '0xrec', maxFee: 1_200n })
-    expect(map.has('unshieldeoa')).toBe(false)
+    // Unshield candidate carries its destination and the CCTP maxFee the tx bound (the estimate × 2, see
+    // cctpMaxFeeForKind) — not the message's mintRecipient, which is the destination pool, not the user.
+    expect(map.get('unshieldtx')).toEqual({ destinationDomain: 102, maxFee: 1_200n })
+    expect(map.has('unshieldlocal')).toBe(false)
     expect(map.has('transfertx')).toBe(false)
-    // Only the two candidates were fetched.
-    expect(hoisted.getTransactionReceipt).toHaveBeenCalledTimes(2)
+    // Every shield and unshield was fetched; the transfer wasn't.
+    expect(hoisted.getTransactionReceipt).toHaveBeenCalledTimes(3)
   })
 
   it('returns an empty map (no fetches) when there are no candidates', async () => {
     const map = await buildXchainCctpMap({
       entries: [{ txid: 'a', category: 'transfer-received' }] as never,
-      poolAddress: POOL, transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
+      transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
     })
     expect(map.size).toBe(0)
     expect(hoisted.getTransactionReceipt).not.toHaveBeenCalled()
@@ -63,7 +63,7 @@ describe('buildXchainCctpMap', () => {
     hoisted.getTransactionReceipt.mockRejectedValueOnce(new Error('rpc down'))
     const map = await buildXchainCctpMap({
       entries: [{ txid: 'shieldtx', category: 'shield' }] as never,
-      poolAddress: POOL, transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
+      transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
     })
     expect(map.size).toBe(0)
   })

@@ -55,7 +55,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-5 Estimates are marked.** A figure that is an estimate (CCTP fee before reconciliation, a vault
   withdrawal's gross before execution) carries "≈" / "est." wherever it is shown.
 - **G-6 Recovered = authored.** For the same on-chain tx, REC shows the same headline, fees and totals as
-  the authored RCPT, except where a kind lists an allowed difference. *Deviations F2, F8, F13.*
+  the authored RCPT, except where a kind lists an allowed difference. *Deviations F8, F13.*
 - **G-7 The rows add up.** Fee-on-top kinds: Amount + Fees = Total deducted. Fee-inclusive kinds (shields,
   a vault withdrawal): Amount − Fees = You'll receive. A fee that is neither on top nor inside the user's own
   figure — the CCTP fee of a cross-chain unshield, taken from the amount in transit — gets its own row,
@@ -200,11 +200,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
   until an actual source exists [D4].
 - **Allowed differences:** as `transfer-shielded` (build charged less). xchain REV (est.) → CNF (actual) by
   `C − C'` once D4 lands.
-- **Deviations:** F2 (recovery never recognises a cross-chain unshield — it matches `recipient === pool`, but
-  the event carries the final recipient → REC shows the hub network and drops the CCTP fee; tests encode the
-  wrong event shape), F2b (latent behind F2: the recovered recipient would be the destination pool contract —
-  `mintRecipient` — not the user),
-  F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates).
+- **Deviations:** F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates).
 
 ### `yield-deposit`
 
@@ -268,7 +264,6 @@ fallback / old records; **S4** cosmetic or labelling.
 
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
-| F2 | S1 | unshield-xchain | Recovery never recognises cross-chain unshields (matches the pool as recipient; the event carries the final recipient): wrong network, CCTP fee dropped. F2b latent recipient = destination pool. | #72 |
 | F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
 | F6 | S2 | unshield-xchain | #68 — every surface shows the CCTP estimate; the actual is available at delivery (relayer status / dest `MessageReceived`) but discarded. | #68 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
@@ -282,7 +277,7 @@ fallback / old records; **S4** cosmetic or labelling.
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F27 | S3 | all | The balance shown before the SDK sync lands is derived from local history, ignoring fees, received payments and merges (G-11). | #80 |
-| F28 | S4 | docs/tests | Stale comments (shield "runs short", `cctp.ts` mintRecipient = final recipient) and test fixtures that encode shapes the SDK never emits (withdraw USDC-leg `selfMetadata`, pool-recipient xchain unshield). | #72, #76, #81 |
+| F28 | S4 | docs/tests | A stale comment (a recovered shield "runs short") and a test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, #81 |
 
 ## 9. Decisions
 

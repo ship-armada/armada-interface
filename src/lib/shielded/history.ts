@@ -29,12 +29,9 @@ import type { HistoryEntry } from '@armada/sdk'
 export interface HistoryMapContext {
   hubChainId: number
   usdcAddress: string
-  /** Hub PrivacyPool address — the unshield recipient on a cross-chain exit (a local unshield goes to
-   *  an EOA). Used with `xchainByTxid` to distinguish `unshield-local` from `unshield-xchain`. */
-  poolAddress?: string
   /** Cross-chain routing recovered from the hub CCTP events, keyed by txid (`xchain-recovery.ts`). An
    *  entry with `sourceDomain` remaps a `shield` → `shield-xchain`; one with `destinationDomain` remaps
-   *  an unshield-to-pool → `unshield-xchain`. Absent → everything stays same-chain. */
+   *  an `unshield` → `unshield-xchain`. Absent → everything stays same-chain. */
   xchainByTxid?: ReadonlyMap<string, XchainCctp>
 }
 
@@ -248,13 +245,11 @@ export function historyEntryToTxRecord(
         broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
         ...(unshieldFee > 0n ? { protocolFee: unshieldFee } : {}),
       }
-      // An unshield addressed to the pool that carried a CCTP `MessageSent` was a cross-chain exit
-      // (Tier 2) — recover the destination chain + the REAL final recipient (the on-chain unshield
-      // recipient is the pool, which forwards via CCTP).
-      const x = entry.recipient !== undefined && ctx.poolAddress !== undefined
-        && entry.recipient.toLowerCase() === ctx.poolAddress.toLowerCase()
-        ? ctx.xchainByTxid?.get(entry.txid)
-        : undefined
+      // An unshield whose hub tx carried a CCTP `MessageSent` was a cross-chain exit (Tier 2) — recover the
+      // destination chain from it. Its recipient is the entry's own: `TransactModule` emits
+      // `Unshield(finalRecipient, …)` for a cross-chain exit, the same shape as a local one (so only the CCTP
+      // message tells them apart), while the message's mintRecipient is the destination pool, not the user.
+      const x = ctx.xchainByTxid?.get(entry.txid)
       const destChainId = x?.destinationDomain !== undefined ? getChainByDomain(x.destinationDomain)?.chainId : undefined
       if (destChainId !== undefined) {
         const stages = terminalizeStages('unshield-xchain')
@@ -262,7 +257,7 @@ export function historyEntryToTxRecord(
           id: syntheticTxId(entry.txid, entry.category), kind: 'unshield-xchain', executionState: 'completed',
           stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
           meta: {
-            ...unshieldMeta, recipient: x?.recipient ?? entry.recipient ?? 'unknown', toChainId: destChainId,
+            ...unshieldMeta, recipient: entry.recipient ?? 'unknown', toChainId: destChainId,
             // The CCTP fee the app showed (and recorded) at review, read back from the maxFee the burn bound.
             // The actual fee is only known on the destination chain, so both receipts carry the estimate.
             ...(x?.maxFee !== undefined ? { cctpFee: cctpFeeEstimateFromMaxFee(x.maxFee), cctpFeeIsEstimate: true } : {}),
@@ -313,7 +308,7 @@ export function historyEntryToTxRecord(
 /**
  * Enrich the map context with cross-chain routing recovered from the hub CCTP events (Tier 2). Reads
  * the CCTP MessageTransmitter address from the cached deployment and the hub RPC from config; returns
- * `ctx` unchanged when they're unavailable, when `poolAddress` isn't set, or when no candidate resolves.
+ * `ctx` unchanged when they're unavailable or when no candidate resolves.
  * Never throws — cross-chain recovery is additive, and a failure must never break same-chain history.
  */
 async function withXchainRouting(
@@ -324,10 +319,9 @@ async function withXchainRouting(
     const deployments = getCachedDeployments()
     const transmitter = deployments?.hub.cctp?.messageTransmitter as `0x${string}` | undefined
     const hubRpcUrl = getNetworkConfig().hub.rpcUrls[0]
-    if (ctx.poolAddress === undefined || transmitter === undefined || hubRpcUrl === undefined) return ctx
+    if (transmitter === undefined || hubRpcUrl === undefined) return ctx
     const xchainByTxid = await buildXchainCctpMap({
       entries,
-      poolAddress: ctx.poolAddress,
       transmitterAddress: transmitter,
       hubRpcUrl,
     })

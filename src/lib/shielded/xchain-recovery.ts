@@ -10,10 +10,10 @@ import { timeoutProvider } from './network'
 export interface XchainCctp {
   /** Origin CCTP domain — set when the hub tx carried a `MessageReceived` (a cross-chain shield). */
   sourceDomain?: number
-  /** Destination CCTP domain — set when the hub tx carried a `MessageSent` (a cross-chain unshield). */
+  /** Destination CCTP domain — set when the hub tx carried a `MessageSent` (a cross-chain unshield). The final
+   *  recipient isn't read from the message: its `mintRecipient` is the destination pool, not the user — the recovered
+   *  entry's recipient (its `Unshield` event's `to`) is the user's wallet. */
   destinationDomain?: number
-  /** Final EVM recipient on the destination chain (cross-chain unshield). */
-  recipient?: `0x${string}`
   /** Cross-chain shield: the true deposit (CCTP burn amount, pre-fee) from the hub MessageReceived. */
   burnAmount?: bigint
   /** Cross-chain shield: the actual CCTP fee (`feeExecuted`) charged on the mint. */
@@ -30,23 +30,20 @@ const RECEIPT_FETCH_CONCURRENCY = 6
 /**
  * Build a `txid → XchainCctp` map by fetching the hub receipt for each cross-chain candidate and
  * scanning its logs for the CCTP MessageTransmitter events. Candidates are every `shield` (a hub
- * shield could be a cross-chain mint) and every `unshield` addressed to the pool (the pool is the
- * unshield recipient on a cross-chain exit — a local unshield goes straight to an EOA).
+ * shield could be a cross-chain mint) and every `unshield` (a cross-chain exit emits the same
+ * `Unshield(finalRecipient, …)` a local one does, so only the CCTP `MessageSent` in its tx tells it apart).
  *
  * Best-effort: a receipt that can't be fetched or carries no CCTP event simply isn't in the map, so
  * the mapper falls back to the same-chain kind. Never throws — a flaky RPC must not fail recovery.
  */
 export async function buildXchainCctpMap(opts: {
-  entries: ReadonlyArray<Pick<HistoryEntry, 'txid' | 'category' | 'recipient'>>
-  poolAddress: string
+  entries: ReadonlyArray<Pick<HistoryEntry, 'txid' | 'category'>>
   transmitterAddress: `0x${string}`
   hubRpcUrl: string
 }): Promise<Map<string, XchainCctp>> {
-  const pool = opts.poolAddress.toLowerCase()
   const candidates = new Set<string>()
   for (const e of opts.entries) {
-    if (e.category === 'shield') candidates.add(e.txid)
-    else if (e.category === 'unshield' && e.recipient?.toLowerCase() === pool) candidates.add(e.txid)
+    if (e.category === 'shield' || e.category === 'unshield') candidates.add(e.txid)
   }
 
   const map = new Map<string, XchainCctp>()
@@ -73,7 +70,6 @@ export async function buildXchainCctpMap(opts: {
         }
         if (info.sent !== undefined) {
           entry.destinationDomain = info.sent.destinationDomain
-          entry.recipient = info.sent.mintRecipient
           if (info.sent.maxFee !== undefined) entry.maxFee = info.sent.maxFee
         }
         if (entry.sourceDomain !== undefined || entry.destinationDomain !== undefined) map.set(txid, entry)
