@@ -258,8 +258,8 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
   counts aren't recoverable, so REC hides those rows — accepted [D9].
 - **Allowed differences:** MG-1's headline differs by surface, by design. Note counts can differ between REV and
   CNF when the fee doesn't (re-review is fee-triggered).
-- **Deviations:** F16 (a non-USDC merge whose USDC fee group is an exact cover leaves no change note → no tag →
-  recovered as "USDC sent 0 to unknown"; money figures right).
+- A non-USDC merge whose USDC fee group was an exact cover has no USDC change note; its share leg's tag marks the
+  txid, so the USDC fee leg still recovers as the merge (`withConsolidationTxids`).
 
 ## 8. Deviation register
 
@@ -271,7 +271,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
 | F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
-| F16 | S3 | consolidate | Exact-cover non-USDC merge recovered as "USDC sent 0 to unknown". | #81 |
 | F17 | S3 | transfer | Unattributed recovered fee shows `0.00`, not "—". | #81 |
 | F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |

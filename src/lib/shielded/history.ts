@@ -33,6 +33,8 @@ export interface HistoryMapContext {
    *  entry with `sourceDomain` remaps a `shield` → `shield-xchain`; one with `destinationDomain` remaps
    *  an `unshield` → `unshield-xchain`. Absent → everything stays same-chain. */
   xchainByTxid?: ReadonlyMap<string, XchainCctp>
+  /** Txids of note merges — any entry of the tx, in any token, carried the merge tag (`withConsolidationTxids`). */
+  consolidationTxids?: ReadonlySet<string>
 }
 
 /** Empty default — convenient for tests + the no-yield-detection path. Empty `usdcAddress` makes the
@@ -150,7 +152,8 @@ export function historyEntryToTxRecord(
   // anonymous `transfer-sent`. Its self-metadata tag marks it; map it back to a merge: no value moved, only the fee
   // left the wallet. A send to the wallet's own 0zk — the SDK's `self-transfer` (value = −fee; the self output is
   // left out too) — likewise moved nothing but the fee, so it reads as a merge as well (spec PS-7, decision D3).
-  if ((recovered.consolidation && entry.category === 'transfer-sent') || entry.category === 'self-transfer') {
+  const isMerge = recovered.consolidation || ctx.consolidationTxids?.has(entry.txid) === true
+  if ((isMerge && entry.category === 'transfer-sent') || entry.category === 'self-transfer') {
     const stages = terminalizeStages('consolidate')
     return {
       id: syntheticTxId(entry.txid, entry.category), kind: 'consolidate', executionState: 'completed',
@@ -309,6 +312,17 @@ export function historyEntryToTxRecord(
 }
 
 /**
+ * Add the txids of note merges to `ctx`: any entry of the tx — in any token — whose self-metadata carries the merge tag.
+ * A vault-share merge whose USDC fee was an exact cover leaves no USDC change note, so only its share leg carries the
+ * tag, and that leg is dropped (history is USDC-only); its USDC fee leg is still recognised as the merge by its txid
+ * instead of reading as "USDC sent 0" (F16).
+ */
+export function withConsolidationTxids(entries: ReadonlyArray<HistoryEntry>, ctx: HistoryMapContext): HistoryMapContext {
+  const txids = new Set(entries.filter((e) => decodeTxSelfMetadata(e.selfMetadata).consolidation).map((e) => e.txid))
+  return txids.size > 0 ? { ...ctx, consolidationTxids: txids } : ctx
+}
+
+/**
  * Enrich the map context with cross-chain routing recovered from the hub CCTP events (Tier 2). Reads
  * the CCTP MessageTransmitter address from the cached deployment and the hub RPC from config; returns
  * `ctx` unchanged when they're unavailable or when no candidate resolves.
@@ -354,7 +368,7 @@ export async function runHistoryScan(
   // were actually cross-chain remap to `shield-xchain` / `unshield-xchain` with their real source /
   // destination chain. Best-effort — a missing transmitter/RPC or a flaky fetch leaves everything
   // same-chain (never throws, never drops history).
-  const enrichedCtx = await withXchainRouting(entries, ctx)
+  const enrichedCtx = withConsolidationTxids(entries, await withXchainRouting(entries, ctx))
 
   const records: TxRecord[] = []
   let highest: number | null = null
