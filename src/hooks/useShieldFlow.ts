@@ -13,7 +13,7 @@ import { useDisplayFees } from '@/hooks/useDisplayFees'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
 import { useBalances } from '@/hooks/useBalances'
 import { cctpFastFeeForAmount, computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
-import { getNetworkConfig } from '@/config/network'
+import { getIntegratorAddress, getNetworkConfig } from '@/config/network'
 import { loadDeployments } from '@/config/deployments'
 import { formatUsdc, parseUsdcInput } from '@/lib/format'
 import { canRetryTx } from '@/lib/tx/executor'
@@ -25,7 +25,7 @@ import {
   type WalletStep,
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
-import { shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
+import { shieldFeeIntegrator, shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
 import { txFiguresAs, type TxFigures } from '@/lib/fees/txFigures'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxDraft, TxRecord } from '@/lib/tx/types'
@@ -65,6 +65,8 @@ export interface ShieldFlow {
   reviewFigures: Extract<TxFigures, { model: 'deposit' }> | null
   /** True while a gasless shield's relayer quote hasn't loaded — there's no relayer fee to show or submit against. */
   quotePending: boolean
+  /** True while the fee module's read of the protocol fee hasn't landed for this amount — no fee to show yet. */
+  protocolFeePending: boolean
   /** Completion-screen figures, from the record (the handler reconciles amount/protocolFee/cctpFee to the on-chain
    *  values at delivery); null until a record exists — Complete only shows post-submit. */
   completeReceipt: Extract<TxFigures, { model: 'deposit' }> | null
@@ -200,12 +202,14 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   //  - same-chain gasless shield: relayer fee carved out first → `amount - relayerFee`.
   //  - shield-xchain: CCTP mint fee, then (gasless) relayer fee → `amount - relayerFee - cctpFee`.
   const shieldFeeBase = shieldProtocolFeeBase(computedKind, amount, fee, useGasless, cctpFee)
-  const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
+  const { fees: displayFees, isLoading: feeLoading, protocolFeeStatus } = useDisplayFees(
     computedKind,
     amount,
     fromChainId,
     quote,
     shieldFeeBase,
+    // Read the fee with the integrator this shield will carry — the fee module prices by it (#74, F18).
+    shieldFeeIntegrator(computedKind, useGasless, getIntegratorAddress()),
   )
   const protocolFee = displayFees.protocolFee
   // Per-kind fee math (recipient receives / user is debited / how much they can type) lives in
@@ -245,6 +249,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     // Frozen so the receipt subtracts the protocol shield fee too (the note that lands is `amount - feeAmount -
     // protocolFee`) — the pool takes it on the direct path as well.
     protocolFee,
+    // The fee module couldn't be read: the ~50 bps estimate, marked — the handler reconciles it off the confirmed shield.
+    ...(protocolFeeStatus === 'estimate' ? { protocolFeeIsEstimate: true } : {}),
     // Gasless only: the relayer fee the wrapper carves out of the entered amount as its own note.
     ...(useGasless ? { useGasless: true, feeAmount: fee } : {}),
   }
@@ -254,7 +260,9 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // A gasless shield's relayer fee is the quote's: until it loads the fee would read 0, so there's nothing to show
   // (spec G-4) — Review reads "—" and Confirm is held. The direct path needs no quote.
   const quotePending = useGasless && quote === null
-  const reviewFigures = quotePending ? null : txFiguresAs(reviewed, 'deposit')
+  // Likewise while the fee module's read of the protocol fee hasn't landed for this amount (spec G-4).
+  const protocolFeePending = protocolFeeStatus === 'pending'
+  const reviewFigures = quotePending || protocolFeePending ? null : txFiguresAs(reviewed, 'deposit')
   // Minimum valid amount = the live fee. Below or equal to it the wrapper's `shieldAmount =
   // totalAmount - fee` would underflow / be zero. Surfaced via ShieldInputStep's `minAmount`
   // prop so the user can't type a value that would inevitably revert. Zero for no-fee paths.
@@ -455,6 +463,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     flowBreakdown,
     reviewFigures,
     quotePending,
+    protocolFeePending,
     // Completion-screen figures, from the record — its meta is authoritative: the handler reconciles
     // amount/protocolFee/cctpFee to the ACTUAL on-chain values at delivery, so "Confirm" shows the real numbers
     // (identical to the activity receipt), not the pre-submit estimate. Complete only shows post-submit.

@@ -10,7 +10,8 @@ export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
 /**
  * The figures a record is shown with, shaped per summary layout:
  *  - `deposit` (shield, shield-xchain): fee-inclusive — the net received is `amount − fees`; `estimated` while a
- *    cross-chain shield's CCTP fee is still the review-time estimate (the fee and the net then read "≈").
+ *    cross-chain shield's CCTP fee, or a protocol fee the fee module couldn't price, is still the review-time estimate
+ *    (the fee and the net then read "≈").
  *  - `spend` (transfer-shielded, unshield-*): fee-on-top — the total deducted is `amount + relayer fee`, and
  *    `fee` is what's charged on top (relayer + any protocol fee), so Amount + Fees = Total. A cross-chain unshield's
  *    CCTP fee comes out of the amount in transit instead, so it's its own figure (`cctpFee`), not part of `fee`.
@@ -63,7 +64,8 @@ export function txFigures(record: TxFiguresSource): TxFigures {
       const netAmount = meta.amount > totalFee ? meta.amount - totalFee : meta.amount
       // A shield's stored CCTP fee is the actual unless marked otherwise (records predating the marker only ever
       // stored the reconciled actual).
-      const estimated = cctpFee > 0n && 'cctpFeeIsEstimate' in meta && meta.cctpFeeIsEstimate === true
+      const estimated = (cctpFee > 0n && 'cctpFeeIsEstimate' in meta && meta.cctpFeeIsEstimate === true)
+        || meta.protocolFeeIsEstimate === true
       return { model: 'deposit', headline: txHeadline(record), fee: totalFee > 0n ? totalFee : null, netAmount, estimated }
     }
     case 'transfer-shielded':

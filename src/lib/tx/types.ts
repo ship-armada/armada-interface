@@ -222,6 +222,9 @@ export interface MetaShield extends MetaCommon {
    * receipt treats absent as 0 and under-reports the fee for those, as it did before).
    */
   protocolFee?: bigint
+  /** True while `protocolFee` is the ~50 bps estimate (the fee module couldn't be read at review); cleared once the
+   *  handler reads the pool's actual fee off the confirmed shield. Absent → the fee module's own figure. */
+  protocolFeeIsEstimate?: boolean
 }
 
 export interface MetaShieldXchain extends MetaCommon {
@@ -270,6 +273,9 @@ export interface MetaShieldXchain extends MetaCommon {
    * CCTP fast-fee, which is a separate line item — see `cctpFee`.)
    */
   protocolFee?: bigint
+  /** True while `protocolFee` is the ~50 bps estimate (the fee module couldn't be read at review); cleared once the
+   *  handler reads the pool's actual fee off the delivered shield. Absent → the fee module's own figure. */
+  protocolFeeIsEstimate?: boolean
   /**
    * CCTP fee deducted from the cross-chain mint on the hub — an estimate at submit-time, reconciled
    * to the actual `feeExecuted` on confirmation (and on rescan, recovered from the hub MessageReceived).

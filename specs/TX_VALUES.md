@@ -105,15 +105,17 @@ A sweep grows the change note only — every figure is unchanged.
 | SH-5 | Max | public USDC balance (fee-inclusive); minimum `> F` on gasless | AMT | – |
 | SH-6 | `P` base | the note that reaches the pool: gasless `A − F`, direct `A` (`shieldProtocolFeeBase`) | REV → `meta.protocolFee` | – |
 
-- **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `txFigures` (`deposit`).
+- **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `txFigures` (`deposit`). REV
+  reads `P` from the fee module with the integrator the shield will carry (the configured one only for a direct
+  same-chain shield — `shieldFeeIntegrator`); while that read is pending there is no fee ("—", Confirm held), and if
+  the fee module can't be read `P` is the ~50 bps estimate, stored with `protocolFeeIsEstimate` and shown "≈". On
+  confirmation the handler reads the pool's actual `P` (and relayer fee) off the SDK history entry
+  (`recordedShieldFees`, shared with `shield-xchain`), clearing the marker.
 - **Recovered:** SDK `value = A − F − P` (user notes), `shieldFee = P`, `broadcasterFee` = the relayer note's
   **gross** (`F`, including its own shield fee — SDK #92), so `amount = value + shieldFee + broadcasterFee = A`
   exactly. A scan snapshot written before SDK #88 has no relayer fee: amount `A − F`, fee `P`, shown as a
   direct shield (net still exact) — accepted.
-- **Allowed differences:** none.
-- **Deviations:** F4 (`P` is frozen at REV and can be a fallback — the 50 bps estimate, or 0 if the fee-module
-  read fails — and is never reconciled for same-chain), F18 (REV reads `P` with the env integrator; gasless
-  shields with integrator 0 — latent while `VITE_INTEGRATOR_ADDRESS` is unset).
+- **Allowed differences:** REV (the fee module's figure, or a marked estimate) → CNF (the pool's actual `P`).
 
 ### `shield-xchain`
 
@@ -266,13 +268,11 @@ fallback / old records; **S4** cosmetic or labelling.
 
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
-| F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
 | F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
 | F16 | S3 | consolidate | Exact-cover non-USDC merge recovered as "USDC sent 0 to unknown". | #81 |
 | F17 | S3 | transfer | Unattributed recovered fee shows `0.00`, not "—". | #81 |
-| F18 | S3 (latent) | shield | Fee read uses the env integrator; gasless / xchain shield with integrator 0. | #74 |
 | F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |

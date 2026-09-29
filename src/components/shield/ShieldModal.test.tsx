@@ -62,7 +62,7 @@ vi.mock('@/lib/tx/executor', async (importActual) => ({
 }))
 
 // The protocol shield fee (an on-chain fee-module read); 0 unless a test sets it.
-const hoistedDisplay = vi.hoisted(() => ({ protocolFee: 0n }))
+const hoistedDisplay = vi.hoisted(() => ({ protocolFee: 0n, protocolFeeStatus: 'exact' as 'exact' | 'pending' | 'estimate' }))
 vi.mock('@/hooks/useDisplayFees', () => ({
   useDisplayFees: () => ({
     fees: {
@@ -73,6 +73,7 @@ vi.mock('@/hooks/useDisplayFees', () => ({
       feeInclusive: true,
     },
     isLoading: false,
+    protocolFeeStatus: hoistedDisplay.protocolFeeStatus,
   }),
 }))
 
@@ -184,6 +185,7 @@ vi.mock('@/hooks/useSpendCheck', () => ({
 beforeEach(() => {
   hoistedCheck.result = hoistedCheck.defaults()
   hoistedDisplay.protocolFee = 0n
+  hoistedDisplay.protocolFeeStatus = 'exact'
   quoteHolder.quote = STUB_FEE_QUOTE
   hoistedDeployments.hubWrapper = null
 })
@@ -737,5 +739,37 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(summaryRow('Total')).toBe('—')
     expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+  })
+
+  describe('the shield\'s protocol fee, until the fee module prices it (#74)', () => {
+    function reviewShield() {
+      hoistedDisplay.protocolFee = P
+      const store = renderModal({ open: true, max: 20_000_000n })
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      return store
+    }
+
+    it('while its read is in flight: no fee ("—") and Confirm held (G-4)', () => {
+      hoistedDisplay.protocolFeeStatus = 'pending'
+      reviewShield()
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow("You'll receive")).toBe('—')
+      expect(screen.getByText('Getting the shield fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+    })
+
+    it('when the fee module can\'t be read: the ~50 bps estimate, marked "≈" — and recorded as an estimate (G-5)', async () => {
+      hoistedDisplay.protocolFeeStatus = 'estimate'
+      const store = reviewShield()
+      expect(summaryRow('Fees')).toBe('≈ 0.020011 USDC')
+      expect(summaryRow("You'll receive")).toBe('≈ 9.979989 USDC')
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'shield') as TxRecord<'shield'>
+      expect(record.meta).toMatchObject({ protocolFee: P, protocolFeeIsEstimate: true })
+    })
   })
 })

@@ -58,6 +58,42 @@ export function relayerFeeKeyForKind(kind: TxKind): RelayerFeeKey {
   }
 }
 
+/** The zero address — a shield that routes no fee to an integrator. */
+const NO_INTEGRATOR = '0x0000000000000000000000000000000000000000'
+
+/**
+ * The integrator a shield's protocol fee must be read with: the one the shield will carry, since the fee module prices
+ * by it (a registered integrator changes the take). Only a direct same-chain shield carries the configured integrator;
+ * a gasless shield and both cross-chain paths carry none (address(0)) — see the shield handlers.
+ */
+export function shieldFeeIntegrator(kind: TxKind, gasless: boolean, configuredIntegrator: string): string {
+  return kind === 'shield' && !gasless ? configuredIntegrator : NO_INTEGRATOR
+}
+
+/** How sure a shield's displayed protocol fee is. */
+export type ShieldProtocolFeeStatus = 'exact' | 'pending' | 'estimate'
+
+/**
+ * The protocol shield fee to show for `feeBase`, and how sure it is (spec G-4, G-5):
+ *  - `exact` — the fee module's on-chain `calculateShieldFee` for the base on screen;
+ *  - `pending` — that read hasn't landed for this base (or the fee module address is still loading): there's no fee to
+ *    show yet, never a placeholder;
+ *  - `estimate` — the fee module can't be read: the ~50 bps take (`baseArmadaTakeBps`), marked as an estimate — never 0.
+ */
+export function resolveShieldProtocolFee(args: {
+  feeBase: bigint
+  onChain: bigint | undefined
+  onChainMatchesLive: boolean
+  feeModule: 'available' | 'loading' | 'unavailable'
+}): { protocolFee: bigint; status: ShieldProtocolFeeStatus } {
+  const estimate = (args.feeBase * 50n) / 10_000n
+  if (args.feeModule === 'unavailable') return { protocolFee: estimate, status: 'estimate' }
+  if (args.feeModule === 'available' && args.onChain !== undefined && args.onChainMatchesLive) {
+    return { protocolFee: args.onChain, status: 'exact' }
+  }
+  return { protocolFee: estimate, status: 'pending' }
+}
+
 /** Relayer USDC reimbursement — not charged to users until submitRelay ships. */
 export function relayerGasFeeForKind(_kind: TxKind, _quote: FeeSchedule | null): bigint {
   return 0n

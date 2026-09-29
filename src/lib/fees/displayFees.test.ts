@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, withdrawBelowFee } from './displayFees'
+import { computeDisplayFees, relayerGasFeeForKind, resolveShieldProtocolFee, shieldFeeIntegrator, shieldProtocolFeeBase, withdrawBelowFee } from './displayFees'
 import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'
 
 const quote: FeeSchedule = {
@@ -111,5 +111,34 @@ describe('shieldProtocolFeeBase', () => {
       gasless: true,
     })
     expect(recipientReceives).toBe(4_252_158n)
+  })
+})
+
+describe('shieldFeeIntegrator (F18, #74)', () => {
+  const ENV = '0x00000000000000000000000000000000000000e1'
+  const ZERO = '0x0000000000000000000000000000000000000000'
+  it('the fee is read with the integrator the shield will carry: the configured one only for a direct same-chain shield', () => {
+    expect(shieldFeeIntegrator('shield', false, ENV)).toBe(ENV)
+    expect(shieldFeeIntegrator('shield', true, ENV)).toBe(ZERO) // gasless shields carry address(0)
+    expect(shieldFeeIntegrator('shield-xchain', false, ENV)).toBe(ZERO) // both cross-chain paths do too
+    expect(shieldFeeIntegrator('shield-xchain', true, ENV)).toBe(ZERO)
+  })
+})
+
+describe('resolveShieldProtocolFee (G-4, #74)', () => {
+  it('exact: the on-chain read for the base on screen', () => {
+    expect(resolveShieldProtocolFee({ feeBase: 5_000_000n, onChain: 25_000n, onChainMatchesLive: true, feeModule: 'available' }))
+      .toEqual({ protocolFee: 25_000n, status: 'exact' })
+  })
+
+  it('pending: the read for the base on screen hasn\'t landed (or the fee module is still loading) — no fee to show', () => {
+    expect(resolveShieldProtocolFee({ feeBase: 5_000_000n, onChain: undefined, onChainMatchesLive: true, feeModule: 'available' }).status).toBe('pending')
+    expect(resolveShieldProtocolFee({ feeBase: 5_000_000n, onChain: 25_000n, onChainMatchesLive: false, feeModule: 'available' }).status).toBe('pending')
+    expect(resolveShieldProtocolFee({ feeBase: 5_000_000n, onChain: undefined, onChainMatchesLive: true, feeModule: 'loading' }).status).toBe('pending')
+  })
+
+  it('estimate: the fee module can\'t be read — the ~50 bps take, marked as an estimate (never 0)', () => {
+    expect(resolveShieldProtocolFee({ feeBase: 5_000_000n, onChain: undefined, onChainMatchesLive: true, feeModule: 'unavailable' }))
+      .toEqual({ protocolFee: 25_000n, status: 'estimate' })
   })
 })

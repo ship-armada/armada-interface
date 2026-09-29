@@ -14,10 +14,9 @@ import { loadDeployments } from '@/config/deployments'
 import { getIntegratorAddress } from '@/config/network'
 import {
   getShieldedAddress as kmGetShieldedAddress,
-  getWalletId as kmGetWalletId,
   isUnlocked as kmIsUnlocked,
 } from '@/lib/shielded/keyManager'
-import { refreshShieldedBalances } from '@/lib/shielded/sync'
+import { recordedShieldFees } from '@/lib/shielded/shieldReconcile'
 import {
   generateRandomShieldPrivateKey,
   type ShieldRequestData,
@@ -36,14 +35,15 @@ import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { ensureChain } from '@/lib/network-switch'
-import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
+import { advance, markFailed, markWaiting, patchArtifacts, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
 import { track } from '@/lib/telemetry'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxError, TxRecord } from '@/lib/tx/types'
 
 // PrivacyPool.shield ABI — the hub-side direct shield entry point. `integrator` lets the
-// contract route fees to a third party; we always pass ZeroAddress for direct user shields.
+// contract route fees to a third party; a direct shield passes the configured integrator
+// (`getIntegratorAddress()`, address(0) unless set), a gasless one address(0).
 // We carry the inline tuple/enum naming so viem can encode the calldata correctly.
 const PRIVACY_POOL_SHIELD_ABI = [
   {
@@ -480,14 +480,12 @@ async function runDirectSubmit(
   //    pin this handler for the full 10-min lifecycle cap.
   await waitForReceiptOrFail({ hash: shieldHash, signal: ctx.signal, chainId: record.meta.fromChainId })
 
-  if (kmIsUnlocked()) {
-    // Fire-and-forget — failures here are non-fatal (the periodic refresh would catch it).
-    void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-  }
-
-  const completed = advance(broadcastRecord, 'hub-confirmed', {
+  // Sync, then read the pool's actual protocol fee off the confirmed shield — the review figure can be an estimate
+  // (#74) — folded into the write that completes the record, so the Complete screen shows it directly.
+  const actual = await recordedShieldFees(shieldHash)
+  const completed = patchMeta(advance(broadcastRecord, 'hub-confirmed', {
     sourceTxHash: shieldHash,
-  })
+  }), actual)
   await ctx.upsert(completed)
 }
 
@@ -649,12 +647,11 @@ async function runGaslessSubmit(
 
   track('tx.relayer.confirmed', { id: record.id, kind: record.kind })
 
-  if (kmIsUnlocked()) {
-    void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
-  }
-
-  const completed = advance(broadcastRecord, 'hub-confirmed', {
+  // Sync, then read the pool's actual protocol + relayer fees off the confirmed shield (#74), folded into the write
+  // that completes the record.
+  const actual = await recordedShieldFees(txHash)
+  const completed = patchMeta(advance(broadcastRecord, 'hub-confirmed', {
     sourceTxHash: txHash,
-  })
+  }), actual)
   await ctx.upsert(completed)
 }
