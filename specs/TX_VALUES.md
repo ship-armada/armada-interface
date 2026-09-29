@@ -51,7 +51,10 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-4 Unknown is "—", never 0.** A figure that isn't known (plan pending/failed, no quote yet, a fee
   recovery couldn't attribute) renders "—". Placeholders (the one-proof quote while a plan is pending,
   `?? 0n` defaults) are never shown as a fee — before a relayer-paid flow's fee quote loads, its fee reads "—"
-  and Confirm is held (`QUOTE_PENDING_REASON`). *Deviation F17.*
+  and Confirm is held (`QUOTE_PENDING_REASON`). One known exception on recovery: a spend whose fee note the scan
+  couldn't attribute, where nothing else pins the fee down, reads its fee as 0 — an absent fee note can't be told
+  from a genuinely fee-free (older, wallet-submitted) spend. A private send's is derived when its recipient notes
+  were recovered (below).
 - **G-5 Estimates are marked.** A figure that is an estimate (CCTP fee before reconciliation, a vault
   withdrawal's gross before execution) carries "≈" / "est." wherever it is shown.
 - **G-6 Recovered = authored.** For the same on-chain tx, REC shows the same headline, fees and totals as
@@ -163,7 +166,8 @@ A sweep grows the change note only — every figure is unchanged.
   A fold-in has no change note, so its self-metadata (`feeCacheId`) is lost — not displayed, accepted.
 - **Allowed differences:** CNF/RCPT fee < REV fee when the build charges less than planned (the build can
   never charge more — `SpendFeeIncreasedError`); CNF shows the actual.
-- **Deviations:** F17 (a recovered send whose fee note wasn't attributed shows Fees `0.00`).
+- A recovered send whose fee note wasn't attributed but whose recipient notes were: its fee is the outflow they
+  don't account for (`|value| − Σ sentOutputs`).
 
 ### `transfer-shielded-received` (history-only)
 
@@ -271,7 +275,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
 | F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
-| F17 | S3 | transfer | Unattributed recovered fee shows `0.00`, not "—". | #81 |
 | F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |

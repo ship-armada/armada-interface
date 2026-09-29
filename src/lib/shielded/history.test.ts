@@ -68,6 +68,15 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { amount: 480_000n, broadcasterFeeAmount: 20_000n, recipient: '0zk_bob', broadcasterShieldedAddress: '0zk_relayer' } })
   })
 
+  it('transfer-sent whose fee note wasn\'t attributed: the fee is the outflow the recipient notes don\'t account for (F17)', () => {
+    // The wallet's delta is exact; the recipient outputs were recovered — so the fee is what's left, not "0.00".
+    const r = historyEntryToTxRecord(
+      sdkEntry({ category: 'transfer-sent', value: -11_000_003n, sentOutputs: [{ recipientShieldedAddress: '0zk_bob', value: 10_000_000n }] }),
+      'w', SDK_CTX, 5000,
+    )
+    expect(r).toMatchObject({ kind: 'transfer-shielded', meta: { amount: 10_000_000n, broadcasterFeeAmount: 1_000_003n } })
+  })
+
   it('transfer-sent recovers the memo the sender attached to the recipient note', () => {
     const r = historyEntryToTxRecord(
       sdkEntry({ category: 'transfer-sent', value: -500_000n, sentOutputs: [{ recipientShieldedAddress: '0zk_bob', value: 500_000n, memo: 'gm' }] }),

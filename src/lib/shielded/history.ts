@@ -227,13 +227,19 @@ export function historyEntryToTxRecord(
     case 'transfer-sent': {
       const stages = terminalizeStages('transfer-shielded')
       const recipientAmount = entry.sentOutputs?.reduce((a, o) => a + o.value, 0n) ?? abs - broadcasterFee
+      // A fee note the scan didn't attribute (no `broadcasterFee`) — while the recipient notes were recovered — is the
+      // outflow they don't account for: the wallet's delta is exact and the fee is its only other output (F17). With
+      // neither, an absent fee can't be told from a zero one (an older wallet-submitted send), so it stays 0.
+      const fee = entry.broadcasterFee === undefined && entry.sentOutputs !== undefined && abs > recipientAmount
+        ? abs - recipientAmount
+        : broadcasterFee
       return {
         id: syntheticTxId(entry.txid, entry.category), kind: 'transfer-shielded', executionState: 'completed',
         stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
         meta: {
           amount: recipientAmount, feeCacheId: recoveredFeeCacheId,
           recipient: entry.sentOutputs?.[0]?.recipientShieldedAddress ?? 'unknown',
-          broadcasterFeeAmount: broadcasterFee, broadcasterShieldedAddress,
+          broadcasterFeeAmount: fee, broadcasterShieldedAddress,
           // Recover the memo the sender attached to the recipient's note (`sentOutputs[].memo`).
           ...(entry.sentOutputs?.[0]?.memo ? { memoText: entry.sentOutputs[0].memo } : {}),
         },
