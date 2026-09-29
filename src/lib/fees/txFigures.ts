@@ -1,7 +1,10 @@
-// ABOUTME: txFigures — every money figure a tx surface shows after submit (Confirm, Activity row + receipt, a receipt
-// ABOUTME: recovered from chain), derived from the record alone. The single source of receipt math; spec: specs/TX_VALUES.md.
+// ABOUTME: txFigures — every money figure a tx surface shows (Review, Confirm, Activity row + receipt, a receipt recovered
+// ABOUTME: from chain), derived from the record — or the draft Review will submit — alone. Spec: specs/TX_VALUES.md.
 
-import type { TxRecord } from '@/lib/tx/types'
+import type { MetaFor, TxRecord } from '@/lib/tx/types'
+
+/** What figures derive from: a stored record, or the draft a Review step will submit (`TxDraft`) — its kind + meta. */
+export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
 
 /**
  * The figures a record is shown with, shaped per summary layout:
@@ -24,13 +27,16 @@ export type TxFigures =
  * `meta.amount`, except a consolidation, which moves no value (amount 0) and is shown by the fee it paid.
  * Reads only what the headline is made of, so a list row renders even for a record whose fee fields are absent.
  */
-export function txHeadline(record: TxRecord): bigint {
-  if (record.kind === 'consolidate') return (record as TxRecord<'consolidate'>).meta.broadcasterFeeAmount
+export function txHeadline(record: TxFiguresSource): bigint {
+  if (record.kind === 'consolidate') return (record.meta as MetaFor<'consolidate'>).broadcasterFeeAmount
   return record.meta.amount
 }
 
-/** The figures every post-submit surface renders for `record` — so a tx reads identically wherever it's shown. */
-export function txFigures(record: TxRecord): TxFigures {
+/**
+ * The figures every surface renders for `record` — the Review step for the draft it will submit, then every
+ * post-submit surface for the stored record — so a tx reads identically wherever it's shown.
+ */
+export function txFigures(record: TxFiguresSource): TxFigures {
   switch (record.kind) {
     case 'shield':
     case 'shield-xchain': {
@@ -38,7 +44,7 @@ export function txFigures(record: TxRecord): TxFigures {
       // fee as its own note, the pool takes its ~50 bps shield fee, and (cross-chain) the CCTP mint deducts its fee.
       // `cctpFee` is only present on shield-xchain; both fee legs default to 0 on pre-capture records. Fee is `null`
       // (renders "—") when nothing was charged.
-      const meta = (record as TxRecord<'shield' | 'shield-xchain'>).meta
+      const meta = record.meta as MetaFor<'shield' | 'shield-xchain'>
       const relayerFee = meta.feeAmount ?? 0n
       const cctpFee = 'cctpFee' in meta ? (meta.cctpFee ?? 0n) : 0n
       const totalFee = relayerFee + (meta.protocolFee ?? 0n) + cctpFee
@@ -52,7 +58,7 @@ export function txFigures(record: TxRecord): TxFigures {
       // send pays one per-proof fee per proof) plus the protocol / CCTP fees recorded at review; the total deducted
       // is fee-on-top (`amount + broadcaster fee`), since those two come out of the recipient's side, not the
       // shielded balance. Records written before the protocol / CCTP fees were stored show the broadcaster fee alone.
-      const meta = (record as TxRecord<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>).meta
+      const meta = record.meta as MetaFor<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>
       const protocolFee = 'protocolFee' in meta ? (meta.protocolFee ?? 0n) : 0n
       const cctpFee = 'cctpFee' in meta ? (meta.cctpFee ?? 0n) : 0n
       return {
@@ -69,7 +75,7 @@ export function txFigures(record: TxRecord): TxFigures {
       //   - withdraw: `netAmount = amount - fee` (net received into the private balance; the fee is skimmed from the
       //     redeemed proceeds). `amount` is the redeemed gross — the handler reconciles it to the ACTUAL
       //     execution-rate value at completion, so a completed withdraw reads identically wherever it's shown.
-      const meta = (record as TxRecord<'yield-deposit' | 'yield-withdraw'>).meta
+      const meta = record.meta as MetaFor<'yield-deposit' | 'yield-withdraw'>
       const fee = meta.broadcasterFeeAmount
       const netAmount = record.kind === 'yield-deposit' ? meta.amount + fee : meta.amount - fee
       return { model: 'yield', headline: txHeadline(record), fee, netAmount }
@@ -77,7 +83,7 @@ export function txFigures(record: TxRecord): TxFigures {
     case 'consolidate': {
       // A consolidation merges the wallet's own notes, so `meta.amount` is 0n and the only USDC that leaves the
       // wallet is the relayer fee — that's what the headline shows.
-      const fee = (record as TxRecord<'consolidate'>).meta.broadcasterFeeAmount
+      const fee = (record.meta as MetaFor<'consolidate'>).broadcasterFeeAmount
       return { model: 'merge', headline: txHeadline(record), fee }
     }
     case 'transfer-shielded-received':
@@ -90,7 +96,7 @@ export function txFigures(record: TxRecord): TxFigures {
  * returns that shape, and throws if the record's kind maps to another — a caller bug, which a cast would
  * turn into silently misread figures.
  */
-export function txFiguresAs<M extends TxFigures['model']>(record: TxRecord, model: M): Extract<TxFigures, { model: M }> {
+export function txFiguresAs<M extends TxFigures['model']>(record: TxFiguresSource, model: M): Extract<TxFigures, { model: M }> {
   const figures = txFigures(record)
   if (figures.model !== model) {
     throw new Error(`txFiguresAs: ${record.kind} has ${figures.model} figures, not ${model}`)

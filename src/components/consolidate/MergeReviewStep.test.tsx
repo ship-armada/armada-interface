@@ -11,6 +11,7 @@ function renderReview(extras: Partial<MergeReviewStepProps> = {}) {
   const props: MergeReviewStepProps = {
     tokenLabel: 'USDC',
     preview: PREVIEW,
+    fee: PREVIEW.totalFee,
     onCancel: vi.fn(),
     onConfirm: vi.fn(),
     ...extras,

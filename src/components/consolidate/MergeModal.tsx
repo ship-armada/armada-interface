@@ -13,6 +13,7 @@ import { useConsolidationPlan } from '@/hooks/useConsolidationPlan'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { txFiguresAs } from '@/lib/fees/txFigures'
+import type { TxDraft } from '@/lib/tx/types'
 import { resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { blockedActionLabel, mergeTokenSymbol, type MergeIntent } from '@/lib/shielded/merge-intent'
 import { ProgressStep, ErrorStep } from '@/components/flow'
@@ -59,6 +60,28 @@ export function MergeModal() {
   const tx = useTx({ kind: 'consolidate' })
   const record = tx.record ?? null
 
+  // The record this merge will submit, built once from the priced plan: Review renders its fee (through txFigures,
+  // like every later surface) and submit sends it, so the stored record is what Review showed. Null until priced.
+  const reviewed: TxDraft<'consolidate'> | null =
+    plan.preview !== null && plan.tokenAddress !== null
+      ? {
+          kind: 'consolidate',
+          meta: {
+            // A merge moves no value — only the fee (in USDC) leaves the wallet.
+            amount: 0n,
+            feeCacheId: quote?.cacheId ?? '',
+            tokenAddress: plan.tokenAddress,
+            tokenSymbol: tokenLabel,
+            broadcasterFeeAmount: plan.preview.totalFee,
+            broadcasterFeePerProof: quote ? BigInt(quote.fees.transfer) : 0n,
+            broadcasterShieldedAddress: quote?.broadcasterShieldedAddress ?? '',
+            notesMerged: plan.preview.notesMerged,
+            notesCreated: plan.preview.notesCreated,
+          },
+        }
+      : null
+  const reviewFigures = reviewed ? txFiguresAs(reviewed, 'merge') : null
+
   const reviewBlockedReason =
     syncGate.reason ?? relayerBlock ?? plan.error ?? (plan.pending ? 'Working out the merge…' : null)
 
@@ -85,7 +108,7 @@ export function MergeModal() {
   })
 
   async function handleConfirm() {
-    if (submittingRef.current || plan.preview === null || plan.tokenAddress === null) return
+    if (submittingRef.current || plan.preview === null || reviewed === null) return
     submittingRef.current = true
     setIsSubmitting(true)
     setSubmitError(null)
@@ -104,7 +127,7 @@ export function MergeModal() {
         return
       }
       const repriced = await plan.priceAt(fresh)
-      if (repriced.totalFee !== plan.preview.totalFee) {
+      if (repriced.totalFee !== reviewed.meta.broadcasterFeeAmount) {
         await plan.invalidate()
         setFeeChanged(true)
         return
@@ -116,14 +139,11 @@ export function MergeModal() {
         )
       }
       setNeedsAnotherRound(plan.preview.blockedWillWork === false)
+      // The reviewed draft, with the fresh quote's cache id + broadcaster address and the note counts the re-price
+      // found (they can move without the fee moving — the fee is what the user approved).
       const id = await tx.submit({
-        // A merge moves no value — only the fee (in USDC) leaves the wallet.
-        amount: 0n,
+        ...reviewed.meta,
         feeCacheId: fresh.cacheId,
-        tokenAddress: plan.tokenAddress,
-        tokenSymbol: tokenLabel,
-        broadcasterFeeAmount: repriced.totalFee,
-        broadcasterFeePerProof: BigInt(fresh.fees.transfer),
         broadcasterShieldedAddress: fresh.broadcasterShieldedAddress,
         notesMerged: repriced.notesMerged,
         notesCreated: repriced.notesCreated,
@@ -166,6 +186,7 @@ export function MergeModal() {
         <MergeReviewStep
           tokenLabel={tokenLabel}
           preview={plan.preview}
+          fee={reviewFigures?.fee ?? null}
           {...(blockedAction !== undefined ? { blockedAction } : {})}
           submitBlockedReason={reviewBlockedReason}
           isSubmitting={isSubmitting}

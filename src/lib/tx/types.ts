@@ -714,6 +714,12 @@ export interface TxRecord<K extends TxKind = TxKind> {
   walletContext: TxWalletContext
 }
 
+/**
+ * A tx a Review step is about to submit — its kind + the meta it will carry, before it has a lifecycle. Figures
+ * render from it exactly as from the stored record (`lib/fees/txFigures`), so Review shows what the record holds.
+ */
+export type TxDraft<K extends TxKind = TxKind> = { [P in K]: { kind: P; meta: MetaFor<P> } }[K]
+
 /* Lifecycle metadata — drives steppers, retry buttons, expiry rules. */
 
 export interface TxLifecycle<K extends TxKind = TxKind> {

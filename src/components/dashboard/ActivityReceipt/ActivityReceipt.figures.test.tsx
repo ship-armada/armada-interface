@@ -52,7 +52,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(summaryRow('You received')).toBe('8.829985 USDC')
     })
 
-    it('pending, with no CCTP fee stored yet: the fee leaves it out (deviation F3, #73)', () => {
+    it('pending, written before the CCTP estimate was stored at submit: the fee leaves it out', () => {
       showReceipt(
         'shield-xchain',
         { amount: A, fromChainId: 31338, useGasless: true, feeAmount: F, protocolFee: P },

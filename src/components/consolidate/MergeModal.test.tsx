@@ -2,7 +2,7 @@
 // ABOUTME: re-prices at Confirm (bouncing to review on a change), submits a consolidate record, and closes cleanly.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { MergeModal } from './MergeModal'
 import { mergeIntentAtom, openModalAtom } from '@/state/ui'
@@ -12,7 +12,8 @@ import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { TxRecord } from '@/lib/tx/types'
 import type { MergeIntent } from '@/lib/shielded/merge-intent'
 import { F } from '@/test/fixtures/txValues'
-import { headlineAmount, summaryRow } from '@/test/summaryRows'
+import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 vi.mock('@/hooks/useRelayerHealth', () => ({
   useRelayerHealth: () => ({
@@ -149,6 +150,33 @@ describe('<MergeModal>', () => {
     expect(headlineAmount()).toBe('9 → 1')
     expect(summaryRow('Fees')).toBe('2.000006 USDC')
     expect(summaryRow('Total')).toBe('2.000006 USDC')
+  })
+
+  it('Review, the confirmation screen and the Activity receipt show the same fee (G-1, G-2)', async () => {
+    const preview = { ...PREVIEW, totalFee: 2n * F }
+    hoistedPlan.plan = { ...hoistedPlan.plan, preview, priceAt: vi.fn(async () => preview) }
+    const store = renderModal()
+    const rows = { fees: 'Fees', total: 'Total' }
+    const { fees: reviewFees, total: reviewTotal } = readFigures(rows)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'consolidate')).toBe(true))
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'consolidate' ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+      ))
+    })
+    await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+    const confirm = readFigures(rows)
+    const record = store.get(txListAtom).find((r) => r.kind === 'consolidate')!
+    cleanup()
+    render(<ActivityReceipt record={record} open onClose={vi.fn()} />)
+    const receipt = readFigures(rows)
+    // The headline is the note counts on Review / Confirm and the fee on the receipt (MG-1); the money agrees.
+    expect({ fees: reviewFees, total: reviewTotal }).toEqual({ fees: '2.000006 USDC', total: '2.000006 USDC' })
+    expect({ fees: confirm.fees, total: confirm.total }).toEqual({ fees: reviewFees, total: reviewTotal })
+    expect(receipt).toEqual({ headline: '2.000006', fees: reviewFees, total: reviewTotal })
   })
 
   it('Cancel closes the modal and clears the intent', async () => {

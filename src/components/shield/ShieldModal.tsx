@@ -173,8 +173,8 @@ export function ShieldModal() {
           <ShieldReviewStep
             fromChainId={shieldFlow.fromChainId}
             amount={shieldFlow.amount}
-            fee={shieldFlow.feeInclusive}
-            netAmount={shieldFlow.netAmount}
+            fee={shieldFlow.reviewFigures.fee}
+            netAmount={shieldFlow.reviewFigures.netAmount}
             walletAddress={shieldFlow.evmAddress}
             walletProvider={shieldFlow.walletProvider}
             shieldedAddress={shieldFlow.shieldedAddress}
@@ -203,8 +203,8 @@ export function ShieldModal() {
             armadaAddress={unshieldFlow.shieldedAddress}
             amount={unshieldFlow.amount}
             // "—" until the unshield's plan prices it (the quote would suggest it fits, then jump).
-            fee={unshieldFlow.feeKnown ? unshieldFlow.feeInclusive : null}
-            totalDeducted={unshieldFlow.feeKnown ? unshieldFlow.totalDeducted : null}
+            fee={unshieldFlow.reviewFigures?.fee ?? null}
+            totalDeducted={unshieldFlow.reviewFigures?.totalDeducted ?? null}
             networkName={unshieldFlow.networkName}
             recipientWalletProvider={unshieldFlow.recipientWalletProvider}
             submitBlockedReason={unshieldFlow.submitBlockedReason}
@@ -223,41 +223,42 @@ export function ShieldModal() {
         <ProgressStep record={record} sendVariant={isShield ? undefined : 'withdraw'} />
       )}
 
-      {step === 'complete' &&
-        (isShield ? (
-          <ShieldCompleteStep
-            fromChainId={shieldFlow.fromChainId}
-            amount={shieldFlow.completeReceipt.amount}
-            fee={shieldFlow.completeReceipt.fee}
-            netAmount={shieldFlow.completeReceipt.netAmount}
-            walletAddress={shieldFlow.evmAddress}
-            walletProvider={shieldFlow.walletProvider}
-            shieldedAddress={shieldFlow.shieldedAddress}
-            confirmedAt={record?.updatedAt ?? Date.now()}
-            explorerUrl={explorerUrl}
-            onViewExplorer={() => {
-              if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
-            }}
-            onGoToDashboard={close}
-          />
-        ) : (
-          <SendCompleteStep
-            variant="withdraw"
-            recipient={unshieldFlow.recipient}
-            armadaAddress={unshieldFlow.shieldedAddress}
-            amount={unshieldReceipt?.headline ?? unshieldFlow.amount}
-            fee={unshieldReceipt?.fee ?? unshieldFlow.feeInclusive}
-            totalDeducted={unshieldReceipt?.totalDeducted ?? unshieldFlow.totalDeducted}
-            networkName={unshieldFlow.networkName}
-            recipientWalletProvider={unshieldFlow.recipientWalletProvider}
-            confirmedAt={record?.updatedAt ?? Date.now()}
-            explorerUrl={explorerUrl}
-            onViewExplorer={() => {
-              if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
-            }}
-            onGoToDashboard={close}
-          />
-        ))}
+      {/* Confirm renders from the record only — the figures every later surface shows. */}
+      {step === 'complete' && isShield && shieldFlow.completeReceipt && (
+        <ShieldCompleteStep
+          fromChainId={shieldFlow.fromChainId}
+          amount={shieldFlow.completeReceipt.headline}
+          fee={shieldFlow.completeReceipt.fee}
+          netAmount={shieldFlow.completeReceipt.netAmount}
+          walletAddress={shieldFlow.evmAddress}
+          walletProvider={shieldFlow.walletProvider}
+          shieldedAddress={shieldFlow.shieldedAddress}
+          confirmedAt={record?.updatedAt ?? Date.now()}
+          explorerUrl={explorerUrl}
+          onViewExplorer={() => {
+            if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
+          }}
+          onGoToDashboard={close}
+        />
+      )}
+      {step === 'complete' && !isShield && unshieldReceipt && (
+        <SendCompleteStep
+          variant="withdraw"
+          recipient={unshieldFlow.recipient}
+          armadaAddress={unshieldFlow.shieldedAddress}
+          amount={unshieldReceipt.headline}
+          fee={unshieldReceipt.fee}
+          totalDeducted={unshieldReceipt.totalDeducted}
+          networkName={unshieldFlow.networkName}
+          recipientWalletProvider={unshieldFlow.recipientWalletProvider}
+          confirmedAt={record?.updatedAt ?? Date.now()}
+          explorerUrl={explorerUrl}
+          onViewExplorer={() => {
+            if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
+          }}
+          onGoToDashboard={close}
+        />
+      )}
 
       {step === 'error' && (
         <ErrorStep

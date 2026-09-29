@@ -79,7 +79,7 @@ describe('txFigures', () => {
         .toEqual({ model: 'spend', headline: A, fee: F, totalDeducted: A + F })
     })
 
-    it.todo('UN-2, UN-2x cross-chain: Fees is the relayer fee; the CCTP fee is its own row, est. until known — F5/F23, #75')
+    it.todo('UN-2, UN-2x cross-chain: Fees is the relayer fee; the CCTP fee is its own row, est. until known — F23, #75')
   })
 
   describe('yield (§7)', () => {
@@ -151,6 +151,13 @@ describe('txFigures', () => {
 
     it('needs only what the headline is made of, so a list row renders even when fee fields are absent', () => {
       expect(txHeadline(txRecord('unshield-local', { amount: A, recipient: '0x' + '1'.repeat(40) }))).toBe(A)
+    })
+  })
+
+  describe('a Review draft (G-2)', () => {
+    it('renders the figures the record submitted from it will show', () => {
+      const draft = { kind: 'unshield-xchain' as const, meta: { ...spend(F), recipient: '0x' + '1'.repeat(40), toChainId: 31338, cctpFee: 2_000n } }
+      expect(txFigures(draft)).toEqual(txFigures(txRecord('unshield-xchain', draft.meta)))
     })
   })
 

@@ -26,9 +26,9 @@ import {
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
 import { shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
-import { txFiguresAs } from '@/lib/fees/txFigures'
+import { txFiguresAs, type TxFigures } from '@/lib/fees/txFigures'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
-import type { TxRecord } from '@/lib/tx/types'
+import type { TxDraft, TxRecord } from '@/lib/tx/types'
 
 type SubmittedKind = 'shield' | 'shield-xchain'
 type ShieldRecord = TxRecord<'shield'> | TxRecord<'shield-xchain'>
@@ -60,12 +60,12 @@ export interface ShieldFlow {
   displayFees: DisplayFees
   feeLoading: boolean
   flowBreakdown: FlowFeeBreakdown
-  /** Inclusive fee (broadcaster + on-chain protocol + CCTP) shown on the review card (an estimate). */
-  feeInclusive: bigint
-  netAmount: bigint
-  /** Completion-screen figures — record-derived actuals once a record exists (the handler reconciles
-   *  amount/protocolFee/cctpFee to the on-chain values at delivery), else the pre-submit estimate. */
-  completeReceipt: { amount: bigint; fee: bigint | null; netAmount: bigint }
+  /** The figures Review shows — rendered from the draft this shield will submit (relayer + protocol + CCTP fee, and
+   *  the net received; an estimate on a cross-chain shield). */
+  reviewFigures: Extract<TxFigures, { model: 'deposit' }>
+  /** Completion-screen figures, from the record (the handler reconciles amount/protocolFee/cctpFee to the on-chain
+   *  values at delivery); null until a record exists — Complete only shows post-submit. */
+  completeReceipt: Extract<TxFigures, { model: 'deposit' }> | null
   inputMax: bigint
   minAmount: bigint
   useGasless: boolean
@@ -233,6 +233,23 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     totalDeducted,
     recipientLabel: "You'll shield",
   }
+  // The record this shield will submit, built once from the reviewed figures: Review renders it (through txFigures,
+  // like every later surface) and submit sends it, so the stored record is what Review showed — including a
+  // cross-chain shield's CCTP fee estimate, which the handler reconciles to the actual at delivery.
+  const reviewedFees = {
+    amount,
+    fromChainId,
+    feeCacheId: quote?.cacheId ?? '',
+    // Frozen so the receipt subtracts the protocol shield fee too (the note that lands is `amount - feeAmount -
+    // protocolFee`) — the pool takes it on the direct path as well.
+    protocolFee,
+    // Gasless only: the relayer fee the wrapper carves out of the entered amount as its own note.
+    ...(useGasless ? { useGasless: true, feeAmount: fee } : {}),
+  }
+  const reviewed: TxDraft<'shield' | 'shield-xchain'> = computedKind === 'shield'
+    ? { kind: 'shield', meta: reviewedFees }
+    : { kind: 'shield-xchain', meta: { ...reviewedFees, ...(cctpFee > 0n ? { cctpFee } : {}) } }
+  const reviewFigures = txFiguresAs(reviewed, 'deposit')
   // Minimum valid amount = the live fee. Below or equal to it the wrapper's `shieldAmount =
   // totalAmount - fee` would underflow / be zero. Surfaced via ShieldInputStep's `minAmount`
   // prop so the user can't type a value that would inevitably revert. Zero for no-fee paths.
@@ -310,7 +327,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
         }
         activeQuote = fresh
       }
-      if (computedKind === 'shield') {
+      if (reviewed.kind === 'shield') {
         setSubmittedKind('shield')
         // Phase B3: gasless meta only set when actually routing through the wrapper; absent
         // when direct-submit. The handler checks `meta.useGasless` to branch.
@@ -332,28 +349,18 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
               `Relayer fee (${formatUsdc(liveFee)} USDC) increased to or above the deposit amount (${formatUsdc(amount)} USDC). Lower the fee by waiting for gas to drop, or raise the deposit amount.`,
             )
           }
+          // The reviewed draft (its relayer fee equals the fresh `liveFee` — a changed fee bounced to Review above),
+          // with the fresh quote's cache id + broadcaster address and the wrapper's permit.
           submittedId = await txShield.submit({
-            amount,
+            ...reviewed.meta,
             feeCacheId: q.cacheId,
-            fromChainId,
-            useGasless: true,
-            feeAmount: liveFee,
             wrapperAddress: hubWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: q.broadcasterShieldedAddress,
-            // Freeze the protocol shield fee so the receipt subtracts it too (matches what "You'll
-            // shield" showed in review — the note that lands is `amount - feeAmount - protocolFee`).
-            protocolFee,
           })
         } else {
-          submittedId = await txShield.submit({
-            amount,
-            // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
-            feeCacheId: activeQuote?.cacheId ?? '',
-            fromChainId,
-            // The pool takes its ~50 bps shield fee even on a direct submit — freeze it for the receipt.
-            protocolFee,
-          })
+          // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
+          submittedId = await txShield.submit(reviewed.meta)
         }
       } else {
         setSubmittedKind('shield-xchain')
@@ -375,27 +382,18 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
               `Relayer fee (${formatUsdc(liveFee)} USDC) increased to or above the deposit amount (${formatUsdc(amount)} USDC). Lower the fee by waiting for gas to drop, or raise the deposit amount.`,
             )
           }
+          // The reviewed draft — incl. the CCTP fee estimate, reconciled to the actual at delivery — with the fresh
+          // quote's cache id + broadcaster address and the wrapper's permit.
           submittedId = await txShieldXchain.submit({
-            amount,
+            ...reviewed.meta,
             feeCacheId: q.cacheId,
-            fromChainId,
-            useGasless: true,
-            feeAmount: liveFee,
             wrapperAddress: clientWrapperAddress,
             permitDeadline: Math.floor(Date.now() / 1000) + PERMIT_DEADLINE_WINDOW_SEC,
             broadcasterShieldedAddress: q.broadcasterShieldedAddress,
-            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
-            protocolFee,
           })
         } else {
-          submittedId = await txShieldXchain.submit({
-            amount,
-            // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
-            feeCacheId: activeQuote?.cacheId ?? '',
-            fromChainId,
-            // Hub-side protocol shield fee frozen for the receipt (excludes the separate CCTP fee).
-            protocolFee,
-          })
+          // Direct path: no relayer, so no meaningful cacheId (the handler ignores it).
+          submittedId = await txShieldXchain.submit(reviewed.meta)
         }
       }
       if (submittedId === null) return
@@ -440,8 +438,6 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     setStep('input')
   }
 
-  const recorded = record ? txFiguresAs(record, 'deposit') : null
-
   return {
     fromChainId,
     setFromChainId,
@@ -452,15 +448,11 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     displayFees,
     feeLoading,
     flowBreakdown,
-    feeInclusive: fee + protocolFee + cctpFee,
-    netAmount,
-    // Completion-screen figures. Once a record exists its meta is authoritative — the handler
-    // reconciles amount/protocolFee/cctpFee to the ACTUAL on-chain values at delivery, so "Confirm"
-    // shows the real numbers (identical to the activity receipt), not the pre-submit estimate. Falls
-    // back to the estimate before a record exists (never rendered — Complete only shows post-submit).
-    completeReceipt: recorded
-      ? { amount: recorded.headline, fee: recorded.fee, netAmount: recorded.netAmount }
-      : { amount, fee: fee + protocolFee + cctpFee, netAmount },
+    reviewFigures,
+    // Completion-screen figures, from the record — its meta is authoritative: the handler reconciles
+    // amount/protocolFee/cctpFee to the ACTUAL on-chain values at delivery, so "Confirm" shows the real numbers
+    // (identical to the activity receipt), not the pre-submit estimate. Complete only shows post-submit.
+    completeReceipt: record ? txFiguresAs(record, 'deposit') : null,
     inputMax,
     minAmount,
     useGasless,

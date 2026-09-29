@@ -1,7 +1,7 @@
 // ABOUTME: Tests for SendModal orchestrator — send flow: address-driven kind selection + the recipient→amount→review→progress flow.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { SendModal } from './SendModal'
 import { mergeIntentAtom, openModalAtom, paymentIntentAtom } from '@/state/ui'
@@ -18,7 +18,8 @@ import { txListAtom } from '@/state/tx'
 import type { TxRecord } from '@/lib/tx/types'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { C, F } from '@/test/fixtures/txValues'
-import { headlineAmount, summaryRow } from '@/test/summaryRows'
+import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults so the modal renders.
@@ -686,6 +687,59 @@ describe('<SendModal>', () => {
       await sendAndSettle(VALID_EVM, '31338', 'unshield-xchain', { broadcasterFeeAmount: F, cctpFee: C })
       expect(summaryRow('Fees')).toBe('1.30001 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
+  })
+
+  describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {
+    const ROWS = { fees: 'Fees', total: 'Total' }
+    /** Review a 10 USDC send, confirm it, settle its record as submitted, and read each surface's figures. */
+    async function figuresOnEverySurface(recipient: string, chain: string | undefined, kind: TxRecord['kind']) {
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(recipient, chain)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      const review = readFigures(ROWS)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === kind)).toBe(true))
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === kind ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+        ))
+      })
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      const confirm = readFigures(ROWS)
+      const record = store.get(txListAtom).find((r) => r.kind === kind)!
+      cleanup()
+      render(<ActivityReceipt record={record} open onClose={vi.fn()} />)
+      const receipt = readFigures(ROWS)
+      return { review, confirm, receipt }
+    }
+
+    it('private send, planned as a 2-proof split', async () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 2n * F, proofs: 2, priceAt: vi.fn(async () => 2n * F) }
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_0ZK, undefined, 'transfer-shielded')
+      expect(review).toEqual({ headline: '10', fees: '2.000006 USDC', total: '12.000006 USDC' })
+      expect(confirm).toEqual(review)
+      expect(receipt).toEqual(review)
+    })
+
+    it('public send on the hub', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31337', 'unshield-local')
+      expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', total: '11.000003 USDC' })
+      expect(confirm).toEqual(review)
+      expect(receipt).toEqual(review)
+    })
+
+    it('public send cross-chain', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31338', 'unshield-xchain')
+      // Relayer fee + the CCTP estimate (2 bps of 10 = 0.002); the total deducted is amount + relayer fee.
+      expect(review).toEqual({ headline: '10', fees: '1.002003 USDC', total: '11.000003 USDC' })
+      expect(confirm).toEqual(review)
+      expect(receipt).toEqual(review)
     })
   })
 })

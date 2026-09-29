@@ -42,9 +42,10 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-1 The record is the source after submit.** CNF, ROW and RCPT render money figures only from the
   record's `meta`, through `lib/fees/txFigures.ts` (`txFigures` / `txHeadline`) — never from a live quote, live
   rate or form state. *Deviation F12* (Earn CNF APY is live).
-- **G-2 Review figures are stored.** Every figure REV shows that a later surface also shows is written into
-  `meta` at submit (as an estimate if it is one), so nothing shown at REV can silently vanish later.
-  *Deviation F3.*
+- **G-2 Review figures are stored.** REV renders the draft record it will submit (`TxDraft` — kind + meta)
+  through `txFigures`, and submit sends that draft (plus the fresh quote's cache id and broadcaster address), so
+  every figure REV shows is in `meta` by construction — an estimate as an estimate — and nothing shown at REV
+  can silently vanish later. Submit re-prices first and bounces back to REV if the fee moved.
 - **G-3 REV → CNF may change only where a kind lists it** (§5–§7 "Allowed differences"), and then CNF
   shows the actual value.
 - **G-4 Unknown is "—", never 0.** A figure that isn't known (plan pending/failed, no quote yet, a fee
@@ -66,7 +67,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
   delivery — the lifecycle passed `hub-burn-confirmed` / `client-burn-confirmed`), the fee and amount did
   leave: the receipt shows them as charged, under the failure banner.
 - **G-10 Every flow that builds the same kind renders the same figures** (Send-modal public path and the
-  Unshield tab both build `unshield-*`). *Deviation F5.*
+  Unshield tab both build `unshield-*` records with one builder, `lib/tx/spendDraft.ts`).
 - **G-11 Balances are the real balance only.** The private balance shown anywhere is the SDK's scanned
   balance; until it is known the UI shows a loading state — never a figure derived from local history.
   *Deviation F27.*
@@ -130,8 +131,8 @@ A sweep grows the change note only — every figure is unchanged.
 - **Recovered:** `amount` = the CCTP burn amount, `cctpFee = C'` from the hub `MessageReceived`; one row per
   deposit (an authored record matches the hub mint by `destTxHash`).
 - **Allowed differences:** REV (estimate, "≈") vs CNF (actual): by `C − C'` and the `P` base change.
-- **Deviations:** F3 (`cctpFee` is not stored at submit — a pending receipt drops `C`, and if the reconcile's
-  receipt read fails the settled CNF/RCPT overstate the net by `C'`), F9 (authored + recovered duplicate rows
+- **Deviations:** F3 (the CCTP estimate stored at submit reads as final — a pending receipt, or a settled one
+  whose reconcile couldn't read the delivery, shows it without "est." / "≈"), F9 (authored + recovered duplicate rows
   when delivery times out or recovery races the final write), F20 (recovery with no CCTP routing records a
   same-chain `shield`, headline short by `C'`).
 
@@ -201,9 +202,9 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 - **Deviations:** F2 (recovery never recognises a cross-chain unshield — it matches `recipient === pool`, but
   the event carries the final recipient → REC shows the hub network and drops the CCTP fee; tests encode the
   wrong event shape), F2b (latent behind F2: the recovered recipient would be the destination pool contract —
-  `mintRecipient` — not the user), F5 (the Send modal's REV, and both flows' CNF / RCPT, fold `C` into Fees so Amount + Fees ≠ Total; the Unshield tab's REV omits `C` entirely),
+  `mintRecipient` — not the user),
   F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates),
-  F11 (CNF doesn't apply the UN-7 label rule), F23 (no separate CCTP fee row), F24 (the pool's unshield fee is 0 only because `computeDisplayFees` calls a relayer helper
+  F11 (CNF doesn't apply the UN-7 label rule), F23 (no separate CCTP fee row: REV, CNF and RCPT fold `C` into Fees, so Amount + Fees ≠ Total), F24 (the pool's unshield fee is 0 only because `computeDisplayFees` calls a relayer helper
   without a quote — make it 0 by intent).
 
 ### `yield-deposit`
@@ -268,9 +269,8 @@ fallback / old records; **S4** cosmetic or labelling.
 |---|---|---|---|---|
 | F1 | S1 | transfer (self) | Recovered send-to-self: Total deducted = `2Φ`; only `Φ` left the wallet. | #71 |
 | F2 | S1 | unshield-xchain | Recovery never recognises cross-chain unshields (matches the pool as recipient; the event carries the final recipient): wrong network, CCTP fee dropped. F2b latent recipient = destination pool. | #72 |
-| F3 | S1 | shield-xchain | `cctpFee` not stored at submit: pending receipt drops `C`; a failed reconcile leaves settled net overstated by `C'`. | #73 |
+| F3 | S3 | shield-xchain | The CCTP estimate stored at submit isn't marked est.: a pending receipt, or one whose reconcile couldn't read the delivery, shows it as final. | #73 |
 | F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
-| F5 | S2 | unshield-xchain | Unshield-tab REV Fees omits `C`; its CNF and the Send modal include it (see F23 for the fix). | #75 |
 | F6 | S2 | unshield-xchain | #68 — every surface shows the CCTP estimate; the actual is available at delivery (relayer status / dest `MessageReceived`) but discarded. | #68 |
 | F7 | S2 | yield-withdraw | AMT tooltip uses the fee-on-top model. | #76 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
@@ -288,7 +288,7 @@ fallback / old records; **S4** cosmetic or labelling.
 | F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
 | F21 | S4 | transfer | No quote yet: fee blank / "—" but Confirm not held (bounces). | #76 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
-| F23 | S2 | unshield-xchain | The CCTP fee has no row of its own; it is folded into Fees (Send-modal REV, CNF, RCPT) or hidden (Unshield-tab REV). | #75 |
+| F23 | S2 | unshield-xchain | The CCTP fee has no row of its own; REV, CNF and RCPT fold it into Fees, so Amount + Fees ≠ Total. | #75 |
 | F24 | S4 | unshield | Unshield protocol fee is 0 by accident of a quote-less relayer helper call. | #75 |
 | F25 | S4 | all | Failed/cancelled receipts show fees, totals and "You'll receive" as if charged. | #79 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
