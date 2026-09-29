@@ -99,7 +99,17 @@ describe('scanCctpDeliveryWindow', () => {
     })
 
     expect(calls[0]).toEqual({ from: 0n, to: 4_999n })
-    expect(out).toEqual({ kind: 'match', txHash: '0xbeef' })
+    expect(out).toMatchObject({ kind: 'match', txHash: '0xbeef' })
+  })
+
+  it('hands back the matched log, so the caller can read the delivery it records (the CCTP fee, #68)', async () => {
+    const { getBlockNumber, getLogsForRange } = makeFakes({
+      latest: 1_000_000n,
+      matchAtBlock: 3_500n,
+      matchTxHash: '0xbeef' as `0x${string}`,
+    })
+    const out = await scanCctpDeliveryWindow({ getBlockNumber, getLogsForRange, scanFromBlock: 0n, maxLogRange: 5_000n })
+    expect(out.kind === 'match' && out.log.transactionHash).toBe('0xbeef')
   })
 
   it('does not find a match outside its bounded window (caller must keep ticking)', async () => {
@@ -131,7 +141,7 @@ describe('scanCctpDeliveryWindow', () => {
     if (t2.kind !== 'no-match') throw new Error('unreachable')
 
     const t3 = await scanCctpDeliveryWindow({ getBlockNumber, getLogsForRange, scanFromBlock: t2.nextScanFromBlock, maxLogRange: 5_000n })
-    expect(t3).toEqual({ kind: 'match', txHash: '0xcafe' })
+    expect(t3).toMatchObject({ kind: 'match', txHash: '0xcafe' })
 
     expect(calls).toEqual([
       { from: 0n, to: 4_999n },
@@ -169,7 +179,7 @@ describe('scanCctpDeliveryWindow', () => {
       maxLogRange: 5_000n,
     })
 
-    expect(out).toEqual({ kind: 'match', txHash: ours })
+    expect(out).toMatchObject({ kind: 'match', txHash: ours })
   })
 
   it('returns no-match when the matchPredicate rejects every log in the window', async () => {

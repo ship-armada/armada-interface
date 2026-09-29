@@ -191,16 +191,17 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | UN-8 | Max | SDK `maxUnshieldAmount` | AMT | – |
 
 - **Stored:** `amount = A`, `broadcasterFeeAmount = Φ`, `broadcasterFeePerProof = F`, `protocolFee` (0 by
-  contract), xchain `cctpFee = C` with `cctpFeeIsEstimate` (reconciled to `C'` on delivery [D4]; a record without
-  the marker — written before it existed — holds the estimate).
+  contract), xchain `cctpFee = C` with `cctpFeeIsEstimate`. On delivery the handler replaces it with Circle's actual
+  `feeExecuted` (`C'`) — from the relayer's delivery status, or the destination `MessageReceived` body on the
+  on-chain fallback — and clears the marker, in the write that completes the record [D4]; when neither reports it
+  the estimate stays, marked. A record without the marker (written before it existed) holds the estimate.
 - **Recovered:** SDK `unshield`: `amount = |value| − broadcasterFee` (gross `A`), `protocolFee = unshieldFee`,
   `recipient = Unshield.to` — for a cross-chain exit that is the **final recipient** (`TransactModule` emits
   `Unshield(finalRecipient, …)`), not the pool. A cross-chain exit is identified by the hub CCTP `MessageSent`
-  in the same tx; `cctpFee` = the estimate read back from the burn's `maxFee` (`cctpFeeEstimateFromMaxFee`)
-  until an actual source exists [D4].
+  in the same tx; `cctpFee` = the estimate read back from the burn's `maxFee` (`cctpFeeEstimateFromMaxFee`),
+  marked est. — the hub doesn't see the actual fee [D4].
 - **Allowed differences:** as `transfer-shielded` (build charged less). xchain REV (est.) → CNF (actual) by
-  `C − C'` once D4 lands.
-- **Deviations:** F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates).
+  `C − C'`. A recovered xchain receipt shows the estimate (marked) where the authored one shows the actual.
 
 ### `yield-deposit`
 
@@ -265,7 +266,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
 | F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
-| F6 | S2 | unshield-xchain | #68 — every surface shows the CCTP estimate; the actual is available at delivery (relayer status / dest `MessageReceived`) but discarded. | #68 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
 | F9 | S2 | shield-xchain | Duplicate authored + recovered rows when delivery times out or recovery races the final write. | #77 |
 | F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |

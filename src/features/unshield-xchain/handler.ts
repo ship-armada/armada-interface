@@ -42,10 +42,11 @@ type EthersScanLog = {
   topics: readonly string[]
   data: string
 }
-import { advance, markFailed, markWaiting, patchArtifacts } from '@/lib/tx/reducer'
+import { advance, markFailed, markWaiting, patchArtifacts, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
 import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { scanCctpDeliveryWindow, matchesXchainDelivery } from './scan'
+import { deliveredCctpFee, deliveredUnshieldMeta } from './reconcile'
 import { createProofProgressWriter } from '@/lib/tx/progress'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxError, TxRecord } from '@/lib/tx/types'
@@ -414,7 +415,8 @@ async function runWaitForDelivery(
   // record fails fast rather than hanging a tick) and emits tx.budget.tight when the floor engages.
   const pollTimeoutMs = pollBudgetMs(record)
 
-  const result = await poll<`0x${string}`>(
+  // What the poll finds: the destination mint tx, and Circle's actual CCTP fee when the delivery reports it.
+  const result = await poll<{ destTxHash: `0x${string}`; cctpFeeActual: bigint | undefined }>(
     async (signal) => {
       if (signal.aborted) return null
       // T-M7 Option B primary: ask the relayer for authoritative CCTP delivery status (it performs
@@ -424,7 +426,9 @@ async function runWaitForDelivery(
       const messageHash = record.artifacts.messageHash
       if (messageHash) {
         const relayed = await fetchCctpDeliveryStatus(messageHash, signal)
-        if (relayed.kind === 'delivered') return relayed.destTxHash
+        if (relayed.kind === 'delivered') {
+          return { destTxHash: relayed.destTxHash, cctpFeeActual: deliveredCctpFee({ feeExecuted: relayed.feeExecuted }) }
+        }
         if (relayed.kind === 'pending') return null
         if (relayed.kind === 'failed') {
           throw asTxError({
@@ -468,7 +472,15 @@ async function runWaitForDelivery(
         scanFromBlock,
         maxLogRange,
       })
-      if (outcome.kind === 'match') return outcome.txHash
+      if (outcome.kind === 'match') {
+        // The matched MessageReceived carries the BurnMessage, whose `feeExecuted` is the actual CCTP fee.
+        let messageBody: `0x${string}` | undefined
+        try {
+          messageBody = MESSAGE_RECEIVED_IFACE.parseLog({ topics: Array.from(outcome.log.topics), data: outcome.log.data })
+            ?.args.messageBody as `0x${string}` | undefined
+        } catch { /* unparseable — the record keeps its estimate */ }
+        return { destTxHash: outcome.txHash, cctpFeeActual: deliveredCctpFee({ messageBody }) }
+      }
       if (outcome.kind === 'no-new-blocks') return null
 
       // Advance the cursor and persist so a crash + resume starts where we left off rather than
@@ -497,7 +509,7 @@ async function runWaitForDelivery(
     // the already-terminal record.
     return
   }
-  if (result.status !== 'done') {
+  if (result.status !== 'done' || result.value === undefined) {
     // Timeout: we know the sourceTxHash and that the relayer/Iris haven't delivered within the
     // budget. The on-chain mint may still happen later — the user should check the destination
     // explorer. POLL_TIMEOUT category surfaces that ambiguity in the UI copy.
@@ -528,7 +540,10 @@ async function runWaitForDelivery(
     // intent is clearer when we don't even attempt it.
     if (ctx.signal.aborted) return
     const next = skipStages[i]!
-    cursor = advance(cursor, next, next === 'client-mint-confirmed' ? { destTxHash: result.value } : {})
+    cursor = advance(cursor, next, next === 'client-mint-confirmed' ? { destTxHash: result.value.destTxHash } : {})
+    // The actual CCTP fee replaces the review-time estimate in the SAME write that reaches the terminal stage, so the
+    // Complete screen renders it directly (no estimate-then-snap flash). Unknown → the estimate stays, marked "≈".
+    if (next === 'client-mint-confirmed') cursor = patchMeta(cursor, deliveredUnshieldMeta(result.value.cctpFeeActual))
     await ctx.upsert(cursor)
     // Only delay before the next non-terminal hop; no point pausing before terminal.
     if (i < skipStages.length - 1) {

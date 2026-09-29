@@ -31,8 +31,9 @@ export interface ScanInput<TLog extends ScanLog = ScanLog> {
   matchPredicate?: (log: TLog) => boolean
 }
 
-export type ScanOutcome =
-  | { kind: 'match'; txHash: `0x${string}` }
+export type ScanOutcome<TLog extends ScanLog = ScanLog> =
+  /** The delivery landed: its tx hash, and the matched log (to read what it records). */
+  | { kind: 'match'; txHash: `0x${string}`; log: TLog }
   /** No new blocks since the cursor — caller should sleep and retry. */
   | { kind: 'no-new-blocks' }
   /** Scanned a window but found nothing; cursor advanced. Caller persists `nextScanFromBlock`. */
@@ -51,7 +52,7 @@ export type ScanOutcome =
  */
 export async function scanCctpDeliveryWindow<TLog extends ScanLog>(
   input: ScanInput<TLog>,
-): Promise<ScanOutcome> {
+): Promise<ScanOutcome<TLog>> {
   if (input.maxLogRange < 1n) {
     throw new Error(`scanCctpDeliveryWindow: maxLogRange must be ≥ 1 (got ${input.maxLogRange})`)
   }
@@ -71,7 +72,7 @@ export async function scanCctpDeliveryWindow<TLog extends ScanLog>(
     // Re-narrow to the hex-string brand. On-chain logs always carry a 0x-prefixed hex tx hash;
     // the type widening on ScanLog is purely to bridge viem's branded literal and ethers' plain
     // `string`. The cast restores the brand for callers.
-    return { kind: 'match', txHash: matched.transactionHash as `0x${string}` }
+    return { kind: 'match', txHash: matched.transactionHash as `0x${string}`, log: matched }
   }
 
   return { kind: 'no-match', nextScanFromBlock: toBlock + 1n, scannedTo: toBlock }
