@@ -699,6 +699,36 @@ describe('<SendModal>', () => {
     })
   })
 
+  describe('the confirmation screen labels a payment the way Activity will (UN-7, D8)', () => {
+    async function confirmPublicSend(recipient: string) {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n, evm: VALID_EVM })
+      completeRecipientStep(recipient, '31337')
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === 'unshield-local' ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+        ))
+      })
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+    }
+
+    it('to your own connected wallet: an unshield, as its Activity row and receipt say', async () => {
+      await confirmPublicSend(VALID_EVM)
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('USDC unshield confirmed')
+    })
+
+    it('to anyone else: a send', async () => {
+      await confirmPublicSend('0x' + 'b'.repeat(40))
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('USDC sent successfully')
+    })
+  })
+
   describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {
     const ROWS = { fees: 'Fees', total: 'Total' }
     /** Review a 10 USDC send, confirm it, settle its record as submitted, and read each surface's figures. */

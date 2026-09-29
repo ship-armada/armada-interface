@@ -30,6 +30,7 @@ import {
 import { parseUsdcInput } from '@/lib/format'
 import { cctpFastFeeForAmount, computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
 import { txFiguresAs } from '@/lib/fees/txFigures'
+import { isWithdrawToSelf } from '@/components/dashboard/txActivityAdapter'
 import { spendDraft } from '@/lib/tx/spendDraft'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
@@ -479,11 +480,12 @@ export function SendModal() {
   const networkName = isPrivate ? undefined : getChainById(destChainId)?.name
   // Brand the public recipient's glyph only when it's the user's own connected wallet — for an
   // arbitrary recipient we don't know their provider, so the summary shows a generic wallet glyph.
-  const recipientIsConnectedWallet =
-    !isPrivate &&
-    connectedEvm != null &&
-    recipient.trim().toLowerCase() === connectedEvm.toLowerCase()
+  // Same rule the Activity row and receipt label an unshield by (`isWithdrawToSelf`).
+  const recipientIsConnectedWallet = !isPrivate && isWithdrawToSelf(recipient.trim(), connectedEvm)
   const recipientWalletProvider = recipientIsConnectedWallet ? connector?.name : undefined
+  // The confirmation screen labels the finished tx the way Activity will: a payment to your own connected wallet is an
+  // unshield ("withdraw" copy), anything else a send. Review keeps the Send flow's wording (spec UN-7).
+  const completeVariant: SendFlowVariant = recipientIsConnectedWallet ? 'withdraw' : variant
 
   return (
     <FlowShell
@@ -571,7 +573,7 @@ export function SendModal() {
       {step === 'progress' && <ProgressStep record={record} sendVariant={variant} />}
       {step === 'complete' && completeReceipt && (
         <SendCompleteStep
-          variant={variant}
+          variant={completeVariant}
           recipient={recipient}
           armadaAddress={shieldedWallet.shieldedAddress}
           amount={completeReceipt.headline}

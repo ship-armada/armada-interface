@@ -206,8 +206,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
   the event carries the final recipient → REC shows the hub network and drops the CCTP fee; tests encode the
   wrong event shape), F2b (latent behind F2: the recovered recipient would be the destination pool contract —
   `mintRecipient` — not the user),
-  F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates),
-  F11 (CNF doesn't apply the UN-7 label rule).
+  F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates).
 
 ### `yield-deposit`
 
@@ -277,7 +276,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
 | F9 | S2 | shield-xchain | Duplicate authored + recovered rows when delivery times out or recovery races the final write. | #77 |
 | F10 | S2 | transfer (self) | Authored send-to-self shows `A + Φ` deducted and row `−A`. | #71 |
-| F11 | S4 | unshield | A Send-modal payment to your own wallet reads "USDC sent" on CNF but "Unshield" in Activity (CNF doesn't apply the UN-7 rule). | #78 |
 | F12 | S4 (S2 if the rate moves) | yield | CNF APY is the live post-tx rate; REV and RCPT show the frozen one. | #76 |
 | F13 | S3 | many | Recovery never corrects an existing record (unreconciled withdraw `G`; dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F14 | S3 | yield-withdraw | Unreconciled withdrawal keeps the typed estimate, unmarked. | #76 |
