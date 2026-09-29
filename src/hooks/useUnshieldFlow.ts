@@ -201,6 +201,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
   const flowBreakdown: FlowFeeBreakdown = {
     broadcasterFee: fee,
     cctpFee: isXchain ? cctpFee : undefined,
+    // Taken from the amount in transit, not charged on top — listed in the tooltip, not in the FEE caption.
+    cctpFeeFromAmount: isXchain,
     recipientReceives,
     totalDeducted,
     recipientLabel: "You'll receive",

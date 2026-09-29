@@ -682,10 +682,19 @@ describe('<SendModal>', () => {
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
 
-    it('public send cross-chain: Fees folds in the CCTP fee, Total amount + F (deviation F23, #75)', async () => {
+    it('public send cross-chain: the amount step\'s fee caption is the relayer fee — the CCTP fee comes out of the amount (UN-2x)', () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(VALID_EVM, '31338')
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
+      expect(screen.getByText('+ $1.000003 FEE')).toBeInTheDocument()
+    })
+
+    it('public send cross-chain: the relayer fee, the CCTP fee from the amount (est.), Total amount + F (UN-2x, D2)', async () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
       await sendAndSettle(VALID_EVM, '31338', 'unshield-xchain', { broadcasterFeeAmount: F, cctpFee: C })
-      expect(summaryRow('Fees')).toBe('1.30001 USDC')
+      expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
+      expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
   })
@@ -693,12 +702,12 @@ describe('<SendModal>', () => {
   describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {
     const ROWS = { fees: 'Fees', total: 'Total' }
     /** Review a 10 USDC send, confirm it, settle its record as submitted, and read each surface's figures. */
-    async function figuresOnEverySurface(recipient: string, chain: string | undefined, kind: TxRecord['kind']) {
+    async function figuresOnEverySurface(recipient: string, chain: string | undefined, kind: TxRecord['kind'], rows: Record<string, string> = ROWS) {
       const store = renderModal({ open: 'payment', shielded: 20_000_000n })
       completeRecipientStep(recipient, chain)
       fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-      const review = readFigures(ROWS)
+      const review = readFigures(rows)
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
       })
@@ -709,11 +718,11 @@ describe('<SendModal>', () => {
         ))
       })
       await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
-      const confirm = readFigures(ROWS)
+      const confirm = readFigures(rows)
       const record = store.get(txListAtom).find((r) => r.kind === kind)!
       cleanup()
       render(<ActivityReceipt record={record} open onClose={vi.fn()} />)
-      const receipt = readFigures(ROWS)
+      const receipt = readFigures(rows)
       return { review, confirm, receipt }
     }
 
@@ -735,9 +744,9 @@ describe('<SendModal>', () => {
 
     it('public send cross-chain', async () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
-      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31338', 'unshield-xchain')
-      // Relayer fee + the CCTP estimate (2 bps of 10 = 0.002); the total deducted is amount + relayer fee.
-      expect(review).toEqual({ headline: '10', fees: '1.002003 USDC', total: '11.000003 USDC' })
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31338', 'unshield-xchain', { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total' })
+      // The relayer fee; the CCTP estimate (2 bps of 10 = 0.002) on its own row; the total deducted is amount + relayer fee.
+      expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', cctp: '0.002 USDC', total: '11.000003 USDC' })
       expect(confirm).toEqual(review)
       expect(receipt).toEqual(review)
     })

@@ -2,7 +2,6 @@
 // ABOUTME: Used for amount-card tooltips, review summaries, and max-fill.
 
 import type { FeeSchedule } from '@/lib/relayer'
-import { userFeeForKind } from '@/lib/relayer'
 import type { TxKind } from '@/lib/tx/types'
 
 export interface NativeGasEstimate {
@@ -101,13 +100,17 @@ export function withdrawBelowFee(amount: bigint, feeTotal: bigint): boolean {
   return feeTotal > 0n && amount <= feeTotal
 }
 
-/** Base display fees; shield protocol fee is overridden in useDisplayFees via fee module. */
+/**
+ * Base display fees; shield protocol fee is overridden in useDisplayFees via fee module. The only protocol fee is the
+ * pool's shield fee, which is an on-chain read — so the base is 0 for every kind: Armada's pool charges no unshield
+ * fee (`TransactModule`: "unshield is free per spec"), and no other kind has one. (Relayer fees are not protocol fees.)
+ */
 export function computeDisplayFees(
   kind: TxKind,
-  amount: bigint,
+  _amount: bigint,
   _quote: FeeSchedule | null,
 ): DisplayFees {
-  const protocolFee = userFeeForKind(kind, amount)
+  const protocolFee = 0n
   const feeInclusive =
     kind === 'shield' || kind === 'shield-xchain' || kind === 'unshield-xchain'
   return {

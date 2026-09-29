@@ -286,6 +286,8 @@ export function SendModal() {
   const flowBreakdown = {
     broadcasterFee: fee,
     cctpFee: isXchain ? cctpFee : undefined,
+    // Taken from the amount in transit, not charged on top — listed in the tooltip, not in the FEE caption.
+    cctpFeeFromAmount: isXchain,
     recipientReceives,
     totalDeducted,
     recipientLabel: 'Recipient receives',
@@ -552,6 +554,7 @@ export function SendModal() {
           armadaAddress={shieldedWallet.shieldedAddress}
           amount={amount}
           fee={reviewFigures?.fee ?? null}
+          cctpFee={reviewFigures?.cctpFee ?? null}
           totalDeducted={reviewFigures?.totalDeducted ?? null}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
@@ -573,6 +576,7 @@ export function SendModal() {
           armadaAddress={shieldedWallet.shieldedAddress}
           amount={completeReceipt.headline}
           fee={completeReceipt.fee}
+          cctpFee={completeReceipt.cctpFee}
           totalDeducted={completeReceipt.totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}

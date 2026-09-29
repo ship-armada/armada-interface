@@ -206,8 +206,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
   wrong event shape), F2b (latent behind F2: the recovered recipient would be the destination pool contract —
   `mintRecipient` — not the user),
   F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates),
-  F11 (CNF doesn't apply the UN-7 label rule), F23 (no separate CCTP fee row: REV, CNF and RCPT fold `C` into Fees, so Amount + Fees ≠ Total), F24 (the pool's unshield fee is 0 only because `computeDisplayFees` calls a relayer helper
-  without a quote — make it 0 by intent).
+  F11 (CNF doesn't apply the UN-7 label rule).
 
 ### `yield-deposit`
 
@@ -289,8 +288,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
 | F21 | S4 | transfer | No quote yet: fee blank / "—" but Confirm not held (bounces). | #76 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
-| F23 | S2 | unshield-xchain | The CCTP fee has no row of its own; REV, CNF and RCPT fold it into Fees, so Amount + Fees ≠ Total. | #75 |
-| F24 | S4 | unshield | Unshield protocol fee is 0 by accident of a quote-less relayer helper call. | #75 |
 | F25 | S4 | all | Failed/cancelled receipts show fees, totals and "You'll receive" as if charged. | #79 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F27 | S3 | all | The balance shown before the SDK sync lands is derived from local history, ignoring fees, received payments and merges (G-11). | #80 |

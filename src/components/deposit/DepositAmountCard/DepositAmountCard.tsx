@@ -222,11 +222,13 @@ export function DepositAmountCard({
   // amount numeral + balance row (mockup parity) alongside the above-field warning tooltip.
   const hasError = Boolean(error)
 
-  // Total displayed fee (protocol + broadcaster + CCTP). Rendered as the under-amount caption
+  // Total displayed fee (protocol + broadcaster + CCTP — except a CCTP fee taken from the amount in transit, which
+  // isn't charged on top). Rendered as the under-amount caption
   // ("+ $X.XX FEE") once an amount is entered and the fee is non-zero — matching the mockup, which
   // moved the fee off a bottom row and into a caption directly below the amount.
   const totalFeeRaw = displayFees
-    ? displayFees.totalFee + (flowBreakdown?.broadcasterFee ?? 0n) + (flowBreakdown?.cctpFee ?? 0n)
+    ? displayFees.totalFee + (flowBreakdown?.broadcasterFee ?? 0n)
+      + (flowBreakdown?.cctpFeeFromAmount ? 0n : (flowBreakdown?.cctpFee ?? 0n))
     : 0n
   // While the fee path is still resolving we don't yet know if it's gasless (USDC) or direct (ETH
   // gas), so surface a neutral "Estimating…" caption instead of either committed segment.

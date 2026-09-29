@@ -8,6 +8,7 @@ import { formatTransactionDateTime, formatUsdcAmount, truncateAddress } from '@/
 import { isShieldedAddress } from '@/lib/address'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
+import type { CctpFeeFigure } from '@/lib/fees/txFigures'
 // Import the deposit summary's styles directly so the send/withdraw table stays in visual sync with it.
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
@@ -18,8 +19,11 @@ export interface TransferReviewSummaryProps {
   recipient: string
   /** The user's own shielded (Armada) address — rendered (truncated) as the "From your private account" row when present. */
   armadaAddress?: string
-  /** Inclusive fee total — broadcaster + protocol + CCTP. Rendered as "—" when null (pre-quote-load). */
+  /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null (pre-quote-load). */
   fee: bigint | null
+  /** A cross-chain unshield's CCTP fee — taken from the amount in transit, so not part of `fee` or the total — and
+   *  whether it's still the estimate. Shown on its own row; the Fees row then reads "Relayer fee". */
+  cctpFee?: CctpFeeFigure | null
   /** USDC deducted from the user's shielded balance. Fee-on-top, so this is `amount + fee`. Rendered as "—" when null (fee not yet known). */
   totalDeducted: bigint | null
   variant: SendFlowVariant
@@ -44,6 +48,7 @@ export function TransferReviewSummary({
   recipient,
   armadaAddress,
   fee,
+  cctpFee = null,
   totalDeducted,
   networkName,
   recipientWalletProvider,
@@ -102,12 +107,22 @@ export function TransferReviewSummary({
         </div>
         {hideFees ? null : (
           <div className={styles.summaryRow}>
-            <span className={styles.summaryLabel}>Fees</span>
+            <span className={styles.summaryLabel}>{cctpFee ? 'Relayer fee' : 'Fees'}</span>
             <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
               {fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`}
             </span>
           </div>
         )}
+        {/* A cross-chain exit's CCTP fee comes out of the amount in transit (the recipient gets amount − it), so it
+            sits on its own row, outside the Total — which stays amount + the fee charged on top. */}
+        {cctpFee ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>CCTP fee (from amount)</span>
+            <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
+              {`${cctpFee.estimated ? '≈ ' : ''}${formatUsdcAmount(cctpFee.amount)} USDC`}
+            </span>
+          </div>
+        ) : null}
       </div>
       {/* Send/withdraw fees are fee-on-top: the shielded balance is charged `amount + fee`, so the
           total is the full deduction (not a net "you'll receive" figure like the deposit flow). */}

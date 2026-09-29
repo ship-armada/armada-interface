@@ -44,7 +44,9 @@ describe('<ActivityReceipt>', () => {
       },
     } as unknown as TxRecord
     render(<ActivityReceipt record={xchain} open onClose={vi.fn()} />)
-    expect(screen.getByText('1.52 USDC')).toBeInTheDocument()
+    // Itemised: the relayer fee charged on top, and the CCTP fee (an estimate) taken from the amount.
+    expect(screen.getByText('1.50 USDC')).toBeInTheDocument()
+    expect(screen.getByText('≈ 0.02 USDC')).toBeInTheDocument()
   })
 
   it('a received payment shows no Fees row (the recipient pays none, and can\'t see the sender\'s)', () => {

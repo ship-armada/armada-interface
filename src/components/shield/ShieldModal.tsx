@@ -204,6 +204,7 @@ export function ShieldModal() {
             amount={unshieldFlow.amount}
             // "—" until the unshield's plan prices it (the quote would suggest it fits, then jump).
             fee={unshieldFlow.reviewFigures?.fee ?? null}
+            cctpFee={unshieldFlow.reviewFigures?.cctpFee ?? null}
             totalDeducted={unshieldFlow.reviewFigures?.totalDeducted ?? null}
             networkName={unshieldFlow.networkName}
             recipientWalletProvider={unshieldFlow.recipientWalletProvider}
@@ -249,6 +250,7 @@ export function ShieldModal() {
           armadaAddress={unshieldFlow.shieldedAddress}
           amount={unshieldReceipt.headline}
           fee={unshieldReceipt.fee}
+          cctpFee={unshieldReceipt.cctpFee}
           totalDeducted={unshieldReceipt.totalDeducted}
           networkName={unshieldFlow.networkName}
           recipientWalletProvider={unshieldFlow.recipientWalletProvider}

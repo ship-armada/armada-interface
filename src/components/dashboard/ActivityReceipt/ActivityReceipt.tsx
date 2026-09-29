@@ -101,7 +101,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       const meta = (record as TxRecord<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>)
         .meta
       // Fee + total from the record alone — the single receipt-math source shared with the confirmation screen.
-      const { headline: amount, fee, totalDeducted } = txFiguresAs(record, 'spend')
+      const { headline: amount, fee, totalDeducted, cctpFee } = txFiguresAs(record, 'spend')
       const isPrivate = record.kind === 'transfer-shielded'
       // A public unshield to your own wallet is a withdraw; otherwise (and private 0zk) it's a send.
       const asWithdraw = !isPrivate && isWithdrawToSelf(meta.recipient, ownWalletAddress)
@@ -123,6 +123,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           <TransferReviewSummary
             recipient={meta.recipient}
             fee={fee}
+            cctpFee={cctpFee}
             totalDeducted={totalDeducted}
             variant={asWithdraw ? 'withdraw' : 'send'}
             networkName={networkName}

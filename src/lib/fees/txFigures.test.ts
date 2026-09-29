@@ -62,7 +62,7 @@ describe('txFigures', () => {
       ['fold-in', F + FOLD],
     ])('PS-1…PS-3 %s: headline A, Fees = the relayer fee paid, Total A + fee', (_variant, fee) => {
       expect(txFigures(txRecord('transfer-shielded', spend(fee, { recipient: '0zk' + 'c'.repeat(64) }))))
-        .toEqual({ model: 'spend', headline: A, fee, totalDeducted: A + fee })
+        .toEqual({ model: 'spend', headline: A, fee, totalDeducted: A + fee, cctpFee: null })
     })
 
     it.todo('PS-7 a record whose recipient is the wallet\'s own 0zk reads as a merge: amount 0, Fees = Total = fee — F1/F10, #71')
@@ -75,20 +75,30 @@ describe('txFigures', () => {
   describe('unshield (§7)', () => {
     it('UN-1…UN-3 local: headline A, Fees F, Total A + F', () => {
       expect(txFigures(txRecord('unshield-local', spend(F, { recipient: '0x' + '1'.repeat(40) }))))
-        .toEqual({ model: 'spend', headline: A, fee: F, totalDeducted: A + F })
+        .toEqual({ model: 'spend', headline: A, fee: F, totalDeducted: A + F, cctpFee: null })
     })
 
     it('UN-2 a protocol unshield fee, when one was recorded, is part of Fees but not of Total', () => {
       expect(txFigures(txRecord('unshield-local', spend(F, { recipient: '0x' + '1'.repeat(40), protocolFee: P }))))
-        .toEqual({ model: 'spend', headline: A, fee: F + P, totalDeducted: A + F })
+        .toEqual({ model: 'spend', headline: A, fee: F + P, totalDeducted: A + F, cctpFee: null })
     })
 
     it('UN-2, UN-3 cross-chain written before the CCTP fee was stored: Fees F, Total A + F', () => {
       expect(txFigures(txRecord('unshield-xchain', spend(F, { recipient: '0x' + '1'.repeat(40), toChainId: 31338 }))))
-        .toEqual({ model: 'spend', headline: A, fee: F, totalDeducted: A + F })
+        .toEqual({ model: 'spend', headline: A, fee: F, totalDeducted: A + F, cctpFee: null })
     })
 
-    it.todo('UN-2, UN-2x cross-chain: Fees is the relayer fee; the CCTP fee is its own row, est. until known — F23, #75')
+    it('UN-2, UN-2x cross-chain: Fees is the relayer fee; the CCTP fee is its own figure, est. until known (D2)', () => {
+      expect(txFigures(txRecord('unshield-xchain', spend(F, { recipient: '0x' + '1'.repeat(40), toChainId: 31338, cctpFee: C, cctpFeeIsEstimate: true }))))
+        .toEqual({ model: 'spend', headline: A, fee: F, totalDeducted: A + F, cctpFee: { amount: C, estimated: true } })
+    })
+
+    it('UN-2x a cross-chain unshield\'s CCTP fee reads as an estimate unless the actual replaced it', () => {
+      const legacy = txRecord('unshield-xchain', spend(F, { recipient: '0x' + '1'.repeat(40), toChainId: 31338, cctpFee: C }))
+      const actual = txRecord('unshield-xchain', spend(F, { recipient: '0x' + '1'.repeat(40), toChainId: 31338, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false }))
+      expect(txFiguresAs(legacy, 'spend').cctpFee).toEqual({ amount: C, estimated: true })
+      expect(txFiguresAs(actual, 'spend').cctpFee).toEqual({ amount: C_ACTUAL, estimated: false })
+    })
   })
 
   describe('yield (§7)', () => {
@@ -127,7 +137,7 @@ describe('txFigures', () => {
   describe('real transactions', () => {
     it('a split send charged 2.78624: Total = amount + the fee actually charged', () => {
       expect(txFigures(txRecord('transfer-shielded', { ...spend(2_786_240n), recipient: '0zk' + 'c'.repeat(64) })))
-        .toEqual({ model: 'spend', headline: 10_000_000n, fee: 2_786_240n, totalDeducted: 12_786_240n })
+        .toEqual({ model: 'spend', headline: 10_000_000n, fee: 2_786_240n, totalDeducted: 12_786_240n, cctpFee: null })
     })
 
     it('a recovered 3-USDC cross-chain shield nets by protocol AND CCTP fee', () => {

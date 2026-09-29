@@ -2,6 +2,7 @@
 // ABOUTME: Delegates the summary rows (date, private account, recipient, fees, total + privacy notice) to TransferReviewSummary; keeps the sync-gate notice + submit disabling.
 
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
+import type { CctpFeeFigure } from '@/lib/fees/txFigures'
 import { TransferReviewSummary } from './TransferReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
 import { MergeNotesNotice } from '@/components/consolidate/MergeNotesNotice'
@@ -16,8 +17,11 @@ export interface SendReviewStepProps {
   /** The user's own shielded (Armada) address — rendered as the summary's "From your private account" row. */
   armadaAddress?: string
   amount: bigint
-  /** Inclusive Fee total — broadcaster + protocol + CCTP. Tooltip breaks it down on the input card. */
+  /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null. */
   fee: bigint | null
+  /** A cross-chain unshield's CCTP fee — taken from the amount in transit, so not part of `fee` or the total — and
+   *  whether it's still the estimate. Shown on its own row; the Fees row then reads "Relayer fee". */
+  cctpFee?: CctpFeeFigure | null
   /** USDC deducted from the user's shielded balance — `amount + fee` across all three kinds; null ("—") until the fee is known. */
   totalDeducted: bigint | null
   /** Destination chain name — shown on the summary's Network row for public (0x) recipients. */
@@ -42,6 +46,7 @@ export function SendReviewStep({
   armadaAddress,
   amount,
   fee,
+  cctpFee = null,
   totalDeducted,
   networkName,
   recipientWalletProvider,
@@ -76,6 +81,7 @@ export function SendReviewStep({
           recipient={recipient}
           armadaAddress={armadaAddress}
           fee={fee}
+          cctpFee={cctpFee}
           totalDeducted={totalDeducted}
           variant={variant}
           networkName={networkName}

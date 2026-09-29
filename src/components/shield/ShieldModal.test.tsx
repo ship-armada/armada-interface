@@ -578,12 +578,22 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
 
-    it('unshield cross-chain: Fees folds in the CCTP fee, Total amount + F (deviation F23, #75)', async () => {
+    it('unshield cross-chain: the amount step\'s fee caption is the relayer fee — the CCTP fee comes out of the amount (UN-2x)', () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      renderModal({ open: true, kind: 'unshield', spendable: 20_000_000n, evm: EVM })
+      fireEvent.click(screen.getByLabelText('Network'))
+      fireEvent.click(screen.getByRole('option', { name: /Anvil Client A/ }))
+      fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '10' } })
+      expect(screen.getByText('+ $1.000003 FEE')).toBeInTheDocument()
+    })
+
+    it('unshield cross-chain: the relayer fee, the CCTP fee from the amount (est.), Total amount + F (UN-2x, D2)', async () => {
       const store = await submitUnshield(/Anvil Client A/)
       await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
       settle(store, 'unshield-xchain', 'client-mint-confirmed', { broadcasterFeeAmount: F, cctpFee: C })
       await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
-      expect(summaryRow('Fees')).toBe('1.30001 USDC')
+      expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
+      expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
   })
@@ -630,7 +640,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       }
       fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '10' } })
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-      const rows = { fees: 'Fees', total: 'Total' }
+      const rows = chainName ? { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total' } : { fees: 'Fees', total: 'Total' }
       const review = readFigures(rows)
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
@@ -662,8 +672,8 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
 
     it('unshield cross-chain: the Unshield tab shows the same fee as its confirmation and the Send modal (G-10)', async () => {
       const { review, confirm, receipt } = await unshieldFigures(/Anvil Client A/)
-      // Relayer fee + the CCTP estimate (2 bps of 10 = 0.002); the total deducted is amount + relayer fee.
-      expect(review).toEqual({ headline: '10', fees: '1.002003 USDC', total: '11.000003 USDC' })
+      // The relayer fee; the CCTP estimate (2 bps of 10 = 0.002) on its own row; the total deducted is amount + relayer fee.
+      expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', cctp: '0.002 USDC', total: '11.000003 USDC' })
       expect(confirm).toEqual(review)
       expect(receipt).toEqual(review)
     })

@@ -103,12 +103,14 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
 
-    it('cross-chain: Fees folds in the CCTP estimate, Total = amount + relayer fee (deviation F23, #75)', () => {
-      showReceipt('unshield-xchain', spendMeta(F, { recipient: RECIPIENT_EVM, toChainId: 31338, cctpFee: C }), {
+    it('cross-chain: the relayer fee, the CCTP fee taken from the amount (est.), Total = amount + relayer fee (UN-2x, D2)', () => {
+      showReceipt('unshield-xchain', spendMeta(F, { recipient: RECIPIENT_EVM, toChainId: 31338, cctpFee: C, cctpFeeIsEstimate: true }), {
         stage: 'client-mint-confirmed',
       } as Partial<TxRecord>)
-      expect(summaryRow('Fees')).toBe('1.30001 USDC')
+      expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
+      expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(screen.queryByText('Fees')).toBeNull()
     })
 
     it('cross-chain, written before the CCTP fee was stored: the relayer fee alone', () => {

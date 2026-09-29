@@ -34,8 +34,12 @@ function formatGasLine(fees: DisplayFees): string {
 export interface FlowFeeBreakdown {
   /** USDC broadcaster fee — reimburses relayer for submitting on-chain. 0n on direct flows. */
   broadcasterFee?: bigint
-  /** CCTP fast-fee (xchain only). Folded into the displayed FEE total alongside protocol + broadcaster. */
+  /** CCTP fast-fee (xchain only). Folded into the displayed FEE total alongside protocol + broadcaster — unless
+   *  `cctpFeeFromAmount`. */
   cctpFee?: bigint
+  /** True when the CCTP fee comes out of the amount in transit (a cross-chain unshield) rather than being a fee on
+   *  the user's own figure: the tooltip still lists it, but the FEE caption — the fee charged on top — leaves it out. */
+  cctpFeeFromAmount?: boolean
   /** Final amount the recipient (or shielded pool) receives. */
   recipientReceives?: bigint
   /** What ends up debited from the user's USDC balance. */
