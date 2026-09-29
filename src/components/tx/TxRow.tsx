@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { useAtomValue } from 'jotai'
 import { lifecycleFor } from '@/lib/tx/lifecycles'
-import { headlineAmount } from '@/lib/tx/headlineAmount'
+import { txHeadline } from '@/lib/fees/txFigures'
 import { formatUsdc, formatRelativeTime } from '@/lib/format'
 import { nowAtom } from '@/state/time'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
@@ -110,7 +110,7 @@ export function TxRow({
   const inflow = isInflow(record.kind)
   // Direction is conveyed by the leading kind glyph and the amount color (inflows green,
   // outflows default) — no need for a leading + / − character.
-  const formattedAmount = formatUsdc(headlineAmount(record))
+  const formattedAmount = formatUsdc(txHeadline(record))
   const amountCls = [styles.amount, inflow ? styles.amountInflow : ''].filter(Boolean).join(' ')
 
   // Completed is the common case — drop the chip and surface only the relative time. For any

@@ -12,6 +12,7 @@ import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
 import { useConsolidationPlan } from '@/hooks/useConsolidationPlan'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { txFiguresAs } from '@/lib/fees/txFigures'
 import { resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { blockedActionLabel, mergeTokenSymbol, type MergeIntent } from '@/lib/shielded/merge-intent'
 import { ProgressStep, ErrorStep } from '@/components/flow'
@@ -179,7 +180,7 @@ export function MergeModal() {
           tokenLabel={tokenLabel}
           notesMerged={record.meta.notesMerged ?? 0}
           notesCreated={record.meta.notesCreated ?? 0}
-          fee={record.meta.broadcasterFeeAmount}
+          fee={txFiguresAs(record, 'merge').fee}
           confirmedAt={record.updatedAt}
           {...(blockedAction !== undefined ? { blockedAction } : {})}
           {...(needsAnotherRound ? { onMergeAgain: mergeAgain } : {})}

@@ -15,7 +15,8 @@ vi.mock('./network', () => ({ getHubBlockTimestamps: hoisted.getHubBlockTimestam
 
 import { historyEntryToTxRecord, isSyntheticTxId, runHistoryScan, syntheticTxId } from './history'
 import { getChainByDomain } from '@/config/network'
-import { spendReceiptFromMeta } from '@/lib/fees/displayFees'
+import { txFigures } from '@/lib/fees/txFigures'
+import { txRecord } from '@/test/fixtures/txValues'
 import { cctpFastFeeForAmount, cctpMaxFeeForKind } from '@/lib/relayer'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -162,7 +163,7 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
         sdkEntry({ category: 'unshield', value: -500_000n, broadcasterFee: 10_000n, unshieldFee, recipient: '0xrecipient' }),
         'w', SDK_CTX, 5000,
       ) as TxRecord<'unshield-local'>
-      expect(spendReceiptFromMeta(recovered.meta)).toEqual(spendReceiptFromMeta(authored))
+      expect(txFigures(recovered)).toEqual(txFigures(txRecord('unshield-local', authored)))
       if (unshieldFee === 0n) expect(recovered.meta).not.toHaveProperty('protocolFee')
     }
   })
@@ -281,7 +282,7 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     ) as TxRecord<'unshield-xchain'>
     expect(recovered.meta.cctpFee).toBe(cctpFastFeeForAmount(amount))
     const authored = { amount, broadcasterFeeAmount: 10_000n, cctpFee: cctpFastFeeForAmount(amount) }
-    expect(spendReceiptFromMeta(recovered.meta)).toEqual(spendReceiptFromMeta(authored))
+    expect(txFigures(recovered)).toEqual(txFigures(txRecord('unshield-xchain', authored)))
   })
 
   it('keeps an unshield to a non-pool EOA as unshield-local even with a dest domain in the map (Tier 2)', () => {

@@ -11,6 +11,8 @@ import { txListAtom } from '@/state/tx'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { TxRecord } from '@/lib/tx/types'
 import type { MergeIntent } from '@/lib/shielded/merge-intent'
+import { F } from '@/test/fixtures/txValues'
+import { headlineAmount, summaryRow } from '@/test/summaryRows'
 
 vi.mock('@/hooks/useRelayerHealth', () => ({
   useRelayerHealth: () => ({
@@ -128,6 +130,25 @@ describe('<MergeModal>', () => {
     expect(screen.getByText(/fee changed/)).toBeInTheDocument()
     expect(hoistedPlan.plan.invalidate).toHaveBeenCalledOnce()
     expect(store.get(txListAtom).some((r) => r.kind === 'consolidate')).toBe(false)
+  })
+
+  it('the confirmation screen shows the fee and note counts its record carries (MG-1, MG-2)', async () => {
+    const store = renderModal()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'consolidate')).toBe(true))
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'consolidate'
+          ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed', meta: { ...r.meta, broadcasterFeeAmount: 2n * F, notesMerged: 9, notesCreated: 1 } } as TxRecord)
+          : r,
+      ))
+    })
+    await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+    expect(headlineAmount()).toBe('9 → 1')
+    expect(summaryRow('Fees')).toBe('2.000006 USDC')
+    expect(summaryRow('Total')).toBe('2.000006 USDC')
   })
 
   it('Cancel closes the modal and clears the intent', async () => {

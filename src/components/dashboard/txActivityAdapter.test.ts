@@ -9,6 +9,7 @@ import {
   txRecordToActivityItem,
   txListToActivityItems,
 } from './txActivityAdapter'
+import { A, C_ACTUAL, F, G, P, txRecord } from '@/test/fixtures/txValues'
 
 function makeLink(opts: Partial<RequestLinkRecord> = {}): RequestLinkRecord {
   return {
@@ -218,5 +219,22 @@ describe('activity status derivation', () => {
         txRecordToActivityItem(makeRecord('shield', { executionState: 'failed', errorCode: code })).status,
       ).toBe('unknown')
     }
+  })
+})
+
+describe('row amount per kind (spec fixture — the receipt headline, signed by direction)', () => {
+  const RELAYER_0ZK = '0zk' + 'b'.repeat(64)
+  const spend = { amount: A, broadcasterFeeAmount: F, broadcasterShieldedAddress: RELAYER_0ZK }
+  it.each([
+    ['shield', txRecord('shield', { amount: A, fromChainId: 31337, useGasless: true, feeAmount: F, protocolFee: P }), 10],
+    ['shield-xchain', txRecord('shield-xchain', { amount: A, fromChainId: 31338, feeAmount: F, protocolFee: P, cctpFee: C_ACTUAL }), 10],
+    ['transfer-shielded', txRecord('transfer-shielded', { ...spend, recipient: '0zk' + 'c'.repeat(64) }), -10],
+    ['transfer-shielded-received', txRecord('transfer-shielded-received', { amount: A }), 10],
+    ['unshield-local', txRecord('unshield-local', { ...spend, recipient: '0x1234567890abcdef1234567890abcdef12345678' }), -10],
+    ['yield-deposit', txRecord('yield-deposit', spend), -10],
+    ['yield-withdraw', txRecord('yield-withdraw', { ...spend, amount: G, shares: 9_523_809n }), 9.999999],
+    ['consolidate', txRecord('consolidate', { ...spend, amount: 0n, broadcasterFeeAmount: 2n * F, tokenAddress: '0xusdc' }), -2.000006],
+  ])('%s', (_kind, record, amount) => {
+    expect(txRecordToActivityItem(record).amount).toBe(amount)
   })
 })

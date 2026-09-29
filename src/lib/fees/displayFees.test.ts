@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, shieldReceiptFromMeta, withdrawBelowFee, yieldReceiptFromMeta, spendReceiptFromMeta } from './displayFees'
+import { computeDisplayFees, relayerGasFeeForKind, shieldProtocolFeeBase, withdrawBelowFee } from './displayFees'
 import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'
-import type { MetaShield, MetaShieldXchain, MetaYieldDeposit, MetaYieldWithdraw } from '@/lib/tx/types'
 
 const quote: FeeSchedule = {
   cacheId: 'test',
@@ -47,36 +46,6 @@ describe('relayerGasFeeForKind', () => {
   })
 })
 
-describe('yieldReceiptFromMeta', () => {
-  it('deposit nets amount + fee (total debited from the private balance)', () => {
-    const meta = {
-      amount: 500_000n, feeCacheId: 'x', broadcasterFeeAmount: 5_758_001n, broadcasterShieldedAddress: '0zk',
-    } as MetaYieldDeposit
-    expect(yieldReceiptFromMeta(meta, 'yield-deposit')).toEqual({
-      amount: 500_000n, fee: 5_758_001n, netAmount: 6_258_001n,
-    })
-  })
-
-  it('withdraw nets amount - fee (received; fee skimmed from the redeemed proceeds)', () => {
-    // The real reconciled withdraw: redeemed gross 6.000019, fee 5.758001 → received 0.242018.
-    const meta = {
-      amount: 6_000_019n, feeCacheId: 'x', broadcasterFeeAmount: 5_758_001n, broadcasterShieldedAddress: '0zk',
-    } as MetaYieldWithdraw
-    expect(yieldReceiptFromMeta(meta, 'yield-withdraw')).toEqual({
-      amount: 6_000_019n, fee: 5_758_001n, netAmount: 242_018n,
-    })
-  })
-
-  it('carries a zero fee (wallet-submit) unchanged', () => {
-    const meta = {
-      amount: 6_000_000n, feeCacheId: 'x', broadcasterFeeAmount: 0n, broadcasterShieldedAddress: '',
-    } as MetaYieldWithdraw
-    expect(yieldReceiptFromMeta(meta, 'yield-withdraw')).toEqual({
-      amount: 6_000_000n, fee: 0n, netAmount: 6_000_000n,
-    })
-  })
-})
-
 describe('withdrawBelowFee', () => {
   it('blocks a withdrawal at or below its fee (the redeem proceeds cannot cover the fee)', () => {
     expect(withdrawBelowFee(400_000n, 500_000n)).toBe(true) // amount < fee
@@ -93,38 +62,6 @@ describe('withdrawBelowFee', () => {
     // this is the wallet-submit path (user pays ETH gas, no USDC broadcaster fee).
     expect(withdrawBelowFee(0n, 0n)).toBe(false)
     expect(withdrawBelowFee(1n, 0n)).toBe(false)
-  })
-})
-
-describe('shieldReceiptFromMeta', () => {
-  it('nets a gasless same-chain shield by relayer + protocol fee (no cctp leg on MetaShield)', () => {
-    const meta = {
-      amount: 4_000_000n, feeCacheId: 'x', fromChainId: 31337,
-      feeAmount: 742_317n, protocolFee: 16_288n, useGasless: true,
-    } as MetaShield
-    expect(shieldReceiptFromMeta(meta)).toEqual({
-      amount: 4_000_000n, fee: 758_605n, netAmount: 3_241_395n,
-    })
-  })
-
-  it('nets a shield-xchain by relayer + protocol + CCTP fee', () => {
-    const meta = {
-      amount: 3_000_000n, feeCacheId: 'x', fromChainId: 84532,
-      protocolFee: 14_873n, cctpFee: 25_388n,
-    } as MetaShieldXchain
-    expect(shieldReceiptFromMeta(meta)).toEqual({
-      amount: 3_000_000n, fee: 40_261n, netAmount: 2_959_739n,
-    })
-  })
-
-  it('reports fee=null (renders "—") when nothing was charged (direct shield, no fees captured)', () => {
-    const meta = { amount: 5_000_000n, feeCacheId: 'x', fromChainId: 31337 } as MetaShield
-    expect(shieldReceiptFromMeta(meta)).toEqual({ amount: 5_000_000n, fee: null, netAmount: 5_000_000n })
-  })
-
-  it('never underflows netAmount if the fees somehow exceed the amount', () => {
-    const meta = { amount: 100n, feeCacheId: 'x', fromChainId: 31337, protocolFee: 500n } as MetaShield
-    expect(shieldReceiptFromMeta(meta)).toEqual({ amount: 100n, fee: 500n, netAmount: 100n })
   })
 })
 
@@ -166,23 +103,5 @@ describe('shieldProtocolFeeBase', () => {
       gasless: true,
     })
     expect(recipientReceives).toBe(4_252_158n)
-  })
-})
-
-describe('spendReceiptFromMeta', () => {
-  it('uses the fee actually charged (a split send pays one fee per proof), not a live quote', () => {
-    const r = spendReceiptFromMeta({ amount: 10_000_000n, broadcasterFeeAmount: 2_786_240n })
-    expect(r).toEqual({ fee: 2_786_240n, totalDeducted: 12_786_240n })
-  })
-
-  it('adds the recorded protocol + CCTP fees to the shown fee, but only the broadcaster fee to the total deducted', () => {
-    // CCTP's fast fee comes out of the destination mint and the protocol fee out of the recipient's side,
-    // so neither is drawn from the shielded balance on top of `amount`.
-    const r = spendReceiptFromMeta({ amount: 5_000_000n, broadcasterFeeAmount: 1_000n, protocolFee: 20n, cctpFee: 300n })
-    expect(r).toEqual({ fee: 1_320n, totalDeducted: 5_001_000n })
-  })
-
-  it('a record written before these fees were stored shows the broadcaster fee alone', () => {
-    expect(spendReceiptFromMeta({ amount: 5_000_000n, broadcasterFeeAmount: 1_000n })).toEqual({ fee: 1_000n, totalDeducted: 5_001_000n })
   })
 })

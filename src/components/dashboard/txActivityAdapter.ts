@@ -5,7 +5,7 @@ import type { TxRecord, TxKind, TxErrorCode } from '@/lib/tx/types'
 import { historySortTime, isTerminalState } from '@/lib/tx/types'
 import { recordTitle } from '@/components/tx/stageCopy'
 import type { RequestLinkRecord } from '@/lib/shielded/requestLinks'
-import { headlineAmount } from '@/lib/tx/headlineAmount'
+import { txHeadline } from '@/lib/fees/txFigures'
 
 /** Icon/semantic kind for an activity row — a coarser grouping than TxKind. */
 export type DashboardActivityKind = 'send' | 'deposit' | 'earn' | 'withdraw' | 'receive' | 'requestLink' | 'merge'
@@ -80,7 +80,7 @@ const DIRECTION: Record<TxKind, { kind: DashboardActivityKind; sign: 1 | -1 }> =
   'transfer-shielded-received': { kind: 'receive', sign: 1 },
   'yield-deposit': { kind: 'earn', sign: -1 },
   'yield-withdraw': { kind: 'earn', sign: 1 },
-  // A merge moves no value; its only outflow is the fee (see `headlineAmount`).
+  // A merge moves no value; its only outflow is the fee (see `txHeadline`).
   consolidate: { kind: 'merge', sign: -1 },
 }
 
@@ -123,7 +123,7 @@ export function txRecordToActivityItem(
       ...base,
       kind: withdraw ? 'withdraw' : 'send',
       label: withdraw ? 'Unshielded to your wallet' : recordTitle(record),
-      amount: -usdcToNumber(record.meta.amount),
+      amount: -usdcToNumber(txHeadline(record)),
     }
   }
 
@@ -132,7 +132,8 @@ export function txRecordToActivityItem(
     ...base,
     kind: direction.kind,
     label: recordTitle(record),
-    amount: direction.sign * usdcToNumber(headlineAmount(record)),
+    // The receipt's headline figure, signed by direction — a row and its receipt show the same number.
+    amount: direction.sign * usdcToNumber(txHeadline(record)),
   }
 }
 

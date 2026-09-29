@@ -26,4 +26,4 @@ per proof.
 - Dumb components only. Planning / pricing lives in `lib/shielded/consolidate-sdk.ts` (+ its hook), and
   the tx runs through the `consolidate` kind (`features/consolidate/handler.ts`).
 - A `consolidate` record's `meta.amount` is always `0n`; the fee (`broadcasterFeeAmount`) is the only
-  USDC that leaves. Rows and receipts show the fee (`lib/tx/headlineAmount`).
+  USDC that leaves. Rows and receipts show the fee (`lib/fees/txFigures::txHeadline`).

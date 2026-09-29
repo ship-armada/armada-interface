@@ -18,6 +18,8 @@ import { txListAtom } from '@/state/tx'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { TxRecord } from '@/lib/tx/types'
+import { C, C_ACTUAL, F, P } from '@/test/fixtures/txValues'
+import { headlineAmount, summaryRow } from '@/test/summaryRows'
 
 /** A POLL_TIMEOUT'd shield of `amount` (6dp) for the active test wallet — may still be on-chain. */
 function unresolvedShield(amount: bigint): TxRecord {
@@ -501,5 +503,84 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '7' } })
     fireEvent.click(screen.getByRole('tab', { name: 'Unshield' }))
     expect(screen.getByLabelText('Unshield amount')).toHaveValue('7')
+  })
+
+  describe('the confirmation screen shows the figures its record carries (spec fixture)', () => {
+    /** Settle the submitted `kind` record with `meta` patched in, as its handler would. */
+    function settle(store: ReturnType<typeof renderModal>, kind: TxRecord['kind'], stage: string, meta: Record<string, unknown>) {
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === kind ? ({ ...r, executionState: 'completed', stage, meta: { ...r.meta, ...meta } } as TxRecord) : r,
+        ))
+      })
+    }
+    async function submitShield(chainName?: RegExp) {
+      const store = renderModal({ open: true, max: 20_000_000n })
+      // Public USDC on every chain, so a cross-chain source has a balance to shield from.
+      act(() => store.set(usdcBalancesAtom, { 31337: 20_000_000n, 31338: 20_000_000n }))
+      if (chainName) {
+        fireEvent.click(screen.getByLabelText('Network'))
+        fireEvent.click(screen.getByRole('option', { name: chainName }))
+      }
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      return store
+    }
+    async function submitUnshield(chainName?: RegExp) {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      const store = renderModal({ open: true, kind: 'unshield', spendable: 20_000_000n, evm: EVM })
+      if (chainName) {
+        fireEvent.click(screen.getByLabelText('Network'))
+        fireEvent.click(screen.getByRole('option', { name: chainName }))
+      }
+      fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      return store
+    }
+
+    it('shield, relayer + protocol fee: Fees and the net received (SH-1…SH-3)', async () => {
+      const store = await submitShield()
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(true))
+      settle(store, 'shield', 'hub-confirmed', { useGasless: true, feeAmount: F, protocolFee: P })
+      await waitFor(() => expect(screen.getByText('You received')).toBeInTheDocument())
+      expect(headlineAmount()).toBe('10')
+      expect(summaryRow('Fees')).toBe('1.020014 USDC')
+      expect(summaryRow('You received')).toBe('8.979986 USDC')
+    })
+
+    it('cross-chain shield, reconciled: relayer + protocol + the actual CCTP fee (SH-13, SH-14)', async () => {
+      const store = await submitShield(/Anvil Client A/)
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield-xchain')).toBe(true))
+      settle(store, 'shield-xchain', 'hub-mint-confirmed', { useGasless: true, feeAmount: F, protocolFee: P, cctpFee: C_ACTUAL })
+      await waitFor(() => expect(screen.getByText('You received')).toBeInTheDocument())
+      expect(headlineAmount()).toBe('10')
+      expect(summaryRow('Fees')).toBe('1.170015 USDC')
+      expect(summaryRow('You received')).toBe('8.829985 USDC')
+    })
+
+    it('unshield on the hub: Fees F, Total amount + F (UN-2, UN-3)', async () => {
+      const store = await submitUnshield()
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+      settle(store, 'unshield-local', 'hub-confirmed', { broadcasterFeeAmount: F })
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      expect(headlineAmount()).toBe('10')
+      expect(summaryRow('Fees')).toBe('1.000003 USDC')
+      expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
+
+    it('unshield cross-chain: Fees folds in the CCTP fee, Total amount + F (deviation F23, #75)', async () => {
+      const store = await submitUnshield(/Anvil Client A/)
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
+      settle(store, 'unshield-xchain', 'client-mint-confirmed', { broadcasterFeeAmount: F, cctpFee: C })
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      expect(summaryRow('Fees')).toBe('1.30001 USDC')
+      expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
   })
 })

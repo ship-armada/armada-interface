@@ -58,7 +58,7 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   at Confirm, total + per-proof stored, the build capped at the reviewed total — and its Max comes from
   the SDK too (`wallet.maxUnshieldAmount`: one proof, one tree). An unshield record also
   stores the protocol fee (`protocolFee`) and, cross-chain, the CCTP fee (`cctpFee`) shown at review. The confirmation screen (and the Unshield
-  tab's) and the Activity receipt all derive the fee from the record alone (`spendReceiptFromMeta`),
+  tab's) and the Activity receipt all derive the fee from the record alone (`lib/fees/txFigures`),
   not the live plan/quote, which stop pricing after review and keep refreshing.
 - A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's
   "Too many small notes" callout (`MergeNotesNotice`, Confirm held) before any attempt (private sends from the fee plan; public sends, which are unshields, from a
