@@ -17,6 +17,7 @@ import { computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
 import { withdrawBelowFee } from '@/lib/fees/displayFees'
 import { txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxDraft } from '@/lib/tx/types'
+import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
@@ -143,12 +144,6 @@ export function EarnModal() {
     max,
     { protocolFee: displayFees.protocolFee },
   )
-  const flowBreakdown = {
-    broadcasterFee: fee,
-    recipientReceives,
-    totalDeducted,
-    recipientLabel: tab === 'add' ? 'Vault receives' : "You'll receive into private balance",
-  }
   // For withdraw the fee is skimmed from the redeemed proceeds, not reserved on top, so the typeable
   // cap is the FULL vault balance — don't subtract the fee from `max`. The only lower bound is that
   // the withdrawal must exceed its own fee (else the redeem can't pay it); that's enforced via the
@@ -186,6 +181,17 @@ export function EarnModal() {
         meta: { amount, ...reviewedBroadcaster, shares: 0n, broadcasterFeeAmount: quotedFee, ...reviewedApy },
       }
   const reviewFigures = reviewed ? txFiguresAs(reviewed, 'yield') : null
+  // The amount card's fee breakdown. A deposit is fee-on-top: the vault receives the amount, the balance is debited
+  // amount + fee. A withdrawal's fee comes out of the redeemed proceeds instead — the private balance isn't debited,
+  // so there's no "Total deducted", and what arrives is the Review draft's net (spec YD-12, YD-13).
+  const flowBreakdown: FlowFeeBreakdown = isDeposit
+    ? { broadcasterFee: fee, recipientReceives, totalDeducted, recipientLabel: 'Vault receives' }
+    : {
+        broadcasterFee: fee,
+        feeFromProceeds: true,
+        ...(reviewFigures ? { recipientReceives: reviewFigures.netAmount } : {}),
+        recipientLabel: "You'll receive into private balance",
+      }
   const displayNetLabel: string =
     tab === 'add' ? 'Total deducted from balance' : "You'll receive into private balance"
   // Past-tense variant for the confirmed screen — the review says "You'll receive…", the

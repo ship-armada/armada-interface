@@ -373,6 +373,24 @@ describe('<EarnModal>', () => {
     })
   })
 
+  it('a vault withdrawal\'s fee breakdown: the net received, no "Total deducted" — the fee comes from the proceeds (YD-12, YD-13)', () => {
+    hoistedRate.rate = { rate: 1_000_000n, apyBps: 500, fetchedAt: 0 } as unknown as YieldRate
+    const original = hoistedFees.quote.fees.crossContract
+    hoistedFees.quote.fees.crossContract = String(F)
+    try {
+      const store = renderModal({ open: 'yield-withdraw', shielded: 20_000_000n })
+      act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
+      fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '10' } })
+      fireEvent.focus(screen.getByRole('button', { name: 'Fee breakdown' }))
+      const tooltip = screen.getByRole('tooltip')
+      expect(tooltip).toHaveTextContent("You'll receive into private balance: 8.999997 USDC")
+      expect(tooltip).not.toHaveTextContent('Total deducted')
+      expect(tooltip).toHaveTextContent('comes out of the redeemed proceeds')
+    } finally {
+      hoistedFees.quote.fees.crossContract = original
+    }
+  })
+
   describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {
     async function settleAndRead(store: ReturnType<typeof renderModal>, kind: TxRecord['kind'], rows: Record<string, string>) {
       await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === kind)).toBe(true))
