@@ -23,7 +23,7 @@ Both kinds are submitted via the relayer — no wallet pop.
 ## Amount semantics
 
 - **Add Funds**: user enters USDC, modal submits `MetaYieldDeposit { amount }`. Max = the SDK's unshield max (`useSpendCheck().maxInput` → `wallet.maxUnshieldAmount`: one proof, one tree, one fee), falling back to the spendable USDC less one fee until it's known.
-- **Withdraw**: user enters USDC, modal converts to shares via `shares = amount × 1e18 / rate` for `MetaYieldWithdraw { amount, shares }`. Max = `yieldShares × rate / 1e18` (computed via `sharesToUsdc`).
+- **Withdraw**: user enters USDC, modal converts to shares via `shares = amount × 1e18 / rate` for `MetaYieldWithdraw { amount, shares }`. Max = every share one proof can redeem (`useSpendCheck().maxInput` in shares → `wallet.maxUnshieldAmount` for the share token: spendable shares only, one tree) at the current rate via `sharesToUsdc`, falling back to the vault position until it's known; a Max withdrawal submits exactly those shares rather than converting back (which would leave a dust note).
 
 The conversion path means the displayed "amount" is the **expected USDC output**, not raw shares. If the rate moves between quote and execution, the user receives slightly more or less than displayed (and slightly less even at a constant rate — the share count is floored), so Review marks it "≈". The withdraw handler reconciles `meta.amount` to the actual redeemed gross (`features/yield-withdraw/redeemedGross.ts`), which Confirm and the Activity receipt show. See `specs/TX_VALUES.md` (YD-10…YD-16).
 

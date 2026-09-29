@@ -295,10 +295,9 @@ export async function readSdkUsdcBalance(): Promise<{ spendable: bigint; pending
   return usdc ? { spendable: usdc.spendable, pending: usdc.pending } : { spendable: 0n, pending: 0n }
 }
 
-// TODO(tier3b): split yield shares into spendable/pending like readSdkUsdcBalance, so the withdraw MAX
-// doesn't offer shares still inside the finalityThreshold buffer. Low urgency: on local finalityThreshold
-// is 0 (no pending shares), and on sepolia the pre-proof preflight gate (assertSpendPreflight) fast-fails
-// a redeem of not-yet-spendable shares — so this is a MAX-button nicety, not a correctness hole.
+// The whole vault position (spendable + pending) — what the dashboard and Earn modal show. The withdraw Max
+// doesn't read it: it's the SDK's max over spendable shares (`unshield-sdk.ts::maxUnshieldAmount`), so shares
+// still inside the finalityThreshold buffer aren't offered.
 /** Read the current shielded yield-vault shares (ayUSDC) from the scan state. 0 if no vault. Does not sync. */
 export async function readSdkYieldShares(): Promise<bigint> {
   const vault = await vaultTokenAddress()

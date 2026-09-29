@@ -238,7 +238,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | YD-13 | Total deducted | none — the private balance isn't debited | – | – |
 | YD-14 | Estimated APY | frozen `meta.apyBps`; REC recovers it from the share change note's self-metadata (SDK carries it onto the USDC leg); a full withdrawal leaves no share change, so REC hides the row | REV, CNF, RCPT, REC | – |
 | YD-15 | Row | `+G` [D1] | ROW | +10 (2 dp) |
-| YD-16 | Max | the vault position (fee not subtracted); blocked when `amount ≤ F` | AMT | – |
+| YD-16 | Max | every share one proof can redeem — spendable shares only, one tree (the SDK's `maxUnshieldAmount` in the share token, no fee) — at the current rate; the vault position until that's known (fee not subtracted); a Max withdrawal redeems exactly those shares (no dust note); blocked when `amount ≤ F` | AMT | – |
 
 - **Stored:** the typed `amount` with `amountIsEstimate` at submit; the handler reconciles it to `G` (clearing the
   marker) in the write that completes the record. While marked — the redeemed gross couldn't be read — the headline
@@ -248,8 +248,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 - **Allowed differences:** REV (≈, typed amount) → CNF (`G`): headline and net change; the fee does not.
   `G < A` by µUSDC is normal (the share count is floored).
 - **Deviations:** F8 (a recovered withdrawal never has APY — the SDK carries the self-metadata on the share leg,
-  which the app drops; the app test feeds a shape the SDK never produces), F15 (Max
-  converts through USDC and back — leaves share dust, counts pending shares, ignores the one-tree rule).
+  which the app drops; the app test feeds a shape the SDK never produces).
 
 ### `consolidate` (Merge notes)
 
@@ -276,7 +275,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
-| F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F28 | S4 | tests | A test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, armada-sdk#113 |

@@ -75,7 +75,8 @@ export function EarnModal() {
 
   // Source data. The USDC leg (deposit amount + the withdraw-fee reserve + the fee-on-top guard) draws
   // from SPENDABLE only, so a not-yet-final ("pending") note can't be used; `pendingUsdc` is
-  // display-only (0 on local Anvil). Yield shares aren't split yet — see readSdkYieldShares TODO.
+  // display-only (0 on local Anvil). Yield shares are the whole vault position (spendable + pending); the
+  // withdraw Max is the SDK's spendable-only max instead (below).
   const shieldedUsdc = useAtomValue(shieldedUsdcAtom)
   const shieldedUsdcSpendable = useAtomValue(shieldedUsdcSpendableAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
@@ -85,7 +86,7 @@ export function EarnModal() {
     yieldShares !== null && yieldRate !== null ? sharesToUsdc(yieldShares, yieldRate.rate) : null
   const spendableUsdc = shieldedUsdcSpendable ?? 0n
   const max = tab === 'add' ? spendableUsdc : earningUsdc ?? 0n
-  // Pending only applies to the USDC deposit leg; the withdraw tab's max is share-derived.
+  // Pending only applies to the USDC deposit leg; the withdraw tab's max is share-derived (`inputMax`, below).
   const pendingUsdc = tab === 'add' ? (shieldedUsdc ?? 0n) - spendableUsdc : 0n
 
   const { value: amount } = parseUsdcInput(amountStr)
@@ -152,8 +153,12 @@ export function EarnModal() {
   // the withdrawal must exceed its own fee (else the redeem can't pay it); that's enforced via the
   // pre-flight `continueBlockedReason` below.
   // A deposit's Max is the SDK's unshield max (one proof, one tree), falling back to the one-fee cap until
-  // it's known.
-  const inputMax: bigint = tab === 'add' ? (spendCheck.maxInput ?? feeOnTopInputMax) : max
+  // it's known. A withdrawal's is every share one proof can redeem — spendable shares only, one tree (the SDK's
+  // max, in shares) — at the current rate, falling back to the vault position until it's known (YD-16).
+  const maxShares: bigint | null = isDeposit ? null : spendCheck.maxInput
+  const withdrawMax: bigint | null =
+    maxShares !== null && yieldRate !== null ? sharesToUsdc(maxShares, yieldRate.rate) : null
+  const inputMax: bigint = tab === 'add' ? (spendCheck.maxInput ?? feeOnTopInputMax) : (withdrawMax ?? max)
   // Per-tab display values handed down to the step components. The step components stay dumb;
   // EarnModal owns the per-tab semantic translation.
   //
@@ -348,10 +353,14 @@ export function EarnModal() {
         // below USDC's display precision.
         const freshRate = await refreshYieldRate()
         const effectiveRate = freshRate ?? yieldRate
+        // Max redeems exactly the shares it offered: converting its amount back to shares would round down and
+        // leave a dust note (more if the rate rose since review).
         const shares =
-          effectiveRate !== null && effectiveRate.rate > 0n
-            ? (amount * 1_000_000_000_000_000_000n) / effectiveRate.rate
-            : 0n
+          maxShares !== null && amount === inputMax
+            ? maxShares
+            : effectiveRate !== null && effectiveRate.rate > 0n
+              ? (amount * 1_000_000_000_000_000_000n) / effectiveRate.rate
+              : 0n
         if (reviewed?.kind !== 'yield-withdraw' || broadcasterFeeAmount !== reviewed.meta.broadcasterFeeAmount) {
           setFeeChanged(true)
           setStep('review')

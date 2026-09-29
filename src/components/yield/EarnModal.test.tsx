@@ -375,6 +375,44 @@ describe('<EarnModal>', () => {
     })
   })
 
+  describe('a vault withdrawal\'s Max redeems every spendable share (YD-16, #82)', () => {
+    // The SDK's max in shares (spendable, one proof, one tree) — less than the vault position, which counts
+    // pending shares. At this rate it's worth 10.000009 USDC; converting that back to shares would leave dust.
+    const MAX_SHARES = 9_523_809_523_809_523_809n
+    const RATE = { rate: 1_050_001n, apyBps: 500n, fetchedAt: 0 } as unknown as YieldRate
+
+    it('Max offers what the SDK can redeem, and submits exactly those shares — no dust left behind', async () => {
+      hoistedRate.rate = RATE
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n, maxInput: MAX_SHARES }
+      const store = renderModal({ open: 'yield-withdraw', shielded: 20_000_000n })
+      act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
+      fireEvent.click(screen.getByRole('button', { name: /Max/ }))
+      expect(screen.getByLabelText('Shielded vault withdrawal amount')).toHaveValue('10.000009')
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-withdraw')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'yield-withdraw') as TxRecord<'yield-withdraw'>
+      expect(record.meta).toMatchObject({ shares: MAX_SHARES, amount: 10_000_009n })
+    })
+
+    it('an amount below Max still redeems its value in shares', async () => {
+      hoistedRate.rate = RATE
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n, maxInput: MAX_SHARES }
+      const store = renderModal({ open: 'yield-withdraw', shielded: 20_000_000n })
+      act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
+      fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '5' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-withdraw')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'yield-withdraw') as TxRecord<'yield-withdraw'>
+      expect(record.meta.shares).toBe((5_000_000n * 10n ** 18n) / 1_050_001n)
+    })
+  })
+
   it('a vault withdrawal\'s fee breakdown: the net received, no "Total deducted" — the fee comes from the proceeds (YD-12, YD-13)', () => {
     hoistedRate.rate = { rate: 1_000_000n, apyBps: 500, fetchedAt: 0 } as unknown as YieldRate
     const original = hoistedFees.quote.fees.crossContract
