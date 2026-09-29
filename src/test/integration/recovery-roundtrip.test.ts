@@ -202,6 +202,21 @@ describe('recovered figures equal the recorded ones (G-6)', () => {
       const recorded = authored('yield-withdraw', { amount: G, shares: 9_523_809n, broadcasterFeeAmount: F, broadcasterShieldedAddress: RELAYER_0ZK, amountIsEstimate: false })
       expect(txFigures(recoveredOne(chain, '0xredeem'))).toEqual(txFigures(recorded))
     })
+
+    it('a partial withdrawal keeps its APY — its tag rides on the share change note (YD-14, F8, #76)', () => {
+      // The APY the user reviewed is written into the spend's change note; a withdrawal spends shares, so that's a
+      // share note. The SDK carries it onto the USDC leg (armada-sdk#113), the only leg history keeps.
+      const chain = new Chain()
+      const tag = encodeSelfMetadata(encodeTxSelfMetadata({ yieldApyBps: 450n })!)
+      chain.spend('0xpartial', [12_000_000n], SHARES_HASH)
+      chain.note('0xpartial', 12_000_000n - 9_523_809n, { tokenHash: SHARES_HASH, memo: tag }) // the shares left in the vault
+      chain.unshield('0xpartial', ADAPTER, 9_523_809n)
+      chain.note('0xpartial', G - F, { origin: 'shield' })
+      chain.shieldRelayerFees.set('0xpartial', F)
+
+      const recorded = authored('yield-withdraw', { amount: G, shares: 9_523_809n, broadcasterFeeAmount: F, broadcasterShieldedAddress: RELAYER_0ZK, amountIsEstimate: false, apyBps: 450n })
+      expect(txFigures(recoveredOne(chain, '0xpartial'))).toEqual(txFigures(recorded))
+    })
   })
 
   describe('shield (SH-1…SH-3)', () => {

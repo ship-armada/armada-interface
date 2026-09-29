@@ -60,7 +60,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-6 Recovered = authored.** For the same on-chain tx, REC shows the same headline, fees and totals as
   the authored RCPT, except where a kind lists an allowed difference. A re-scan that rebuilds a recovered record
   differently (kind, figures or artifacts) replaces the stored one, so a recovered row picks up a later mapping fix;
-  an authored record is never overwritten. *Deviation F8.*
+  an authored record is never overwritten.
 - **G-7 The rows add up.** Fee-on-top kinds: Amount + Fees = Total deducted. Fee-inclusive kinds (shields,
   a vault withdrawal): Amount − Fees = You'll receive. A fee that is neither on top nor inside the user's own
   figure — the CCTP fee of a cross-chain unshield, taken from the amount in transit — gets its own row,
@@ -249,8 +249,6 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 - **Recovered:** `amount = value + broadcasterFee` (`G`), `shares` from the adapter unshield.
 - **Allowed differences:** REV (≈, typed amount) → CNF (`G`): headline and net change; the fee does not.
   `G < A` by µUSDC is normal (the share count is floored).
-- **Deviations:** F8 (a recovered withdrawal never has APY — the SDK carries the self-metadata on the share leg,
-  which the app drops; the app test feeds a shape the SDK never produces).
 
 ### `consolidate` (Merge notes)
 
@@ -274,10 +272,8 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 Ranked by severity: **S1** wrong money on a settled surface; **S2** surfaces disagree; **S3** degraded
 fallback / old records; **S4** cosmetic or labelling.
 
-| ID | Sev | Kind(s) | Summary | Issue |
-|---|---|---|---|---|
-| F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
-| F28 | S4 | tests | A test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, armada-sdk#113 |
+None open: every row above is met. A newly found deviation is listed here as `| ID | Sev | Kind(s) | Summary |
+Issue |`, taking the next free ID (F29 on), and marked on the rows it affects.
 
 ## 9. Decisions
 
