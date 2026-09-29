@@ -358,7 +358,8 @@ export interface MetaTransferShieldedReceived {
 }
 
 /** Net vault APY (basis points) at submit-time — surfaces the "Estimated APY" row on the receipt.
- *  Recovered on rescan via the spend's self-metadata (armada-sdk #88 lever 3). */
+ *  Recovered on rescan via the spend's self-metadata (armada-sdk #88 lever 3), which rides on the change note: a
+ *  deposit that left none (Max, fold-in) can't carry it, and a withdrawal's is on its share leg (armada-sdk #113). */
 interface MetaYieldApy {
   apyBps?: bigint
 }

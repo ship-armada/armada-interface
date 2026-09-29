@@ -21,7 +21,7 @@ import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
-import { resolveFreshQuote } from '@/lib/tx/submitQuote'
+import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { sharesToUsdc } from '@/lib/yield'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import {
@@ -106,12 +106,15 @@ export function EarnModal() {
   // USDC (+ its fee note, whose planned value is the fee: the SDK folds small change into it when that's
   // what makes it fit); a withdrawal spends vault shares (its fee is taken contract-side — no fee note, so
   // it keeps the quoted fee), estimated at the current rate.
+  // Nothing is planned or priced until the relayer quote loads: its per-proof fee would read 0, and a figure priced at
+  // 0 would show a zero fee (spec G-4).
+  const quotePending = quote === null
   const vaultSpend: BlockedSpend | null =
-    tab === 'add'
-      ? { kind: 'yield-deposit', amount, perProofFee: quotedFee }
-      : yieldRate !== null && yieldRate.rate > 0n
-        ? { kind: 'yield-withdraw', amount: (amount * 1_000_000_000_000_000_000n) / yieldRate.rate, perProofFee: 0n }
-        : null
+    quotePending ? null
+    : tab === 'add' ? { kind: 'yield-deposit', amount, perProofFee: quotedFee }
+    : yieldRate !== null && yieldRate.rate > 0n
+      ? { kind: 'yield-withdraw', amount: (amount * 1_000_000_000_000_000_000n) / yieldRate.rate, perProofFee: 0n }
+      : null
   const vaultToken = tab === 'add' ? 'usdc' : 'shares'
   const spendCheck = useSpendCheck({
     enabled: isOpen && (step === 'input' || step === 'review'),
@@ -168,19 +171,21 @@ export function EarnModal() {
     feeCacheId: quote?.cacheId ?? '',
     broadcasterShieldedAddress: quote?.broadcasterShieldedAddress ?? '',
   }
-  const reviewed: TxDraft<'yield-deposit' | 'yield-withdraw'> | null = isDeposit
-    ? spendCheck.fee === null
-      ? null
+  const reviewed: TxDraft<'yield-deposit' | 'yield-withdraw'> | null =
+    quotePending ? null
+    : isDeposit
+      ? spendCheck.fee === null
+        ? null
+        : {
+            kind: 'yield-deposit',
+            meta: { amount, ...reviewedBroadcaster, broadcasterFeeAmount: spendCheck.fee, broadcasterFeePerProof: quotedFee, ...reviewedApy },
+          }
       : {
-          kind: 'yield-deposit',
-          meta: { amount, ...reviewedBroadcaster, broadcasterFeeAmount: spendCheck.fee, broadcasterFeePerProof: quotedFee, ...reviewedApy },
+          kind: 'yield-withdraw',
+          // The shares to redeem are re-read at submit against the freshest rate (slippage protection).
+          // The amount is the quote-time estimate until the handler reads the actual redeemed gross.
+          meta: { amount, ...reviewedBroadcaster, shares: 0n, broadcasterFeeAmount: quotedFee, ...reviewedApy, amountIsEstimate: true },
         }
-    : {
-        kind: 'yield-withdraw',
-        // The shares to redeem are re-read at submit against the freshest rate (slippage protection).
-        // The amount is the quote-time estimate until the handler reads the actual redeemed gross.
-        meta: { amount, ...reviewedBroadcaster, shares: 0n, broadcasterFeeAmount: quotedFee, ...reviewedApy, amountIsEstimate: true },
-      }
   const reviewFigures = reviewed ? txFiguresAs(reviewed, 'yield') : null
   // The amount card's fee breakdown. A deposit is fee-on-top: the vault receives the amount, the balance is debited
   // amount + fee. A withdrawal's fee comes out of the redeemed proceeds instead — the private balance isn't debited,
@@ -216,7 +221,8 @@ export function EarnModal() {
   const relayerBlock = useRelayerSubmitBlock(isOpen)
   // Composed gate for the review step — sync gate OR private-USDC shortfall OR relayer unavailable.
   const submitBlockedReason: string | null =
-    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || spendCheck.blockReason
+    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || (quotePending ? QUOTE_PENDING_REASON : null)
+    || spendCheck.blockReason
 
   // Two useTx hooks; only one gets a record per flow.
   const txDeposit = useTx({ kind: 'yield-deposit' })
@@ -413,8 +419,8 @@ export function EarnModal() {
             pending={pendingUsdc}
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
-            feeLoading={feeLoading || (isDeposit && spendCheck.pending)}
-            feeResolving={isDeposit && spendCheck.pending}
+            feeLoading={feeLoading || quotePending || (isDeposit && spendCheck.pending)}
+            feeResolving={quotePending || (isDeposit && spendCheck.pending)}
             feeUnavailable={isDeposit && spendCheck.error !== null}
             gasChainId={hubChainId}
             // Both tabs are relayer-mediated (gasless) — no wallet-submit fallback (#23).

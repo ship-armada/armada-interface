@@ -50,7 +50,8 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
   shows the actual value.
 - **G-4 Unknown is "—", never 0.** A figure that isn't known (plan pending/failed, no quote yet, a fee
   recovery couldn't attribute) renders "—". Placeholders (the one-proof quote while a plan is pending,
-  `?? 0n` defaults) are never shown as a fee. *Deviations F17, F19.*
+  `?? 0n` defaults) are never shown as a fee — before a relayer-paid flow's fee quote loads, its fee reads "—"
+  and Confirm is held (`QUOTE_PENDING_REASON`). *Deviation F17.*
 - **G-5 Estimates are marked.** A figure that is an estimate (CCTP fee before reconciliation, a vault
   withdrawal's gross before execution) carries "≈" / "est." wherever it is shown.
 - **G-6 Recovered = authored.** For the same on-chain tx, REC shows the same headline, fees and totals as
@@ -161,8 +162,7 @@ A sweep grows the change note only — every figure is unchanged.
   never charge more — `SpendFeeIncreasedError`); CNF shows the actual.
 - **Deviations:** F1 (recovered send-to-self: `amount = F` and fee `F` → Total `2F`), F10 (authored
   send-to-self shows Total `A + F` and row `−A`; only `F` left the wallet), F17 (a recovered send whose fee note
-  wasn't attributed shows Fees `0.00`), F21 (no quote yet: the fee reads blank/"—" but Confirm isn't held — it
-  bounces back to Review, no wrong money).
+  wasn't attributed shows Fees `0.00`).
 
 ### `transfer-shielded-received` (history-only)
 
@@ -282,9 +282,7 @@ fallback / old records; **S4** cosmetic or labelling.
 | F16 | S3 | consolidate | Exact-cover non-USDC merge recovered as "USDC sent 0 to unknown". | #81 |
 | F17 | S3 | transfer | Unattributed recovered fee shows `0.00`, not "—". | #81 |
 | F18 | S3 (latent) | shield | Fee read uses the env integrator; gasless / xchain shield with integrator 0. | #74 |
-| F19 | S3 | yield | Before the quote loads REV shows Fees `0.00`; a too-small withdrawal isn't blocked (submit bounces). | #76 |
 | F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
-| F21 | S4 | transfer | No quote yet: fee blank / "—" but Confirm not held (bounces). | #76 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F27 | S3 | all | The balance shown before the SDK sync lands is derived from local history, ignoring fees, received payments and merges (G-11). | #80 |

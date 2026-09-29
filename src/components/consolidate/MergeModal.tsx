@@ -14,7 +14,7 @@ import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxDraft } from '@/lib/tx/types'
-import { resolveFreshQuote } from '@/lib/tx/submitQuote'
+import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { blockedActionLabel, mergeTokenSymbol, type MergeIntent } from '@/lib/shielded/merge-intent'
 import { ProgressStep, ErrorStep } from '@/components/flow'
 import { FlowShell } from '@/components/flow/FlowShell'
@@ -83,7 +83,8 @@ export function MergeModal() {
   const reviewFigures = reviewed ? txFiguresAs(reviewed, 'merge') : null
 
   const reviewBlockedReason =
-    syncGate.reason ?? relayerBlock ?? plan.error ?? (plan.pending ? 'Working out the merge…' : null)
+    syncGate.reason ?? relayerBlock ?? (quote === null ? QUOTE_PENDING_REASON : null) ?? plan.error
+    ?? (plan.pending ? 'Working out the merge…' : null)
 
   // Watch the submitted record for terminal transitions.
   useEffect(() => {

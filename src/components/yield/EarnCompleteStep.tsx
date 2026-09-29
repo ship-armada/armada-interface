@@ -14,7 +14,7 @@ export interface EarnCompleteStepProps {
   rate: YieldRate | null
   /** Inclusive fee total — broadcaster + protocol. Rendered as "—" when null. */
   fee: bigint | null
-  /** Per-tab summary total: Add → private-balance debit (`amount + fee`); Withdraw → net gain (`amount`). */
+  /** Per-tab summary total: Add → private-balance debit (`amount + fee`); Withdraw → net received (`amount − fee`). */
   netAmount: bigint
   /** True while a withdrawal's amount is still the typed estimate (its redeemed gross couldn't be read). */
   estimated?: boolean

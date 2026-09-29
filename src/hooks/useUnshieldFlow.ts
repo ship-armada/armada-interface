@@ -16,7 +16,7 @@ import { findDeploymentForChain, loadDeployments, type ResolvedDeployments } fro
 import { parseUsdcInput } from '@/lib/format'
 import { isShieldedAddress } from '@/lib/address'
 import { canRetryTx } from '@/lib/tx/executor'
-import { resolveFreshQuote } from '@/lib/tx/submitQuote'
+import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
@@ -174,9 +174,12 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
   // fee its plan charges (the SDK folds small change into the fee when that's what makes it fit) and so a
   // wallet too fragmented for it is offered "Merge notes" before anything is attempted.
   const unshieldSpend: BlockedSpend = { kind: computedKind, amount, perProofFee: quotedFee }
+  // Nothing is planned until the relayer quote loads: its per-proof fee would read 0, and a plan priced at 0 would
+  // show a zero fee (spec G-4).
+  const quotePending = quote === null
   const spendCheck = useSpendCheck({
     enabled: isOpen && (step === 'input' || step === 'review'),
-    spend: unshieldSpend,
+    spend: quotePending ? null : unshieldSpend,
     token: 'usdc',
     balanceKey: `${max}`,
   })
@@ -345,11 +348,11 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     max,
     pendingUsdc,
     displayFees,
-    feeLoading: feeLoading || spendCheck.pending,
+    feeLoading: feeLoading || spendCheck.pending || quotePending,
     flowBreakdown,
     reviewFigures,
     feeKnown: spendCheck.fee !== null,
-    feeResolving: spendCheck.pending,
+    feeResolving: spendCheck.pending || quotePending,
     feeUnavailable: spendCheck.error !== null,
     feeChanged,
     totalDeducted,
@@ -361,7 +364,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     recipientWalletProvider: connector?.name,
     networkName: getChainById(toChainId)?.name,
     destDeploymentError,
-    submitBlockedReason: syncGate.reason ?? relayerBlock ?? spendCheck.blockReason ?? undefined,
+    submitBlockedReason:
+      syncGate.reason ?? relayerBlock ?? (quotePending ? QUOTE_PENDING_REASON : null) ?? spendCheck.blockReason ?? undefined,
     ...(spendCheck.remedy === 'merge-notes'
       ? { onMergeNotes: () => openMerge({ token: 'usdc', blocked: unshieldSpend }) }
       : {}),

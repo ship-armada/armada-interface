@@ -61,8 +61,10 @@ export interface ShieldFlow {
   feeLoading: boolean
   flowBreakdown: FlowFeeBreakdown
   /** The figures Review shows — rendered from the draft this shield will submit (relayer + protocol + CCTP fee, and
-   *  the net received; an estimate on a cross-chain shield). */
-  reviewFigures: Extract<TxFigures, { model: 'deposit' }>
+   *  the net received; an estimate on a cross-chain shield). Null ("—") while a gasless shield's relayer quote loads. */
+  reviewFigures: Extract<TxFigures, { model: 'deposit' }> | null
+  /** True while a gasless shield's relayer quote hasn't loaded — there's no relayer fee to show or submit against. */
+  quotePending: boolean
   /** Completion-screen figures, from the record (the handler reconciles amount/protocolFee/cctpFee to the on-chain
    *  values at delivery); null until a record exists — Complete only shows post-submit. */
   completeReceipt: Extract<TxFigures, { model: 'deposit' }> | null
@@ -249,7 +251,10 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   const reviewed: TxDraft<'shield' | 'shield-xchain'> = computedKind === 'shield'
     ? { kind: 'shield', meta: reviewedFees }
     : { kind: 'shield-xchain', meta: { ...reviewedFees, ...(cctpFee > 0n ? { cctpFee, cctpFeeIsEstimate: true } : {}) } }
-  const reviewFigures = txFiguresAs(reviewed, 'deposit')
+  // A gasless shield's relayer fee is the quote's: until it loads the fee would read 0, so there's nothing to show
+  // (spec G-4) — Review reads "—" and Confirm is held. The direct path needs no quote.
+  const quotePending = useGasless && quote === null
+  const reviewFigures = quotePending ? null : txFiguresAs(reviewed, 'deposit')
   // Minimum valid amount = the live fee. Below or equal to it the wrapper's `shieldAmount =
   // totalAmount - fee` would underflow / be zero. Surfaced via ShieldInputStep's `minAmount`
   // prop so the user can't type a value that would inevitably revert. Zero for no-fee paths.
@@ -449,6 +454,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     feeLoading,
     flowBreakdown,
     reviewFigures,
+    quotePending,
     // Completion-screen figures, from the record — its meta is authoritative: the handler reconciles
     // amount/protocolFee/cctpFee to the ACTUAL on-chain values at delivery, so "Confirm" shows the real numbers
     // (identical to the activity receipt), not the pre-submit estimate. Complete only shows post-submit.

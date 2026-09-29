@@ -101,9 +101,12 @@ const hoistedPlan = vi.hoisted(() => {
   return { defaults, plan: defaults() }
 })
 // Like the real hook, it prices nothing once disabled (it only runs on the amount + review steps).
+// Like the real hook, it prices nothing once disabled or without a relayer quote.
 vi.mock('@/hooks/useTransferFeePlan', () => ({
-  useTransferFeePlan: (args: { enabled: boolean }) =>
-    args.enabled ? hoistedPlan.plan : { ...hoistedPlan.plan, fee: null, proofs: null, maxInput: null, pending: false },
+  useTransferFeePlan: (args: { enabled: boolean; quote: unknown }) =>
+    args.enabled && args.quote !== null
+      ? hoistedPlan.plan
+      : { ...hoistedPlan.plan, fee: null, proofs: null, maxInput: null, pending: false },
 }))
 
 // Public (0x) sends are unshields, dry-run at review for fragmentation; each test sets the outcome.
@@ -121,11 +124,12 @@ const hoistedCheck = vi.hoisted(() => {
   })
   return { defaults, result: defaults() }
 })
+// Like the real hook, it plans nothing while disabled or with no spend to plan (e.g. before the relayer quote loads).
 vi.mock('@/hooks/useSpendCheck', () => ({
-  useSpendCheck: (args: { enabled: boolean }) =>
-    args.enabled
+  useSpendCheck: (args: { enabled: boolean; spend: unknown }) =>
+    args.enabled && args.spend !== null
       ? hoistedCheck.result
-      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+      : { ...hoistedCheck.result, fee: null, maxInput: null, error: null, remedy: null, pending: false, blockReason: null },
 }))
 
 // The private-send submit path strict-validates the 0zk recipient via the SDK
@@ -697,6 +701,43 @@ describe('<SendModal>', () => {
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
+  })
+
+  describe('before the relayer quote loads: no fee ("—") and Confirm held (G-4)', () => {
+    function withNoQuote(run: () => void) {
+      const original = hoistedFees.quote
+      ;(hoistedFees as { quote: typeof original | null }).quote = null
+      try {
+        run()
+      } finally {
+        hoistedFees.quote = original
+      }
+    }
+
+    it('a private send', () => withNoQuote(() => {
+      renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(VALID_0ZK)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    }))
+
+    it('a public send — planned at a zero fee it would show "0.00"', () => withNoQuote(() => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n, priceAt: vi.fn(async () => 0n) }
+      renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(VALID_EVM, '31337')
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    }))
   })
 
   describe('the confirmation screen labels a payment the way Activity will (UN-7, D8)', () => {

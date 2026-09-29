@@ -112,11 +112,12 @@ const hoistedCheck = vi.hoisted(() => {
   })
   return { defaults, result: defaults() }
 })
+// Like the real hook, it plans nothing while disabled or with no spend to plan (e.g. before the relayer quote loads).
 vi.mock('@/hooks/useSpendCheck', () => ({
-  useSpendCheck: (args: { enabled: boolean }) =>
-    args.enabled
+  useSpendCheck: (args: { enabled: boolean; spend: unknown }) =>
+    args.enabled && args.spend !== null
       ? hoistedCheck.result
-      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+      : { ...hoistedCheck.result, fee: null, maxInput: null, error: null, remedy: null, pending: false, blockReason: null },
 }))
 beforeEach(() => {
   hoistedCheck.result = hoistedCheck.defaults()
@@ -412,6 +413,43 @@ describe('<EarnModal>', () => {
     await waitFor(() => expect(screen.getByText('Total deducted from balance')).toBeInTheDocument())
     expect(screen.getByText('~4.50%')).toBeInTheDocument()
     expect(screen.queryByText('~9.00%')).toBeNull()
+  })
+
+  describe('before the relayer quote loads: no fee ("—") and Confirm held (G-4)', () => {
+    function withNoQuote(run: () => void) {
+      const original = hoistedFees.quote
+      ;(hoistedFees as { quote: typeof original | null }).quote = null
+      try {
+        run()
+      } finally {
+        hoistedFees.quote = original
+      }
+    }
+
+    it('a vault deposit', () => withNoQuote(() => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n, priceAt: vi.fn(async () => 0n) }
+      renderModal({ open: 'yield-deposit', shielded: 20_000_000n })
+      fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total deducted from balance')).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeDisabled()
+    }))
+
+    it('a vault withdrawal — its fee is the quote, so it would read "0.00"', () => withNoQuote(() => {
+      hoistedRate.rate = { rate: 1_000_000n, apyBps: 500n, fetchedAt: 0 } as unknown as YieldRate
+      const store = renderModal({ open: 'yield-withdraw', shielded: 20_000_000n })
+      act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
+      fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow("You'll receive into private balance")).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+    }))
   })
 
   describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {

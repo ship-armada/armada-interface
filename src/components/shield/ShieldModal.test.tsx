@@ -97,14 +97,30 @@ const STUB_FEE_QUOTE = {
     shieldXchain: '0',
   },
 }
+// The quote a test runs with — STUB_FEE_QUOTE unless it sets another, or null (the relayer quote hasn't loaded).
+const quoteHolder: { quote: typeof STUB_FEE_QUOTE | null } = { quote: STUB_FEE_QUOTE }
 vi.mock('@/hooks/useFees', () => ({
   useFees: () => ({
-    quote: STUB_FEE_QUOTE,
+    quote: quoteHolder.quote,
     isStale: false,
     isUnavailable: false,
-    refresh: async () => STUB_FEE_QUOTE,
+    refresh: async () => quoteHolder.quote,
   }),
 }))
+
+// The deployment manifest isn't served in the test env. A test that needs the gasless (relayer-paid) shield path sets
+// a hub wrapper address; otherwise the real loader runs (and the shield goes direct, from the wallet).
+const hoistedDeployments = vi.hoisted(() => ({ hubWrapper: null as string | null }))
+vi.mock('@/config/deployments', async (importActual) => {
+  const actual = await importActual<typeof import('@/config/deployments')>()
+  return {
+    ...actual,
+    loadDeployments: (...args: Parameters<typeof actual.loadDeployments>) =>
+      hoistedDeployments.hubWrapper !== null
+        ? Promise.resolve({ hub: { contracts: { gaslessShieldWrapper: hoistedDeployments.hubWrapper } }, clients: [] } as never)
+        : actual.loadDeployments(...args),
+  }
+})
 
 // ShieldModal reads the connected EVM address via wagmi's useAccount for the review-step summary;
 // these tests don't mount a WagmiProvider, so stub it with a fixed address.
@@ -158,15 +174,18 @@ const hoistedCheck = vi.hoisted(() => {
   })
   return { defaults, result: defaults() }
 })
+// Like the real hook, it plans nothing while disabled or with no spend to plan (e.g. before the relayer quote loads).
 vi.mock('@/hooks/useSpendCheck', () => ({
-  useSpendCheck: (args: { enabled: boolean }) =>
-    args.enabled
+  useSpendCheck: (args: { enabled: boolean; spend: unknown }) =>
+    args.enabled && args.spend !== null
       ? hoistedCheck.result
-      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+      : { ...hoistedCheck.result, fee: null, maxInput: null, error: null, remedy: null, pending: false, blockReason: null },
 }))
 beforeEach(() => {
   hoistedCheck.result = hoistedCheck.defaults()
   hoistedDisplay.protocolFee = 0n
+  quoteHolder.quote = STUB_FEE_QUOTE
+  hoistedDeployments.hubWrapper = null
 })
 
 function renderModal(opts?: {
@@ -677,5 +696,46 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       expect(confirm).toEqual(review)
       expect(receipt).toEqual(review)
     })
+  })
+
+  describe('gasless (relayer-paid) shield', () => {
+    function gaslessShieldReview(quote: typeof STUB_FEE_QUOTE | null) {
+      hoistedDeployments.hubWrapper = '0x' + 'e'.repeat(40)
+      hoistedDisplay.protocolFee = P
+      quoteHolder.quote = quote
+      renderModal({ open: true, max: 20_000_000n })
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+    }
+
+    it('Review: the relayer + protocol fee and the net received (SH-1…SH-3)', async () => {
+      gaslessShieldReview({ ...STUB_FEE_QUOTE, fees: { ...STUB_FEE_QUOTE.fees, shield: String(F) } })
+      await waitFor(() => expect(screen.getByText('+ $1.020014 FEE')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('1.020014 USDC')
+      expect(summaryRow("You'll receive")).toBe('8.979986 USDC')
+    })
+
+    it('before the relayer quote loads: no fee ("—") and Confirm held (G-4)', async () => {
+      gaslessShieldReview(null)
+      await waitFor(() => expect(screen.getByText('Estimating fees…')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow("You'll receive")).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+    })
+  })
+
+  it('an unshield before the relayer quote loads: "Estimating fees…", then no fee ("—") and Confirm held (G-4)', () => {
+    quoteHolder.quote = null
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n, priceAt: vi.fn(async () => 0n) }
+    renderModal({ open: true, kind: 'unshield', spendable: 20_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Fees')).toBe('—')
+    expect(summaryRow('Total')).toBe('—')
+    expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
   })
 })

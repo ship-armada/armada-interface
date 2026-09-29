@@ -7,6 +7,7 @@ import { openModalAtom } from '@/state/ui'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
 import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
+import { QUOTE_PENDING_REASON } from '@/lib/tx/submitQuote'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcPlain } from '@/lib/format'
 import { txFiguresAs } from '@/lib/fees/txFigures'
@@ -149,7 +150,7 @@ export function ShieldModal() {
             displayFees={active.displayFees}
             flowBreakdown={active.flowBreakdown}
             feeLoading={active.feeLoading}
-            feeResolving={isShield ? shieldFlow.relayerResolving : unshieldFlow.feeResolving}
+            feeResolving={isShield ? shieldFlow.relayerResolving || shieldFlow.quotePending : unshieldFlow.feeResolving}
             feeUnavailable={!isShield && unshieldFlow.feeUnavailable}
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
@@ -173,15 +174,15 @@ export function ShieldModal() {
           <ShieldReviewStep
             fromChainId={shieldFlow.fromChainId}
             amount={shieldFlow.amount}
-            fee={shieldFlow.reviewFigures.fee}
-            netAmount={shieldFlow.reviewFigures.netAmount}
+            fee={shieldFlow.reviewFigures?.fee ?? null}
+            netAmount={shieldFlow.reviewFigures?.netAmount ?? null}
             walletAddress={shieldFlow.evmAddress}
             walletProvider={shieldFlow.walletProvider}
             shieldedAddress={shieldFlow.shieldedAddress}
             isSubmitting={shieldFlow.isSubmitting}
             duplicateWarning={shieldFlow.duplicateWarning}
             feeUpdated={shieldFlow.feeChanged}
-            estimated={shieldFlow.reviewFigures.estimated}
+            estimated={shieldFlow.reviewFigures?.estimated ?? false}
             // Direct path only: the user pays ETH gas from their wallet. Suppressed on the gasless
             // path (relayer covers gas) and while the relayer state is still resolving.
             nativeGas={
@@ -192,7 +193,11 @@ export function ShieldModal() {
             // Hold Confirm only while the relayer state is still resolving (we don't yet know
             // gasless vs direct). Once resolved, the direct path submits from the wallet regardless
             // of relayer availability, so there's no unavailable-block here (unlike spends).
-            submitBlockedReason={shieldFlow.relayerResolving ? RELAYER_CHECKING_REASON : null}
+            submitBlockedReason={
+              shieldFlow.relayerResolving ? RELAYER_CHECKING_REASON
+              : shieldFlow.quotePending ? QUOTE_PENDING_REASON
+              : null
+            }
             onBack={shieldFlow.onBackToInput}
             onConfirm={shieldFlow.submit}
           />

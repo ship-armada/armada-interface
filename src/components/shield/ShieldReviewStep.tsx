@@ -13,7 +13,7 @@ export interface ShieldReviewStepProps {
   fromChainId: number
   amount: bigint
   fee: bigint | null
-  netAmount: bigint
+  netAmount: bigint | null
   /** Connected EVM wallet address — rendered (truncated) as the "From your wallet" row when present. */
   walletAddress?: string
   /** Connected wallet provider name (wagmi connector) — drives the "From your wallet" brand glyph. */

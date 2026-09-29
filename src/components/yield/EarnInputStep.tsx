@@ -131,9 +131,9 @@ export function EarnInputStepContent({
   | 'onShakeAnimationEnd'
 >) {
   const gasWarning = useGasBalanceWarning(gasChainId)
-  // Only surface the gas notice when the user actually pays gas themselves. `yield-deposit`
-  // defaults to relayer-mediated; `yield-withdraw` is force-routed through the wallet today,
-  // so the parent passes `gaslessMode={false}` on that tab and the notice DOES show.
+  // Only surface the gas notice when the user actually pays gas themselves. Both yield ops are relayer-mediated
+  // (no wallet-submit fallback — #23), so the parent passes `gaslessMode={true}` on both tabs and the notice
+  // doesn't show.
   const showGasNotice = !gaslessMode && gasWarning.show
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > maxInput

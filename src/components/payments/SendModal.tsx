@@ -35,7 +35,7 @@ import { spendDraft } from '@/lib/tx/spendDraft'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
-import { resolveFreshQuote } from '@/lib/tx/submitQuote'
+import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import {
@@ -233,7 +233,11 @@ export function SendModal() {
   // steps, like a private send — for the fee its plan charges (the SDK folds small change into the fee
   // when that's what makes it fit) and so a wallet too fragmented for it is offered "Merge notes" before
   // anything is attempted.
-  const publicSpend: BlockedSpend | null = isPrivate ? null : { kind: computedKind, amount, perProofFee: quotedFee }
+  // Nothing is planned until the relayer quote loads: its per-proof fee would read 0, and a plan priced at 0 would
+  // show a zero fee (spec G-4).
+  const quotePending = quote === null
+  const publicSpend: BlockedSpend | null =
+    isPrivate || quotePending ? null : { kind: computedKind, amount, perProofFee: quotedFee }
   const spendCheck = useSpendCheck({
     enabled: isOpen && !isPrivate && (step === 'input' || step === 'review'),
     spend: publicSpend,
@@ -244,7 +248,7 @@ export function SendModal() {
   // quote only stands in for the arithmetic below until it's known; the fee itself reads as pending / "—".
   const plannedFee: bigint | null = isPrivate ? transferPlan.fee : spendCheck.fee
   const fee: bigint = plannedFee ?? quotedFee
-  const planPending = isPrivate ? transferPlan.pending : spendCheck.pending
+  const planPending = quotePending || (isPrivate ? transferPlan.pending : spendCheck.pending)
   const planFailed = isPrivate ? transferPlan.error !== null : spendCheck.error !== null
   // CCTP fast-fee — paid out of the destination mint on xchain, not the user's shielded balance.
   // Distinct semantics from `fee` (which is the on-top relayer fee). Zero for non-xchain kinds.
@@ -560,7 +564,9 @@ export function SendModal() {
           totalDeducted={reviewFigures?.totalDeducted ?? null}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
-          submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason ?? spendCheck.blockReason}
+          submitBlockedReason={
+            syncGate.reason ?? relayerBlock ?? (quotePending ? QUOTE_PENDING_REASON : null) ?? transferBlockReason ?? spendCheck.blockReason
+          }
           feeUpdated={feeChanged}
           {...(blockedByFragmentation !== null
             ? { onMergeNotes: () => openMerge({ token: 'usdc', blocked: blockedByFragmentation }) }

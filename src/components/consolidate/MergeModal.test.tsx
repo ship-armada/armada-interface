@@ -39,8 +39,10 @@ const QUOTE = {
   broadcasterShieldedAddress: '0zk' + 'a'.repeat(64),
   fees: { transfer: '20000', unshield: '0', crossContract: '0', crossChainShield: '0', crossChainUnshield: '0', shield: '0', shieldXchain: '0' },
 }
+// The quote a test runs with — QUOTE, or null (the relayer quote hasn't loaded).
+const quoteHolder: { quote: typeof QUOTE | null } = { quote: QUOTE }
 vi.mock('@/hooks/useFees', () => ({
-  useFees: () => ({ quote: QUOTE, isStale: false, isUnavailable: false, refresh: vi.fn(async () => QUOTE) }),
+  useFees: () => ({ quote: quoteHolder.quote, isStale: false, isUnavailable: false, refresh: vi.fn(async () => quoteHolder.quote) }),
   FEES_QUERY_KEY: ['fees'],
 }))
 
@@ -177,6 +179,19 @@ describe('<MergeModal>', () => {
     expect({ fees: reviewFees, total: reviewTotal }).toEqual({ fees: '2.000006 USDC', total: '2.000006 USDC' })
     expect({ fees: confirm.fees, total: confirm.total }).toEqual({ fees: reviewFees, total: reviewTotal })
     expect(receipt).toEqual({ headline: '2.000006', fees: reviewFees, total: reviewTotal })
+  })
+
+  it('before the relayer quote loads: no fee ("—") and Confirm held, with the reason (G-4)', () => {
+    hoistedPlan.plan = { ...hoistedPlan.defaults() } // the plan prices nothing without a quote
+    quoteHolder.quote = null
+    try {
+      renderModal()
+      expect(summaryRow('Fees')).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Confirm merge' })).toBeDisabled()
+    } finally {
+      quoteHolder.quote = QUOTE
+    }
   })
 
   it('Cancel closes the modal and clears the intent', async () => {

@@ -35,8 +35,8 @@ export interface EarnReviewSummaryProps {
    */
   estimated?: boolean
   /**
-   * Whether to render the "Estimated APY" row. Defaults to true (live review/complete). The activity
-   * receipt sets false — a historical tx's rate isn't stored, so the row would be meaningless.
+   * Whether to render the "Estimated APY" row. Defaults to true. The confirmation screen and the activity receipt show
+   * the net APY frozen on the record at submit, and set false when none was captured (unknown, not 0%).
    */
   showApy?: boolean
 }
