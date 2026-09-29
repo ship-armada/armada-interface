@@ -7,6 +7,7 @@ import { SendModal } from './SendModal'
 import { mergeIntentAtom, openModalAtom, paymentIntentAtom } from '@/state/ui'
 import {
   activeShieldedWalletIdAtom,
+  shieldedWalletsAtom,
   evmAddressAtom,
   shieldedUsdcAtom,
   shieldedUsdcSpendableAtom,
@@ -700,6 +701,28 @@ describe('<SendModal>', () => {
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
+  })
+
+  describe('a send to your own private address (PS-7, D3)', () => {
+    const OWN_0ZK = '0zk' + 'd'.repeat(40)
+    function withOwnAddress(store: ReturnType<typeof renderModal>) {
+      act(() => store.set(shieldedWalletsAtom, { 'rg-test': { id: 'rg-test', status: 'unlocked', shieldedAddress: OWN_0ZK } } as never))
+    }
+
+    it('is refused at the Recipient step — it would only pay the fee', () => {
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n })
+      withOwnAddress(store)
+      fireEvent.change(screen.getByLabelText('Recipient address'), { target: { value: OWN_0ZK } })
+      expect(screen.getByText("That's your own private address")).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Enter address/ })).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('is held at Review when a payment link points at it', () => {
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n, intent: { recipient: OWN_0ZK, amount: '3' } })
+      withOwnAddress(store)
+      expect(screen.getByText("That's your own private address — sending to yourself would only pay the fee.")).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
     })
   })
 

@@ -64,6 +64,9 @@ type SubmittedKind = 'transfer-shielded' | 'unshield-local' | 'unshield-xchain'
 
 // Address-driven kind selection: a valid shielded (0zk) recipient is an in-pool transfer; any other
 // (valid EVM 0x) recipient is an unshield, local when it targets the hub and cross-chain otherwise.
+/** Why Review holds a send to your own private address (a payment link can point at it). */
+const SELF_SEND_REASON = "That's your own private address — sending to yourself would only pay the fee."
+
 function computeKind(recipient: string, destChainId: number, hubChainId: number): SubmittedKind {
   if (isShieldedAddress(recipient.trim())) return 'transfer-shielded'
   return destChainId === hubChainId ? 'unshield-local' : 'unshield-xchain'
@@ -236,6 +239,10 @@ export function SendModal() {
   // Nothing is planned until the relayer quote loads: its per-proof fee would read 0, and a plan priced at 0 would
   // show a zero fee (spec G-4).
   const quotePending = quote === null
+  // A send to your own 0zk only pays the fee — the Recipient step refuses it, and a payment link that points at it is
+  // held at Review (spec PS-7).
+  const recipientIsSelf = isPrivate && shieldedWallet.shieldedAddress !== undefined
+    && recipient.trim() === shieldedWallet.shieldedAddress
   const publicSpend: BlockedSpend | null =
     isPrivate || quotePending ? null : { kind: computedKind, amount, perProofFee: quotedFee }
   const spendCheck = useSpendCheck({
@@ -511,6 +518,7 @@ export function SendModal() {
           destChainId={destChainId}
           onDestChainIdChange={setDestChainId}
           destDeploymentError={destDeploymentError}
+          {...(shieldedWallet.shieldedAddress !== undefined ? { ownShieldedAddress: shieldedWallet.shieldedAddress } : {})}
           recentAddresses={recentAddresses}
           onSelectRecent={handleSelectRecent}
           onCancel={close}
@@ -565,7 +573,9 @@ export function SendModal() {
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
           submitBlockedReason={
-            syncGate.reason ?? relayerBlock ?? (quotePending ? QUOTE_PENDING_REASON : null) ?? transferBlockReason ?? spendCheck.blockReason
+            (recipientIsSelf ? SELF_SEND_REASON : null)
+            ?? syncGate.reason ?? relayerBlock ?? (quotePending ? QUOTE_PENDING_REASON : null) ?? transferBlockReason
+            ?? spendCheck.blockReason
           }
           feeUpdated={feeChanged}
           {...(blockedByFragmentation !== null
