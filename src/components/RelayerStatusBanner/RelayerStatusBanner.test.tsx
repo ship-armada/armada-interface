@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RelayerStatusBanner } from './RelayerStatusBanner'
 import { useRelayerHealth } from '@/hooks/useRelayerHealth'
+import type { RelayerHealthResponse, RelayerHealthStatus } from '@/lib/relayer'
 
 const mockUseRelayerHealth = useRelayerHealth as unknown as ReturnType<typeof vi.fn>
 const refetchMock = vi.fn()
@@ -13,6 +14,11 @@ vi.mock('@/hooks/useRelayerHealth', () => ({
   useRelayerHealth: vi.fn(),
 }))
 
+/** A `/health` body with the given status and no per-chain rows. */
+function healthData(status: RelayerHealthStatus): RelayerHealthResponse {
+  return { status, chains: [], generatedAt: 0 }
+}
+
 /** Full hook shape; override per test. Defaults = configured + healthy. */
 function health(overrides: Partial<ReturnType<typeof useRelayerHealth>> = {}) {
   return {
@@ -20,7 +26,7 @@ function health(overrides: Partial<ReturnType<typeof useRelayerHealth>> = {}) {
     isUnreachable: false,
     isChecking: false,
     isIndexerStalled: false,
-    data: { status: 'healthy' },
+    data: healthData('healthy'),
     refetch: refetchMock,
     ...overrides,
   }
@@ -42,7 +48,7 @@ describe('<RelayerStatusBanner>', () => {
     // WHY: the core fix — a stale indexer must NOT surface the "can't find a relayer" banner. The
     // hook reports isUnreachable:false / isIndexerStalled:false for stale, so nothing renders — even
     // on a cross-chain flow (stale is below the delivery-advisory threshold).
-    mockUseRelayerHealth.mockReturnValue(health({ data: { status: 'stale' } }))
+    mockUseRelayerHealth.mockReturnValue(health({ data: healthData('stale') }))
     const { container } = render(<RelayerStatusBanner isOpen crossChain />)
     expect(container.firstChild).toBeNull()
   })
@@ -106,13 +112,13 @@ describe('<RelayerStatusBanner>', () => {
   it('still shows the cross-chain delivery advisory when showAvailability is false', () => {
     // The delivery advisory is relevant DURING progress (delivery in flight), so it must survive
     // the post-Review availability suppression.
-    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
+    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: healthData('unhealthy') }))
     render(<RelayerStatusBanner isOpen crossChain showAvailability={false} />)
     expect(screen.getByRole('status').textContent).toMatch(/cross-chain delivery may be delayed/i)
   })
 
   it('shows the cross-chain delivery advisory (no CTA) when the indexer is stalled on an xchain flow', () => {
-    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
+    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: healthData('unhealthy') }))
     render(<RelayerStatusBanner isOpen crossChain />)
     expect(screen.getByRole('status').textContent).toMatch(/cross-chain delivery may be delayed/i)
     // Advisory is informational — the delivery leg is relayer-driven regardless.
@@ -120,7 +126,7 @@ describe('<RelayerStatusBanner>', () => {
   })
 
   it('does NOT show the delivery advisory on a same-chain flow, even when the indexer is stalled', () => {
-    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: { status: 'unhealthy' } }))
+    mockUseRelayerHealth.mockReturnValue(health({ isIndexerStalled: true, data: healthData('unhealthy') }))
     const { container } = render(<RelayerStatusBanner isOpen />)
     expect(container.firstChild).toBeNull()
   })

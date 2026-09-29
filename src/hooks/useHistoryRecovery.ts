@@ -11,8 +11,10 @@ import {
 } from '@/state/history'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
 import { putTxIfFresh } from '@/lib/tx/storage'
-import { adoptRecoveredAmount, markRecoveredComplete, sourceHashProvesComplete } from '@/lib/tx/reducer'
+import { adoptRecoveredAmount, adoptRecoveredDelivery, awaitsDelivery, markRecoveredComplete, sourceHashProvesComplete } from '@/lib/tx/reducer'
+import { isTerminalState } from '@/lib/tx/types'
 import {
+  recoveredDiffers,
   runHistoryScan,
   type HistoryMapContext,
 } from '@/lib/shielded/history'
@@ -41,10 +43,12 @@ async function runScanAndPersist(args: {
    *  any. Reads from the store at call time (not a kickoff snapshot) so the reconcile upgrade
    *  builds on the latest `updatedSeq` and clears OCC. */
   findExistingByHash: (hash: string) => import('@/lib/tx/types').TxRecord | undefined
+  /** Live lookup of the authored cross-chain shield a recovered hub mint delivers (`awaitsDelivery`), if any. */
+  findAwaitingDelivery: (recovered: import('@/lib/tx/types').TxRecord) => import('@/lib/tx/types').TxRecord | undefined
   upsert: (record: import('@/lib/tx/types').TxRecord) => void
   setStatus: (status: HistoryRecoveryStatus) => void
 }): Promise<void> {
-  const { walletId, ctx, fromBlock, isCancelled, findExistingByHash, upsert, setStatus } = args
+  const { walletId, ctx, fromBlock, isCancelled, findExistingByHash, findAwaitingDelivery, upsert, setStatus } = args
   const start = performance.now()
   track('tx.history.scan.started', {
     walletId,
@@ -72,6 +76,26 @@ async function runScanAndPersist(args: {
     if (sourceHash) {
       const existing = findExistingByHash(sourceHash)
       if (existing) {
+        // The row recovered from this entry before: a re-scan that rebuilds it differently (a mapping fix, or its
+        // cross-chain routing now read) replaces it, one sequence ahead so the OCC write lands (F13). An identical
+        // rebuild writes nothing. Authored records never match here — their ids aren't synthetic.
+        if (existing.id === record.id) {
+          if (!recoveredDiffers(existing, record)) continue
+          const replaced = { ...record, updatedSeq: existing.updatedSeq + 1 }
+          try {
+            const fresh = await putTxIfFresh(replaced)
+            if (fresh) {
+              upsert(replaced)
+              written += 1
+            }
+          } catch (err) {
+            trackError('history.scan.persist', err, {
+              scope: 'history.recovery',
+              message: `failed to replace synthesized record ${record.id}`,
+            })
+          }
+          continue
+        }
         if (existing.executionState === 'completed') continue
         // T-H1: for a cross-chain kind the matched `sourceTxHash` is only the burn leg — CCTP
         // delivery on the destination chain hasn't happened (and may never). Don't force-complete;
@@ -94,6 +118,29 @@ async function runScanAndPersist(args: {
         }
         continue
       }
+    }
+    // A recovered cross-chain shield (a hub mint) whose authored record never learned its hash — delivery still in
+    // flight, or polling timed out — is found by the shield request's marker in the hub message (#77):
+    //   - completed or still in flight → skip: no duplicate row, and the handler finishes an in-flight one;
+    //   - terminal but not completed (timed out / expired / failed) → the hub mint proves delivery: complete it with
+    //     the hub mint hash and the chain's actual figures, instead of a permanent "unknown" beside a duplicate row.
+    const awaiting = findAwaitingDelivery(record)
+    if (awaiting) {
+      if (awaiting.executionState === 'completed' || !isTerminalState(awaiting.executionState)) continue
+      const upgraded = adoptRecoveredDelivery(awaiting, record)
+      try {
+        const fresh = await putTxIfFresh(upgraded)
+        if (fresh) {
+          upsert(upgraded)
+          written += 1
+        }
+      } catch (err) {
+        trackError('history.scan.reconcile', err, {
+          scope: 'history.recovery',
+          message: `failed to reconcile record ${awaiting.id} from chain`,
+        })
+      }
+      continue
     }
     try {
       const fresh = await putTxIfFresh(record)
@@ -246,6 +293,7 @@ export function useHistoryRecovery(): void {
                 r.artifacts.sourceTxHash?.toLowerCase() === hash ||
                 (r.artifacts as { destTxHash?: string }).destTxHash?.toLowerCase() === hash,
             ),
+          findAwaitingDelivery: (recovered) => store.get(txListAtom).find(r => awaitsDelivery(r, recovered)),
           upsert,
           setStatus,
         })

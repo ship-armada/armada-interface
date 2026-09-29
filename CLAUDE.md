@@ -67,7 +67,7 @@ npm run armada:interface              # → http://localhost:5176
 # Or equivalently:
 npm run dev --workspace=@armada/interface
 
-# Typecheck only
+# Typecheck only (app and test files)
 npm run typecheck --workspace=@armada/interface
 ```
 

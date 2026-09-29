@@ -136,7 +136,10 @@ describe('readCctpFromLogs', () => {
       logs: [{ address: TRANSMITTER, topics, data } as never],
       messageTransmitterAddress: TRANSMITTER,
     })
-    expect(info.received).toEqual({ sourceDomain: 6, burnAmount: 3_000_000n, cctpFee: 25_000n })
+    // The message body too — it carries the hook data (e.g. a cross-chain shield's request marker, #77).
+    expect(info.received).toEqual({
+      sourceDomain: 6, burnAmount: 3_000_000n, cctpFee: 25_000n, messageBody: buildBurnMessage(3_000_000n, 25_000n),
+    })
     expect(info.sent).toBeUndefined()
   })
 

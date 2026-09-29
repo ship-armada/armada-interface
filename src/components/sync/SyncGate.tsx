@@ -4,7 +4,7 @@
 import { useMemo, type CSSProperties } from 'react'
 import { useAtomValue } from 'jotai'
 import { Button, ArmadaSymbol } from '@/design'
-import { syncStateAtom, type SyncState } from '@/state/wallet'
+import { syncStateAtom } from '@/state/wallet'
 import { useSyncRetry } from '@/hooks/useSyncRetry'
 import styles from './SyncGate.module.css'
 
@@ -39,11 +39,12 @@ function ArmadaTickRing({ pct }: { pct: number }) {
 
 /**
  * Whether the dashboard should be replaced by the sync gate. True until the wallet has a known
- * shielded balance from a completed scan: while the first scan is idle/in-flight/failed,
- * `shielded` is null and the dashboard's numbers would be meaningless, so we gate it.
+ * shielded balance from a completed scan: while the first scan is idle/in-flight/failed — and
+ * after it completes, until its balance is read — `shielded` is null and the dashboard has no
+ * real balance to show, so we gate it (the UI only ever shows the SDK balance — G-11).
  */
-export function isInitialSyncGated(shielded: bigint | null, status: SyncState['status']): boolean {
-  return shielded === null && status !== 'complete'
+export function isInitialSyncGated(shielded: bigint | null): boolean {
+  return shielded === null
 }
 
 /**

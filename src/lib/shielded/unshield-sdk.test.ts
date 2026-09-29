@@ -100,4 +100,13 @@ describe('maxUnshieldAmount', () => {
       fee: { schedule: { transfer: '1286550' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
     })
   })
+
+  it('in another token when asked — a vault withdrawal\'s Max is in shares (#82)', async () => {
+    hoisted.maxUnshieldAmount.mockResolvedValue(9_000n)
+    expect(await maxUnshieldAmount({ perProofFee: 0n, tokenAddress: '0x00000000000000000000000000000000000000aa' })).toBe(9_000n)
+    expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({
+      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+      tokenAddress: '0x00000000000000000000000000000000000000aa',
+    })
+  })
 })

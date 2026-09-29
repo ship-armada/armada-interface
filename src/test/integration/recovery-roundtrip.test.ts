@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import { reconstructHistory, encodeSelfMetadata } from '@armada/sdk'
 import type { HistoryEntry } from '@armada/sdk'
 import { TransactNote, initPoseidonPromise, OutputType } from '@armada/sdk/core'
-import { historyEntryToTxRecord, type HistoryMapContext } from '@/lib/shielded/history'
+import { historyEntryToTxRecord, withConsolidationTxids, type HistoryMapContext } from '@/lib/shielded/history'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
 import { txFigures } from '@/lib/fees/txFigures'
 import { spendDraft } from '@/lib/tx/spendDraft'
@@ -80,7 +80,7 @@ class Chain {
       resolveToken: (hash: string) => (hash === USDC_HASH ? USDC : hash === SHARES_HASH ? SHARES : undefined),
       usdcHash: USDC_HASH, yieldAdapterAddress: ADAPTER,
     } as never) as HistoryEntry[]
-    const mapCtx: HistoryMapContext = { hubChainId: getNetworkConfig().hub.chainId, usdcAddress: USDC, ...ctx }
+    const mapCtx = withConsolidationTxids(entries, { hubChainId: getNetworkConfig().hub.chainId, usdcAddress: USDC, ...ctx })
     return entries
       .filter((e) => e.txid === txid)
       .map((e) => historyEntryToTxRecord(e, 'w', mapCtx, 0))
@@ -239,6 +239,26 @@ describe('recovered figures equal the recorded ones (G-6)', () => {
         broadcasterShieldedAddress: RELAYER_0ZK, notesMerged: 11, notesCreated: 2,
       })
       expect(txFigures(recoveredOne(chain, '0xmerge'))).toEqual(txFigures(recorded))
+    })
+
+    it('a vault-share merge whose USDC fee was an exact cover — the tag rides only on the share leg (F16, #81)', () => {
+      // The fee group covers 2F exactly: no USDC change note, so no tag on the USDC leg — only the merged share note
+      // carries it, and that leg is dropped (USDC-only history). The merge is found by its tagged share leg's txid.
+      const chain = new Chain()
+      const tag = encodeSelfMetadata(encodeTxSelfMetadata({ consolidation: true })!)
+      chain.spend('0xsharemerge', [1_000n, 2_000n, 3_000n], SHARES_HASH)
+      chain.note('0xsharemerge', 6_000n, { tokenHash: SHARES_HASH, memo: tag })
+      chain.spend('0xsharemerge', [2n * F])
+      chain.sent('0xsharemerge', F, OutputType.BroadcasterFee, RELAYER_0ZK)
+      chain.sent('0xsharemerge', F, OutputType.BroadcasterFee, RELAYER_0ZK)
+
+      const recorded = authored('consolidate', {
+        amount: 0n, tokenAddress: SHARES, tokenSymbol: 'Vault shares', broadcasterFeeAmount: 2n * F, broadcasterFeePerProof: F,
+        broadcasterShieldedAddress: RELAYER_0ZK, notesMerged: 3, notesCreated: 1,
+      })
+      const recovered = recoveredOne(chain, '0xsharemerge')
+      expect(recovered.kind).toBe('consolidate')
+      expect(txFigures(recovered)).toEqual(txFigures(recorded))
     })
   })
 })

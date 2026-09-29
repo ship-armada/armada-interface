@@ -51,15 +51,22 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-4 Unknown is "—", never 0.** A figure that isn't known (plan pending/failed, no quote yet, a fee
   recovery couldn't attribute) renders "—". Placeholders (the one-proof quote while a plan is pending,
   `?? 0n` defaults) are never shown as a fee — before a relayer-paid flow's fee quote loads, its fee reads "—"
-  and Confirm is held (`QUOTE_PENDING_REASON`). *Deviation F17.*
+  and Confirm is held (`QUOTE_PENDING_REASON`). One known exception on recovery: a spend whose fee note the scan
+  couldn't attribute, where nothing else pins the fee down, reads its fee as 0 — an absent fee note can't be told
+  from a genuinely fee-free (older, wallet-submitted) spend. A private send's is derived when its recipient notes
+  were recovered (below).
 - **G-5 Estimates are marked.** A figure that is an estimate (CCTP fee before reconciliation, a vault
   withdrawal's gross before execution) carries "≈" / "est." wherever it is shown.
 - **G-6 Recovered = authored.** For the same on-chain tx, REC shows the same headline, fees and totals as
-  the authored RCPT, except where a kind lists an allowed difference. *Deviations F8, F13.*
+  the authored RCPT, except where a kind lists an allowed difference. A re-scan that rebuilds a recovered record
+  differently (kind, figures or artifacts) replaces the stored one, so a recovered row picks up a later mapping fix;
+  an authored record is never overwritten. *Deviation F8.*
 - **G-7 The rows add up.** Fee-on-top kinds: Amount + Fees = Total deducted. Fee-inclusive kinds (shields,
   a vault withdrawal): Amount − Fees = You'll receive. A fee that is neither on top nor inside the user's own
   figure — the CCTP fee of a cross-chain unshield, taken from the amount in transit — gets its own row,
-  labelled as taken from the amount, and is not part of "Fees".
+  labelled as taken from the amount, and is not part of "Fees". The amount step's fee caption follows the same
+  split: "+ $X FEE" for a fee charged on top, "incl. $X FEE" for one inside the figure typed (shields, a vault
+  withdrawal); network gas paid from the wallet stays "+".
 - **G-8 List row = receipt headline [D1].** ROW shows the same number as RCPT's big numeral, signed by
   direction (+ in, − out). Formatting: ROW 0–2 dp, RCPT/REV/CNF full precision (2–6 dp).
 - **G-9 Non-settled receipts.** When a failed or cancelled record's first on-chain transaction never
@@ -71,8 +78,8 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-10 Every flow that builds the same kind renders the same figures** (Send-modal public path and the
   Unshield tab both build `unshield-*` records with one builder, `lib/tx/spendDraft.ts`).
 - **G-11 Balances are the real balance only.** The private balance shown anywhere is the SDK's scanned
-  balance; until it is known the UI shows a loading state — never a figure derived from local history.
-  *Deviation F27.*
+  balance; until it is known the dashboard stays on the sync gate (`isInitialSyncGated` — including after the
+  scan completes, until its balance is read) — never a figure derived from local history.
 
 ## 4. Fee model per kind (what moves on chain)
 
@@ -104,16 +111,19 @@ A sweep grows the change note only — every figure is unchanged.
 | SH-4 | Row | `+A` | ROW | +10 / +10 |
 | SH-5 | Max | public USDC balance (fee-inclusive); minimum `> F` on gasless | AMT | – |
 | SH-6 | `P` base | the note that reaches the pool: gasless `A − F`, direct `A` (`shieldProtocolFeeBase`) | REV → `meta.protocolFee` | – |
+| SH-7 | Wallet steps | direct: "Approve unlimited USDC" (only when the allowance is below `A`; the handler approves `maxUint256`), then "Submit `A` USDC shield"; gasless: "Authorize `A` USDC" (the permit is for `A`, fee included), then "Sign shield transaction". The same for `shield-xchain` | CNF (progress) | – |
 
-- **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `txFigures` (`deposit`).
+- **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `txFigures` (`deposit`). REV
+  reads `P` from the fee module with the integrator the shield will carry (the configured one only for a direct
+  same-chain shield — `shieldFeeIntegrator`); while that read is pending there is no fee ("—", Confirm held), and if
+  the fee module can't be read `P` is the ~50 bps estimate, stored with `protocolFeeIsEstimate` and shown "≈". On
+  confirmation the handler reads the pool's actual `P` (and relayer fee) off the SDK history entry
+  (`recordedShieldFees`, shared with `shield-xchain`), clearing the marker.
 - **Recovered:** SDK `value = A − F − P` (user notes), `shieldFee = P`, `broadcasterFee` = the relayer note's
   **gross** (`F`, including its own shield fee — SDK #92), so `amount = value + shieldFee + broadcasterFee = A`
   exactly. A scan snapshot written before SDK #88 has no relayer fee: amount `A − F`, fee `P`, shown as a
   direct shield (net still exact) — accepted.
-- **Allowed differences:** none.
-- **Deviations:** F4 (`P` is frozen at REV and can be a fallback — the 50 bps estimate, or 0 if the fee-module
-  read fails — and is never reconciled for same-chain), F18 (REV reads `P` with the env integrator; gasless
-  shields with integrator 0 — latent while `VITE_INTEGRATOR_ADDRESS` is unset).
+- **Allowed differences:** REV (the fee module's figure, or a marked estimate) → CNF (the pool's actual `P`).
 
 ### `shield-xchain`
 
@@ -133,11 +143,13 @@ A sweep grows the change note only — every figure is unchanged.
   or the delivery couldn't be read — Fees and the net read "≈". A record without the marker (written before it
   existed) holds the reconciled actual.
 - **Recovered:** `amount` = the CCTP burn amount, `cctpFee = C'` from the hub `MessageReceived`; one row per
-  deposit (an authored record matches the hub mint by `destTxHash`).
+  deposit. An authored record matches the hub mint by `destTxHash`, or — when it never learned it (delivery in
+  flight, or polling timed out) — by the shield request's marker in the hub message's hook data: an in-flight one is
+  left to its handler; a timed-out one completes with the hub mint hash and the chain's actual figures.
 - **Allowed differences:** REV (estimate, "≈") vs CNF (actual): by `C − C'` and the `P` base change.
-- **Deviations:** F9 (authored + recovered duplicate rows
-  when delivery times out or recovery races the final write), F20 (recovery with no CCTP routing records a
-  same-chain `shield`, headline short by `C'`).
+- **Recovered without routing:** a hub mint whose receipt couldn't be fetched isn't stored as a same-chain `shield`:
+  the scan withholds it and keeps its checkpoint below it, so the next scan retries. A network with no CCTP
+  transmitter configured has no cross-chain routing, and every hub shield is recovered same-chain.
 
 ## 6. Private send
 
@@ -160,7 +172,8 @@ A sweep grows the change note only — every figure is unchanged.
   A fold-in has no change note, so its self-metadata (`feeCacheId`) is lost — not displayed, accepted.
 - **Allowed differences:** CNF/RCPT fee < REV fee when the build charges less than planned (the build can
   never charge more — `SpendFeeIncreasedError`); CNF shows the actual.
-- **Deviations:** F17 (a recovered send whose fee note wasn't attributed shows Fees `0.00`).
+- A recovered send whose fee note wasn't attributed but whose recipient notes were: its fee is the outflow they
+  don't account for (`|value| − Σ sentOutputs`).
 
 ### `transfer-shielded-received` (history-only)
 
@@ -169,9 +182,8 @@ A sweep grows the change note only — every figure is unchanged.
 | PS-10 | Headline | Σ notes the tx paid us (split sends fold into one entry — SDK #101) | RCV | 10 |
 | PS-11 | Fees | none (no Fees row) | RCV | – |
 | PS-12 | Row | `+A` | ROW | +10 |
-
-- **Deviations:** F22 (layout: an empty "To recipient" row and a "Total" that repeats the amount; a disclosed
-  sender and memo are recovered but not shown).
+| PS-13 | From | the sender's 0zk — only when they disclosed it; no row otherwise (no recipient row, no Total) | RCV | – |
+| PS-14 | Memo | the memo the sender attached, when there is one | RCV | – |
 
 ## 7. Unshield, yield, merge
 
@@ -191,16 +203,17 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | UN-8 | Max | SDK `maxUnshieldAmount` | AMT | – |
 
 - **Stored:** `amount = A`, `broadcasterFeeAmount = Φ`, `broadcasterFeePerProof = F`, `protocolFee` (0 by
-  contract), xchain `cctpFee = C` with `cctpFeeIsEstimate` (reconciled to `C'` on delivery [D4]; a record without
-  the marker — written before it existed — holds the estimate).
+  contract), xchain `cctpFee = C` with `cctpFeeIsEstimate`. On delivery the handler replaces it with Circle's actual
+  `feeExecuted` (`C'`) — from the relayer's delivery status, or the destination `MessageReceived` body on the
+  on-chain fallback — and clears the marker, in the write that completes the record [D4]; when neither reports it
+  the estimate stays, marked. A record without the marker (written before it existed) holds the estimate.
 - **Recovered:** SDK `unshield`: `amount = |value| − broadcasterFee` (gross `A`), `protocolFee = unshieldFee`,
   `recipient = Unshield.to` — for a cross-chain exit that is the **final recipient** (`TransactModule` emits
   `Unshield(finalRecipient, …)`), not the pool. A cross-chain exit is identified by the hub CCTP `MessageSent`
-  in the same tx; `cctpFee` = the estimate read back from the burn's `maxFee` (`cctpFeeEstimateFromMaxFee`)
-  until an actual source exists [D4].
+  in the same tx; `cctpFee` = the estimate read back from the burn's `maxFee` (`cctpFeeEstimateFromMaxFee`),
+  marked est. — the hub doesn't see the actual fee [D4].
 - **Allowed differences:** as `transfer-shielded` (build charged less). xchain REV (est.) → CNF (actual) by
-  `C − C'` once D4 lands.
-- **Deviations:** F6 (#68: every surface shows the estimate `C`; on local Anvil the mock charges `2C`, so it understates).
+  `C − C'`. A recovered xchain receipt shows the estimate (marked) where the authored one shows the actual.
 
 ### `yield-deposit`
 
@@ -227,7 +240,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | YD-13 | Total deducted | none — the private balance isn't debited | – | – |
 | YD-14 | Estimated APY | frozen `meta.apyBps`; REC recovers it from the share change note's self-metadata (SDK carries it onto the USDC leg); a full withdrawal leaves no share change, so REC hides the row | REV, CNF, RCPT, REC | – |
 | YD-15 | Row | `+G` [D1] | ROW | +10 (2 dp) |
-| YD-16 | Max | the vault position (fee not subtracted); blocked when `amount ≤ F` | AMT | – |
+| YD-16 | Max | every share one proof can redeem — spendable shares only, one tree (the SDK's `maxUnshieldAmount` in the share token, no fee) — at the current rate; the vault position until that's known (fee not subtracted); a Max withdrawal redeems exactly those shares (no dust note); blocked when `amount ≤ F` | AMT | – |
 
 - **Stored:** the typed `amount` with `amountIsEstimate` at submit; the handler reconciles it to `G` (clearing the
   marker) in the write that completes the record. While marked — the redeemed gross couldn't be read — the headline
@@ -237,8 +250,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 - **Allowed differences:** REV (≈, typed amount) → CNF (`G`): headline and net change; the fee does not.
   `G < A` by µUSDC is normal (the share count is floored).
 - **Deviations:** F8 (a recovered withdrawal never has APY — the SDK carries the self-metadata on the share leg,
-  which the app drops; the app test feeds a shape the SDK never produces), F15 (Max
-  converts through USDC and back — leaves share dust, counts pending shares, ignores the one-tree rule).
+  which the app drops; the app test feeds a shape the SDK never produces).
 
 ### `consolidate` (Merge notes)
 
@@ -254,8 +266,8 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
   counts aren't recoverable, so REC hides those rows — accepted [D9].
 - **Allowed differences:** MG-1's headline differs by surface, by design. Note counts can differ between REV and
   CNF when the fee doesn't (re-review is fee-triggered).
-- **Deviations:** F16 (a non-USDC merge whose USDC fee group is an exact cover leaves no change note → no tag →
-  recovered as "USDC sent 0 to unknown"; money figures right).
+- A non-USDC merge whose USDC fee group was an exact cover has no USDC change note; its share leg's tag marks the
+  txid, so the USDC fee leg still recovers as the merge (`withConsolidationTxids`).
 
 ## 8. Deviation register
 
@@ -264,20 +276,8 @@ fallback / old records; **S4** cosmetic or labelling.
 
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
-| F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
-| F6 | S2 | unshield-xchain | #68 — every surface shows the CCTP estimate; the actual is available at delivery (relayer status / dest `MessageReceived`) but discarded. | #68 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
-| F9 | S2 | shield-xchain | Duplicate authored + recovered rows when delivery times out or recovery races the final write. | #77 |
-| F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
-| F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
-| F16 | S3 | consolidate | Exact-cover non-USDC merge recovered as "USDC sent 0 to unknown". | #81 |
-| F17 | S3 | transfer | Unattributed recovered fee shows `0.00`, not "—". | #81 |
-| F18 | S3 (latent) | shield | Fee read uses the env integrator; gasless / xchain shield with integrator 0. | #74 |
-| F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
-| F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
-| F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
-| F27 | S3 | all | The balance shown before the SDK sync lands is derived from local history, ignoring fees, received payments and merges (G-11). | #80 |
-| F28 | S4 | docs/tests | A stale comment (a recovered shield "runs short") and a test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, #81 |
+| F28 | S4 | tests | A test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, armada-sdk#113 |
 
 ## 9. Decisions
 

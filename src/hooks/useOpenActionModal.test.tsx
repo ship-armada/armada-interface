@@ -45,14 +45,14 @@ describe('useOpenActionModal', () => {
     })
 
     act(() => {
-      result.current('withdraw')
+      result.current('yield-withdraw')
     })
     expect(store.get(openModalAtom)).toBeNull()
 
     isConnected = true
     rerender()
 
-    expect(store.get(openModalAtom)).toBe('withdraw')
+    expect(store.get(openModalAtom)).toBe('yield-withdraw')
   })
 
   it('opens the flow immediately when already connected', () => {

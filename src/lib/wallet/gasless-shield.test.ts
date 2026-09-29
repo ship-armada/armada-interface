@@ -76,12 +76,12 @@ describe('buildGaslessShieldCalldata', () => {
 
     expect(requests.length).toBe(2)
     // User note (index 0) + relayer fee note (index 1) preserved with their npks + values.
-    expect(requests[0].preimage.npk).toBe(input.shieldRequests[0].preimage.npk)
-    expect(requests[0].preimage.value).toBe(10_000_000n)
-    expect(requests[0].preimage.token.tokenType).toBe(0)
-    expect(requests[0].preimage.token.tokenAddress).toBe(TOKEN)
-    expect(requests[1].preimage.npk).toBe(input.shieldRequests[1].preimage.npk)
-    expect(requests[1].preimage.value).toBe(500_000n)
+    expect(requests[0]!.preimage.npk).toBe(input.shieldRequests[0]!.preimage.npk)
+    expect(requests[0]!.preimage.value).toBe(10_000_000n)
+    expect(requests[0]!.preimage.token.tokenType).toBe(0)
+    expect(requests[0]!.preimage.token.tokenAddress).toBe(TOKEN)
+    expect(requests[1]!.preimage.npk).toBe(input.shieldRequests[1]!.preimage.npk)
+    expect(requests[1]!.preimage.value).toBe(500_000n)
   })
 
   it('supports a single-note (fee-sponsored) shield', () => {
@@ -93,6 +93,6 @@ describe('buildGaslessShieldCalldata', () => {
       data: buildGaslessShieldCalldata(input),
     })
     expect(decoded.args[2].length).toBe(1)
-    expect(decoded.args[2][0].preimage.value).toBe(10_000_000n)
+    expect(decoded.args[2][0]!.preimage.value).toBe(10_000_000n)
   })
 })

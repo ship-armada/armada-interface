@@ -27,7 +27,6 @@ function setup(extras?: Partial<SendInputStepProps>) {
   const max = extras?.max ?? 5_000_000n
   const props: SendInputStepProps = {
     variant: extras?.variant ?? 'send',
-    destChainId: extras?.destChainId ?? 31337,
     amountStr: extras?.amountStr ?? '',
     onAmountChange: extras?.onAmountChange ?? vi.fn(),
     max,
@@ -55,7 +54,7 @@ describe('<SendInputStep>', () => {
   })
 
   it('hides the chain row entirely (chosen on the recipient step; not in the mockup)', () => {
-    setup({ destChainId: 31337 })
+    setup()
     // No chain name, no dropdown — the send amount card has no chain row.
     expect(screen.queryByText(/Anvil Hub/)).toBeNull()
     expect(screen.queryByRole('listbox')).toBeNull()

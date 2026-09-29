@@ -19,14 +19,13 @@ import { selfSendAsMerge } from '@/lib/tx/selfSend'
 import { formatUsdcAmount } from '@/components/dashboard/dashboardFormat'
 import type { BalanceRollMode } from '@/components/dashboard/RollingBalanceValue'
 import { SyncGate, isInitialSyncGated } from '@/components/sync'
-import { usePrivateUsdcDisplay } from '@/hooks/usePrivateUsdcDisplay'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
 import { openModalAtom, balanceHiddenAtom } from '@/state/ui'
-import { shieldedUsdcAtom, syncStateAtom, yieldSharesAtom, shieldedWalletAtom, evmAddressAtom } from '@/state/wallet'
+import { shieldedUsdcAtom, yieldSharesAtom, shieldedWalletAtom, evmAddressAtom } from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
 import styles from './Dashboard.module.css'
@@ -44,8 +43,6 @@ const ACTIVITY_PANEL_MAX = 500
 export function Dashboard() {
   // Data (all hooks run unconditionally, before the sync gate's early return).
   const shielded = useAtomValue(shieldedUsdcAtom)
-  const sync = useAtomValue(syncStateAtom)
-  const { displayBalance } = usePrivateUsdcDisplay()
   const yieldShares = useAtomValue(yieldSharesAtom)
   const { rate: yieldRate } = useYieldRate()
   const shieldedWallet = useAtomValue(shieldedWalletAtom)
@@ -91,7 +88,7 @@ export function Dashboard() {
   // trigger — so the card holds the OLD number and rolls to the NEW one on return, rather than
   // flashing NEW then rolling. Mirrors the mockup, which defers the whole advance (value + roll)
   // until the user is back on the dashboard.
-  const gated = isInitialSyncGated(shielded, sync.status)
+  const gated = isInitialSyncGated(shielded)
   // The vault position depends on yieldRate, which loads from a separate poll (useYieldRate) — later
   // than the wallet scan the sync gate waits on. Only prime the promo-banner handoffs once BOTH the
   // gate has lifted and the vault data has loaded, so the established balance/vault values form the
@@ -106,7 +103,8 @@ export function Dashboard() {
     const id = requestAnimationFrame(() => setHandoffReady(true))
     return () => cancelAnimationFrame(id)
   }, [gated, vaultLoaded])
-  const liveBalance = usdcToNumber(displayBalance)
+  // The SDK balance only — the dashboard is gated until it's known (G-11), so the 0 is never shown.
+  const liveBalance = usdcToNumber(shielded ?? 0n)
   const earningUsdc =
     yieldShares !== null && yieldRate !== null ? sharesToUsdc(yieldShares, yieldRate.rate) : 0n
   const liveVault = usdcToNumber(earningUsdc)

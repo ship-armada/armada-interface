@@ -130,7 +130,7 @@ describe('checkOwnNullifiersOnChain (wired)', () => {
     expect(r.omissionDetected).toBe(true)
     // One aggregate3 batch, one call per note, with the normalized bytes32 arg.
     expect(hoisted.aggregate3).toHaveBeenCalledTimes(1)
-    const [, calls] = hoisted.aggregate3.mock.calls[0]
+    const [, calls] = hoisted.aggregate3.mock.calls[0]!
     expect(calls).toEqual([
       { contract: hoisted.contractInstance, functionName: 'nullifiers', args: [0, `0x${rawNullifier}`] },
     ])
@@ -153,7 +153,7 @@ describe('checkOwnNullifiersOnChain (wired)', () => {
     const r = await checkOwnNullifiersOnChain('wallet-1')
     expect(r).toEqual({ checked: 3, omissionDetected: false })
     expect(hoisted.aggregate3).toHaveBeenCalledTimes(1)
-    const [, calls] = hoisted.aggregate3.mock.calls[0]
+    const [, calls] = hoisted.aggregate3.mock.calls[0]!
     expect(calls).toHaveLength(3)
   })
 

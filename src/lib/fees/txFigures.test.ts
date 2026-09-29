@@ -50,6 +50,11 @@ describe('txFigures', () => {
       }))).toEqual({ model: 'deposit', headline: A, fee: F + P + C, netAmount: A - F - P - C, estimated: true })
     })
 
+    it('SH-2 a protocol fee recorded as the ~50 bps estimate (the fee module couldn\'t be read) is marked est. (G-5, #74)', () => {
+      const estimated = txRecord('shield', { amount: A, fromChainId: 31337, protocolFee: P, protocolFeeIsEstimate: true })
+      expect(txFiguresAs(estimated, 'deposit').estimated).toBe(true)
+    })
+
     it('SH-13 cross-chain, reconciled to the actual CCTP fee: not an estimate', () => {
       const reconciled = txRecord('shield-xchain', { amount: A, fromChainId: 31338, protocolFee: P, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false })
       expect(txFiguresAs(reconciled, 'deposit').estimated).toBe(false)

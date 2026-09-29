@@ -35,6 +35,9 @@ import { SendReviewStep } from '@/components/payments/SendReviewStep'
 import { SendCompleteStep } from '@/components/payments/SendCompleteStep'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
 
+/** Why Review holds a shield while the fee module's read of its protocol fee hasn't landed. */
+const SHIELD_FEE_PENDING_REASON = 'Getting the shield fee…'
+
 // Shield has a dedicated Wallet step (approve/sign); Unshield is relayer-submitted (no wallet sign).
 const SHIELD_TAB_STEPS = ['Amount', 'Review', 'Wallet', 'Confirm']
 const UNSHIELD_TAB_STEPS = ['Amount', 'Review', 'Confirm']
@@ -150,7 +153,7 @@ export function ShieldModal() {
             displayFees={active.displayFees}
             flowBreakdown={active.flowBreakdown}
             feeLoading={active.feeLoading}
-            feeResolving={isShield ? shieldFlow.relayerResolving || shieldFlow.quotePending : unshieldFlow.feeResolving}
+            feeResolving={isShield ? shieldFlow.relayerResolving || shieldFlow.quotePending || shieldFlow.protocolFeePending : unshieldFlow.feeResolving}
             feeUnavailable={!isShield && unshieldFlow.feeUnavailable}
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
@@ -196,6 +199,7 @@ export function ShieldModal() {
             submitBlockedReason={
               shieldFlow.relayerResolving ? RELAYER_CHECKING_REASON
               : shieldFlow.quotePending ? QUOTE_PENDING_REASON
+              : shieldFlow.protocolFeePending ? SHIELD_FEE_PENDING_REASON
               : null
             }
             onBack={shieldFlow.onBackToInput}

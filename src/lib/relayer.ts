@@ -89,10 +89,10 @@ export function userFeeForKind(
 ): bigint {
   switch (kind) {
     case 'shield-xchain':
-      // Phase B4 — gasless path: the wrapper pulls `amount + fee` via permit on the client
-      // chain, burns `amount` through CCTP, transfers `fee` to the relayer. The relayer's
-      // `shieldXchain` fee is per-chain (Base Sepolia ≠ Ethereum Sepolia — see the relayer's
-      // FeeCalculator), so the modal MUST pass the quote for the SOURCE chain via
+      // Phase B4 — gasless path: the wrapper pulls `amount` (fee included) via permit on the
+      // client chain; the fee comes out of it — the user's note is `amount − fee`, the relayer's
+      // `fee`. The relayer's `shieldXchain` fee is per-chain (Base Sepolia ≠ Ethereum Sepolia —
+      // see the relayer's FeeCalculator), so the modal MUST pass the quote for the SOURCE chain via
       // `fetchFees(chainId)`. Direct path returns 0 — the user pays native gas themselves and
       // there's no broadcaster involved. The CCTP fast-fee (which still applies on the destination
       // mint) is surfaced as a separate `cctpFee` channel via `cctpFastFeeForAmount`, NOT shoved

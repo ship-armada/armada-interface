@@ -194,8 +194,9 @@ export interface MetaShield extends MetaCommon {
   useGasless?: boolean
   /**
    * Phase B3 — USDC raw amount paid to the relayer's wrapper for gas reimbursement. Only set
-   * when `useGasless` is true. The permit signature authorises `amount + feeAmount` total; the
-   * wrapper splits `amount` to the pool and `feeAmount` to the relayer.
+   * when `useGasless` is true. The permit signature authorises `amount` — the total the user
+   * entered, fee included; the fee comes out of it: the user's note is `amount − feeAmount`, the
+   * relayer's fee note `feeAmount`.
    */
   feeAmount?: bigint
   /**
@@ -222,6 +223,9 @@ export interface MetaShield extends MetaCommon {
    * receipt treats absent as 0 and under-reports the fee for those, as it did before).
    */
   protocolFee?: bigint
+  /** True while `protocolFee` is the ~50 bps estimate (the fee module couldn't be read at review); cleared once the
+   *  handler reads the pool's actual fee off the confirmed shield. Absent → the fee module's own figure. */
+  protocolFeeIsEstimate?: boolean
 }
 
 export interface MetaShieldXchain extends MetaCommon {
@@ -241,9 +245,9 @@ export interface MetaShieldXchain extends MetaCommon {
   useGasless?: boolean
   /**
    * Phase B4 — USDC raw amount paid to the relayer's wrapper for gas reimbursement on the
-   * source chain. Only set when `useGasless` is true. The permit signature authorises
-   * `amount + feeAmount` total; the wrapper splits `amount` into the CCTP burn and `feeAmount`
-   * to the relayer.
+   * source chain. Only set when `useGasless` is true. The permit signature authorises `amount` —
+   * the total the user entered, fee included; the fee comes out of it: the user's note is
+   * `amount − feeAmount`, the relayer's fee note `feeAmount`.
    */
   feeAmount?: bigint
   /**
@@ -270,6 +274,9 @@ export interface MetaShieldXchain extends MetaCommon {
    * CCTP fast-fee, which is a separate line item — see `cctpFee`.)
    */
   protocolFee?: bigint
+  /** True while `protocolFee` is the ~50 bps estimate (the fee module couldn't be read at review); cleared once the
+   *  handler reads the pool's actual fee off the delivered shield. Absent → the fee module's own figure. */
+  protocolFeeIsEstimate?: boolean
   /**
    * CCTP fee deducted from the cross-chain mint on the hub — an estimate at submit-time, reconciled
    * to the actual `feeExecuted` on confirmation (and on rescan, recovered from the hub MessageReceived).
@@ -594,6 +601,12 @@ export interface ArtifactsYield extends ArtifactsCommon {
  * & ArtifactsXchain` so the manifest is explicit and easy to read.
  */
 export interface ArtifactsShieldXchain extends ArtifactsXchain {
+  /**
+   * A record recovered from chain: its hub mint's CCTP message body. The hook data inside carries the authored shield
+   * request's marker (`shieldRequest.encryptedBundle[0]`), so recovery can find an authored record that never learned
+   * this hub mint (delivery still in flight, or it timed out) instead of adding a duplicate row (#77).
+   */
+  hubMessageBody?: `0x${string}`
   /** Hub PrivacyPool address — used by the hub mint detection to scope log queries. */
   privacyPoolAddress?: string
   /** Client PrivacyPoolClient address — used by submit-relayer to call crossChainShield. */

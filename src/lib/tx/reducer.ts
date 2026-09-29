@@ -164,6 +164,41 @@ export function adoptRecoveredAmount(upgraded: TxRecord, recovered: TxRecord): T
 }
 
 /**
+ * Whether `recovered` — a cross-chain shield rebuilt from its hub mint — is the delivery the authored cross-chain shield
+ * `authored` is waiting on. The hub mint's CCTP message carries the shield request's marker (`encryptedBundle[0]`, fresh
+ * randomness per request — the same marker the handler's own delivery scan matches on), so this finds an authored record
+ * that never learned its hub mint hash: delivery still in flight, or polling timed out (#77).
+ */
+export function awaitsDelivery(authored: TxRecord, recovered: TxRecord): boolean {
+  if (authored.kind !== 'shield-xchain' || recovered.kind !== 'shield-xchain') return false
+  const marker = (authored as TxRecord<'shield-xchain'>).artifacts.shieldRequest?.encryptedBundle[0]
+  const body = (recovered as TxRecord<'shield-xchain'>).artifacts.hubMessageBody
+  if (marker === undefined || body === undefined) return false
+  return body.toLowerCase().includes(marker.slice(2).toLowerCase())
+}
+
+/**
+ * An authored cross-chain shield whose delivery recovery found (`awaitsDelivery`): the hub mint proves it landed, so it
+ * completes — carrying the hub mint hash, and the chain's actual figures (the true deposit, Circle's actual CCTP fee,
+ * the protocol + relayer fees) in place of its review-time estimates, as the handler's own reconcile would have written.
+ */
+export function adoptRecoveredDelivery(authored: TxRecord, recovered: TxRecord): TxRecord {
+  const upgraded = markRecoveredComplete(authored as TxRecord<'shield-xchain'>)
+  const actual = (recovered as TxRecord<'shield-xchain'>).meta
+  return {
+    ...upgraded,
+    artifacts: { ...upgraded.artifacts, destTxHash: recovered.artifacts.sourceTxHash },
+    meta: {
+      ...upgraded.meta,
+      amount: actual.amount,
+      ...(actual.cctpFee !== undefined ? { cctpFee: actual.cctpFee, cctpFeeIsEstimate: false } : {}),
+      ...(actual.protocolFee !== undefined ? { protocolFee: actual.protocolFee } : {}),
+      ...(actual.feeAmount !== undefined ? { feeAmount: actual.feeAmount } : {}),
+    },
+  } as TxRecord
+}
+
+/**
  * Cross-chain kinds: a record's `sourceTxHash` is only the burn/source leg; terminal success
  * additionally requires CCTP delivery (the mint) on the destination chain.
  */

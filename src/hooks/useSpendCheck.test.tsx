@@ -103,12 +103,25 @@ describe('useSpendCheck', () => {
   it('offers the SDK\'s unshield max (one proof, one tree) at the per-proof fee, even before an amount is typed', async () => {
     const { result } = renderCheck({ spend: { ...SPEND, amount: 0n } })
     await waitFor(() => expect(result.current.maxInput).toBe(5_832_098n))
-    expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({ perProofFee: 1_500_000n })
+    expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({ perProofFee: 1_500_000n, tokenAddress: USDC })
   })
 
-  it('has no max for a vault withdrawal (it spends shares; its Max is the vault balance)', async () => {
-    const { result } = renderCheck({ spend: { kind: 'yield-withdraw', amount: 1_000n, perProofFee: 0n }, token: 'shares' })
-    await waitFor(() => expect(hoisted.checkSpendPlans).toHaveBeenCalled())
+  it('a vault withdrawal\'s max is in shares: every spendable share one proof can redeem (YD-16, #82)', async () => {
+    // WHY: the vault position counts shares still inside the finality buffer, and ignores the one-proof, one-tree
+    // rule — a Max built from it can be unplannable. The SDK's max in the share token (fee 0: a withdrawal's fee
+    // comes out of its proceeds) is what one proof can actually redeem.
+    const VAULT = '0x00000000000000000000000000000000000000aa'
+    hoisted.mergeTokenAddress.mockImplementation(async (token: string) => (token === 'shares' ? VAULT : USDC))
+    hoisted.maxUnshieldAmount.mockResolvedValue(9_523_809_523_809_523_809n)
+    const { result } = renderCheck({ spend: { kind: 'yield-withdraw', amount: 0n, perProofFee: 0n }, token: 'shares' })
+    await waitFor(() => expect(result.current.maxInput).toBe(9_523_809_523_809_523_809n))
+    expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({ perProofFee: 0n, tokenAddress: VAULT })
+  })
+
+  it('no max for a token this network doesn\'t have (no vault deployed)', async () => {
+    hoisted.mergeTokenAddress.mockResolvedValue(undefined)
+    const { result } = renderCheck({ spend: { kind: 'yield-withdraw', amount: 0n, perProofFee: 0n }, token: 'shares' })
+    await waitFor(() => expect(hoisted.mergeTokenAddress).toHaveBeenCalled())
     expect(result.current.maxInput).toBeNull()
     expect(hoisted.maxUnshieldAmount).not.toHaveBeenCalled()
   })

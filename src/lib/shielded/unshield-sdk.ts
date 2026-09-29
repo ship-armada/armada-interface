@@ -84,12 +84,14 @@ export async function buildUnshieldSdk(
  * deposit is an unshield to the adapter, so it shares it). The SDK works it out with the planner's own
  * rules: an unshield never splits, so it's what ONE proof can spend from ONE tree, less one per-proof fee
  * — which can be less than "balance minus a fee" (e.g. many small notes, or notes spread across trees),
- * and `planTransfer` accepts it. 0n when nothing can be unshielded.
+ * and `planTransfer` accepts it. In `tokenAddress` (default the pool's USDC): a vault withdrawal's Max is in
+ * shares, at a zero fee (its fee comes out of the proceeds). 0n when nothing can be unshielded.
  */
-export async function maxUnshieldAmount(inputs: { readonly perProofFee: bigint }): Promise<bigint> {
+export async function maxUnshieldAmount(inputs: { readonly perProofFee: bigint; readonly tokenAddress?: `0x${string}` }): Promise<bigint> {
   const wallet = await getSdkWallet()
   // The fee tier is chosen here, so it rides in `schedule.transfer` (the tier the SDK falls back to).
   return wallet.maxUnshieldAmount({
     fee: { schedule: { transfer: inputs.perProofFee.toString() }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+    ...(inputs.tokenAddress !== undefined ? { tokenAddress: inputs.tokenAddress } : {}),
   })
 }

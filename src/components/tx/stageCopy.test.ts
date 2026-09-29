@@ -100,7 +100,7 @@ describe('recordTitle', () => {
 
   it('reads the earn-vault copy for yield ops', () => {
     const base = {
-      id: '01J', executionState: 'pending' as const, stage: 'build-proof',
+      id: '01J', executionState: 'pending' as const, stage: 'build-proof' as const,
       stagesCompleted: [], updatedSeq: 0, createdAt: 0, updatedAt: 0,
       artifacts: {},
       walletContext: { evmAddress: undefined, shieldedWalletId: '', sourceChainId: 31337 },

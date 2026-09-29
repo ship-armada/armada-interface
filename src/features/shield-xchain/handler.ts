@@ -16,11 +16,8 @@ import { getChainById, getNetworkConfig } from '@/config/network'
 import { createProvider } from '@/lib/rpc'
 import {
   getShieldedAddress as kmGetShieldedAddress,
-  getWalletId as kmGetWalletId,
   isUnlocked as kmIsUnlocked,
 } from '@/lib/shielded/keyManager'
-import { refreshShieldedBalances } from '@/lib/shielded/sync'
-import { readSdkHistory } from '@/lib/shielded/sdk-read'
 import {
   generateRandomShieldPrivateKey,
   type ShieldRequestData,
@@ -51,6 +48,7 @@ import { scanCctpDeliveryWindow } from '../unshield-xchain/scan'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { MetaShieldXchain, TxRecord } from '@/lib/tx/types'
 import { deliveredShieldMeta } from './reconcile'
+import { recordedShieldFees } from '@/lib/shielded/shieldReconcile'
 
 // MessageReceived ABI for ethers.Interface.parseLog. We route the destination scan through
 // ethers (rather than viem) so the app-wide bisecting JsonRpcProvider patch
@@ -469,8 +467,8 @@ async function runDirectSubmit(
  *
  * Zero EVM wallet prompts in this stage — the user already signed the USDC permit during
  * build-proof. The relayer broadcasts on the user's behalf and pays gas in the source
- * chain's native token; the wrapper pulls `amount + fee` USDC from the user via the permit
- * and reimburses the relayer.
+ * chain's native token; the wrapper pulls `amount` USDC (fee included) from the user via the
+ * permit and reimburses the relayer out of it.
  */
 async function runGaslessSubmit(
   record: TxRecord<'shield-xchain'>,
@@ -806,21 +804,8 @@ async function runWaitForDelivery(
   // Sync (awaited — option A) so the just-landed shield is scanned, then read the ACTUAL protocol
   // shield fee (+ relayer fee) off its history entry. The hub delivery tx (`result.value`) is the tx
   // that minted + shielded on the hub, so it's the txid the SDK keys the shield entry under.
-  if (kmIsUnlocked() && result.value) {
-    try {
-      await refreshShieldedBalances(kmGetWalletId())
-      const wanted = result.value.replace(/^0x/, '').toLowerCase()
-      const entry = (await readSdkHistory()).find(
-        (e) => e.category === 'shield' && e.txid.replace(/^0x/, '').toLowerCase() === wanted,
-      )
-      if (entry) {
-        if (entry.shieldFee !== undefined) reconciledMeta.protocolFee = entry.shieldFee
-        if (entry.broadcasterFee !== undefined && entry.broadcasterFee > 0n) {
-          reconciledMeta.feeAmount = entry.broadcasterFee
-        }
-      }
-    } catch { /* best-effort — keep the submit-time estimate */ }
-  }
+  // Shared with the same-chain shield (`recordedShieldFees`); best-effort — a failed sync/read keeps the estimate.
+  if (result.value) Object.assign(reconciledMeta, await recordedShieldFees(result.value))
 
   // Walk through the three intermediate stages with brief gaps so the stepper renders each row
   // as "current" rather than flashing through transitions in a single frame. Same pattern as the

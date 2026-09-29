@@ -42,6 +42,9 @@ export interface FlowFeeBreakdown {
   cctpFeeFromAmount?: boolean
   /** True when the relayer fee comes out of redeemed proceeds (a vault withdrawal) rather than the user's USDC. */
   feeFromProceeds?: boolean
+  /** True when every fee comes out of the amount entered (a shield: the pool receives amount − fees) rather than
+   *  being charged on top — the amount card's caption reads "incl." instead of "+". */
+  feesFromAmount?: boolean
   /** Final amount the recipient (or shielded pool) receives. */
   recipientReceives?: bigint
   /** What ends up debited from the user's USDC balance. */

@@ -150,7 +150,7 @@ npm run preview        # serves the built dist/ on :4173
 | `npm run dev` | Dev server with HMR (**:5176**) |
 | `npm run build` | Type-check + production bundle to `dist/` |
 | `npm run preview` | Serve the built `dist/` |
-| `npm run typecheck` | `tsc -b --noEmit` |
+| `npm run typecheck` | `tsc -b --noEmit` (app + node configs), then `tsc -p tsconfig.vitest.json --noEmit` (test files — vitest itself transpiles without type-checking) |
 | `npm run test` | Unit tests (Vitest) |
 | `npm run prepare:artifacts` | Verify the committed ZK artifacts are present |
 

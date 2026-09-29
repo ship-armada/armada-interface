@@ -34,9 +34,10 @@ export interface SpendCheck {
    */
   readonly fee: bigint | null
   /**
-   * The largest amount the spend can take out, fee included — the flow's Max: the SDK's unshield max (one
-   * proof, one tree, one per-proof fee). Worked out before any amount is typed. Null until known, and for
-   * a vault withdrawal (it spends shares, and its Max is the vault balance).
+   * The largest amount the spend can take out, fee included, in the token it spends — the flow's Max: the SDK's
+   * unshield max (one proof, one tree, one per-proof fee; spendable notes only). For a vault withdrawal that's
+   * shares, with no fee (it's paid from the proceeds). Worked out before any amount is typed. Null until known,
+   * and when the token isn't on this network.
    */
   readonly maxInput: bigint | null
   /** Why the spend can't be made as the wallet stands (friendly copy); null when it can. */
@@ -82,11 +83,14 @@ export function useSpendCheck(args: UseSpendCheckArgs): SpendCheck {
     staleTime: Infinity,
   })
 
-  // Every spend here but a vault withdrawal is a USDC unshield paying a fee note, so it shares one max.
-  const hasMax = args.enabled && spend !== null && spend.kind !== 'yield-withdraw'
+  // Every spend here is an unshield, so each shares one max in the token it spends.
+  const hasMax = args.enabled && spend !== null
   const maxQuery = useQuery({
     queryKey: [QUERY_KEY, 'max', token, spend?.perProofFee.toString(), args.balanceKey],
-    queryFn: () => maxUnshieldAmount({ perProofFee: spend!.perProofFee }),
+    queryFn: async () => {
+      const tokenAddress = await mergeTokenAddress(token)
+      return tokenAddress === undefined ? null : maxUnshieldAmount({ perProofFee: spend!.perProofFee, tokenAddress })
+    },
     enabled: hasMax,
     retry: false,
     staleTime: Infinity,

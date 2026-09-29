@@ -19,7 +19,7 @@ beforeEach(() => {
   hoisted.getTransactionReceipt.mockImplementation(async (hash: string) => ({ logs: [{ hash }] }))
   hoisted.readCctpFromLogs.mockImplementation(({ logs }: { logs: Array<{ hash: string }> }) => {
     const hash = logs[0]!.hash
-    if (hash === '0xshieldtx') return { received: { sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n } }
+    if (hash === '0xshieldtx') return { received: { sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n, messageBody: '0xbody' } }
     if (hash === '0xunshieldtx') return { sent: { destinationDomain: 102, mintRecipient: '0xrec', maxFee: 1_200n } }
     return {}
   })
@@ -39,8 +39,9 @@ describe('buildXchainCctpMap', () => {
       transmitterAddress: '0xtransmitter',
       hubRpcUrl: 'http://hub',
     })
-    // Shield candidate carries the true deposit (burnAmount) + actual CCTP fee recovered from the mint.
-    expect(map.get('shieldtx')).toEqual({ sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n })
+    // Shield candidate carries the true deposit (burnAmount) + actual CCTP fee recovered from the mint, and the message
+    // body — its hook data holds the shield request's marker, which finds an authored record still waiting on it (#77).
+    expect(map.get('shieldtx')).toEqual({ sourceDomain: 101, burnAmount: 3_000_000n, cctpFee: 25_000n, messageBody: '0xbody' })
     // Unshield candidate carries its destination and the CCTP maxFee the tx bound (the estimate × 2, see
     // cctpMaxFeeForKind) — not the message's mintRecipient, which is the destination pool, not the user.
     expect(map.get('unshieldtx')).toEqual({ destinationDomain: 102, maxFee: 1_200n })
@@ -59,12 +60,22 @@ describe('buildXchainCctpMap', () => {
     expect(hoisted.getTransactionReceipt).not.toHaveBeenCalled()
   })
 
-  it('best-effort: a failed receipt fetch leaves that txid unmapped', async () => {
+  it('best-effort: a failed receipt fetch leaves that txid unmapped — and reports it unresolved, so it can be retried (F20)', async () => {
     hoisted.getTransactionReceipt.mockRejectedValueOnce(new Error('rpc down'))
     const map = await buildXchainCctpMap({
       entries: [{ txid: 'shieldtx', category: 'shield' }] as never,
       transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
     })
     expect(map.size).toBe(0)
+    expect(map.unresolved).toEqual(new Set(['shieldtx']))
+  })
+
+  it('a receipt that carries no CCTP event is resolved — same-chain — not unresolved', async () => {
+    const map = await buildXchainCctpMap({
+      entries: [{ txid: 'plainshield', category: 'shield' }] as never,
+      transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
+    })
+    expect(map.size).toBe(0)
+    expect(map.unresolved.size).toBe(0)
   })
 })
