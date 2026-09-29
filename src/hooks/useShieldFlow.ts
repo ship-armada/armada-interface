@@ -25,7 +25,8 @@ import {
   type WalletStep,
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
-import { shieldProtocolFeeBase, shieldReceiptFromMeta, type DisplayFees } from '@/lib/fees/displayFees'
+import { shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
+import { txFiguresAs } from '@/lib/fees/txFigures'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -439,6 +440,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     setStep('input')
   }
 
+  const recorded = record ? txFiguresAs(record, 'deposit') : null
+
   return {
     fromChainId,
     setFromChainId,
@@ -455,8 +458,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     // reconciles amount/protocolFee/cctpFee to the ACTUAL on-chain values at delivery, so "Confirm"
     // shows the real numbers (identical to the activity receipt), not the pre-submit estimate. Falls
     // back to the estimate before a record exists (never rendered — Complete only shows post-submit).
-    completeReceipt: record
-      ? shieldReceiptFromMeta((record as ShieldRecord).meta)
+    completeReceipt: recorded
+      ? { amount: recorded.headline, fee: recorded.fee, netAmount: recorded.netAmount }
       : { amount, fee: fee + protocolFee + cctpFee, netAmount },
     inputMax,
     minAmount,

@@ -19,7 +19,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
-import { shieldReceiptFromMeta, spendReceiptFromMeta, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
+import { txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -74,7 +74,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       const meta = (record as TxRecord<'shield' | 'shield-xchain'>).meta
       // received = amount − relayerFee − protocolFee − cctpFee — the single receipt-math source shared
       // with the completion screen so a completed shield reads identically wherever it's shown.
-      const { amount, fee, netAmount } = shieldReceiptFromMeta(meta)
+      const { headline: amount, fee, netAmount } = txFiguresAs(record, 'deposit')
       return {
         flowLabel: 'Shield',
         steps: DEPOSIT_STEPS,
@@ -99,7 +99,8 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'unshield-xchain': {
       const meta = (record as TxRecord<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>)
         .meta
-      const { fee, totalDeducted } = spendReceiptFromMeta(meta)
+      // Fee + total from the record alone — the single receipt-math source shared with the confirmation screen.
+      const { headline: amount, fee, totalDeducted } = txFiguresAs(record, 'spend')
       const isPrivate = record.kind === 'transfer-shielded'
       // A public unshield to your own wallet is a withdraw; otherwise (and private 0zk) it's a send.
       const asWithdraw = !isPrivate && isWithdrawToSelf(meta.recipient, ownWalletAddress)
@@ -113,7 +114,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         flowLabel: asWithdraw ? 'Unshield' : 'Send',
         steps: SEND_STEPS,
         title: asWithdraw ? 'USDC unshield' : 'USDC sent',
-        amount: meta.amount,
+        amount,
         explorerUrl,
         status,
         errorCopy,
@@ -134,7 +135,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       const meta = (record as TxRecord<'yield-deposit' | 'yield-withdraw'>).meta
       // Single receipt-math source shared with the completion screen so a completed yield op reads
       // identically wherever it's shown (withdraw's `amount` is the handler-reconciled redeemed gross).
-      const { amount, fee, netAmount } = yieldReceiptFromMeta(meta, record.kind)
+      const { headline: amount, fee, netAmount } = txFiguresAs(record, 'yield')
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
       const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
       // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
@@ -165,12 +166,13 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     }
     case 'consolidate': {
       const meta = (record as TxRecord<'consolidate'>).meta
+      const { headline, fee } = txFiguresAs(record, 'merge')
       return {
         flowLabel: 'Merge notes',
         steps: MERGE_STEPS,
         title: 'Notes merged',
         // A merge moves no value — the big numeral is the fee, the only USDC that left the wallet.
-        amount: meta.broadcasterFeeAmount,
+        amount: headline,
         explorerUrl,
         status,
         errorCopy,
@@ -179,19 +181,19 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             {...(meta.tokenSymbol !== undefined ? { tokenLabel: meta.tokenSymbol } : {})}
             {...(meta.notesMerged !== undefined ? { notesMerged: meta.notesMerged } : {})}
             {...(meta.notesCreated !== undefined ? { notesCreated: meta.notesCreated } : {})}
-            fee={meta.broadcasterFeeAmount}
+            fee={fee}
             {...(confirmedAt !== undefined ? { confirmedAt } : {})}
           />
         ),
       }
     }
     case 'transfer-shielded-received': {
-      const meta = (record as TxRecord<'transfer-shielded-received'>).meta
+      const { headline } = txFiguresAs(record, 'received')
       return {
         flowLabel: 'Received',
         steps: DEPOSIT_STEPS,
         title: 'USDC received',
-        amount: meta.amount,
+        amount: headline,
         explorerUrl,
         status,
         errorCopy,
@@ -200,7 +202,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             recipient=""
             fee={null}
             hideFees
-            totalDeducted={meta.amount}
+            totalDeducted={headline}
             variant="send"
             confirmedAt={confirmedAt}
           />

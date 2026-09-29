@@ -29,7 +29,7 @@ import {
 } from '@/config/deployments'
 import { parseUsdcInput } from '@/lib/format'
 import { cctpFastFeeForAmount, computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
-import { spendReceiptFromMeta } from '@/lib/fees/displayFees'
+import { txFiguresAs } from '@/lib/fees/txFigures'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
@@ -299,9 +299,7 @@ export function SendModal() {
   // The confirmation screen reports what the send actually charged, from its record (as the Activity
   // receipt does): a split send's fee is one per-proof fee per proof, and the live plan/quote above stop
   // pricing after review.
-  const completeReceipt = record
-    ? spendReceiptFromMeta(record.meta as Parameters<typeof spendReceiptFromMeta>[0])
-    : null
+  const completeReceipt = record ? txFiguresAs(record, 'spend') : null
 
   // Reset local state on close.
   useEffect(() => {
@@ -586,7 +584,7 @@ export function SendModal() {
           variant={variant}
           recipient={recipient}
           armadaAddress={shieldedWallet.shieldedAddress}
-          amount={amount}
+          amount={completeReceipt?.headline ?? amount}
           fee={completeReceipt?.fee ?? displayedFee}
           totalDeducted={completeReceipt?.totalDeducted ?? totalDeducted}
           networkName={networkName}

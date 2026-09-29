@@ -14,7 +14,8 @@ import { useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
 import { computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
-import { withdrawBelowFee, yieldReceiptFromMeta } from '@/lib/fees/displayFees'
+import { withdrawBelowFee } from '@/lib/fees/displayFees'
+import { txFiguresAs } from '@/lib/fees/txFigures'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
@@ -208,8 +209,9 @@ export function EarnModal() {
   // shows the real figure identical to the activity receipt, not the submit-time estimate. Deposit
   // amount is exact at submit (no rate drift). Falls back to the estimate before a record exists
   // (never rendered — Complete only shows post-submit).
-  const completeReceipt = record
-    ? yieldReceiptFromMeta(record.meta, record.kind)
+  const recorded = record ? txFiguresAs(record, 'yield') : null
+  const completeReceipt = recorded
+    ? { amount: recorded.headline, fee: recorded.fee, netAmount: recorded.netAmount }
     : { amount, fee: displayFeeTotal, netAmount: displayNetAmount }
 
   // Reset on close + sync initial tab when the entry-point modal kind changes.
