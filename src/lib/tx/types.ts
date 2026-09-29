@@ -366,7 +366,8 @@ export interface MetaTransferShieldedReceived {
 
 /** Net vault APY (basis points) at submit-time — surfaces the "Estimated APY" row on the receipt.
  *  Recovered on rescan via the spend's self-metadata (armada-sdk #88 lever 3), which rides on the change note: a
- *  deposit that left none (Max, fold-in) can't carry it, and a withdrawal's is on its share leg (armada-sdk #113). */
+ *  deposit that left none (Max, fold-in) can't carry it. A withdrawal's change note is a share note — the SDK carries
+ *  its self-metadata onto the USDC leg (armada-sdk #113) — so only a full withdrawal (no share change) has none. */
 interface MetaYieldApy {
   apyBps?: bigint
 }
