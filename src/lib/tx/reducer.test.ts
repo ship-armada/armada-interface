@@ -1,7 +1,7 @@
 // ABOUTME: Reducer tests — patchArtifacts cursor pattern + typed-error mark transitions (markFailed string|TxError, markCancelled, markDismissed).
 
 import { describe, it, expect } from 'vitest'
-import { adoptRecoveredAmount, advance, markCancelled, markDismissed, markFailed, markRecoveredComplete, markWaiting, patchArtifacts, patchMeta, sourceHashProvesComplete } from './reducer'
+import { adoptRecoveredAmount, adoptRecoveredDelivery, awaitsDelivery, advance, markCancelled, markDismissed, markFailed, markRecoveredComplete, markWaiting, patchArtifacts, patchMeta, sourceHashProvesComplete } from './reducer'
 import { lifecycleFor } from './lifecycles'
 import type { TxRecord } from './types'
 
@@ -311,5 +311,41 @@ describe('adoptRecoveredAmount (F14)', () => {
     expect(adoptRecoveredAmount(reconciled, withdraw({ amount: 9_999_999n }))).toBe(reconciled)
     const send = { ...withdraw({}), kind: 'transfer-shielded' } as unknown as import('./types').TxRecord
     expect(adoptRecoveredAmount(send, withdraw({ amount: 1n }))).toBe(send)
+  })
+})
+
+describe('awaitsDelivery / adoptRecoveredDelivery (#77)', () => {
+  const MARKER = '0xabc123def456'
+  const authored = {
+    id: 'a', kind: 'shield-xchain', executionState: 'failed', stage: 'iris-attestation-pending',
+    stagesCompleted: ['build-proof', 'submit-relayer', 'client-burn-confirmed'], updatedSeq: 5, createdAt: 0, updatedAt: 0,
+    walletContext: { shieldedWalletId: 'w', sourceChainId: 31338, evmAddress: '0xeoa' },
+    artifacts: {
+      sourceTxHash: '0xclientburn', error: { code: 'POLL_TIMEOUT', message: 'x' },
+      shieldRequest: { npk: '0x01', value: '1', encryptedBundle: [MARKER, '0x02', '0x03'], shieldKey: '0x04' },
+    },
+    meta: { amount: 1_000_000n, feeCacheId: 'fc', fromChainId: 31338, feeAmount: 10n, protocolFee: 50n, cctpFee: 200n, cctpFeeIsEstimate: true },
+  } as unknown as import('./types').TxRecord
+  const recovered = {
+    id: 'synth:0xhubmint:shield', kind: 'shield-xchain', executionState: 'completed', stage: 'hub-mint-confirmed',
+    stagesCompleted: [], updatedSeq: 0, createdAt: 0, updatedAt: 0, walletContext: { shieldedWalletId: 'w', sourceChainId: 31337 },
+    artifacts: { sourceTxHash: '0xhubmint', hubMessageBody: `0x00ff${MARKER.slice(2)}00` },
+    meta: { amount: 1_000_000n, feeCacheId: '', fromChainId: 31338, feeAmount: 10n, protocolFee: 49n, cctpFee: 100n },
+  } as unknown as import('./types').TxRecord
+
+  it('a recovered hub mint is the delivery an authored cross-chain shield awaits when its message carries the request\'s marker', () => {
+    expect(awaitsDelivery(authored, recovered)).toBe(true)
+    const other = { ...recovered, artifacts: { sourceTxHash: '0xother', hubMessageBody: '0x00ff99' } } as unknown as import('./types').TxRecord
+    expect(awaitsDelivery(authored, other)).toBe(false)
+    expect(awaitsDelivery({ ...authored, kind: 'shield' } as unknown as import('./types').TxRecord, recovered)).toBe(false)
+  })
+
+  it('the delivery completes the authored record: the hub mint hash, the chain\'s actual figures, no error', () => {
+    const upgraded = adoptRecoveredDelivery(authored, recovered)
+    expect(upgraded).toMatchObject({
+      id: 'a', executionState: 'completed', stage: 'hub-mint-confirmed', artifacts: { destTxHash: '0xhubmint' },
+      meta: { amount: 1_000_000n, cctpFee: 100n, cctpFeeIsEstimate: false, protocolFee: 49n, feeAmount: 10n },
+    })
+    expect(upgraded.artifacts).not.toHaveProperty('error')
   })
 })

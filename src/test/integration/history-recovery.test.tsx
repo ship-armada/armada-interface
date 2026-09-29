@@ -77,6 +77,7 @@ vi.mock('@/config/deployments', async () => {
 
 import { useHistoryRecovery } from '@/hooks/useHistoryRecovery'
 import { useIncomingTransferDetector } from '@/hooks/useIncomingTransferDetector'
+import { getNetworkConfig } from '@/config/network'
 import { historyEntryToTxRecord } from '@/lib/shielded/history'
 
 function Harness() {
@@ -371,6 +372,69 @@ describe('Phase 9 — chain history recovery + incoming detector integration', (
     const list = store.get(txListAtom)
     expect(list.length).toBe(1) // no duplicate synth Deposit row
     expect(list[0]!.id).toBe('01J-shieldx')
+  })
+
+  describe('a cross-chain shield recovered before its authored record learned the hub mint (#77)', () => {
+    // The authored record gets the hub mint hash only in its final write — never, if delivery polling timed out. The
+    // hub mint's CCTP message carries the shield request's marker (`encryptedBundle[0]`), so recovery finds it by that.
+    const MARKER = '0xabc123def456'
+    function authoredShieldXchain(over: Partial<TxRecord<'shield-xchain'>>): TxRecord<'shield-xchain'> {
+      return {
+        id: '01J-shieldx-pending', kind: 'shield-xchain', executionState: 'waiting', stage: 'iris-attestation-pending',
+        stagesCompleted: ['build-proof', 'submit-relayer', 'client-burn-confirmed'], updatedSeq: 5, createdAt: 1, updatedAt: 1,
+        meta: { amount: 1_000_000n, feeCacheId: 'fc', fromChainId: 31338, cctpFee: 200n, cctpFeeIsEstimate: true },
+        artifacts: {
+          sourceTxHash: '0xclientburn' as `0x${string}`,
+          shieldRequest: { npk: '0x01', value: '1000000', encryptedBundle: [MARKER, '0x02', '0x03'], shieldKey: '0x04' },
+        },
+        walletContext: { evmAddress: '0xeoa', shieldedWalletId: 'rg-1', sourceChainId: 31338 },
+        ...over,
+      } as TxRecord<'shield-xchain'>
+    }
+    function recoveredHubMint(): TxRecord {
+      const clientDomain = getNetworkConfig().clients[0]!.domain
+      return historyEntryToTxRecord(
+        { txid: '0xhubmint', blockNumber: 100_002, category: 'shield', tokenAddress: '0xusdc', value: 999_000n, shieldFee: 900n },
+        'rg-1',
+        {
+          hubChainId: 31337, usdcAddress: '0xusdc',
+          xchainByTxid: new Map([['0xhubmint', {
+            sourceDomain: clientDomain, burnAmount: 1_000_000n, cctpFee: 100n, messageBody: `0x00ff${MARKER.slice(2)}00` as `0x${string}`,
+          }]]),
+        },
+        100_002_000,
+      )!
+    }
+
+    it('still in flight: no duplicate row — the handler completes it', async () => {
+      const store = unlockedStore()
+      store.set(txListAtom, [authoredShieldXchain({})])
+      hoisted.runHistoryScan.mockResolvedValue(scanResult([recoveredHubMint()], 100_002))
+      render(<Provider store={store}><Harness /></Provider>)
+      await waitFor(() => expect(store.get(historyRecoveryAtom).state).toBe('idle'))
+      const list = store.get(txListAtom)
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({ id: '01J-shieldx-pending', executionState: 'waiting' })
+    })
+
+    it('timed out: the hub mint proves delivery — the record completes with the actual figures, no duplicate row', async () => {
+      const store = unlockedStore()
+      store.set(txListAtom, [authoredShieldXchain({
+        executionState: 'failed', artifacts: {
+          ...authoredShieldXchain({}).artifacts, error: { code: 'POLL_TIMEOUT', message: 'Timed out waiting for cross-chain delivery.' },
+        },
+      })])
+      hoisted.runHistoryScan.mockResolvedValue(scanResult([recoveredHubMint()], 100_002))
+      render(<Provider store={store}><Harness /></Provider>)
+      await waitFor(() => expect(store.get(historyRecoveryAtom).state).toBe('idle'))
+      const list = store.get(txListAtom)
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({
+        id: '01J-shieldx-pending', executionState: 'completed', artifacts: { destTxHash: '0xhubmint' },
+        meta: { amount: 1_000_000n, cctpFee: 100n, cctpFeeIsEstimate: false, protocolFee: 900n },
+      })
+      expect(list[0]!.artifacts).not.toHaveProperty('error')
+    })
   })
 
   it('subsequent scans resume from checkpoint+1, not the hub deploy block', async () => {

@@ -187,7 +187,10 @@ export function historyEntryToTxRecord(
         const stages = terminalizeStages('shield-xchain')
         return {
           id: syntheticTxId(entry.txid, entry.category), kind: 'shield-xchain', executionState: 'completed',
-          stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, artifacts, walletContext,
+          stage: stages.stage, stagesCompleted: stages.stagesCompleted, ...times, walletContext,
+          // The hub message body carries the authored shield request's marker — recovery matches an authored record
+          // that never learned this hub mint by it (#77).
+          artifacts: { ...artifacts, ...(x?.messageBody !== undefined ? { hubMessageBody: x.messageBody } : {}) },
           // Headline = the TRUE deposit (CCTP burn amount) when recovered — the reconstructed hub amount
           // is short by the CCTP fee, which the mint deducted before the hub shield. The receipt then
           // subtracts `cctpFee` too, so received = burn − cctp − relayer − shield = the user's net note.

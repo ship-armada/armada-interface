@@ -246,12 +246,14 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
     // is threaded so the receipt can net burn − cctp − shield to the landed note.
     const ctx = {
       ...SDK_CTX,
-      xchainByTxid: new Map([['0xabc', { sourceDomain: 101, burnAmount: 3_025_000n, cctpFee: 25_000n }]]),
+      xchainByTxid: new Map([['0xabc', { sourceDomain: 101, burnAmount: 3_025_000n, cctpFee: 25_000n, messageBody: '0xbody' as const }]]),
     }
     const r = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 2_995_000n, shieldFee: 5_000n }), 'w', ctx, 5000)
     expect(r).toMatchObject({
       kind: 'shield-xchain',
       meta: { fromChainId: src.chainId, amount: 3_025_000n, cctpFee: 25_000n, protocolFee: 5_000n },
+      // The hub message body rides along, so recovery can find an authored record still waiting on this mint (#77).
+      artifacts: { hubMessageBody: '0xbody' },
     })
   })
 

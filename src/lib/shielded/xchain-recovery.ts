@@ -18,6 +18,9 @@ export interface XchainCctp {
   burnAmount?: bigint
   /** Cross-chain shield: the actual CCTP fee (`feeExecuted`) charged on the mint. */
   cctpFee?: bigint
+  /** Cross-chain shield: the hub MessageReceived's body. Its hook data carries the shield request's marker
+   *  (`encryptedBundle[0]`), which finds the authored record when it never learned this hub mint (#77). */
+  messageBody?: `0x${string}`
   /** Cross-chain unshield: the CCTP `maxFee` the burn bound (the review estimate × 2 — `cctpMaxFeeForKind`).
    *  Its actual fee is only known on the destination chain. */
   maxFee?: bigint
@@ -67,6 +70,7 @@ export async function buildXchainCctpMap(opts: {
           entry.sourceDomain = info.received.sourceDomain
           if (info.received.burnAmount !== undefined) entry.burnAmount = info.received.burnAmount
           if (info.received.cctpFee !== undefined) entry.cctpFee = info.received.cctpFee
+          entry.messageBody = info.received.messageBody
         }
         if (info.sent !== undefined) {
           entry.destinationDomain = info.sent.destinationDomain

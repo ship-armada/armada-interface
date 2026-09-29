@@ -133,10 +133,11 @@ A sweep grows the change note only — every figure is unchanged.
   or the delivery couldn't be read — Fees and the net read "≈". A record without the marker (written before it
   existed) holds the reconciled actual.
 - **Recovered:** `amount` = the CCTP burn amount, `cctpFee = C'` from the hub `MessageReceived`; one row per
-  deposit (an authored record matches the hub mint by `destTxHash`).
+  deposit. An authored record matches the hub mint by `destTxHash`, or — when it never learned it (delivery in
+  flight, or polling timed out) — by the shield request's marker in the hub message's hook data: an in-flight one is
+  left to its handler; a timed-out one completes with the hub mint hash and the chain's actual figures.
 - **Allowed differences:** REV (estimate, "≈") vs CNF (actual): by `C − C'` and the `P` base change.
-- **Deviations:** F9 (authored + recovered duplicate rows
-  when delivery times out or recovery races the final write), F20 (recovery with no CCTP routing records a
+- **Deviations:** F20 (recovery with no CCTP routing records a
   same-chain `shield`, headline short by `C'`).
 
 ## 6. Private send
@@ -267,7 +268,6 @@ fallback / old records; **S4** cosmetic or labelling.
 |---|---|---|---|---|
 | F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
-| F9 | S2 | shield-xchain | Duplicate authored + recovered rows when delivery times out or recovery races the final write. | #77 |
 | F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
 | F16 | S3 | consolidate | Exact-cover non-USDC merge recovered as "USDC sent 0 to unknown". | #81 |

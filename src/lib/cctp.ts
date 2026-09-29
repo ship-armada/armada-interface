@@ -157,8 +157,9 @@ export interface CctpReceiptInfo {
    *  pool on an Armada exit, not the user), and the burn's `maxFee` bound when present. */
   sent?: { destinationDomain: number; mintRecipient: `0x${string}`; maxFee?: bigint }
   /** From an inbound `MessageReceived` (e.g. a cross-chain shield's hub mint): the origin domain, plus
-   *  the true deposit (`burnAmount`) + CCTP fee (`cctpFee`) recovered from the message's BurnMessage. */
-  received?: { sourceDomain: number; burnAmount?: bigint; cctpFee?: bigint }
+   *  the true deposit (`burnAmount`) + CCTP fee (`cctpFee`) recovered from the message's BurnMessage, and the
+   *  message body itself (its hook data carries e.g. a cross-chain shield's request marker). */
+  received?: { sourceDomain: number; burnAmount?: bigint; cctpFee?: bigint; messageBody: `0x${string}` }
 }
 
 /**
@@ -195,6 +196,7 @@ export function readCctpFromLogs(opts: {
         out.received = {
           sourceDomain: Number(args.sourceDomain),
           ...(burn !== null ? { burnAmount: burn.amount, cctpFee: burn.feeExecuted } : {}),
+          messageBody: args.messageBody,
         }
       } catch { /* decoder mismatch — skip */ }
     }

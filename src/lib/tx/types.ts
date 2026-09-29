@@ -594,6 +594,12 @@ export interface ArtifactsYield extends ArtifactsCommon {
  * & ArtifactsXchain` so the manifest is explicit and easy to read.
  */
 export interface ArtifactsShieldXchain extends ArtifactsXchain {
+  /**
+   * A record recovered from chain: its hub mint's CCTP message body. The hook data inside carries the authored shield
+   * request's marker (`shieldRequest.encryptedBundle[0]`), so recovery can find an authored record that never learned
+   * this hub mint (delivery still in flight, or it timed out) instead of adding a duplicate row (#77).
+   */
+  hubMessageBody?: `0x${string}`
   /** Hub PrivacyPool address — used by the hub mint detection to scope log queries. */
   privacyPoolAddress?: string
   /** Client PrivacyPoolClient address — used by submit-relayer to call crossChainShield. */
