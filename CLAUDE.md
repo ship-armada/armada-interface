@@ -89,6 +89,8 @@ The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and 
 
 This model fixes the crowdfund-committer's `useTransactionFlow` single-tx limitation — multi-instance, persistent, cross-chain-aware.
 
+**Displayed figures:** what each kind's amount / fee / total rows mean on Review, Confirm, the Activity row and receipt, and a receipt recovered from chain history — and which of them must agree — is specified in `specs/TX_VALUES.md`. A change to how a figure is computed or shown updates its row there in the same PR (applied to every sibling flow).
+
 ## What's intentionally NOT in the scaffold
 
 - Tx flows (shield/shield-xchain/unshield-local/unshield-xchain/transfer/yield) are wired end-to-end against real contracts + CCTP and run real ZK proofs; what's NOT done: the relayer-*mediated* submit path (`lib/relayer.ts::submitRelay` — today every handler submits from the user's own wallet via wagmi) and finer-grained real-CCTP-mode Iris polling (the xchain handler collapses the last delivery stages on a single destination-balance detection).
