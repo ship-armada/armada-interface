@@ -1,7 +1,8 @@
 // ABOUTME: txFigures — every money figure a tx surface shows (Review, Confirm, Activity row + receipt, a receipt recovered
 // ABOUTME: from chain), derived from the record — or the draft Review will submit — alone. Spec: specs/TX_VALUES.md.
 
-import type { MetaFor, TxRecord } from '@/lib/tx/types'
+import type { MetaFor, TxKind, TxRecord } from '@/lib/tx/types'
+import { txOutcome } from '@/lib/tx/outcome'
 
 /** What figures derive from: a stored record, or the draft a Review step will submit (`TxDraft`) — its kind + meta. */
 export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
@@ -120,4 +121,25 @@ export function txFiguresAs<M extends TxFigures['model']>(record: TxFiguresSourc
     throw new Error(`txFiguresAs: ${record.kind} has ${figures.model} figures, not ${model}`)
   }
   return figures as Extract<TxFigures, { model: M }>
+}
+
+/** The stage at which a cross-chain tx's source burn confirmed — money has left once it's reached, delivery or not. */
+const SOURCE_BURN_STAGE: Partial<Record<TxKind, string>> = {
+  'shield-xchain': 'client-burn-confirmed',
+  'unshield-xchain': 'hub-burn-confirmed',
+}
+
+/**
+ * Whether a record moved (or may have moved) money — false only when it definitively failed or was cancelled before
+ * its first on-chain transaction confirmed, so its receipt shows no fees or totals (spec G-9). A single-transaction
+ * kind's one transaction never confirmed (or reverted, taking everything with it); a cross-chain kind that reached its
+ * source burn did move the amount + fees, even if the delivery then failed. An indeterminate outcome (expired, timed
+ * out, dismissed) may have settled, and a draft or in-flight record hasn't finished, so those count as moved.
+ */
+export function moneyMoved(record: TxFiguresSource & Partial<Pick<TxRecord, 'executionState' | 'artifacts' | 'stagesCompleted'>>): boolean {
+  if (record.executionState === undefined || record.artifacts === undefined) return true
+  const outcome = txOutcome({ executionState: record.executionState, artifacts: record.artifacts })
+  if (outcome !== 'failed' && outcome !== 'cancelled') return true
+  const burnStage = SOURCE_BURN_STAGE[record.kind]
+  return burnStage !== undefined && (record.stagesCompleted as readonly string[] | undefined)?.includes(burnStage) === true
 }

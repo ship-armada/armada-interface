@@ -65,7 +65,8 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
   confirmed, nothing was charged: its receipt shows the headline struck through and fees / totals /
   "You'll receive" as "—". When the first transaction did confirm and a later leg failed (a cross-chain
   delivery — the lifecycle passed `hub-burn-confirmed` / `client-burn-confirmed`), the fee and amount did
-  leave: the receipt shows them as charged, under the failure banner.
+  leave: the receipt shows them as charged, under the failure banner. An indeterminate outcome (expired, timed out,
+  dismissed) may have settled, so it keeps its figures. (`lib/fees/txFigures.ts::moneyMoved`.)
 - **G-10 Every flow that builds the same kind renders the same figures** (Send-modal public path and the
   Unshield tab both build `unshield-*` records with one builder, `lib/tx/spendDraft.ts`).
 - **G-11 Balances are the real balance only.** The private balance shown anywhere is the SDK's scanned
@@ -288,7 +289,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
 | F21 | S4 | transfer | No quote yet: fee blank / "—" but Confirm not held (bounces). | #76 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
-| F25 | S4 | all | Failed/cancelled receipts show fees, totals and "You'll receive" as if charged. | #79 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F27 | S3 | all | The balance shown before the SDK sync lands is derived from local history, ignoring fees, received payments and merges (G-11). | #80 |
 | F28 | S4 | docs/tests | Stale comments (shield "runs short", self-transfer = consolidation, `cctp.ts` mintRecipient = final recipient, yield handler/components docs) and three test fixtures that encode shapes the SDK never emits (self-transfer `sentOutputs`, withdraw USDC-leg `selfMetadata`, pool-recipient xchain unshield). | #71, #72, #76, #81, #83 |

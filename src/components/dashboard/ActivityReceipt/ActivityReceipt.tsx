@@ -19,7 +19,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
-import { txFiguresAs } from '@/lib/fees/txFigures'
+import { moneyMoved, txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -67,6 +67,10 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       ? null
       : resolveTxErrorCopy(record.artifacts.error)
   const explorerUrl = txExplorerUrl(record.walletContext.sourceChainId, displayTxHash(record))
+  // A tx that failed or was cancelled before its first on-chain transaction confirmed moved no money: its fees and
+  // totals read "—" (the headline stays, struck through). One that did move money shows what it was charged.
+  const charged = moneyMoved(record)
+  const ifCharged = <T,>(value: T): T | null => (charged ? value : null)
 
   switch (record.kind) {
     case 'shield':
@@ -87,8 +91,8 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           <DepositReviewSummary
             fromChainId={meta.fromChainId}
             amount={amount}
-            fee={fee}
-            netAmount={netAmount}
+            fee={ifCharged(fee)}
+            netAmount={ifCharged(netAmount)}
             estimated={estimated}
             confirmedAt={confirmedAt}
           />
@@ -122,9 +126,9 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         summary: (
           <TransferReviewSummary
             recipient={meta.recipient}
-            fee={fee}
-            cctpFee={cctpFee}
-            totalDeducted={totalDeducted}
+            fee={ifCharged(fee)}
+            cctpFee={ifCharged(cctpFee)}
+            totalDeducted={ifCharged(totalDeducted)}
             variant={asWithdraw ? 'withdraw' : 'send'}
             networkName={networkName}
             confirmedAt={confirmedAt}
@@ -157,8 +161,8 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             tab={tab}
             amount={amount}
             rate={rate}
-            fee={fee}
-            netAmount={netAmount}
+            fee={ifCharged(fee)}
+            netAmount={ifCharged(netAmount)}
             netLabel={netLabel}
             confirmedAt={confirmedAt}
             showApy={rate !== null}
@@ -183,7 +187,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             {...(meta.tokenSymbol !== undefined ? { tokenLabel: meta.tokenSymbol } : {})}
             {...(meta.notesMerged !== undefined ? { notesMerged: meta.notesMerged } : {})}
             {...(meta.notesCreated !== undefined ? { notesCreated: meta.notesCreated } : {})}
-            fee={fee}
+            fee={ifCharged(fee)}
             {...(confirmedAt !== undefined ? { confirmedAt } : {})}
           />
         ),

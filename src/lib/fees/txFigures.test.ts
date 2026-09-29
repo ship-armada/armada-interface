@@ -2,7 +2,7 @@
 // ABOUTME: distinct non-zero fee fixture; rows the code doesn't meet yet are todos naming their deviation and issue.
 
 import { describe, it, expect } from 'vitest'
-import { txFigures, txFiguresAs, txHeadline } from './txFigures'
+import { moneyMoved, txFigures, txFiguresAs, txHeadline } from './txFigures'
 import { A, C, C_ACTUAL, F, FOLD, G, P, txRecord } from '@/test/fixtures/txValues'
 
 const RELAYER_0ZK = '0zk' + 'b'.repeat(64)
@@ -130,8 +130,36 @@ describe('txFigures', () => {
     })
   })
 
-  describe('non-settled records (G-9)', () => {
-    it.todo('a failed / cancelled record whose first on-chain tx never confirmed shows no fees or totals — F25, #79')
+  describe('moneyMoved — non-settled records (G-9)', () => {
+    const send = (overrides: Record<string, unknown>) =>
+      txRecord('transfer-shielded', { ...spend(F), recipient: '0zk' + 'c'.repeat(64) }, overrides as never)
+    const xchainUnshield = (stagesCompleted: string[]) => txRecord(
+      'unshield-xchain', { ...spend(F), recipient: '0x' + '1'.repeat(40), toChainId: 31338 },
+      { executionState: 'failed', stagesCompleted, artifacts: { error: { code: 'TX_REVERTED', message: 'x' } } } as never,
+    )
+
+    it('a settled, pending or drafted tx moved (or will move) money', () => {
+      expect(moneyMoved(send({}))).toBe(true)
+      expect(moneyMoved(send({ executionState: 'active' }))).toBe(true)
+      expect(moneyMoved({ kind: 'transfer-shielded', meta: { ...spend(F), recipient: '0zk' } } as never)).toBe(true)
+    })
+
+    it('a failed or cancelled single-transaction tx moved nothing — its one transaction never confirmed', () => {
+      expect(moneyMoved(send({ executionState: 'failed', artifacts: { error: { code: 'TX_REVERTED', message: 'x' } } }))).toBe(false)
+      expect(moneyMoved(send({ executionState: 'cancelled', artifacts: { error: { code: 'CANCELLED', message: 'x' } } }))).toBe(false)
+      expect(moneyMoved(send({ executionState: 'failed', artifacts: { error: { code: 'USER_REJECTED', message: 'x' } } }))).toBe(false)
+    })
+
+    it('a cross-chain tx that failed after its source burn confirmed did move money (the delivery failed)', () => {
+      expect(moneyMoved(xchainUnshield(['build-proof', 'submit-relayer']))).toBe(false)
+      expect(moneyMoved(xchainUnshield(['build-proof', 'submit-relayer', 'hub-burn-confirmed']))).toBe(true)
+    })
+
+    it('an indeterminate outcome (expired, timed out, dismissed) may have settled, so it counts as moved', () => {
+      expect(moneyMoved(send({ executionState: 'expired' }))).toBe(true)
+      expect(moneyMoved(send({ executionState: 'failed', artifacts: { error: { code: 'POLL_TIMEOUT', message: 'x' } } }))).toBe(true)
+      expect(moneyMoved(send({ executionState: 'cancelled', artifacts: { error: { code: 'DISMISSED', message: 'x' } } }))).toBe(true)
+    })
   })
 
   describe('real transactions', () => {

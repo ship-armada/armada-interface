@@ -20,7 +20,7 @@ export interface DepositReviewSummaryProps {
   fromChainId: number
   amount: bigint
   fee: bigint | null
-  netAmount: bigint
+  netAmount: bigint | null
   /** Connected EVM wallet address — rendered (truncated) as the "From your wallet" row when present. */
   walletAddress?: string
   /** Connected wallet provider name (wagmi connector) — drives the "From your wallet" brand glyph. */
@@ -113,7 +113,7 @@ export function DepositReviewSummary({
           {confirmedAt !== undefined ? 'You received' : "You'll receive"}
         </span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
-          {estimated ? '≈ ' : ''}{formatUsdcAmount(netAmount)} USDC
+          {netAmount === null ? '—' : `${estimated ? '≈ ' : ''}${formatUsdcAmount(netAmount)} USDC`}
         </span>
       </div>
       {estimated ? (

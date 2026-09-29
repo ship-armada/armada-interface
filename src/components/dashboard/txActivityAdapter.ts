@@ -1,8 +1,9 @@
 // ABOUTME: Maps TxRecords to the dashboard RecentActivityList's presentational item shape.
 // ABOUTME: Direction (icon kind + amount sign) per TxKind; label reuses the app's recordTitle; folds in pending txs.
 
-import type { TxRecord, TxKind, TxErrorCode } from '@/lib/tx/types'
-import { historySortTime, isTerminalState } from '@/lib/tx/types'
+import type { TxRecord, TxKind } from '@/lib/tx/types'
+import { historySortTime } from '@/lib/tx/types'
+import { txOutcome, type TxOutcome } from '@/lib/tx/outcome'
 import { recordTitle } from '@/components/tx/stageCopy'
 import type { RequestLinkRecord } from '@/lib/shielded/requestLinks'
 import { txHeadline } from '@/lib/fees/txFigures'
@@ -10,24 +11,8 @@ import { txHeadline } from '@/lib/fees/txFigures'
 /** Icon/semantic kind for an activity row — a coarser grouping than TxKind. */
 export type DashboardActivityKind = 'send' | 'deposit' | 'earn' | 'withdraw' | 'receive' | 'requestLink' | 'merge'
 
-/**
- * Outcome bucket for an activity row.
- *   settled   — completed on chain.
- *   pending   — still in flight.
- *   failed    — definitively failed; nothing settled (revert / reject / pre-flight / interrupted / fee-expired / rpc).
- *   cancelled — user cancelled before anything was sent.
- *   unknown   — we stopped watching (timeout / dismissed / duplicate / expired); it MAY still have
- *               settled on chain, so we never present these as "failed".
- */
-export type DashboardActivityStatus = 'settled' | 'pending' | 'failed' | 'cancelled' | 'unknown'
-
-/** Error codes whose outcome is indeterminate — the tx may still have landed. */
-const INDETERMINATE_CODES: ReadonlySet<TxErrorCode> = new Set([
-  'POLL_TIMEOUT',
-  'DISMISSED',
-  'DUPLICATE_TX',
-  'STUCK',
-])
+/** Outcome bucket for an activity row — see `lib/tx/outcome.ts`. */
+export type DashboardActivityStatus = TxOutcome
 
 export interface DashboardActivityItem {
   id: string
@@ -48,27 +33,8 @@ export interface DashboardActivityItem {
   expiresAt?: number
 }
 
-/**
- * Reduce a record's executionState + error code to an outcome bucket. Keyed off `error.code` for
- * the terminal cases so a DISMISSED (had broadcast → may complete) isn't confused with a CANCELLED
- * (nothing sent), and so timeouts/expiry never read as a hard failure.
- */
-export function deriveActivityStatus(record: TxRecord): DashboardActivityStatus {
-  const state = record.executionState
-  if (state === 'completed') return 'settled'
-  if (!isTerminalState(state)) return 'pending'
-  const code = record.artifacts.error?.code
-  // The error CODE is authoritative for the outcome bucket — the executionState machinery can land
-  // the same code on either `cancelled` or `failed` (e.g. a thrown CANCELLED routes through
-  // markFailed), so we key off the code first and fall back to the state.
-  // Indeterminate — we stopped watching; the tx may still have settled on chain. Never "failed".
-  if (state === 'expired' || (code !== undefined && INDETERMINATE_CODES.has(code))) return 'unknown'
-  // User-initiated aborts, nothing sent: the app Cancel button (CANCELLED / `cancelled` state) AND a
-  // declined wallet prompt (USER_REJECTED). Group as "Cancelled" — matches the modal's "Action
-  // declined — nothing submitted" framing.
-  if (state === 'cancelled' || code === 'CANCELLED' || code === 'USER_REJECTED') return 'cancelled'
-  return 'failed'
-}
+/** Reduce a record's executionState + error code to an outcome bucket — see `lib/tx/outcome.ts`. */
+export const deriveActivityStatus: (record: TxRecord) => DashboardActivityStatus = txOutcome
 
 /** Per-TxKind direction: the activity icon-kind and the sign of the amount (inflow vs outflow). */
 const DIRECTION: Record<TxKind, { kind: DashboardActivityKind; sign: 1 | -1 }> = {

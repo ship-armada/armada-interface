@@ -152,4 +152,46 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(summaryRow('Total')).toBe('2.000006 USDC')
     })
   })
+
+  describe('non-settled (G-9)', () => {
+    const reverted = { executionState: 'failed', artifacts: { error: { code: 'TX_REVERTED', message: 'Reverted' } } } as Partial<TxRecord>
+    const cancelled = { executionState: 'cancelled', artifacts: { error: { code: 'CANCELLED', message: 'Cancelled' } } } as Partial<TxRecord>
+
+    it('a failed send moved nothing: no Fees or Total', () => {
+      showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), reverted)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+    })
+
+    it('a cancelled shield moved nothing: no Fees or "You\'ll receive"', () => {
+      showReceipt('shield', { amount: A, fromChainId: 31337, useGasless: true, feeAmount: F, protocolFee: P }, cancelled)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow("You'll receive")).toBe('—')
+    })
+
+    it('a failed vault deposit moved nothing', () => {
+      showReceipt('yield-deposit', spendMeta(F), reverted)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total deducted from balance')).toBe('—')
+    })
+
+    it('a failed merge moved nothing', () => {
+      showReceipt('consolidate', { ...spendMeta(2n * F), amount: 0n, tokenAddress: '0xusdc', tokenSymbol: 'USDC' }, reverted)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+    })
+
+    it('a cross-chain unshield whose delivery failed after the burn still shows what was charged', () => {
+      showReceipt('unshield-xchain', spendMeta(F, { recipient: RECIPIENT_EVM, toChainId: 31338, cctpFee: C }), {
+        ...reverted, stagesCompleted: ['build-proof', 'submit-relayer', 'hub-burn-confirmed'],
+      } as Partial<TxRecord>)
+      expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
+      expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
+
+    it('an expired send may still have settled: its figures stay', () => {
+      showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), { executionState: 'expired' })
+      expect(summaryRow('Fees')).toBe('1.000003 USDC')
+    })
+  })
 })
