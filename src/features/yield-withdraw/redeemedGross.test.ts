@@ -2,7 +2,7 @@
 // ABOUTME: receipt's USDC transfers into the pool, with the plausibility guard against mis-parse.
 
 import { describe, it, expect } from 'vitest'
-import { redeemedGrossFromLogs, ERC20_TRANSFER_TOPIC, type TransferLog } from './redeemedGross'
+import { redeemedGrossFromLogs, reconciledWithdrawMeta, ERC20_TRANSFER_TOPIC, type TransferLog } from './redeemedGross'
 
 const USDC = '0x1c7d4b196cb0c7b01d743fbc6116a902379c7238'
 const POOL = '0x5f3324b47b3cff937bb67c30b362898e193e5216'
@@ -65,5 +65,15 @@ describe('redeemedGrossFromLogs', () => {
   it('returns undefined when no USDC-to-pool transfer is present (gross 0)', () => {
     expect(redeemedGrossFromLogs({ logs: [], usdcAddress: USDC, poolAddress: POOL, fee: FEE, estimate: ESTIMATE }))
       .toBeUndefined()
+  })
+})
+
+describe('reconciledWithdrawMeta', () => {
+  it('the actual redeemed gross replaces the typed estimate and clears its est. marker', () => {
+    expect(reconciledWithdrawMeta(9_999_999n)).toEqual({ amount: 9_999_999n, amountIsEstimate: false })
+  })
+
+  it('no readable gross: the estimate (and its marker) stays', () => {
+    expect(reconciledWithdrawMeta(undefined)).toEqual({})
   })
 })

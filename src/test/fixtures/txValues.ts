@@ -21,7 +21,7 @@ export const G = 9_999_999n
 /** A settled record of `kind` carrying `meta`; `overrides` replace any other field. */
 export function txRecord<K extends TxKind>(
   kind: K,
-  meta: Record<string, unknown>,
+  meta: object,
   overrides: Partial<TxRecord> = {},
 ): TxRecord<K> {
   return {

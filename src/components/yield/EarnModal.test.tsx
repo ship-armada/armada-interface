@@ -1,7 +1,7 @@
 // ABOUTME: Tests for EarnModal orchestrator — opens on both yield-deposit and yield-withdraw kinds, tab defaults from entry kind, switching tabs clears amount.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { EarnModal } from './EarnModal'
 import { mergeIntentAtom, openModalAtom } from '@/state/ui'
@@ -12,7 +12,8 @@ import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { F, FOLD, G } from '@/test/fixtures/txValues'
-import { headlineAmount, summaryRow } from '@/test/summaryRows'
+import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults.
@@ -53,7 +54,8 @@ vi.mock('@/hooks/useGasBalanceWarning', () => ({
 // The vault rate is an on-chain read, unavailable in jsdom (the real hook resolves to null here). Tests that
 // withdraw set a rate snapshot.
 const hoistedRate = vi.hoisted(() => ({ rate: null as YieldRate | null }))
-vi.mock('@/hooks/useYieldRate', () => ({
+vi.mock('@/hooks/useYieldRate', async (importActual) => ({
+  ...await importActual<typeof import('@/hooks/useYieldRate')>(),
   useYieldRate: () => ({ rate: hoistedRate.rate, refresh: vi.fn(async () => hoistedRate.rate) }),
 }))
 
@@ -110,11 +112,12 @@ const hoistedCheck = vi.hoisted(() => {
   })
   return { defaults, result: defaults() }
 })
+// Like the real hook, it plans nothing while disabled or with no spend to plan (e.g. before the relayer quote loads).
 vi.mock('@/hooks/useSpendCheck', () => ({
-  useSpendCheck: (args: { enabled: boolean }) =>
-    args.enabled
+  useSpendCheck: (args: { enabled: boolean; spend: unknown }) =>
+    args.enabled && args.spend !== null
       ? hoistedCheck.result
-      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+      : { ...hoistedCheck.result, fee: null, maxInput: null, error: null, remedy: null, pending: false, blockReason: null },
 }))
 beforeEach(() => {
   hoistedCheck.result = hoistedCheck.defaults()
@@ -361,11 +364,143 @@ describe('<EarnModal>', () => {
           fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
         })
         await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-withdraw')).toBe(true))
-        settle(store, 'yield-withdraw', { amount: G, broadcasterFeeAmount: F })
+        settle(store, 'yield-withdraw', { amount: G, broadcasterFeeAmount: F, amountIsEstimate: false })
         await waitFor(() => expect(screen.getByText('Received into private balance')).toBeInTheDocument())
         expect(headlineAmount()).toBe('9.999999')
         expect(summaryRow('Fees')).toBe('1.000003 USDC')
         expect(summaryRow('Received into private balance')).toBe('8.999996 USDC')
+      } finally {
+        hoistedFees.quote.fees.crossContract = original
+      }
+    })
+  })
+
+  it('a vault withdrawal\'s fee breakdown: the net received, no "Total deducted" — the fee comes from the proceeds (YD-12, YD-13)', () => {
+    hoistedRate.rate = { rate: 1_000_000n, apyBps: 500, fetchedAt: 0 } as unknown as YieldRate
+    const original = hoistedFees.quote.fees.crossContract
+    hoistedFees.quote.fees.crossContract = String(F)
+    try {
+      const store = renderModal({ open: 'yield-withdraw', shielded: 20_000_000n })
+      act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
+      fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '10' } })
+      fireEvent.focus(screen.getByRole('button', { name: 'Fee breakdown' }))
+      const tooltip = screen.getByRole('tooltip')
+      expect(tooltip).toHaveTextContent("You'll receive into private balance: 8.999997 USDC")
+      expect(tooltip).not.toHaveTextContent('Total deducted')
+      expect(tooltip).toHaveTextContent('comes out of the redeemed proceeds')
+    } finally {
+      hoistedFees.quote.fees.crossContract = original
+    }
+  })
+
+  it('the confirmation screen shows the APY frozen on the record at submit, not the live rate (YD-4, G-1)', async () => {
+    hoistedRate.rate = { rate: 1_000_000n, apyBps: 450n, fetchedAt: 0 } as unknown as YieldRate
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+    const store = renderModal({ open: 'yield-deposit', shielded: 20_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '10' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-deposit')).toBe(true))
+    // The vault rate moves after submit; the record keeps the rate the user reviewed.
+    hoistedRate.rate = { rate: 1_000_000n, apyBps: 900n, fetchedAt: 1 } as unknown as YieldRate
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'yield-deposit' ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+      ))
+    })
+    await waitFor(() => expect(screen.getByText('Total deducted from balance')).toBeInTheDocument())
+    expect(screen.getByText('~4.50%')).toBeInTheDocument()
+    expect(screen.queryByText('~9.00%')).toBeNull()
+  })
+
+  describe('before the relayer quote loads: no fee ("—") and Confirm held (G-4)', () => {
+    function withNoQuote(run: () => void) {
+      const original = hoistedFees.quote
+      ;(hoistedFees as { quote: typeof original | null }).quote = null
+      try {
+        run()
+      } finally {
+        hoistedFees.quote = original
+      }
+    }
+
+    it('a vault deposit', () => withNoQuote(() => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n, priceAt: vi.fn(async () => 0n) }
+      renderModal({ open: 'yield-deposit', shielded: 20_000_000n })
+      fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total deducted from balance')).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeDisabled()
+    }))
+
+    it('a vault withdrawal — its fee is the quote, so it would read "0.00"', () => withNoQuote(() => {
+      hoistedRate.rate = { rate: 1_000_000n, apyBps: 500n, fetchedAt: 0 } as unknown as YieldRate
+      const store = renderModal({ open: 'yield-withdraw', shielded: 20_000_000n })
+      act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
+      fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow("You'll receive into private balance")).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
+    }))
+  })
+
+  describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {
+    async function settleAndRead(store: ReturnType<typeof renderModal>, kind: TxRecord['kind'], rows: Record<string, string>) {
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === kind)).toBe(true))
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === kind ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+        ))
+      })
+      await waitFor(() => expect(screen.getByText(rows.net!)).toBeInTheDocument())
+      const confirm = readFigures(rows)
+      const record = store.get(txListAtom).find((r) => r.kind === kind)!
+      cleanup()
+      render(<ActivityReceipt record={record} open onClose={vi.fn()} />)
+      return { confirm, receipt: readFigures(rows) }
+    }
+
+    it('vault deposit', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F + FOLD, priceAt: vi.fn(async () => F + FOLD) }
+      const store = renderModal({ open: 'yield-deposit', shielded: 20_000_000n })
+      fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      const rows = { fees: 'Fees', net: 'Total deducted from balance' }
+      const review = readFigures(rows)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
+      })
+      const { confirm, receipt } = await settleAndRead(store, 'yield-deposit', rows)
+      expect(review).toEqual({ headline: '10', fees: '1.12346 USDC', net: '11.12346 USDC' })
+      expect(confirm).toEqual(review)
+      expect(receipt).toEqual(review)
+    })
+
+    it('vault withdrawal, redeemed at the reviewed estimate', async () => {
+      hoistedRate.rate = { rate: 1_000_000n, apyBps: 500, fetchedAt: 0 } as unknown as YieldRate
+      const original = hoistedFees.quote.fees.crossContract
+      hoistedFees.quote.fees.crossContract = String(F)
+      try {
+        const store = renderModal({ open: 'yield-withdraw', shielded: 20_000_000n })
+        act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
+        fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '10' } })
+        fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+        const review = readFigures({ fees: 'Fees', net: "You'll receive into private balance" })
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+        })
+        const { confirm, receipt } = await settleAndRead(store, 'yield-withdraw', { fees: 'Fees', net: 'Received into private balance' })
+        expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', net: '8.999997 USDC' })
+        expect(confirm).toEqual(review)
+        expect(receipt).toEqual(review)
       } finally {
         hoistedFees.quote.fees.crossContract = original
       }

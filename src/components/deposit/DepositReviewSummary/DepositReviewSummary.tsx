@@ -20,7 +20,7 @@ export interface DepositReviewSummaryProps {
   fromChainId: number
   amount: bigint
   fee: bigint | null
-  netAmount: bigint
+  netAmount: bigint | null
   /** Connected EVM wallet address — rendered (truncated) as the "From your wallet" row when present. */
   walletAddress?: string
   /** Connected wallet provider name (wagmi connector) — drives the "From your wallet" brand glyph. */
@@ -91,7 +91,7 @@ export function DepositReviewSummary({
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>Fees</span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
-            {fee === null ? '—' : `${formatUsdcAmount(feeValue)} USDC`}
+            {fee === null ? '—' : `${estimated ? '≈ ' : ''}${formatUsdcAmount(feeValue)} USDC`}
           </span>
         </div>
         {/* Direct-path only (relayer down / no wrapper): the network gas the user pays in ETH from
@@ -113,7 +113,7 @@ export function DepositReviewSummary({
           {confirmedAt !== undefined ? 'You received' : "You'll receive"}
         </span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
-          {estimated ? '≈ ' : ''}{formatUsdcAmount(netAmount)} USDC
+          {netAmount === null ? '—' : `${estimated ? '≈ ' : ''}${formatUsdcAmount(netAmount)} USDC`}
         </span>
       </div>
       {estimated ? (

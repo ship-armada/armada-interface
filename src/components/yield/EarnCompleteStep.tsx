@@ -14,8 +14,10 @@ export interface EarnCompleteStepProps {
   rate: YieldRate | null
   /** Inclusive fee total — broadcaster + protocol. Rendered as "—" when null. */
   fee: bigint | null
-  /** Per-tab summary total: Add → private-balance debit (`amount + fee`); Withdraw → net gain (`amount`). */
+  /** Per-tab summary total: Add → private-balance debit (`amount + fee`); Withdraw → net received (`amount − fee`). */
   netAmount: bigint
+  /** True while a withdrawal's amount is still the typed estimate (its redeemed gross couldn't be read). */
+  estimated?: boolean
   netLabel: string
   /** Completion timestamp (ms) — drives the summary's "Date and time" row. */
   confirmedAt: number
@@ -31,6 +33,7 @@ export function EarnCompleteStep({
   rate,
   fee,
   netAmount,
+  estimated,
   netLabel,
   confirmedAt,
   explorerUrl,
@@ -53,8 +56,11 @@ export function EarnCompleteStep({
         rate={rate}
         fee={fee}
         netAmount={netAmount}
+        estimated={estimated}
         netLabel={netLabel}
         confirmedAt={confirmedAt}
+        // No APY frozen on the record (captured without a rate) → hide the row, as the Activity receipt does.
+        showApy={rate !== null}
       />
     </ConfirmedScreenLayout>
   )

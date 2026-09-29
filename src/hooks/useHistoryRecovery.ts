@@ -11,7 +11,7 @@ import {
 } from '@/state/history'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
 import { putTxIfFresh } from '@/lib/tx/storage'
-import { markRecoveredComplete, sourceHashProvesComplete } from '@/lib/tx/reducer'
+import { adoptRecoveredAmount, markRecoveredComplete, sourceHashProvesComplete } from '@/lib/tx/reducer'
 import {
   runHistoryScan,
   type HistoryMapContext,
@@ -79,7 +79,7 @@ async function runScanAndPersist(args: {
         // in shielded history paints a false "Funds delivered" and upgrades a real POLL_TIMEOUT
         // failure to permanent false success.
         if (!sourceHashProvesComplete(existing.kind)) continue
-        const upgraded = markRecoveredComplete(existing)
+        const upgraded = adoptRecoveredAmount(markRecoveredComplete(existing), record)
         try {
           const fresh = await putTxIfFresh(upgraded)
           if (fresh) {
@@ -152,8 +152,6 @@ async function resolveScanInputs(): Promise<{
         // ERC20-agnostic (armada-sdk #91). Read straight from the hub manifest (no SDK config round-trip
         // that could throw and skip the whole scan); '' when absent makes the gate fail open.
         usdcAddress: getUsdcAddress(deployments, getNetworkConfig().hub) ?? '',
-        // Hub PrivacyPool address — lets recovery detect an unshield-to-pool as a cross-chain exit (Tier 2).
-        poolAddress: deployments.hub.contracts.privacyPool,
       },
       hubDeployBlock: deployments.hub.deployBlock,
     }

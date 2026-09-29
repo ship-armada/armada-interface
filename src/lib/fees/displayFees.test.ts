@@ -32,6 +32,14 @@ describe('computeDisplayFees', () => {
     expect(fees.feeInclusive).toBe(true)
   })
 
+  it('reports no protocol fee for any kind — even given a relayer quote (UN-2: unshields are free per spec)', () => {
+    // WHY: the only protocol fee is the pool's shield fee, read on chain (useDisplayFees overrides it for shields).
+    // TransactModule charges no unshield fee, and no other kind has one — so a relayer quote must never leak in here.
+    for (const kind of ['shield', 'shield-xchain', 'unshield-local', 'unshield-xchain', 'transfer-shielded', 'yield-deposit', 'yield-withdraw', 'consolidate'] as const) {
+      expect(computeDisplayFees(kind, 5_000_000n, quote).protocolFee).toBe(0n)
+    }
+  })
+
   it('defaults shield to inclusive with zero CCTP until fee module overrides', () => {
     const fees = computeDisplayFees('shield', 5_000_000n, quote)
     expect(fees.protocolFee).toBe(0n)

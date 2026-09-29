@@ -11,7 +11,7 @@ import {
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
-import { redeemedGrossFromLogs, type TransferLog } from './redeemedGross'
+import { reconciledWithdrawMeta, redeemedGrossFromLogs, type TransferLog } from './redeemedGross'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
 import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
@@ -26,10 +26,10 @@ import type { StageHandler } from '@/lib/tx/executor'
 import type { TxError, TxRecord } from '@/lib/tx/types'
 
 /**
- * Lifecycle mirrors yield-deposit. `meta.amount` is the SHARES count (ayUSDC), computed by the
- * modal as `requestedUsdc × 1e18 / rate` where rate comes from `useYieldRate()`. If rate moves
- * between quote and execution the user receives slightly more or less than requested — out of
- * scope to slippage-protect for v1.
+ * Lifecycle mirrors yield-deposit. `meta.shares` is the SHARES count (ayUSDC) the modal computes at submit as
+ * `requestedUsdc × 1e18 / rate`, from a freshly re-read rate; `meta.amount` is the expected USDC output (an estimate,
+ * `amountIsEstimate`). If the rate moves between quote and execution the user receives slightly more or less than
+ * requested — the handler reconciles `meta.amount` to the actual redeemed gross at completion.
  */
 export const yieldWithdrawHandler: StageHandler<'yield-withdraw'> = {
   kind: 'yield-withdraw',
@@ -109,7 +109,7 @@ async function confirmWithReconciledAmount(
 ): Promise<void> {
   const reconciledGross = await reconciledRedeemedGross(record, txHash)
   let terminal = advance(record, 'hub-confirmed', { sourceTxHash: txHash })
-  if (reconciledGross !== undefined) terminal = patchMeta(terminal, { amount: reconciledGross })
+  if (reconciledGross !== undefined) terminal = patchMeta(terminal, reconciledWithdrawMeta(reconciledGross))
   await ctx.upsert(terminal)
   if (kmIsUnlocked()) void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
 }

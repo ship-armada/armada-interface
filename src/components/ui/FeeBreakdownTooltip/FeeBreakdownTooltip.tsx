@@ -34,8 +34,14 @@ function formatGasLine(fees: DisplayFees): string {
 export interface FlowFeeBreakdown {
   /** USDC broadcaster fee — reimburses relayer for submitting on-chain. 0n on direct flows. */
   broadcasterFee?: bigint
-  /** CCTP fast-fee (xchain only). Folded into the displayed FEE total alongside protocol + broadcaster. */
+  /** CCTP fast-fee (xchain only). Folded into the displayed FEE total alongside protocol + broadcaster — unless
+   *  `cctpFeeFromAmount`. */
   cctpFee?: bigint
+  /** True when the CCTP fee comes out of the amount in transit (a cross-chain unshield) rather than being a fee on
+   *  the user's own figure: the tooltip still lists it, but the FEE caption — the fee charged on top — leaves it out. */
+  cctpFeeFromAmount?: boolean
+  /** True when the relayer fee comes out of redeemed proceeds (a vault withdrawal) rather than the user's USDC. */
+  feeFromProceeds?: boolean
   /** Final amount the recipient (or shielded pool) receives. */
   recipientReceives?: bigint
   /** What ends up debited from the user's USDC balance. */
@@ -72,6 +78,9 @@ export function FeeBreakdownTooltip({
   // relayer/CCTP clauses on their own amounts. Spelling it out keeps the user's mental model aligned
   // with what they'll see deducted on chain.
   const description = (() => {
+    if (flowBreakdown?.feeFromProceeds) {
+      return "The relayer fee comes out of the redeemed proceeds — your private balance isn't charged. Network gas is paid by the relayer (you don't pay native gas)."
+    }
     if (paysGas) {
       return cctpFee > 0n
         ? 'Protocol fee + CCTP network fee come out of your USDC. Native gas is paid separately from your wallet.'

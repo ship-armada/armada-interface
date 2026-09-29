@@ -60,12 +60,12 @@ const CCTP_FAST_FEE_BPS = 2n
  *
  * Migration table — flips a kind's USDC fee on as its handler migrates to `submitRelay`:
  *   - A3: unshield-local → reads `quote.fees.unshield`
- *   - A4: transfer-shielded / yield-deposit / yield-withdraw (still `0n` here until A4 ships)
+ *   - A4: transfer-shielded / yield-deposit / yield-withdraw → `transfer` / `crossContract`
  *   - A5: unshield-xchain hub burn — separate; today's CCTP fee path is unchanged
  *
- * `quote` is optional: pre-quote-load the modal renders `0n`, which is also the right answer
- * for kinds that don't consume the quote. Modals pass the live `useFees()` quote when they have
- * one.
+ * `quote` is optional: without one this returns `0n`, which is the right answer for kinds that don't consume the
+ * quote. For a relayer-paid kind a missing quote means the fee isn't known yet — its flow shows "—" and holds Confirm
+ * (`QUOTE_PENDING_REASON`, spec G-4), never a zero fee. Modals pass the live `useFees()` quote when they have one.
  */
 /**
  * Per-kind options that flip a fee-shape under the kind's umbrella. Today only `shield` uses

@@ -17,6 +17,8 @@ export interface MergeReviewStepProps {
     notesCreated: number
     blockedWillWork?: boolean
   } | null
+  /** The fee the merge will record and pay (from the draft it submits); null ("—") while it's being worked out. */
+  fee: bigint | null
   /** The blocked action the merge was opened for, in plain words ("withdrawal"). */
   blockedAction?: string
   /** Why Confirm is disabled (still pricing, nothing to merge, relayer down, …). */
@@ -32,6 +34,7 @@ export interface MergeReviewStepProps {
 export function MergeReviewStep({
   tokenLabel,
   preview,
+  fee,
   blockedAction,
   submitBlockedReason,
   isSubmitting,
@@ -63,7 +66,7 @@ export function MergeReviewStep({
         <ConsolidationSummary
           tokenLabel={tokenLabel}
           {...(preview ? { notesMerged: preview.notesMerged, notesCreated: preview.notesCreated } : {})}
-          fee={preview?.totalFee ?? null}
+          fee={fee}
         />
 
         {outcome ? (

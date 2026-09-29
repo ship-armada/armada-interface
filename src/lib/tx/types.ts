@@ -276,6 +276,12 @@ export interface MetaShieldXchain extends MetaCommon {
    * The note that lands is `amount - cctpFee - feeAmount - protocolFee`; `amount` is the true deposit.
    */
   cctpFee?: bigint
+  /**
+   * True while `cctpFee` is the review-time estimate; cleared once the actual `feeExecuted` replaces it, so every
+   * surface marks the fee (and the net) "≈" until then. Absent on records written before it existed — their
+   * `cctpFee`, if any, came from the reconcile, so it reads as the actual.
+   */
+  cctpFeeIsEstimate?: boolean
 }
 
 export interface MetaUnshieldLocal extends MetaCommon, MetaBroadcaster {
@@ -299,6 +305,9 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
    *  only known on the destination chain. A chain-recovered record carries the same estimate, read back from
    *  the burn's `maxFee`. Absent on older records. */
   cctpFee?: bigint
+  /** True while `cctpFee` is an estimate (always, until the actual fee is read at delivery). Absent on records
+   *  written before it existed — their `cctpFee` was always the review-time estimate, so it reads as one. */
+  cctpFeeIsEstimate?: boolean
 }
 
 /**
@@ -349,7 +358,8 @@ export interface MetaTransferShieldedReceived {
 }
 
 /** Net vault APY (basis points) at submit-time — surfaces the "Estimated APY" row on the receipt.
- *  Recovered on rescan via the spend's self-metadata (armada-sdk #88 lever 3). */
+ *  Recovered on rescan via the spend's self-metadata (armada-sdk #88 lever 3), which rides on the change note: a
+ *  deposit that left none (Max, fold-in) can't carry it, and a withdrawal's is on its share leg (armada-sdk #113). */
 interface MetaYieldApy {
   apyBps?: bigint
 }
@@ -357,6 +367,12 @@ export type MetaYieldDeposit = MetaCommon & MetaBroadcaster & MetaYieldApy
 export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster, MetaYieldApy {
   /** Yield share amount to redeem; `amount` is the expected USDC output. */
   shares: bigint
+  /**
+   * True while `amount` is the typed (quote-time) estimate; cleared once it's reconciled to the actual redeemed gross
+   * (by the handler, or by history recovery confirming the tx), so every surface marks it "≈" until then. Absent on
+   * records written before it existed — read as the reconciled actual.
+   */
+  amountIsEstimate?: boolean
 }
 
 /**
@@ -713,6 +729,12 @@ export interface TxRecord<K extends TxKind = TxKind> {
   artifacts: Partial<ArtifactsFor<K>>
   walletContext: TxWalletContext
 }
+
+/**
+ * A tx a Review step is about to submit — its kind + the meta it will carry, before it has a lifecycle. Figures
+ * render from it exactly as from the stored record (`lib/fees/txFigures`), so Review shows what the record holds.
+ */
+export type TxDraft<K extends TxKind = TxKind> = { [P in K]: { kind: P; meta: MetaFor<P> } }[K]
 
 /* Lifecycle metadata — drives steppers, retry buttons, expiry rules. */
 

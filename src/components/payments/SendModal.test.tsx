@@ -1,12 +1,13 @@
 // ABOUTME: Tests for SendModal orchestrator — send flow: address-driven kind selection + the recipient→amount→review→progress flow.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { SendModal } from './SendModal'
 import { mergeIntentAtom, openModalAtom, paymentIntentAtom } from '@/state/ui'
 import {
   activeShieldedWalletIdAtom,
+  shieldedWalletsAtom,
   evmAddressAtom,
   shieldedUsdcAtom,
   shieldedUsdcSpendableAtom,
@@ -18,7 +19,8 @@ import { txListAtom } from '@/state/tx'
 import type { TxRecord } from '@/lib/tx/types'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { C, F } from '@/test/fixtures/txValues'
-import { headlineAmount, summaryRow } from '@/test/summaryRows'
+import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults so the modal renders.
@@ -100,9 +102,12 @@ const hoistedPlan = vi.hoisted(() => {
   return { defaults, plan: defaults() }
 })
 // Like the real hook, it prices nothing once disabled (it only runs on the amount + review steps).
+// Like the real hook, it prices nothing once disabled or without a relayer quote.
 vi.mock('@/hooks/useTransferFeePlan', () => ({
-  useTransferFeePlan: (args: { enabled: boolean }) =>
-    args.enabled ? hoistedPlan.plan : { ...hoistedPlan.plan, fee: null, proofs: null, maxInput: null, pending: false },
+  useTransferFeePlan: (args: { enabled: boolean; quote: unknown }) =>
+    args.enabled && args.quote !== null
+      ? hoistedPlan.plan
+      : { ...hoistedPlan.plan, fee: null, proofs: null, maxInput: null, pending: false },
 }))
 
 // Public (0x) sends are unshields, dry-run at review for fragmentation; each test sets the outcome.
@@ -120,11 +125,12 @@ const hoistedCheck = vi.hoisted(() => {
   })
   return { defaults, result: defaults() }
 })
+// Like the real hook, it plans nothing while disabled or with no spend to plan (e.g. before the relayer quote loads).
 vi.mock('@/hooks/useSpendCheck', () => ({
-  useSpendCheck: (args: { enabled: boolean }) =>
-    args.enabled
+  useSpendCheck: (args: { enabled: boolean; spend: unknown }) =>
+    args.enabled && args.spend !== null
       ? hoistedCheck.result
-      : { ...hoistedCheck.result, fee: null, error: null, remedy: null, pending: false, blockReason: null },
+      : { ...hoistedCheck.result, fee: null, maxInput: null, error: null, remedy: null, pending: false, blockReason: null },
 }))
 
 // The private-send submit path strict-validates the 0zk recipient via the SDK
@@ -681,11 +687,162 @@ describe('<SendModal>', () => {
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
 
-    it('public send cross-chain: Fees folds in the CCTP fee, Total amount + F (deviation F23, #75)', async () => {
+    it('public send cross-chain: the amount step\'s fee caption is the relayer fee — the CCTP fee comes out of the amount (UN-2x)', () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(VALID_EVM, '31338')
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
+      expect(screen.getByText('+ $1.000003 FEE')).toBeInTheDocument()
+    })
+
+    it('public send cross-chain: the relayer fee, the CCTP fee from the amount (est.), Total amount + F (UN-2x, D2)', async () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
       await sendAndSettle(VALID_EVM, '31338', 'unshield-xchain', { broadcasterFeeAmount: F, cctpFee: C })
-      expect(summaryRow('Fees')).toBe('1.30001 USDC')
+      expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
+      expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
+  })
+
+  describe('a send to your own private address (PS-7, D3)', () => {
+    const OWN_0ZK = '0zk' + 'd'.repeat(40)
+    function withOwnAddress(store: ReturnType<typeof renderModal>) {
+      act(() => store.set(shieldedWalletsAtom, { 'rg-test': { id: 'rg-test', status: 'unlocked', shieldedAddress: OWN_0ZK } } as never))
+    }
+
+    it('is refused at the Recipient step — it would only pay the fee', () => {
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n })
+      withOwnAddress(store)
+      fireEvent.change(screen.getByLabelText('Recipient address'), { target: { value: OWN_0ZK } })
+      expect(screen.getByText("That's your own private address")).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Enter address/ })).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('is held at Review when a payment link points at it', () => {
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n, intent: { recipient: OWN_0ZK, amount: '3' } })
+      withOwnAddress(store)
+      expect(screen.getByText("That's your own private address — sending to yourself would only pay the fee.")).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    })
+  })
+
+  describe('before the relayer quote loads: no fee ("—") and Confirm held (G-4)', () => {
+    function withNoQuote(run: () => void) {
+      const original = hoistedFees.quote
+      ;(hoistedFees as { quote: typeof original | null }).quote = null
+      try {
+        run()
+      } finally {
+        hoistedFees.quote = original
+      }
+    }
+
+    it('a private send', () => withNoQuote(() => {
+      renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(VALID_0ZK)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    }))
+
+    it('a public send — planned at a zero fee it would show "0.00"', () => withNoQuote(() => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 0n, priceAt: vi.fn(async () => 0n) }
+      renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(VALID_EVM, '31337')
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+      expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+      expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+    }))
+  })
+
+  describe('the confirmation screen labels a payment the way Activity will (UN-7, D8)', () => {
+    async function confirmPublicSend(recipient: string) {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n, evm: VALID_EVM })
+      completeRecipientStep(recipient, '31337')
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === 'unshield-local' ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+        ))
+      })
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+    }
+
+    it('to your own connected wallet: an unshield, as its Activity row and receipt say', async () => {
+      await confirmPublicSend(VALID_EVM)
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('USDC unshield confirmed')
+    })
+
+    it('to anyone else: a send', async () => {
+      await confirmPublicSend('0x' + 'b'.repeat(40))
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('USDC sent successfully')
+    })
+  })
+
+  describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {
+    const ROWS = { fees: 'Fees', total: 'Total' }
+    /** Review a 10 USDC send, confirm it, settle its record as submitted, and read each surface's figures. */
+    async function figuresOnEverySurface(recipient: string, chain: string | undefined, kind: TxRecord['kind'], rows: Record<string, string> = ROWS) {
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(recipient, chain)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      const review = readFigures(rows)
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === kind)).toBe(true))
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === kind ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+        ))
+      })
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      const confirm = readFigures(rows)
+      const record = store.get(txListAtom).find((r) => r.kind === kind)!
+      cleanup()
+      render(<ActivityReceipt record={record} open onClose={vi.fn()} />)
+      const receipt = readFigures(rows)
+      return { review, confirm, receipt }
+    }
+
+    it('private send, planned as a 2-proof split', async () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: 2n * F, proofs: 2, priceAt: vi.fn(async () => 2n * F) }
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_0ZK, undefined, 'transfer-shielded')
+      expect(review).toEqual({ headline: '10', fees: '2.000006 USDC', total: '12.000006 USDC' })
+      expect(confirm).toEqual(review)
+      expect(receipt).toEqual(review)
+    })
+
+    it('public send on the hub', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31337', 'unshield-local')
+      expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', total: '11.000003 USDC' })
+      expect(confirm).toEqual(review)
+      expect(receipt).toEqual(review)
+    })
+
+    it('public send cross-chain', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31338', 'unshield-xchain', { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total' })
+      // The relayer fee; the CCTP estimate (2 bps of 10 = 0.002) on its own row; the total deducted is amount + relayer fee.
+      expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', cctp: '0.002 USDC', total: '11.000003 USDC' })
+      expect(confirm).toEqual(review)
+      expect(receipt).toEqual(review)
     })
   })
 })

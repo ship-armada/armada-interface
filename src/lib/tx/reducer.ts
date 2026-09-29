@@ -152,6 +152,18 @@ export function markRecoveredComplete<K extends TxKind>(record: TxRecord<K>): Tx
 }
 
 /**
+ * A record upgraded to completed by history recovery (`markRecoveredComplete`) keeps its authored meta — except a
+ * vault withdrawal still holding its typed estimate (its redeemed gross was never read): it takes the chain-derived
+ * gross from the recovered record, so it stops showing a quote-time figure as final. Anything else is returned as-is.
+ */
+export function adoptRecoveredAmount(upgraded: TxRecord, recovered: TxRecord): TxRecord {
+  if (upgraded.kind !== 'yield-withdraw' || recovered.kind !== 'yield-withdraw') return upgraded
+  const meta = (upgraded as TxRecord<'yield-withdraw'>).meta
+  if (meta.amountIsEstimate !== true) return upgraded
+  return { ...upgraded, meta: { ...meta, amount: (recovered as TxRecord<'yield-withdraw'>).meta.amount, amountIsEstimate: false } } as TxRecord
+}
+
+/**
  * Cross-chain kinds: a record's `sourceTxHash` is only the burn/source leg; terminal success
  * additionally requires CCTP delivery (the mint) on the destination chain.
  */

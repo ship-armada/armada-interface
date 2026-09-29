@@ -50,6 +50,7 @@ import { track } from '@/lib/telemetry'
 import { scanCctpDeliveryWindow } from '../unshield-xchain/scan'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { MetaShieldXchain, TxRecord } from '@/lib/tx/types'
+import { deliveredShieldMeta } from './reconcile'
 
 // MessageReceived ABI for ethers.Interface.parseLog. We route the destination scan through
 // ethers (rather than viem) so the app-wide bisecting JsonRpcProvider patch
@@ -798,8 +799,7 @@ async function runWaitForDelivery(
         logs: deliveryReceipt.logs as unknown as ReadonlyArray<Log>,
         messageTransmitterAddress: hubMessageTransmitter,
       })
-      if (info.received?.burnAmount !== undefined) reconciledMeta.amount = info.received.burnAmount
-      if (info.received?.cctpFee !== undefined) reconciledMeta.cctpFee = info.received.cctpFee
+      Object.assign(reconciledMeta, deliveredShieldMeta(info))
     }
   } catch { /* best-effort — keep the submit-time estimate */ }
 

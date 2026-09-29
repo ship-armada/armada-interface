@@ -1,7 +1,7 @@
 // ABOUTME: Reducer tests — patchArtifacts cursor pattern + typed-error mark transitions (markFailed string|TxError, markCancelled, markDismissed).
 
 import { describe, it, expect } from 'vitest'
-import { advance, markCancelled, markDismissed, markFailed, markRecoveredComplete, markWaiting, patchArtifacts, patchMeta, sourceHashProvesComplete } from './reducer'
+import { adoptRecoveredAmount, advance, markCancelled, markDismissed, markFailed, markRecoveredComplete, markWaiting, patchArtifacts, patchMeta, sourceHashProvesComplete } from './reducer'
 import { lifecycleFor } from './lifecycles'
 import type { TxRecord } from './types'
 
@@ -291,5 +291,25 @@ describe('sourceHashProvesComplete (T-H1)', () => {
     // separate leg. Recovery must NOT force-complete these or it paints a false "Funds delivered".
     expect(sourceHashProvesComplete('shield-xchain')).toBe(false)
     expect(sourceHashProvesComplete('unshield-xchain')).toBe(false)
+  })
+})
+
+describe('adoptRecoveredAmount (F14)', () => {
+  const withdraw = (meta: Record<string, unknown>) => ({
+    id: 'w', kind: 'yield-withdraw', executionState: 'expired', stage: 'hub-pending', stagesCompleted: [], updatedSeq: 3,
+    createdAt: 0, updatedAt: 0, walletContext: { shieldedWalletId: 'w', sourceChainId: 1, evmAddress: undefined }, artifacts: {},
+    meta: { amount: 10_000_000n, feeCacheId: 'x', shares: 1n, broadcasterFeeAmount: 1n, broadcasterShieldedAddress: '0zk', ...meta },
+  }) as unknown as import('./types').TxRecord
+
+  it('a withdrawal confirmed by recovery takes the chain-derived redeemed gross in place of its typed estimate', () => {
+    const upgraded = adoptRecoveredAmount(withdraw({ amountIsEstimate: true }), withdraw({ amount: 9_999_999n }))
+    expect(upgraded.meta).toMatchObject({ amount: 9_999_999n, amountIsEstimate: false })
+  })
+
+  it('leaves every other kind, and an already-reconciled withdrawal, as it was', () => {
+    const reconciled = withdraw({ amount: 9_999_998n, amountIsEstimate: false })
+    expect(adoptRecoveredAmount(reconciled, withdraw({ amount: 9_999_999n }))).toBe(reconciled)
+    const send = { ...withdraw({}), kind: 'transfer-shielded' } as unknown as import('./types').TxRecord
+    expect(adoptRecoveredAmount(send, withdraw({ amount: 1n }))).toBe(send)
   })
 })

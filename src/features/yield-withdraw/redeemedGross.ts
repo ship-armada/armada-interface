@@ -1,6 +1,8 @@
 // ABOUTME: Pure parse of a yield-withdraw (redeemAndShield) receipt → the actual redeemed gross USDC.
 // ABOUTME: Reads the on-chain USDC transfer INTO the pool (reliable/final), guarded against mis-parse.
 
+import type { MetaYieldWithdraw } from '@/lib/tx/types'
+
 /** ERC-20 `Transfer(address,address,uint256)` topic0. */
 export const ERC20_TRANSFER_TOPIC =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
@@ -48,4 +50,12 @@ export function redeemedGrossFromLogs(opts: {
     return undefined
   }
   return gross
+}
+
+/**
+ * What a withdrawal's record takes from its reconciled redeemed gross: the actual amount, replacing the typed estimate
+ * and clearing its est. marker. No readable gross leaves the estimate (still marked) — a later rescan corrects it.
+ */
+export function reconciledWithdrawMeta(gross: bigint | undefined): Partial<MetaYieldWithdraw> {
+  return gross !== undefined ? { amount: gross, amountIsEstimate: false } : {}
 }

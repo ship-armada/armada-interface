@@ -42,6 +42,8 @@ export interface SendRecipientStepProps {
   onDestChainIdChange: (chainId: number) => void
   /** Surfaced when the chosen public destination chain has no deployment manifest. */
   destDeploymentError?: string
+  /** The user's own shielded (0zk) address — refused as a recipient: a send to yourself only pays the fee. */
+  ownShieldedAddress?: string
   /** Previously-used recipients, newest-first — rendered as one-tap rows below the action row. */
   recentAddresses: RecentRecipient[]
   /** Fills the recipient (and restores its destination chain) from a recent row. */
@@ -58,6 +60,7 @@ export function SendRecipientStep({
   destChainId,
   onDestChainIdChange,
   destDeploymentError,
+  ownShieldedAddress,
   recentAddresses,
   onSelectRecent,
   onCancel,
@@ -111,15 +114,19 @@ export function SendRecipientStep({
   const evmValidation = validateEvmAddress(recipientTrimmed)
   // A public recipient is a valid 0x address that is NOT a shielded 0zk address.
   const isPublic = !isPrivate && evmValidation.valid
-  const recipientValid = isPrivate || isPublic
+  // Your own 0zk isn't a recipient: the note comes straight back, so the send would only pay the fee (spec PS-7).
+  const recipientIsSelf = isPrivate && ownShieldedAddress !== undefined && recipientTrimmed === ownShieldedAddress
+  const recipientValid = (isPrivate && !recipientIsSelf) || isPublic
   const recipientInvalid = hasInput && !recipientValid
   // Terse single-line copy so it reads cleanly in the above-field warning tooltip (matches the
   // amount step's over-balance tooltip).
-  const recipientError = recipientInvalid
-    ? evmValidation.error === 'checksum'
-      ? 'Address checksum mismatch'
-      : 'Enter a valid 0zk or 0x address'
-    : undefined
+  const recipientError = recipientIsSelf
+    ? "That's your own private address"
+    : recipientInvalid
+      ? evmValidation.error === 'checksum'
+        ? 'Address checksum mismatch'
+        : 'Enter a valid 0zk or 0x address'
+      : undefined
   const recipientErrorId = useId()
 
   // Full address while focused/editing; middle-truncated when blurred so long addresses stay legible.

@@ -2,6 +2,7 @@
 // ABOUTME: Presentation via design ConfirmedScreenLayout (armada-app SendConfirmedScreen parity).
 
 import { ConfirmedScreenLayout } from '@/design'
+import type { CctpFeeFigure } from '@/lib/fees/txFigures'
 import { TransferReviewSummary } from './TransferReviewSummary'
 import { formatUsdcPlain } from '@/lib/format'
 import { isShieldedAddress } from '@/lib/address'
@@ -14,8 +15,11 @@ export interface SendCompleteStepProps {
   armadaAddress?: string
   /** Gross amount sent/withdrawn (raw 6-decimal USDC) — shown full-precision in the amount block. */
   amount: bigint
-  /** Inclusive Fee total — broadcaster + protocol + CCTP. Rendered as "—" when null. */
+  /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null. */
   fee: bigint | null
+  /** A cross-chain unshield's CCTP fee — taken from the amount in transit, so not part of `fee` or the total — and
+   *  whether it's still the estimate. Shown on its own row; the Fees row then reads "Relayer fee". */
+  cctpFee?: CctpFeeFigure | null
   /** USDC deducted from the user's shielded balance — `amount + fee`; the summary's Total row. */
   totalDeducted: bigint
   /** Destination chain name — shown on the summary's Network row for public (0x) recipients. */
@@ -36,6 +40,7 @@ export function SendCompleteStep({
   armadaAddress,
   amount,
   fee,
+  cctpFee = null,
   totalDeducted,
   networkName,
   recipientWalletProvider,
@@ -63,6 +68,7 @@ export function SendCompleteStep({
         recipient={recipient}
         armadaAddress={armadaAddress}
         fee={fee}
+        cctpFee={cctpFee}
         totalDeducted={totalDeducted}
         variant={variant}
         networkName={networkName}

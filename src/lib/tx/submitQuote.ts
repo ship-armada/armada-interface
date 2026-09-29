@@ -3,6 +3,12 @@
 
 import type { FeeSchedule } from '@/lib/relayer'
 
+/**
+ * Why a relayer-paid flow's Confirm is held while its fee quote hasn't loaded: without the per-proof fee there is no
+ * fee to show ("—", never 0 — spec G-4) and nothing a submit could be checked against.
+ */
+export const QUOTE_PENDING_REASON = 'Getting the relayer fee…'
+
 export interface ResolveFreshQuoteResult {
   /** The freshly fetched quote to submit with; null when the relayer couldn't be reached. */
   quote: FeeSchedule | null

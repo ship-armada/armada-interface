@@ -16,3 +16,13 @@ export function headlineAmount(): string {
   if (amount === null) throw new Error('no headline amount beside the title')
   return amount.textContent ?? ''
 }
+
+/**
+ * A surface's figures — its headline plus the value beside each labelled row, keyed by `rows`' keys — with an
+ * estimate's "≈ " marker dropped, so the same figure compares equal on Review (estimated) and after submit.
+ */
+export function readFigures(rows: Record<string, string>): Record<string, string> {
+  const figures: Record<string, string> = { headline: headlineAmount() }
+  for (const [key, label] of Object.entries(rows)) figures[key] = summaryRow(label).replace(/^≈ /, '')
+  return figures
+}

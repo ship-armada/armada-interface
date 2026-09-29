@@ -52,7 +52,17 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(summaryRow('You received')).toBe('8.829985 USDC')
     })
 
-    it('pending, with no CCTP fee stored yet: the fee leaves it out (deviation F3, #73)', () => {
+    it('pending, with the CCTP estimate stored at submit: Fees and the net marked as estimates (SH-15, G-5)', () => {
+      showReceipt(
+        'shield-xchain',
+        { amount: A, fromChainId: 31338, useGasless: true, feeAmount: F, protocolFee: P, cctpFee: C, cctpFeeIsEstimate: true },
+        { executionState: 'active' },
+      )
+      expect(summaryRow('Fees')).toBe('≈ 1.320021 USDC')
+      expect(summaryRow("You'll receive")).toBe('≈ 8.679979 USDC')
+    })
+
+    it('pending, written before the CCTP estimate was stored at submit: the fee leaves it out', () => {
       showReceipt(
         'shield-xchain',
         { amount: A, fromChainId: 31338, useGasless: true, feeAmount: F, protocolFee: P },
@@ -93,12 +103,14 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
 
-    it('cross-chain: Fees folds in the CCTP estimate, Total = amount + relayer fee (deviation F23, #75)', () => {
-      showReceipt('unshield-xchain', spendMeta(F, { recipient: RECIPIENT_EVM, toChainId: 31338, cctpFee: C }), {
+    it('cross-chain: the relayer fee, the CCTP fee taken from the amount (est.), Total = amount + relayer fee (UN-2x, D2)', () => {
+      showReceipt('unshield-xchain', spendMeta(F, { recipient: RECIPIENT_EVM, toChainId: 31338, cctpFee: C, cctpFeeIsEstimate: true }), {
         stage: 'client-mint-confirmed',
       } as Partial<TxRecord>)
-      expect(summaryRow('Fees')).toBe('1.30001 USDC')
+      expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
+      expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(screen.queryByText('Fees')).toBeNull()
     })
 
     it('cross-chain, written before the CCTP fee was stored: the relayer fee alone', () => {
@@ -129,6 +141,13 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
     })
   })
 
+  describe('yield-withdraw, unreconciled', () => {
+    it('the typed amount and its net read as estimates (YD-10, G-5)', () => {
+      showReceipt('yield-withdraw', { amount: A, shares: 1n, broadcasterFeeAmount: F, broadcasterShieldedAddress: RELAYER_0ZK, amountIsEstimate: true })
+      expect(summaryRow('Received into private balance')).toBe('≈ 8.999997 USDC')
+    })
+  })
+
   describe('consolidate', () => {
     it('the fee is the headline, the Fees and the Total (MG-1, MG-2)', () => {
       showReceipt('consolidate', {
@@ -138,6 +157,48 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(headlineAmount()).toBe('2.000006')
       expect(summaryRow('Fees')).toBe('2.000006 USDC')
       expect(summaryRow('Total')).toBe('2.000006 USDC')
+    })
+  })
+
+  describe('non-settled (G-9)', () => {
+    const reverted = { executionState: 'failed', artifacts: { error: { code: 'TX_REVERTED', message: 'Reverted' } } } as Partial<TxRecord>
+    const cancelled = { executionState: 'cancelled', artifacts: { error: { code: 'CANCELLED', message: 'Cancelled' } } } as Partial<TxRecord>
+
+    it('a failed send moved nothing: no Fees or Total', () => {
+      showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), reverted)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+    })
+
+    it('a cancelled shield moved nothing: no Fees or "You\'ll receive"', () => {
+      showReceipt('shield', { amount: A, fromChainId: 31337, useGasless: true, feeAmount: F, protocolFee: P }, cancelled)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow("You'll receive")).toBe('—')
+    })
+
+    it('a failed vault deposit moved nothing', () => {
+      showReceipt('yield-deposit', spendMeta(F), reverted)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total deducted from balance')).toBe('—')
+    })
+
+    it('a failed merge moved nothing', () => {
+      showReceipt('consolidate', { ...spendMeta(2n * F), amount: 0n, tokenAddress: '0xusdc', tokenSymbol: 'USDC' }, reverted)
+      expect(summaryRow('Fees')).toBe('—')
+      expect(summaryRow('Total')).toBe('—')
+    })
+
+    it('a cross-chain unshield whose delivery failed after the burn still shows what was charged', () => {
+      showReceipt('unshield-xchain', spendMeta(F, { recipient: RECIPIENT_EVM, toChainId: 31338, cctpFee: C }), {
+        ...reverted, stagesCompleted: ['build-proof', 'submit-relayer', 'hub-burn-confirmed'],
+      } as Partial<TxRecord>)
+      expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
+      expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
+
+    it('an expired send may still have settled: its figures stay', () => {
+      showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), { executionState: 'expired' })
+      expect(summaryRow('Fees')).toBe('1.000003 USDC')
     })
   })
 })

@@ -13,7 +13,7 @@ which the Unshield tab and `ActivityReceipt` reuse to render unshield reviews/re
 | Component | Purpose |
 |---|---|
 | `SendModal` | Orchestrator. Owns step + form state; derives `variant` from the open modal kind. Three `useTx` hooks mounted (`transfer-shielded` / `unshield-local` / `unshield-xchain`); the submitted one's record drives Progress + Complete. |
-| `SendRecipientStep` | First step. Editable recipient (0zk or 0x), a privacy indicator, a destination-chain selector shown **only** for public 0x recipients, and a **recent-recipients list** below the action row. Continue is gated on a valid address. |
+| `SendRecipientStep` | First step. Editable recipient (0zk or 0x), a privacy indicator, a destination-chain selector shown **only** for public 0x recipients, and a **recent-recipients list** below the action row. Continue is gated on a valid address — the wallet's own 0zk is refused (a send to yourself only pays the fee; a payment link that points at it is held at Review). |
 | `RecentAddressList` | Presentational "Recent address" list — previously-used recipients as one-tap rows (arrow badge + truncated address + relative time). Data comes from `useRecentRecipients` (derived from settled tx history); a click fills the recipient and restores its destination chain. Empty history renders nothing. Hidden on mobile once a valid address is typed. |
 | `SendInputStep` | Amount step. `DepositAmountCard` with the chain rendered **statically** (chosen on the recipient step). Gates Review on the amount only. The fee caption reads "Estimating fees…" until the send's plan (private: the fee plan; public: the unshield's) prices the amount (never the one-proof quote first), and "—" when the planner refuses it (Review's fee and Total rows too). |
 | `SendReviewStep` | Read-only echo. Shows the resolved mode label (Private transfer / External wallet) + cross-chain tag when applicable. Variant drives the headline + confirm label. |
@@ -57,9 +57,13 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   it can exceed the quote. It gets the same treatment — "Estimating fees…" / "—" until priced, re-priced
   at Confirm, total + per-proof stored, the build capped at the reviewed total — and its Max comes from
   the SDK too (`wallet.maxUnshieldAmount`: one proof, one tree). An unshield record also
-  stores the protocol fee (`protocolFee`) and, cross-chain, the CCTP fee (`cctpFee`) shown at review. The confirmation screen (and the Unshield
-  tab's) and the Activity receipt all derive the fee from the record alone (`lib/fees/txFigures`),
-  not the live plan/quote, which stop pricing after review and keep refreshing.
+  stores the protocol fee (`protocolFee`) and, cross-chain, the CCTP fee (`cctpFee`, marked `cctpFeeIsEstimate`) shown
+  at review. Review renders the draft record it will submit (`lib/tx/spendDraft.ts` — shared with the Unshield tab)
+  through `lib/fees/txFigures`, and submit sends that draft; the confirmation screen (and the Unshield tab's) and the
+  Activity receipt derive the figures from the stored record through the same function, not the live plan/quote,
+  which stop pricing after review and keep refreshing. A cross-chain unshield itemises "Relayer fee" and "CCTP fee
+  (from amount)" — the CCTP fee comes out of the amount in transit, so it isn't in the Total (amount + relayer fee).
+  Until the relayer quote loads there's no fee: "Estimating fees…", Review "—", Confirm held.
 - A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's
   "Too many small notes" callout (`MergeNotesNotice`, Confirm held) before any attempt (private sends from the fee plan; public sends, which are unshields, from a
   `useSpendCheck` dry run) and on the error step (from the record's

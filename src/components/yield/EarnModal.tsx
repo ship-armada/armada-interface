@@ -10,16 +10,18 @@ import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
-import { useYieldRate } from '@/hooks/useYieldRate'
+import { frozenApyRate, useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
 import { computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
 import { withdrawBelowFee } from '@/lib/fees/displayFees'
 import { txFiguresAs } from '@/lib/fees/txFigures'
+import type { TxDraft } from '@/lib/tx/types'
+import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
-import { resolveFreshQuote } from '@/lib/tx/submitQuote'
+import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { sharesToUsdc } from '@/lib/yield'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import {
@@ -104,12 +106,15 @@ export function EarnModal() {
   // USDC (+ its fee note, whose planned value is the fee: the SDK folds small change into it when that's
   // what makes it fit); a withdrawal spends vault shares (its fee is taken contract-side — no fee note, so
   // it keeps the quoted fee), estimated at the current rate.
+  // Nothing is planned or priced until the relayer quote loads: its per-proof fee would read 0, and a figure priced at
+  // 0 would show a zero fee (spec G-4).
+  const quotePending = quote === null
   const vaultSpend: BlockedSpend | null =
-    tab === 'add'
-      ? { kind: 'yield-deposit', amount, perProofFee: quotedFee }
-      : yieldRate !== null && yieldRate.rate > 0n
-        ? { kind: 'yield-withdraw', amount: (amount * 1_000_000_000_000_000_000n) / yieldRate.rate, perProofFee: 0n }
-        : null
+    quotePending ? null
+    : tab === 'add' ? { kind: 'yield-deposit', amount, perProofFee: quotedFee }
+    : yieldRate !== null && yieldRate.rate > 0n
+      ? { kind: 'yield-withdraw', amount: (amount * 1_000_000_000_000_000_000n) / yieldRate.rate, perProofFee: 0n }
+      : null
   const vaultToken = tab === 'add' ? 'usdc' : 'shares'
   const spendCheck = useSpendCheck({
     enabled: isOpen && (step === 'input' || step === 'review'),
@@ -121,7 +126,6 @@ export function EarnModal() {
   // (the fee itself reads as pending / "—" meanwhile). A withdrawal's fee is the quote.
   const isDeposit = tab === 'add'
   const fee: bigint = isDeposit ? (spendCheck.fee ?? quotedFee) : quotedFee
-  const depositFeeUnknown = isDeposit && spendCheck.fee === null
   // Both yield ops are fee-on-top in `computeFeeBreakdown`'s model, but the balance flows differ:
   //   - Add Funds: user unshields (amount + fee) USDC. `totalDeducted = amount + fee` is the
   //     literal private-balance debit. `recipientReceives = amount` is what the vault gains.
@@ -143,12 +147,6 @@ export function EarnModal() {
     max,
     { protocolFee: displayFees.protocolFee },
   )
-  const flowBreakdown = {
-    broadcasterFee: fee,
-    recipientReceives,
-    totalDeducted,
-    recipientLabel: tab === 'add' ? 'Vault receives' : "You'll receive into private balance",
-  }
   // For withdraw the fee is skimmed from the redeemed proceeds, not reserved on top, so the typeable
   // cap is the FULL vault balance — don't subtract the fee from `max`. The only lower bound is that
   // the withdrawal must exceed its own fee (else the redeem can't pay it); that's enforced via the
@@ -162,12 +160,44 @@ export function EarnModal() {
   // Total displayed fee (broadcaster + any protocol fee) — the figure shown on the summary's
   // "Fees" row. Hoisted so the net-received total below subtracts the SAME number.
   const displayFeeTotal: bigint = fee + displayFees.protocolFee
-  // For withdraw, the vault redeems `amount` USDC and the broadcaster fee is skimmed from those
-  // proceeds (contract-side), so the user receives the NET `amount - fee` into their private balance;
-  // pre-existing private USDC is untouched. The itemized "Your withdrawal" and "Fees" rows above keep
-  // both visible. A withdrawal at or below its own fee is blocked at review (see below), so the net
-  // shown here is always ≥ 0.
-  const displayNetAmount: bigint = tab === 'add' ? totalDeducted : amount - displayFeeTotal
+  // The record this vault op will submit, built once from the reviewed figures: Review renders it (through
+  // txFigures, like every later surface) and submit sends it, so the stored record is what Review showed. For
+  // withdraw, the vault redeems `amount` USDC and the broadcaster fee is skimmed from those proceeds
+  // (contract-side), so the user receives the NET `amount - fee` into their private balance; pre-existing private
+  // USDC is untouched. A withdrawal at or below its own fee is blocked at review (see below), so that net is
+  // always ≥ 0. No deposit draft (and "—" for its fee and total) until its plan prices it.
+  const reviewedApy = yieldRate !== null ? { apyBps: yieldRate.apyBps } : {}
+  const reviewedBroadcaster = {
+    feeCacheId: quote?.cacheId ?? '',
+    broadcasterShieldedAddress: quote?.broadcasterShieldedAddress ?? '',
+  }
+  const reviewed: TxDraft<'yield-deposit' | 'yield-withdraw'> | null =
+    quotePending ? null
+    : isDeposit
+      ? spendCheck.fee === null
+        ? null
+        : {
+            kind: 'yield-deposit',
+            meta: { amount, ...reviewedBroadcaster, broadcasterFeeAmount: spendCheck.fee, broadcasterFeePerProof: quotedFee, ...reviewedApy },
+          }
+      : {
+          kind: 'yield-withdraw',
+          // The shares to redeem are re-read at submit against the freshest rate (slippage protection).
+          // The amount is the quote-time estimate until the handler reads the actual redeemed gross.
+          meta: { amount, ...reviewedBroadcaster, shares: 0n, broadcasterFeeAmount: quotedFee, ...reviewedApy, amountIsEstimate: true },
+        }
+  const reviewFigures = reviewed ? txFiguresAs(reviewed, 'yield') : null
+  // The amount card's fee breakdown. A deposit is fee-on-top: the vault receives the amount, the balance is debited
+  // amount + fee. A withdrawal's fee comes out of the redeemed proceeds instead — the private balance isn't debited,
+  // so there's no "Total deducted", and what arrives is the Review draft's net (spec YD-12, YD-13).
+  const flowBreakdown: FlowFeeBreakdown = isDeposit
+    ? { broadcasterFee: fee, recipientReceives, totalDeducted, recipientLabel: 'Vault receives' }
+    : {
+        broadcasterFee: fee,
+        feeFromProceeds: true,
+        ...(reviewFigures ? { recipientReceives: reviewFigures.netAmount } : {}),
+        recipientLabel: "You'll receive into private balance",
+      }
   const displayNetLabel: string =
     tab === 'add' ? 'Total deducted from balance' : "You'll receive into private balance"
   // Past-tense variant for the confirmed screen — the review says "You'll receive…", the
@@ -191,7 +221,8 @@ export function EarnModal() {
   const relayerBlock = useRelayerSubmitBlock(isOpen)
   // Composed gate for the review step — sync gate OR private-USDC shortfall OR relayer unavailable.
   const submitBlockedReason: string | null =
-    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || spendCheck.blockReason
+    syncGate.reason || withdrawFeeBlockedReason || relayerBlock || (quotePending ? QUOTE_PENDING_REASON : null)
+    || spendCheck.blockReason
 
   // Two useTx hooks; only one gets a record per flow.
   const txDeposit = useTx({ kind: 'yield-deposit' })
@@ -204,15 +235,11 @@ export function EarnModal() {
   // A spend blocked by fragmentation offers "Merge notes" on its error screen (a consolidate tx).
   const { remedyFor, openMerge } = useMergeNotes()
 
-  // Completion-screen figures. Once a record exists its meta is authoritative — for WITHDRAW the
-  // handler reconciles meta.amount to the ACTUAL redeemed gross (shares × execution-rate), so "confirm"
-  // shows the real figure identical to the activity receipt, not the submit-time estimate. Deposit
-  // amount is exact at submit (no rate drift). Falls back to the estimate before a record exists
-  // (never rendered — Complete only shows post-submit).
-  const recorded = record ? txFiguresAs(record, 'yield') : null
-  const completeReceipt = recorded
-    ? { amount: recorded.headline, fee: recorded.fee, netAmount: recorded.netAmount }
-    : { amount, fee: displayFeeTotal, netAmount: displayNetAmount }
+  // Completion-screen figures, from the record — its meta is authoritative: for WITHDRAW the handler reconciles
+  // meta.amount to the ACTUAL redeemed gross (shares × execution-rate), so "confirm" shows the real figure identical
+  // to the activity receipt, not the submit-time estimate. Deposit amount is exact at submit (no rate drift).
+  // Complete only shows post-submit, when the record exists.
+  const completeReceipt = record ? txFiguresAs(record, 'yield') : null
 
   // Reset on close + sync initial tab when the entry-point modal kind changes.
   // Also pull a fresh rate on open so the APY hint + max-balance reflect current state — the
@@ -295,7 +322,7 @@ export function EarnModal() {
         // total means the user hasn't approved it — re-review.
         const perProofFee = userFeeForKind(yieldKind, amount, activeQuote)
         const freshFee = await spendCheck.priceAt(perProofFee)
-        if (freshFee !== fee) {
+        if (reviewed?.kind !== 'yield-deposit' || freshFee !== reviewed.meta.broadcasterFeeAmount) {
           await spendCheck.invalidate()
           setFeeChanged(true)
           setStep('review')
@@ -310,15 +337,9 @@ export function EarnModal() {
           balance: max,
         })
         setSubmittedKind('yield-deposit')
-        submittedId = await txDeposit.submit({
-          amount,
-          feeCacheId,
-          broadcasterFeeAmount: freshFee,
-          broadcasterFeePerProof: perProofFee,
-          broadcasterShieldedAddress,
-          // Freeze the reviewed net APY so the receipt can show it (persisted for rescan via selfMetadata).
-          ...(yieldRate !== null ? { apyBps: yieldRate.apyBps } : {}),
-        })
+        // The reviewed draft (incl. the reviewed net APY, frozen so the receipt can show it — persisted for rescan
+        // via selfMetadata), with the fresh quote's cache id + broadcaster address.
+        submittedId = await txDeposit.submit({ ...reviewed.meta, feeCacheId, broadcasterShieldedAddress })
       } else {
         setSubmittedKind('yield-withdraw')
         // Slippage protection: re-read the vault rate just before computing shares so the
@@ -331,13 +352,18 @@ export function EarnModal() {
           effectiveRate !== null && effectiveRate.rate > 0n
             ? (amount * 1_000_000_000_000_000_000n) / effectiveRate.rate
             : 0n
+        if (reviewed?.kind !== 'yield-withdraw' || broadcasterFeeAmount !== reviewed.meta.broadcasterFeeAmount) {
+          setFeeChanged(true)
+          setStep('review')
+          return
+        }
+        // The reviewed draft, with the fresh quote's cache id + broadcaster address, the shares at the freshest
+        // rate, and that rate's net APY — frozen so the receipt can show it (persisted for rescan via selfMetadata).
         submittedId = await txWithdraw.submit({
-          amount,
+          ...reviewed.meta,
           feeCacheId,
           shares,
-          broadcasterFeeAmount,
           broadcasterShieldedAddress,
-          // Freeze the reviewed net APY so the receipt can show it (persisted for rescan via selfMetadata).
           ...(effectiveRate !== null ? { apyBps: effectiveRate.apyBps } : {}),
         })
       }
@@ -393,8 +419,8 @@ export function EarnModal() {
             pending={pendingUsdc}
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
-            feeLoading={feeLoading || (isDeposit && spendCheck.pending)}
-            feeResolving={isDeposit && spendCheck.pending}
+            feeLoading={feeLoading || quotePending || (isDeposit && spendCheck.pending)}
+            feeResolving={quotePending || (isDeposit && spendCheck.pending)}
             feeUnavailable={isDeposit && spendCheck.error !== null}
             gasChainId={hubChainId}
             // Both tabs are relayer-mediated (gasless) — no wallet-submit fallback (#23).
@@ -422,11 +448,11 @@ export function EarnModal() {
           rate={yieldRate}
           // Inclusive Fee total — broadcaster + protocol. No CCTP on yield kinds. "—" (fee and total) until
           // the deposit's plan prices it: the quote would suggest it fits, then jump.
-          fee={depositFeeUnknown ? null : displayFeeTotal}
-          netAmount={depositFeeUnknown ? null : displayNetAmount}
+          fee={reviewFigures?.fee ?? null}
+          netAmount={reviewFigures?.netAmount ?? null}
           netLabel={displayNetLabel}
           // Withdraw redeems fixed shares at the execution-rate → the net received is an estimate.
-          estimated={tab === 'withdraw'}
+          estimated={reviewFigures?.estimated ?? tab === 'withdraw'}
           submitBlockedReason={submitBlockedReason}
           {...(spendCheck.remedy === 'merge-notes' && vaultSpend !== null
             ? { onMergeNotes: () => openMerge({ token: vaultToken, blocked: vaultSpend }) }
@@ -438,16 +464,18 @@ export function EarnModal() {
         />
       )}
       {step === 'progress' && <ProgressStep record={record} />}
-      {step === 'complete' && (
+      {step === 'complete' && completeReceipt && (
         <EarnCompleteStep
           tab={tab}
-          amount={completeReceipt.amount}
-          rate={yieldRate}
+          amount={completeReceipt.headline}
+          // The net APY the user reviewed, frozen on the record — not the live rate, refreshed after completion.
+          rate={completeReceipt.apyBps !== null ? frozenApyRate(completeReceipt.apyBps) : null}
           fee={completeReceipt.fee}
           // Per-tab net figure derived from the (reconciled) record: Add debits `amount + fee`;
           // Withdraw nets `amount - fee` into private balance (the fee is skimmed from the redeemed
           // proceeds). `amount` is the actual redeemed gross once the handler reconciles it.
           netAmount={completeReceipt.netAmount}
+          estimated={completeReceipt.estimated}
           netLabel={completeNetLabel}
           confirmedAt={record?.updatedAt ?? Date.now()}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

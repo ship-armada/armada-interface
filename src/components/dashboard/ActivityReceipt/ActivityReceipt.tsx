@@ -9,7 +9,7 @@ import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
 import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSummary'
-import type { YieldRate } from '@/hooks/useYieldRate'
+import { frozenApyRate, type YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { getChainById, getNetworkConfig } from '@/config/network'
@@ -19,7 +19,7 @@ import {
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
 import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
-import { txFiguresAs } from '@/lib/fees/txFigures'
+import { moneyMoved, txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
 
@@ -67,6 +67,10 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       ? null
       : resolveTxErrorCopy(record.artifacts.error)
   const explorerUrl = txExplorerUrl(record.walletContext.sourceChainId, displayTxHash(record))
+  // A tx that failed or was cancelled before its first on-chain transaction confirmed moved no money: its fees and
+  // totals read "—" (the headline stays, struck through). One that did move money shows what it was charged.
+  const charged = moneyMoved(record)
+  const ifCharged = <T,>(value: T): T | null => (charged ? value : null)
 
   switch (record.kind) {
     case 'shield':
@@ -74,7 +78,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       const meta = (record as TxRecord<'shield' | 'shield-xchain'>).meta
       // received = amount − relayerFee − protocolFee − cctpFee — the single receipt-math source shared
       // with the completion screen so a completed shield reads identically wherever it's shown.
-      const { headline: amount, fee, netAmount } = txFiguresAs(record, 'deposit')
+      const { headline: amount, fee, netAmount, estimated } = txFiguresAs(record, 'deposit')
       return {
         flowLabel: 'Shield',
         steps: DEPOSIT_STEPS,
@@ -87,8 +91,9 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           <DepositReviewSummary
             fromChainId={meta.fromChainId}
             amount={amount}
-            fee={fee}
-            netAmount={netAmount}
+            fee={ifCharged(fee)}
+            netAmount={ifCharged(netAmount)}
+            estimated={estimated}
             confirmedAt={confirmedAt}
           />
         ),
@@ -100,7 +105,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       const meta = (record as TxRecord<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>)
         .meta
       // Fee + total from the record alone — the single receipt-math source shared with the confirmation screen.
-      const { headline: amount, fee, totalDeducted } = txFiguresAs(record, 'spend')
+      const { headline: amount, fee, totalDeducted, cctpFee } = txFiguresAs(record, 'spend')
       const isPrivate = record.kind === 'transfer-shielded'
       // A public unshield to your own wallet is a withdraw; otherwise (and private 0zk) it's a send.
       const asWithdraw = !isPrivate && isWithdrawToSelf(meta.recipient, ownWalletAddress)
@@ -121,8 +126,9 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         summary: (
           <TransferReviewSummary
             recipient={meta.recipient}
-            fee={fee}
-            totalDeducted={totalDeducted}
+            fee={ifCharged(fee)}
+            cctpFee={ifCharged(cctpFee)}
+            totalDeducted={ifCharged(totalDeducted)}
             variant={asWithdraw ? 'withdraw' : 'send'}
             networkName={networkName}
             confirmedAt={confirmedAt}
@@ -132,16 +138,15 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     }
     case 'yield-deposit':
     case 'yield-withdraw': {
-      const meta = (record as TxRecord<'yield-deposit' | 'yield-withdraw'>).meta
       // Single receipt-math source shared with the completion screen so a completed yield op reads
       // identically wherever it's shown (withdraw's `amount` is the handler-reconciled redeemed gross).
-      const { headline: amount, fee, netAmount } = txFiguresAs(record, 'yield')
+      const { headline: amount, fee, netAmount, apyBps, estimated: yieldEstimated } = txFiguresAs(record, 'yield')
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
       const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
       // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
       // the "Estimated APY" row shows the historical value. `EarnReviewSummary` reads only `apyBps`.
       // Absent on pre-capture records → keep the row hidden (unknown, not a fabricated 0%).
-      const rate: YieldRate | null = meta.apyBps !== undefined ? { rate: 0n, apyBps: meta.apyBps, fetchedAt: 0 } : null
+      const rate: YieldRate | null = apyBps !== null ? frozenApyRate(apyBps) : null
       return {
         flowLabel: 'Earn',
         steps: DEPOSIT_STEPS,
@@ -155,8 +160,9 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             tab={tab}
             amount={amount}
             rate={rate}
-            fee={fee}
-            netAmount={netAmount}
+            fee={ifCharged(fee)}
+            netAmount={ifCharged(netAmount)}
+            estimated={yieldEstimated}
             netLabel={netLabel}
             confirmedAt={confirmedAt}
             showApy={rate !== null}
@@ -181,7 +187,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             {...(meta.tokenSymbol !== undefined ? { tokenLabel: meta.tokenSymbol } : {})}
             {...(meta.notesMerged !== undefined ? { notesMerged: meta.notesMerged } : {})}
             {...(meta.notesCreated !== undefined ? { notesCreated: meta.notesCreated } : {})}
-            fee={fee}
+            fee={ifCharged(fee)}
             {...(confirmedAt !== undefined ? { confirmedAt } : {})}
           />
         ),

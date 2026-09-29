@@ -30,10 +30,12 @@ import {
 import { parseUsdcInput } from '@/lib/format'
 import { cctpFastFeeForAmount, computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
 import { txFiguresAs } from '@/lib/fees/txFigures'
+import { isWithdrawToSelf } from '@/components/dashboard/txActivityAdapter'
+import { spendDraft } from '@/lib/tx/spendDraft'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
-import { resolveFreshQuote } from '@/lib/tx/submitQuote'
+import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import {
@@ -62,6 +64,9 @@ type SubmittedKind = 'transfer-shielded' | 'unshield-local' | 'unshield-xchain'
 
 // Address-driven kind selection: a valid shielded (0zk) recipient is an in-pool transfer; any other
 // (valid EVM 0x) recipient is an unshield, local when it targets the hub and cross-chain otherwise.
+/** Why Review holds a send to your own private address (a payment link can point at it). */
+const SELF_SEND_REASON = "That's your own private address — sending to yourself would only pay the fee."
+
 function computeKind(recipient: string, destChainId: number, hubChainId: number): SubmittedKind {
   if (isShieldedAddress(recipient.trim())) return 'transfer-shielded'
   return destChainId === hubChainId ? 'unshield-local' : 'unshield-xchain'
@@ -231,7 +236,15 @@ export function SendModal() {
   // steps, like a private send — for the fee its plan charges (the SDK folds small change into the fee
   // when that's what makes it fit) and so a wallet too fragmented for it is offered "Merge notes" before
   // anything is attempted.
-  const publicSpend: BlockedSpend | null = isPrivate ? null : { kind: computedKind, amount, perProofFee: quotedFee }
+  // Nothing is planned until the relayer quote loads: its per-proof fee would read 0, and a plan priced at 0 would
+  // show a zero fee (spec G-4).
+  const quotePending = quote === null
+  // A send to your own 0zk only pays the fee — the Recipient step refuses it, and a payment link that points at it is
+  // held at Review (spec PS-7).
+  const recipientIsSelf = isPrivate && shieldedWallet.shieldedAddress !== undefined
+    && recipient.trim() === shieldedWallet.shieldedAddress
+  const publicSpend: BlockedSpend | null =
+    isPrivate || quotePending ? null : { kind: computedKind, amount, perProofFee: quotedFee }
   const spendCheck = useSpendCheck({
     enabled: isOpen && !isPrivate && (step === 'input' || step === 'review'),
     spend: publicSpend,
@@ -242,7 +255,7 @@ export function SendModal() {
   // quote only stands in for the arithmetic below until it's known; the fee itself reads as pending / "—".
   const plannedFee: bigint | null = isPrivate ? transferPlan.fee : spendCheck.fee
   const fee: bigint = plannedFee ?? quotedFee
-  const planPending = isPrivate ? transferPlan.pending : spendCheck.pending
+  const planPending = quotePending || (isPrivate ? transferPlan.pending : spendCheck.pending)
   const planFailed = isPrivate ? transferPlan.error !== null : spendCheck.error !== null
   // CCTP fast-fee — paid out of the destination mint on xchain, not the user's shielded balance.
   // Distinct semantics from `fee` (which is the on-top relayer fee). Zero for non-xchain kinds.
@@ -285,17 +298,30 @@ export function SendModal() {
   const flowBreakdown = {
     broadcasterFee: fee,
     cctpFee: isXchain ? cctpFee : undefined,
+    // Taken from the amount in transit, not charged on top — listed in the tooltip, not in the FEE caption.
+    cctpFeeFromAmount: isXchain,
     recipientReceives,
     totalDeducted,
     recipientLabel: 'Recipient receives',
   }
-  // Inclusive Fee total surfaced on both the input card's FEE row and the review FeeSummary —
-  // broadcaster + on-chain protocol + CCTP (when applicable). The breakdown tooltip exposes the
-  // individual components.
-  const displayedFee = fee + displayFees.protocolFee + cctpFee
-  // The fee is the plan's, so until the plan settles (or when it refuses the amount) there is no fee to
-  // show — the one-proof quote it falls back to would suggest the send fits, then jump.
-  const planFeeUnknown = plannedFee === null
+  // The record this send will submit, built once from the reviewed figures: Review renders it (through
+  // txFigures, like every later surface) and submit sends it, so the stored record is what Review showed.
+  // The fee is the plan's, so until the plan settles (or when it refuses the amount) there is no draft and
+  // no fee to show — the one-proof quote it falls back to would suggest the send fits, then jump.
+  const reviewed = plannedFee === null
+    ? null
+    : spendDraft(computedKind, {
+        amount,
+        recipient,
+        toChainId: destChainId,
+        fee: plannedFee,
+        perProofFee: quotedFee,
+        protocolFee: displayFees.protocolFee,
+        cctpFee,
+        feeCacheId: quote?.cacheId ?? '',
+        broadcasterShieldedAddress: quote?.broadcasterShieldedAddress ?? '',
+      })
+  const reviewFigures = reviewed ? txFiguresAs(reviewed, 'spend') : null
   // The confirmation screen reports what the send actually charged, from its record (as the Activity
   // receipt does): a split send's fee is one per-proof fee per proof, and the live plan/quote above stop
   // pricing after review.
@@ -370,7 +396,7 @@ export function SendModal() {
       // different total means the user hasn't approved it — re-review.
       const perProofFee = userFeeForKind(computedKind, amount, activeQuote)
       const freshFee = isPrivate ? await transferPlan.priceAt(activeQuote) : await spendCheck.priceAt(perProofFee)
-      if (freshFee !== fee) {
+      if (reviewed === null || freshFee !== reviewed.meta.broadcasterFeeAmount) {
         await (isPrivate ? transferPlan.invalidate() : spendCheck.invalidate())
         setFeeChanged(true)
         setStep('review')
@@ -379,7 +405,13 @@ export function SendModal() {
       // S-M5: re-validate amount + the FRESH relayer fee against the balance before proof gen. All
       // three kinds draw the fee from the shielded balance (fee-on-top) on the relayer path.
       assertSpendableForFeeOnTop({ amount, fee: freshFee, balance: max })
-      if (computedKind === 'transfer-shielded') {
+      // What the send submits is the reviewed draft, with the fresh quote's cache id + broadcaster address.
+      const fresh = {
+        feeCacheId,
+        broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
+        devForceError: forcedOutcome ?? undefined,
+      }
+      if (reviewed.kind === 'transfer-shielded') {
         // Strict-validate the user's typed 0zk recipient (bech32m checksum, not just shape) at the
         // funds-committing boundary — a transposed character would otherwise send a private
         // transfer to a valid-shaped but wrong/unspendable address. The recipient step's regex is
@@ -399,17 +431,8 @@ export function SendModal() {
           )
         }
         setSubmittedKind('transfer-shielded')
-        submittedId = await txTransfer.submit({
-          amount,
-          feeCacheId,
-          recipient,
-          // The approved total across every proof, and the per-proof fee the build re-plans at.
-          broadcasterFeeAmount: freshFee,
-          broadcasterFeePerProof: perProofFee,
-          broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          devForceError: forcedOutcome ?? undefined,
-        })
-      } else if (computedKind === 'unshield-local') {
+        submittedId = await txTransfer.submit({ ...reviewed.meta, ...fresh })
+      } else if (reviewed.kind === 'unshield-local') {
         // Fail fast if the relayer published a malformed broadcaster address — avoid a 20-30s
         // proof gen that's doomed to surface an opaque SDK throw deep in the pipeline.
         if (!isShieldedAddress(activeQuote.broadcasterShieldedAddress)) {
@@ -421,17 +444,7 @@ export function SendModal() {
         setSubmittedKind('unshield-local')
         // Freeze the broadcaster context with the rest of the submit state — the proof must embed
         // these EXACT values to pass the relayer's verifier.
-        submittedId = await txUnshieldLocal.submit({
-          amount,
-          feeCacheId,
-          recipient,
-          broadcasterFeeAmount: freshFee,
-          broadcasterFeePerProof: perProofFee,
-          broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          // The protocol fee shown at review, so the receipt reports the full fee.
-          ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
-          devForceError: forcedOutcome ?? undefined,
-        })
+        submittedId = await txUnshieldLocal.submit({ ...reviewed.meta, ...fresh })
       } else {
         // A5 — relayer-mediated hub burn for cross-chain unshield. Same broadcaster-context shape
         // as unshield-local + transfer-shielded, with the fee sourced from the `crossChainUnshield`
@@ -444,19 +457,7 @@ export function SendModal() {
           )
         }
         setSubmittedKind('unshield-xchain')
-        submittedId = await txUnshieldXchain.submit({
-          amount,
-          feeCacheId,
-          toChainId: destChainId,
-          recipient,
-          broadcasterFeeAmount: freshFee,
-          broadcasterFeePerProof: perProofFee,
-          broadcasterShieldedAddress: activeQuote.broadcasterShieldedAddress,
-          // The protocol + CCTP fees shown at review, so the receipt reports the full fee.
-          ...(displayFees.protocolFee > 0n ? { protocolFee: displayFees.protocolFee } : {}),
-          ...(cctpFee > 0n ? { cctpFee } : {}),
-          devForceError: forcedOutcome ?? undefined,
-        })
+        submittedId = await txUnshieldXchain.submit({ ...reviewed.meta, ...fresh })
       }
       if (submittedId === null) return
       setStep('progress')
@@ -490,11 +491,12 @@ export function SendModal() {
   const networkName = isPrivate ? undefined : getChainById(destChainId)?.name
   // Brand the public recipient's glyph only when it's the user's own connected wallet — for an
   // arbitrary recipient we don't know their provider, so the summary shows a generic wallet glyph.
-  const recipientIsConnectedWallet =
-    !isPrivate &&
-    connectedEvm != null &&
-    recipient.trim().toLowerCase() === connectedEvm.toLowerCase()
+  // Same rule the Activity row and receipt label an unshield by (`isWithdrawToSelf`).
+  const recipientIsConnectedWallet = !isPrivate && isWithdrawToSelf(recipient.trim(), connectedEvm)
   const recipientWalletProvider = recipientIsConnectedWallet ? connector?.name : undefined
+  // The confirmation screen labels the finished tx the way Activity will: a payment to your own connected wallet is an
+  // unshield ("withdraw" copy), anything else a send. Review keeps the Send flow's wording (spec UN-7).
+  const completeVariant: SendFlowVariant = recipientIsConnectedWallet ? 'withdraw' : variant
 
   return (
     <FlowShell
@@ -516,6 +518,7 @@ export function SendModal() {
           destChainId={destChainId}
           onDestChainIdChange={setDestChainId}
           destDeploymentError={destDeploymentError}
+          {...(shieldedWallet.shieldedAddress !== undefined ? { ownShieldedAddress: shieldedWallet.shieldedAddress } : {})}
           recentAddresses={recentAddresses}
           onSelectRecent={handleSelectRecent}
           onCancel={close}
@@ -564,11 +567,16 @@ export function SendModal() {
           recipient={recipient}
           armadaAddress={shieldedWallet.shieldedAddress}
           amount={amount}
-          fee={planFeeUnknown ? null : displayedFee}
-          totalDeducted={planFeeUnknown ? null : totalDeducted}
+          fee={reviewFigures?.fee ?? null}
+          cctpFee={reviewFigures?.cctpFee ?? null}
+          totalDeducted={reviewFigures?.totalDeducted ?? null}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
-          submitBlockedReason={syncGate.reason ?? relayerBlock ?? transferBlockReason ?? spendCheck.blockReason}
+          submitBlockedReason={
+            (recipientIsSelf ? SELF_SEND_REASON : null)
+            ?? syncGate.reason ?? relayerBlock ?? (quotePending ? QUOTE_PENDING_REASON : null) ?? transferBlockReason
+            ?? spendCheck.blockReason
+          }
           feeUpdated={feeChanged}
           {...(blockedByFragmentation !== null
             ? { onMergeNotes: () => openMerge({ token: 'usdc', blocked: blockedByFragmentation }) }
@@ -579,14 +587,15 @@ export function SendModal() {
         />
       )}
       {step === 'progress' && <ProgressStep record={record} sendVariant={variant} />}
-      {step === 'complete' && (
+      {step === 'complete' && completeReceipt && (
         <SendCompleteStep
-          variant={variant}
+          variant={completeVariant}
           recipient={recipient}
           armadaAddress={shieldedWallet.shieldedAddress}
-          amount={completeReceipt?.headline ?? amount}
-          fee={completeReceipt?.fee ?? displayedFee}
-          totalDeducted={completeReceipt?.totalDeducted ?? totalDeducted}
+          amount={completeReceipt.headline}
+          fee={completeReceipt.fee}
+          cctpFee={completeReceipt.cctpFee}
+          totalDeducted={completeReceipt.totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
           confirmedAt={record?.updatedAt ?? Date.now()}
