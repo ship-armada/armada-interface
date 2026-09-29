@@ -366,6 +366,12 @@ export type MetaYieldDeposit = MetaCommon & MetaBroadcaster & MetaYieldApy
 export interface MetaYieldWithdraw extends MetaCommon, MetaBroadcaster, MetaYieldApy {
   /** Yield share amount to redeem; `amount` is the expected USDC output. */
   shares: bigint
+  /**
+   * True while `amount` is the typed (quote-time) estimate; cleared once it's reconciled to the actual redeemed gross
+   * (by the handler, or by history recovery confirming the tx), so every surface marks it "≈" until then. Absent on
+   * records written before it existed — read as the reconciled actual.
+   */
+  amountIsEstimate?: boolean
 }
 
 /**

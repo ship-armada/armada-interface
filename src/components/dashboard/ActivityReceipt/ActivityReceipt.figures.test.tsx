@@ -141,6 +141,13 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
     })
   })
 
+  describe('yield-withdraw, unreconciled', () => {
+    it('the typed amount and its net read as estimates (YD-10, G-5)', () => {
+      showReceipt('yield-withdraw', { amount: A, shares: 1n, broadcasterFeeAmount: F, broadcasterShieldedAddress: RELAYER_0ZK, amountIsEstimate: true })
+      expect(summaryRow('Received into private balance')).toBe('≈ 8.999997 USDC')
+    })
+  })
+
   describe('consolidate', () => {
     it('the fee is the headline, the Fees and the Total (MG-1, MG-2)', () => {
       showReceipt('consolidate', {

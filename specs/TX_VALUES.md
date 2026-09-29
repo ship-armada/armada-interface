@@ -41,7 +41,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 
 - **G-1 The record is the source after submit.** CNF, ROW and RCPT render money figures only from the
   record's `meta`, through `lib/fees/txFigures.ts` (`txFigures` / `txHeadline`) — never from a live quote, live
-  rate or form state. *Deviation F12* (Earn CNF APY is live).
+  rate or form state.
 - **G-2 Review figures are stored.** REV renders the draft record it will submit (`TxDraft` — kind + meta)
   through `txFigures`, and submit sends that draft (plus the fresh quote's cache id and broadcaster address), so
   every figure REV shows is in `meta` by construction — an estimate as an estimate — and nothing shown at REV
@@ -235,13 +235,15 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | YD-15 | Row | `+G` [D1] | ROW | +10 (2 dp) |
 | YD-16 | Max | the vault position (fee not subtracted); blocked when `amount ≤ F` | AMT | – |
 
+- **Stored:** the typed `amount` with `amountIsEstimate` at submit; the handler reconciles it to `G` (clearing the
+  marker) in the write that completes the record. While marked — the redeemed gross couldn't be read — the headline
+  and net read "≈"; history recovery confirming such a record adopts the chain-derived `G`. A record without the
+  marker (written before it existed) holds the reconciled actual.
 - **Recovered:** `amount = value + broadcasterFee` (`G`), `shares` from the adapter unshield.
 - **Allowed differences:** REV (≈, typed amount) → CNF (`G`): headline and net change; the fee does not.
   `G < A` by µUSDC is normal (the share count is floored).
-- **Deviations:** F7 (the AMT tooltip treats a withdrawal as fee-on-top: "You'll receive 10.00 / Total deducted
-  11.000003"), F8 (a recovered withdrawal never has APY — the SDK carries the self-metadata on the share leg,
-  which the app drops; the app test feeds a shape the SDK never produces), F12 (CNF APY is the live rate),
-  F14 (a withdrawal settled without reconciliation keeps the typed estimate, unmarked, forever), F15 (Max
+- **Deviations:** F8 (a recovered withdrawal never has APY — the SDK carries the self-metadata on the share leg,
+  which the app drops; the app test feeds a shape the SDK never produces), F15 (Max
   converts through USDC and back — leaves share dust, counts pending shares, ignores the one-tree rule).
 
 ### `consolidate` (Merge notes)
@@ -272,13 +274,10 @@ fallback / old records; **S4** cosmetic or labelling.
 | F2 | S1 | unshield-xchain | Recovery never recognises cross-chain unshields (matches the pool as recipient; the event carries the final recipient): wrong network, CCTP fee dropped. F2b latent recipient = destination pool. | #72 |
 | F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
 | F6 | S2 | unshield-xchain | #68 — every surface shows the CCTP estimate; the actual is available at delivery (relayer status / dest `MessageReceived`) but discarded. | #68 |
-| F7 | S2 | yield-withdraw | AMT tooltip uses the fee-on-top model. | #76 |
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
 | F9 | S2 | shield-xchain | Duplicate authored + recovered rows when delivery times out or recovery races the final write. | #77 |
 | F10 | S2 | transfer (self) | Authored send-to-self shows `A + Φ` deducted and row `−A`. | #71 |
-| F12 | S4 (S2 if the rate moves) | yield | CNF APY is the live post-tx rate; REV and RCPT show the frozen one. | #76 |
-| F13 | S3 | many | Recovery never corrects an existing record (unreconciled withdraw `G`; dev-era split fees; pre-SDK #101 received rows). | #81 |
-| F14 | S3 | yield-withdraw | Unreconciled withdrawal keeps the typed estimate, unmarked. | #76 |
+| F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
 | F16 | S3 | consolidate | Exact-cover non-USDC merge recovered as "USDC sent 0 to unknown". | #81 |
 | F17 | S3 | transfer | Unattributed recovered fee shows `0.00`, not "—". | #81 |

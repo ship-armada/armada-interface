@@ -140,7 +140,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     case 'yield-withdraw': {
       // Single receipt-math source shared with the completion screen so a completed yield op reads
       // identically wherever it's shown (withdraw's `amount` is the handler-reconciled redeemed gross).
-      const { headline: amount, fee, netAmount, apyBps } = txFiguresAs(record, 'yield')
+      const { headline: amount, fee, netAmount, apyBps, estimated: yieldEstimated } = txFiguresAs(record, 'yield')
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
       const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
       // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
@@ -162,6 +162,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             rate={rate}
             fee={ifCharged(fee)}
             netAmount={ifCharged(netAmount)}
+            estimated={yieldEstimated}
             netLabel={netLabel}
             confirmedAt={confirmedAt}
             showApy={rate !== null}

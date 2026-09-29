@@ -178,7 +178,8 @@ export function EarnModal() {
     : {
         kind: 'yield-withdraw',
         // The shares to redeem are re-read at submit against the freshest rate (slippage protection).
-        meta: { amount, ...reviewedBroadcaster, shares: 0n, broadcasterFeeAmount: quotedFee, ...reviewedApy },
+        // The amount is the quote-time estimate until the handler reads the actual redeemed gross.
+        meta: { amount, ...reviewedBroadcaster, shares: 0n, broadcasterFeeAmount: quotedFee, ...reviewedApy, amountIsEstimate: true },
       }
   const reviewFigures = reviewed ? txFiguresAs(reviewed, 'yield') : null
   // The amount card's fee breakdown. A deposit is fee-on-top: the vault receives the amount, the balance is debited
@@ -445,7 +446,7 @@ export function EarnModal() {
           netAmount={reviewFigures?.netAmount ?? null}
           netLabel={displayNetLabel}
           // Withdraw redeems fixed shares at the execution-rate → the net received is an estimate.
-          estimated={tab === 'withdraw'}
+          estimated={reviewFigures?.estimated ?? tab === 'withdraw'}
           submitBlockedReason={submitBlockedReason}
           {...(spendCheck.remedy === 'merge-notes' && vaultSpend !== null
             ? { onMergeNotes: () => openMerge({ token: vaultToken, blocked: vaultSpend }) }
@@ -468,6 +469,7 @@ export function EarnModal() {
           // Withdraw nets `amount - fee` into private balance (the fee is skimmed from the redeemed
           // proceeds). `amount` is the actual redeemed gross once the handler reconciles it.
           netAmount={completeReceipt.netAmount}
+          estimated={completeReceipt.estimated}
           netLabel={completeNetLabel}
           confirmedAt={record?.updatedAt ?? Date.now()}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

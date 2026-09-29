@@ -11,7 +11,7 @@ import {
 } from '@/lib/shielded/keyManager'
 import { refreshShieldedBalances } from '@/lib/shielded/sync'
 import { buildYieldAdaptSdk } from '@/lib/shielded/yield-sdk'
-import { redeemedGrossFromLogs, type TransferLog } from './redeemedGross'
+import { reconciledWithdrawMeta, redeemedGrossFromLogs, type TransferLog } from './redeemedGross'
 import { encodeTxSelfMetadata } from '@/lib/shielded/selfMetadata'
 import { markSpendPendingForRecord, clearSpendPendingForTx, forgetSpendPlan } from '@/lib/shielded/pending-spend'
 import { submitRelay } from '@/lib/relayer'
@@ -109,7 +109,7 @@ async function confirmWithReconciledAmount(
 ): Promise<void> {
   const reconciledGross = await reconciledRedeemedGross(record, txHash)
   let terminal = advance(record, 'hub-confirmed', { sourceTxHash: txHash })
-  if (reconciledGross !== undefined) terminal = patchMeta(terminal, { amount: reconciledGross })
+  if (reconciledGross !== undefined) terminal = patchMeta(terminal, reconciledWithdrawMeta(reconciledGross))
   await ctx.upsert(terminal)
   if (kmIsUnlocked()) void refreshShieldedBalances(kmGetWalletId()).catch(() => {})
 }

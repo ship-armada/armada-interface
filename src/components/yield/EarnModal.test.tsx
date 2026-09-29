@@ -363,7 +363,7 @@ describe('<EarnModal>', () => {
           fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
         })
         await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-withdraw')).toBe(true))
-        settle(store, 'yield-withdraw', { amount: G, broadcasterFeeAmount: F })
+        settle(store, 'yield-withdraw', { amount: G, broadcasterFeeAmount: F, amountIsEstimate: false })
         await waitFor(() => expect(screen.getByText('Received into private balance')).toBeInTheDocument())
         expect(headlineAmount()).toBe('9.999999')
         expect(summaryRow('Fees')).toBe('1.000003 USDC')
