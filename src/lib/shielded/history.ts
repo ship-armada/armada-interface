@@ -64,6 +64,28 @@ export function isSyntheticTxId(id: string): boolean {
 }
 
 /**
+ * Whether a re-scan rebuilt a stored synthetic record differently — its kind, figures or artifacts — so the rebuilt
+ * one should replace it (F13): a record recovered before a mapping fix, or before its routing could be read. Times
+ * are left out: they don't change what the row shows, and a re-scan of the same tx must not churn IDB.
+ */
+export function recoveredDiffers(stored: Pick<TxRecord, 'kind' | 'meta' | 'artifacts'>, rebuilt: Pick<TxRecord, 'kind' | 'meta' | 'artifacts'>): boolean {
+  const shown = (r: Pick<TxRecord, 'kind' | 'meta' | 'artifacts'>) => canonicalJson({ kind: r.kind, meta: r.meta, artifacts: r.artifacts })
+  return shown(stored) !== shown(rebuilt)
+}
+
+/** JSON with bigints as `<n>n` and object keys sorted, so two records with the same content compare equal whatever
+ *  order their fields were written in (a stored record may predate a field's position in the mapper). */
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) => {
+    if (typeof v === 'bigint') return `${v}n`
+    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+      return Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+    }
+    return v
+  })
+}
+
+/**
  * Build the `walletContext` block. We don't know which EVM address the user held at the time
  * of an old tx, so `evmAddress` is undefined on synthesized rows — `TxWalletContext` allows it.
  */
@@ -100,7 +122,9 @@ function terminalizeStages<K extends TxKind>(kind: K): {
  *  - `records`      — mapped TxRecord[] (filter `Unknown` + corrupt items already applied).
  *  - `highestBlock` — the max `blockNumber` across returned items; null when the scan was empty
  *                     or every item had an undefined block. The caller persists this as the
- *                     next checkpoint so subsequent scans resume from `highestBlock + 1`.
+ *                     next checkpoint so subsequent scans resume from `highestBlock + 1`. Held
+ *                     below the earliest entry whose cross-chain routing couldn't be fetched
+ *                     (that entry is withheld from `records`), so the next scan retries it.
  *  - `itemCount`    — total SDK items the scan returned (mapped + unmapped). Drives telemetry
  *                     so we know if `Unknown`-heavy histories are slipping through.
  */
@@ -170,9 +194,9 @@ export function historyEntryToTxRecord(
     case 'shield': {
       const shieldFee = entry.shieldFee ?? 0n
       // Reconstruct the deposit total so the receipt's `amount - feeAmount - protocolFee` lands on the
-      // user's net note (entry.value): user note + its protocol shield fee + the gasless relayer fee
-      // note. NOTE: the relayer note's OWN shield fee isn't attributable from the user's wallet, so the
-      // total runs ~that fee short of the true deposit (SDK limitation); the received amount is exact.
+      // user's net note (entry.value): user note + its protocol shield fee + the gasless relayer fee.
+      // `broadcasterFee` is the relayer note's gross (its own shield fee included — SDK #92), so the
+      // total is the true deposit.
       const amount = entry.value + shieldFee + broadcasterFee
       // Shared meta between same-chain shield + cross-chain shield.
       const shieldMeta = {
@@ -331,26 +355,28 @@ export function withConsolidationTxids(entries: ReadonlyArray<HistoryEntry>, ctx
 /**
  * Enrich the map context with cross-chain routing recovered from the hub CCTP events (Tier 2). Reads
  * the CCTP MessageTransmitter address from the cached deployment and the hub RPC from config; returns
- * `ctx` unchanged when they're unavailable or when no candidate resolves.
+ * `ctx` unchanged when they're unavailable or when no candidate resolves. `unresolved` holds the candidates
+ * whose hub receipt couldn't be fetched — their routing is unknown (F20); none when routing isn't configured.
  * Never throws — cross-chain recovery is additive, and a failure must never break same-chain history.
  */
 async function withXchainRouting(
   entries: ReadonlyArray<HistoryEntry>,
   ctx: HistoryMapContext,
-): Promise<HistoryMapContext> {
+): Promise<{ ctx: HistoryMapContext; unresolved: ReadonlySet<string> }> {
+  const none = new Set<string>()
   try {
     const deployments = getCachedDeployments()
     const transmitter = deployments?.hub.cctp?.messageTransmitter as `0x${string}` | undefined
     const hubRpcUrl = getNetworkConfig().hub.rpcUrls[0]
-    if (transmitter === undefined || hubRpcUrl === undefined) return ctx
+    if (transmitter === undefined || hubRpcUrl === undefined) return { ctx, unresolved: none }
     const xchainByTxid = await buildXchainCctpMap({
       entries,
       transmitterAddress: transmitter,
       hubRpcUrl,
     })
-    return xchainByTxid.size > 0 ? { ...ctx, xchainByTxid } : ctx
+    return { ctx: xchainByTxid.size > 0 ? { ...ctx, xchainByTxid } : ctx, unresolved: xchainByTxid.unresolved }
   } catch {
-    return ctx
+    return { ctx, unresolved: none }
   }
 }
 
@@ -372,18 +398,30 @@ export async function runHistoryScan(
 
   // Tier 2: recover cross-chain routing from the hub CCTP events, so recovered shields/unshields that
   // were actually cross-chain remap to `shield-xchain` / `unshield-xchain` with their real source /
-  // destination chain. Best-effort — a missing transmitter/RPC or a flaky fetch leaves everything
-  // same-chain (never throws, never drops history).
-  const enrichedCtx = withConsolidationTxids(entries, await withXchainRouting(entries, ctx))
+  // destination chain. Best-effort — a missing transmitter/RPC leaves everything same-chain (never
+  // throws, never drops history).
+  const routing = await withXchainRouting(entries, ctx)
+  const enrichedCtx = withConsolidationTxids(entries, routing.ctx)
+
+  // An entry whose routing lookup failed is withheld, and the checkpoint held below it, so the next scan re-reads
+  // it: stored now, a cross-chain one would stay a same-chain record for good (F20).
+  let unresolvedFrom: number | null = null
+  for (const entry of entries) {
+    if (routing.unresolved.has(entry.txid) && (unresolvedFrom === null || entry.blockNumber < unresolvedFrom)) {
+      unresolvedFrom = entry.blockNumber
+    }
+  }
 
   const records: TxRecord[] = []
   let highest: number | null = null
   for (const entry of entries) {
+    if (highest === null || entry.blockNumber > highest) highest = entry.blockNumber
+    if (routing.unresolved.has(entry.txid)) continue
     const seconds = timestamps.get(entry.blockNumber)
     const record = historyEntryToTxRecord(entry, walletId, enrichedCtx, seconds !== undefined ? seconds * 1000 : 0)
     if (record) records.push(record)
-    if (highest === null || entry.blockNumber > highest) highest = entry.blockNumber
   }
+  if (unresolvedFrom !== null && highest !== null) highest = Math.min(highest, unresolvedFrom - 1)
   records.sort((a, b) => b.updatedAt - a.updatedAt)
   return { records, highestBlock: highest, itemCount: entries.length }
 }

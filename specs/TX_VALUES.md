@@ -58,7 +58,9 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-5 Estimates are marked.** A figure that is an estimate (CCTP fee before reconciliation, a vault
   withdrawal's gross before execution) carries "≈" / "est." wherever it is shown.
 - **G-6 Recovered = authored.** For the same on-chain tx, REC shows the same headline, fees and totals as
-  the authored RCPT, except where a kind lists an allowed difference. *Deviations F8, F13.*
+  the authored RCPT, except where a kind lists an allowed difference. A re-scan that rebuilds a recovered record
+  differently (kind, figures or artifacts) replaces the stored one, so a recovered row picks up a later mapping fix;
+  an authored record is never overwritten. *Deviation F8.*
 - **G-7 The rows add up.** Fee-on-top kinds: Amount + Fees = Total deducted. Fee-inclusive kinds (shields,
   a vault withdrawal): Amount − Fees = You'll receive. A fee that is neither on top nor inside the user's own
   figure — the CCTP fee of a cross-chain unshield, taken from the amount in transit — gets its own row,
@@ -142,8 +144,9 @@ A sweep grows the change note only — every figure is unchanged.
   flight, or polling timed out) — by the shield request's marker in the hub message's hook data: an in-flight one is
   left to its handler; a timed-out one completes with the hub mint hash and the chain's actual figures.
 - **Allowed differences:** REV (estimate, "≈") vs CNF (actual): by `C − C'` and the `P` base change.
-- **Deviations:** F20 (recovery with no CCTP routing records a
-  same-chain `shield`, headline short by `C'`).
+- **Recovered without routing:** a hub mint whose receipt couldn't be fetched isn't stored as a same-chain `shield`:
+  the scan withholds it and keeps its checkpoint below it, so the next scan retries. A network with no CCTP
+  transmitter configured has no cross-chain routing, and every hub shield is recovered same-chain.
 
 ## 6. Private send
 
@@ -273,13 +276,11 @@ fallback / old records; **S4** cosmetic or labelling.
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
-| F13 | S3 | many | Recovery never corrects an existing record (dev-era split fees; pre-SDK #101 received rows). | #81 |
 | F15 | S4 | yield-withdraw | Max leaves share dust / counts pending shares / ignores one-tree rule. | #82 |
-| F20 | S3 | shield-xchain | Recovery without CCTP routing → same-chain `shield`, headline short by `C'`. | #81 |
 | F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
 | F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F27 | S3 | all | The balance shown before the SDK sync lands is derived from local history, ignoring fees, received payments and merges (G-11). | #80 |
-| F28 | S4 | docs/tests | A stale comment (a recovered shield "runs short") and a test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, #81 |
+| F28 | S4 | tests | A test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, armada-sdk#113 |
 
 ## 9. Decisions
 

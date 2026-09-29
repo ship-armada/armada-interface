@@ -60,12 +60,22 @@ describe('buildXchainCctpMap', () => {
     expect(hoisted.getTransactionReceipt).not.toHaveBeenCalled()
   })
 
-  it('best-effort: a failed receipt fetch leaves that txid unmapped', async () => {
+  it('best-effort: a failed receipt fetch leaves that txid unmapped — and reports it unresolved, so it can be retried (F20)', async () => {
     hoisted.getTransactionReceipt.mockRejectedValueOnce(new Error('rpc down'))
     const map = await buildXchainCctpMap({
       entries: [{ txid: 'shieldtx', category: 'shield' }] as never,
       transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
     })
     expect(map.size).toBe(0)
+    expect(map.unresolved).toEqual(new Set(['shieldtx']))
+  })
+
+  it('a receipt that carries no CCTP event is resolved — same-chain — not unresolved', async () => {
+    const map = await buildXchainCctpMap({
+      entries: [{ txid: 'plainshield', category: 'shield' }] as never,
+      transmitterAddress: '0xt', hubRpcUrl: 'http://hub',
+    })
+    expect(map.size).toBe(0)
+    expect(map.unresolved.size).toBe(0)
   })
 })

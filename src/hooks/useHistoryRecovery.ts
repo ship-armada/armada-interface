@@ -14,6 +14,7 @@ import { putTxIfFresh } from '@/lib/tx/storage'
 import { adoptRecoveredAmount, adoptRecoveredDelivery, awaitsDelivery, markRecoveredComplete, sourceHashProvesComplete } from '@/lib/tx/reducer'
 import { isTerminalState } from '@/lib/tx/types'
 import {
+  recoveredDiffers,
   runHistoryScan,
   type HistoryMapContext,
 } from '@/lib/shielded/history'
@@ -75,6 +76,26 @@ async function runScanAndPersist(args: {
     if (sourceHash) {
       const existing = findExistingByHash(sourceHash)
       if (existing) {
+        // The row recovered from this entry before: a re-scan that rebuilds it differently (a mapping fix, or its
+        // cross-chain routing now read) replaces it, one sequence ahead so the OCC write lands (F13). An identical
+        // rebuild writes nothing. Authored records never match here — their ids aren't synthetic.
+        if (existing.id === record.id) {
+          if (!recoveredDiffers(existing, record)) continue
+          const replaced = { ...record, updatedSeq: existing.updatedSeq + 1 }
+          try {
+            const fresh = await putTxIfFresh(replaced)
+            if (fresh) {
+              upsert(replaced)
+              written += 1
+            }
+          } catch (err) {
+            trackError('history.scan.persist', err, {
+              scope: 'history.recovery',
+              message: `failed to replace synthesized record ${record.id}`,
+            })
+          }
+          continue
+        }
         if (existing.executionState === 'completed') continue
         // T-H1: for a cross-chain kind the matched `sourceTxHash` is only the burn leg — CCTP
         // delivery on the destination chain hasn't happened (and may never). Don't force-complete;

@@ -437,6 +437,50 @@ describe('Phase 9 — chain history recovery + incoming detector integration', (
     })
   })
 
+  describe('a re-scan that rebuilds a stored recovered row differently replaces it (F13, #81)', () => {
+    // WHY: a row recovered before a mapping fix — or before its cross-chain routing could be read — would otherwise keep
+    // its wrong figures for good: the scan finds it by its own hash and skipped it as already complete.
+    const clientDomain = () => getNetworkConfig().clients[0]!.domain
+    const entry = { txid: '0xhubmint', blockNumber: 100_002, category: 'shield', tokenAddress: '0xusdc', value: 999_000n, shieldFee: 900n } as const
+    const sameChain = () => historyEntryToTxRecord(entry, 'rg-1', { hubChainId: 31337, usdcAddress: '0xusdc' }, 100_002_000)!
+    const crossChain = () => historyEntryToTxRecord(entry, 'rg-1', {
+      hubChainId: 31337, usdcAddress: '0xusdc',
+      xchainByTxid: new Map([['0xhubmint', { sourceDomain: clientDomain(), burnAmount: 1_000_000n, cctpFee: 100n }]]),
+    }, 100_002_000)!
+
+    it('a different rebuild replaces the stored row, one sequence ahead', async () => {
+      const store = unlockedStore()
+      store.set(txListAtom, [{ ...sameChain(), updatedSeq: 3 }])
+      hoisted.runHistoryScan.mockResolvedValue(scanResult([crossChain()], 100_002))
+      render(<Provider store={store}><Harness /></Provider>)
+      await waitFor(() => expect(store.get(historyRecoveryAtom).state).toBe('idle'))
+      const list = store.get(txListAtom)
+      expect(list).toHaveLength(1)
+      expect(list[0]).toMatchObject({ id: 'synth:0xhubmint:shield', kind: 'shield-xchain', updatedSeq: 4, meta: { amount: 1_000_000n, cctpFee: 100n } })
+      expect(hoisted.putTxIfFresh).toHaveBeenCalledWith(expect.objectContaining({ kind: 'shield-xchain', updatedSeq: 4 }))
+    })
+
+    it('an identical rebuild writes nothing', async () => {
+      const store = unlockedStore()
+      store.set(txListAtom, [{ ...sameChain(), updatedSeq: 3 }])
+      hoisted.runHistoryScan.mockResolvedValue(scanResult([sameChain()], 100_002))
+      render(<Provider store={store}><Harness /></Provider>)
+      await waitFor(() => expect(store.get(historyRecoveryAtom).state).toBe('idle'))
+      expect(hoisted.putTxIfFresh).not.toHaveBeenCalled()
+      expect(store.get(txListAtom)[0]).toMatchObject({ kind: 'shield', updatedSeq: 3 })
+    })
+
+    it('an authored record is never replaced by a rebuild', async () => {
+      const store = unlockedStore()
+      const authored = { ...sameChain(), id: '01J-authored', updatedSeq: 3 }
+      store.set(txListAtom, [authored])
+      hoisted.runHistoryScan.mockResolvedValue(scanResult([crossChain()], 100_002))
+      render(<Provider store={store}><Harness /></Provider>)
+      await waitFor(() => expect(store.get(historyRecoveryAtom).state).toBe('idle'))
+      expect(store.get(txListAtom)).toEqual([authored])
+    })
+  })
+
   it('subsequent scans resume from checkpoint+1, not the hub deploy block', async () => {
     // WHY: this is the perf invariant. The whole point of the checkpoint is to avoid re-walking
     // hub history. A regression here turns a cheap incremental into a full-history rewalk on

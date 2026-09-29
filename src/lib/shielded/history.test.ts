@@ -9,11 +9,22 @@ import type { HistoryEntry } from '@armada/sdk'
 const hoisted = vi.hoisted(() => ({
   readSdkHistory: vi.fn(async (): Promise<HistoryEntry[]> => []),
   getHubBlockTimestamps: vi.fn(async () => new Map<number, number>()),
+  // Cross-chain routing: no CCTP transmitter configured unless a test sets one (routing is then skipped).
+  transmitter: undefined as string | undefined,
+  buildXchainCctpMap: vi.fn(async () => Object.assign(new Map(), { unresolved: new Set<string>() })),
 }))
 vi.mock('./sdk-read', () => ({ readSdkHistory: hoisted.readSdkHistory }))
 vi.mock('./network', () => ({ getHubBlockTimestamps: hoisted.getHubBlockTimestamps }))
+vi.mock('./xchain-recovery', async (importActual) => ({
+  ...await importActual<typeof import('./xchain-recovery')>(),
+  buildXchainCctpMap: hoisted.buildXchainCctpMap,
+}))
+vi.mock('@/config/deployments', async (importActual) => ({
+  ...await importActual<typeof import('@/config/deployments')>(),
+  getCachedDeployments: () => (hoisted.transmitter ? { hub: { cctp: { messageTransmitter: hoisted.transmitter } } } : undefined),
+}))
 
-import { historyEntryToTxRecord, isSyntheticTxId, runHistoryScan, syntheticTxId } from './history'
+import { historyEntryToTxRecord, isSyntheticTxId, recoveredDiffers, runHistoryScan, syntheticTxId } from './history'
 import { getChainByDomain } from '@/config/network'
 import { txFigures } from '@/lib/fees/txFigures'
 import { txRecord } from '@/test/fixtures/txValues'
@@ -328,6 +339,26 @@ describe('runHistoryScan (@armada/sdk scan)', () => {
     hoisted.getHubBlockTimestamps.mockResolvedValue(new Map())
   })
 
+  it('withholds an entry whose cross-chain routing couldn\'t be fetched, and holds the checkpoint below it (F20, #81)', async () => {
+    // WHY: persisted with no routing, a cross-chain shield would stay a same-chain row (short by the CCTP fee) forever —
+    // the checkpoint moves past it. Withheld and re-read next scan, it recovers once the receipt fetch succeeds.
+    hoisted.transmitter = '0xtransmitter'
+    hoisted.buildXchainCctpMap.mockResolvedValueOnce(Object.assign(new Map(), { unresolved: new Set(['b']) }))
+    hoisted.readSdkHistory.mockResolvedValue([
+      sdkEntry({ txid: 'a', blockNumber: 100_001, value: 1n }),
+      sdkEntry({ txid: 'b', blockNumber: 100_003, value: 2n }),
+      sdkEntry({ txid: 'c', blockNumber: 100_005, value: 3n }),
+    ])
+    try {
+      const result = await runHistoryScan('w', SDK_CTX, 100_000)
+      expect(result.records.map((r) => r.artifacts.sourceTxHash)).toEqual(expect.arrayContaining(['0xa', '0xc']))
+      expect(result.records).toHaveLength(2)
+      expect(result.highestBlock).toBe(100_002)
+    } finally {
+      hoisted.transmitter = undefined
+    }
+  })
+
   it('maps entries, backfills block timestamps, and reports the highest block as the checkpoint', async () => {
     // WHY: the checkpoint must be the MAX block seen (the resume point); a min/first bug silently
     // skips rows on the next incremental scan. Timestamps come from a bulk block lookup because the
@@ -367,5 +398,18 @@ describe('runHistoryScan (@armada/sdk scan)', () => {
     const result = await runHistoryScan('w', SDK_CTX, undefined)
     expect(hoisted.getHubBlockTimestamps).not.toHaveBeenCalled()
     expect(result).toEqual({ records: [], highestBlock: null, itemCount: 0 })
+  })
+})
+
+describe('recoveredDiffers (F13, #81)', () => {
+  it('a re-scan that rebuilds a synthetic row differently (kind, figures, artifacts) replaces it; an identical one doesn\'t', () => {
+    const shield = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w', SDK_CTX, 5000)!
+    const again = historyEntryToTxRecord(sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w', SDK_CTX, 9000)!
+    expect(recoveredDiffers(shield, again)).toBe(false) // only the timestamp moved
+    const asXchain = historyEntryToTxRecord(
+      sdkEntry({ category: 'shield', value: 995_000n, shieldFee: 5_000n }), 'w',
+      { ...SDK_CTX, xchainByTxid: new Map([['0xabc', { sourceDomain: 101, burnAmount: 1_000_100n, cctpFee: 100n }]]) }, 5000,
+    )!
+    expect(recoveredDiffers(shield, asXchain)).toBe(true)
   })
 })

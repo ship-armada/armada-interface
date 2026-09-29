@@ -26,6 +26,10 @@ export interface XchainCctp {
   maxFee?: bigint
 }
 
+/** `txid → XchainCctp`, plus the candidates whose hub receipt couldn't be fetched: their routing is unknown, not
+ *  same-chain, so recovery retries them rather than storing a same-chain record (F20). */
+export type XchainCctpMap = Map<string, XchainCctp> & { unresolved: Set<string> }
+
 // How many receipt fetches to run at once. Cross-chain candidates are a minority of history, but a
 // heavy wallet's first recovery can have many — bound the fan-out so we don't hammer the RPC.
 const RECEIPT_FETCH_CONCURRENCY = 6
@@ -36,20 +40,21 @@ const RECEIPT_FETCH_CONCURRENCY = 6
  * shield could be a cross-chain mint) and every `unshield` (a cross-chain exit emits the same
  * `Unshield(finalRecipient, …)` a local one does, so only the CCTP `MessageSent` in its tx tells it apart).
  *
- * Best-effort: a receipt that can't be fetched or carries no CCTP event simply isn't in the map, so
- * the mapper falls back to the same-chain kind. Never throws — a flaky RPC must not fail recovery.
+ * Best-effort: a receipt that carries no CCTP event isn't in the map, so the mapper records the same-chain kind. A
+ * receipt that can't be fetched (the fetch fails or returns none) isn't either, but its txid is in `unresolved`.
+ * Never throws — a flaky RPC must not fail recovery.
  */
 export async function buildXchainCctpMap(opts: {
   entries: ReadonlyArray<Pick<HistoryEntry, 'txid' | 'category'>>
   transmitterAddress: `0x${string}`
   hubRpcUrl: string
-}): Promise<Map<string, XchainCctp>> {
+}): Promise<XchainCctpMap> {
   const candidates = new Set<string>()
   for (const e of opts.entries) {
     if (e.category === 'shield' || e.category === 'unshield') candidates.add(e.txid)
   }
 
-  const map = new Map<string, XchainCctp>()
+  const map: XchainCctpMap = Object.assign(new Map<string, XchainCctp>(), { unresolved: new Set<string>() })
   if (candidates.size === 0) return map
 
   const provider = timeoutProvider(opts.hubRpcUrl)
@@ -59,8 +64,11 @@ export async function buildXchainCctpMap(opts: {
     await Promise.allSettled(
       batch.map(async (txid) => {
         const hash = `0x${txid.replace(/^0x/, '')}`
-        const receipt = await provider.getTransactionReceipt(hash)
-        if (receipt === null) return
+        const receipt = await provider.getTransactionReceipt(hash).catch(() => null)
+        if (receipt === null) {
+          map.unresolved.add(txid)
+          return
+        }
         const info = readCctpFromLogs({
           logs: receipt.logs as unknown as ReadonlyArray<Log>,
           messageTransmitterAddress: opts.transmitterAddress,
