@@ -14,7 +14,8 @@ export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
  *  - `spend` (transfer-shielded, unshield-*): fee-on-top — the total deducted is `amount + relayer fee`, and
  *    `fee` is what's charged on top (relayer + any protocol fee), so Amount + Fees = Total. A cross-chain unshield's
  *    CCTP fee comes out of the amount in transit instead, so it's its own figure (`cctpFee`), not part of `fee`.
- *  - `yield` (yield-deposit, yield-withdraw): the per-tab net — deposit debits `amount + fee`, withdraw nets `amount − fee`.
+ *  - `yield` (yield-deposit, yield-withdraw): the per-tab net — deposit debits `amount + fee`, withdraw nets `amount − fee`;
+ *    `apyBps` is the net vault APY the user reviewed, frozen on the record (null when it wasn't captured).
  *  - `merge` (consolidate): moves no value — the fee is both the headline and the only charge.
  *  - `received` (transfer-shielded-received): the amount credited; the recipient pays no fee.
  * `headline` is the big numeral and the Activity row's magnitude (the row adds the sign by direction).
@@ -22,7 +23,7 @@ export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
 export type TxFigures =
   | { model: 'deposit'; headline: bigint; fee: bigint | null; netAmount: bigint; estimated: boolean }
   | { model: 'spend'; headline: bigint; fee: bigint; totalDeducted: bigint; cctpFee: CctpFeeFigure | null }
-  | { model: 'yield'; headline: bigint; fee: bigint; netAmount: bigint }
+  | { model: 'yield'; headline: bigint; fee: bigint; netAmount: bigint; apyBps: bigint | null }
   | { model: 'merge'; headline: bigint; fee: bigint }
   | { model: 'received'; headline: bigint }
 
@@ -97,7 +98,7 @@ export function txFigures(record: TxFiguresSource): TxFigures {
       const meta = record.meta as MetaFor<'yield-deposit' | 'yield-withdraw'>
       const fee = meta.broadcasterFeeAmount
       const netAmount = record.kind === 'yield-deposit' ? meta.amount + fee : meta.amount - fee
-      return { model: 'yield', headline: txHeadline(record), fee, netAmount }
+      return { model: 'yield', headline: txHeadline(record), fee, netAmount, apyBps: meta.apyBps ?? null }
     }
     case 'consolidate': {
       // A consolidation merges the wallet's own notes, so `meta.amount` is 0n and the only USDC that leaves the

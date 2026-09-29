@@ -54,7 +54,8 @@ vi.mock('@/hooks/useGasBalanceWarning', () => ({
 // The vault rate is an on-chain read, unavailable in jsdom (the real hook resolves to null here). Tests that
 // withdraw set a rate snapshot.
 const hoistedRate = vi.hoisted(() => ({ rate: null as YieldRate | null }))
-vi.mock('@/hooks/useYieldRate', () => ({
+vi.mock('@/hooks/useYieldRate', async (importActual) => ({
+  ...await importActual<typeof import('@/hooks/useYieldRate')>(),
   useYieldRate: () => ({ rate: hoistedRate.rate, refresh: vi.fn(async () => hoistedRate.rate) }),
 }))
 
@@ -389,6 +390,28 @@ describe('<EarnModal>', () => {
     } finally {
       hoistedFees.quote.fees.crossContract = original
     }
+  })
+
+  it('the confirmation screen shows the APY frozen on the record at submit, not the live rate (YD-4, G-1)', async () => {
+    hoistedRate.rate = { rate: 1_000_000n, apyBps: 450n, fetchedAt: 0 } as unknown as YieldRate
+    hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+    const store = renderModal({ open: 'yield-deposit', shielded: 20_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '10' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-deposit')).toBe(true))
+    // The vault rate moves after submit; the record keeps the rate the user reviewed.
+    hoistedRate.rate = { rate: 1_000_000n, apyBps: 900n, fetchedAt: 1 } as unknown as YieldRate
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'yield-deposit' ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
+      ))
+    })
+    await waitFor(() => expect(screen.getByText('Total deducted from balance')).toBeInTheDocument())
+    expect(screen.getByText('~4.50%')).toBeInTheDocument()
+    expect(screen.queryByText('~9.00%')).toBeNull()
   })
 
   describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {

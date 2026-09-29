@@ -107,17 +107,22 @@ describe('txFigures', () => {
       ['fold-in', F + FOLD],
     ])('YD-1…YD-3 deposit, %s: headline A, Fees = fee, net (total deducted) A + fee', (_variant, fee) => {
       expect(txFigures(txRecord('yield-deposit', spend(fee))))
-        .toEqual({ model: 'yield', headline: A, fee, netAmount: A + fee })
+        .toEqual({ model: 'yield', headline: A, fee, netAmount: A + fee, apyBps: null })
     })
 
     it('YD-10…YD-12 withdraw: headline G, Fees F, net received G − F', () => {
       expect(txFigures(txRecord('yield-withdraw', { ...spend(F), amount: G, shares: 9_523_809n })))
-        .toEqual({ model: 'yield', headline: G, fee: F, netAmount: G - F })
+        .toEqual({ model: 'yield', headline: G, fee: F, netAmount: G - F, apyBps: null })
     })
 
     it('a withdraw with no fee nets its full amount', () => {
       expect(txFigures(txRecord('yield-withdraw', { ...spend(0n), amount: G, shares: 9_523_809n })))
-        .toEqual({ model: 'yield', headline: G, fee: 0n, netAmount: G })
+        .toEqual({ model: 'yield', headline: G, fee: 0n, netAmount: G, apyBps: null })
+    })
+
+    it('YD-4, YD-14 the net APY reviewed at submit, frozen on the record — null when it wasn\'t captured', () => {
+      expect(txFiguresAs(txRecord('yield-deposit', { ...spend(F), apyBps: 450n }), 'yield').apyBps).toBe(450n)
+      expect(txFiguresAs(txRecord('yield-withdraw', { ...spend(F), amount: G, shares: 1n }), 'yield').apyBps).toBeNull()
     })
 
     it.todo('YD-10 a withdrawal settled without reconciliation shows its typed amount marked est. — F14, #76')
@@ -175,12 +180,12 @@ describe('txFigures', () => {
 
     it('a 0.5-USDC vault deposit debits amount + fee', () => {
       expect(txFigures(txRecord('yield-deposit', { ...spend(5_758_001n), amount: 500_000n })))
-        .toEqual({ model: 'yield', headline: 500_000n, fee: 5_758_001n, netAmount: 6_258_001n })
+        .toEqual({ model: 'yield', headline: 500_000n, fee: 5_758_001n, netAmount: 6_258_001n, apyBps: null })
     })
 
     it('a reconciled withdraw (redeemed 6.000019, fee 5.758001) nets 0.242018', () => {
       expect(txFigures(txRecord('yield-withdraw', { ...spend(5_758_001n), amount: 6_000_019n, shares: 1n })))
-        .toEqual({ model: 'yield', headline: 6_000_019n, fee: 5_758_001n, netAmount: 242_018n })
+        .toEqual({ model: 'yield', headline: 6_000_019n, fee: 5_758_001n, netAmount: 242_018n, apyBps: null })
     })
   })
 

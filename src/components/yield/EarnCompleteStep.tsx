@@ -55,6 +55,8 @@ export function EarnCompleteStep({
         netAmount={netAmount}
         netLabel={netLabel}
         confirmedAt={confirmedAt}
+        // No APY frozen on the record (captured without a rate) → hide the row, as the Activity receipt does.
+        showApy={rate !== null}
       />
     </ConfirmedScreenLayout>
   )

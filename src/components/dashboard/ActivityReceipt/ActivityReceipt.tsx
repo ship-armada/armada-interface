@@ -9,7 +9,7 @@ import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
 import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSummary'
-import type { YieldRate } from '@/hooks/useYieldRate'
+import { frozenApyRate, type YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { getChainById, getNetworkConfig } from '@/config/network'
@@ -138,16 +138,15 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
     }
     case 'yield-deposit':
     case 'yield-withdraw': {
-      const meta = (record as TxRecord<'yield-deposit' | 'yield-withdraw'>).meta
       // Single receipt-math source shared with the completion screen so a completed yield op reads
       // identically wherever it's shown (withdraw's `amount` is the handler-reconciled redeemed gross).
-      const { headline: amount, fee, netAmount } = txFiguresAs(record, 'yield')
+      const { headline: amount, fee, netAmount, apyBps } = txFiguresAs(record, 'yield')
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
       const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
       // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
       // the "Estimated APY" row shows the historical value. `EarnReviewSummary` reads only `apyBps`.
       // Absent on pre-capture records → keep the row hidden (unknown, not a fabricated 0%).
-      const rate: YieldRate | null = meta.apyBps !== undefined ? { rate: 0n, apyBps: meta.apyBps, fetchedAt: 0 } : null
+      const rate: YieldRate | null = apyBps !== null ? frozenApyRate(apyBps) : null
       return {
         flowLabel: 'Earn',
         steps: DEPOSIT_STEPS,

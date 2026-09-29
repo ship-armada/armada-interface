@@ -24,6 +24,14 @@ export interface YieldRate {
 }
 
 /**
+ * A minimal rate snapshot carrying only a net APY frozen on a record (`meta.apyBps`) — so a past tx's "Estimated
+ * APY" row shows the rate the user reviewed, not today's. Summaries read only `apyBps` from it.
+ */
+export function frozenApyRate(apyBps: bigint): YieldRate {
+  return { rate: 0n, apyBps, fetchedAt: 0 }
+}
+
+/**
  * 5-minute cadence. The earlier 30s value was wasteful: at any realistic APY the per-tick rate
  * delta is below USDC's 2-decimal display precision, so polling that hard burned RPC quota with
  * no UI signal. EarnModal supplements this with on-open and post-submit refreshes for the moments

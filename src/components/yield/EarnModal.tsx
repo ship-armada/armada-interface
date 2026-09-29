@@ -10,7 +10,7 @@ import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
-import { useYieldRate } from '@/hooks/useYieldRate'
+import { frozenApyRate, useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
 import { computeFeeBreakdown, userFeeForKind } from '@/lib/relayer'
@@ -461,7 +461,8 @@ export function EarnModal() {
         <EarnCompleteStep
           tab={tab}
           amount={completeReceipt.headline}
-          rate={yieldRate}
+          // The net APY the user reviewed, frozen on the record — not the live rate, refreshed after completion.
+          rate={completeReceipt.apyBps !== null ? frozenApyRate(completeReceipt.apyBps) : null}
           fee={completeReceipt.fee}
           // Per-tab net figure derived from the (reconciled) record: Add debits `amount + fee`;
           // Withdraw nets `amount - fee` into private balance (the fee is skimmed from the redeemed
