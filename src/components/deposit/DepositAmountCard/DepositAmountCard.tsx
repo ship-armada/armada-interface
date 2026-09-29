@@ -235,6 +235,9 @@ export function DepositAmountCard({
   const showResolving = showActiveAmount && feeResolving
   const showUnavailable = showActiveAmount && !feeResolving && feeUnavailable
   const showFee = showActiveAmount && !feeResolving && !feeUnavailable && displayFees !== undefined && totalFeeRaw > 0n
+  // A fee taken from the amount (a shield) or from the proceeds (a vault withdrawal) is included in the figure typed,
+  // not added to it — so it reads "incl.", and "+" is left for a fee charged on top (G-7).
+  const feePrefix = flowBreakdown?.feesFromAmount || flowBreakdown?.feeFromProceeds ? 'incl.' : '+'
   // The ETH network-gas segment shows ONLY when the caller says the user pays gas themselves — the
   // direct shield path (`!gaslessMode`). This is an explicit signal, NOT inferred from a zero
   // broadcaster fee: a relayer-submitted spend with a not-yet-loaded fee is also 0, and must not
@@ -311,8 +314,9 @@ export function DepositAmountCard({
           </AmountFieldWarning>
         </label>
 
-        {/* Fee caption (mockup): "+ $X.XX FEE" directly under the amount, plus a "+ ~X ETH gas"
-            segment on the direct path where the user pays network gas from their own wallet (the
+        {/* Fee caption (mockup): "+ $X.XX FEE" ("incl. $X.XX FEE" when the fee comes out of the amount) directly
+            under the amount, plus a "+ ~X ETH gas" segment on the direct path where the user pays network
+            gas from their own wallet (the
             two combine on a direct cross-chain shield). The line is always reserved (non-breaking
             space when there's no fee) so the card height stays stable. The breakdown tooltip is
             kept beside the value for the full protocol/broadcaster/gas split. */}
@@ -320,10 +324,10 @@ export function DepositAmountCard({
           {showResolving ? (
             <span className={styles.feeResolving}>Estimating fees…</span>
           ) : showUnavailable ? (
-            <span>+ — FEE</span>
+            <span>{feePrefix} — FEE</span>
           ) : (showFee || showGas) && displayFees ? (
             <>
-              {showFee ? <span>+ ${formatUsdcAmount(totalFeeRaw)} FEE</span> : null}
+              {showFee ? <span>{feePrefix} ${formatUsdcAmount(totalFeeRaw)} FEE</span> : null}
               {showGas && nativeGas ? <span>+ {formatNativeGasAmount(nativeGas)} gas</span> : null}
               <FeeBreakdownTooltip
                 fees={displayFees}

@@ -9,6 +9,7 @@ import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
 import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSummary'
+import { ReceivedSummary } from '@/components/dashboard/ReceivedSummary'
 import { frozenApyRate, type YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
@@ -194,6 +195,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       }
     }
     case 'transfer-shielded-received': {
+      const meta = (record as TxRecord<'transfer-shielded-received'>).meta
       const { headline } = txFiguresAs(record, 'received')
       return {
         flowLabel: 'Received',
@@ -203,14 +205,13 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         explorerUrl,
         status,
         errorCopy,
+        // The recipient pays nothing and the amount is the headline, so no Fees or Total; the sender is anonymous
+        // unless they disclosed their address.
         summary: (
-          <TransferReviewSummary
-            recipient=""
-            fee={null}
-            hideFees
-            totalDeducted={headline}
-            variant="send"
-            confirmedAt={confirmedAt}
+          <ReceivedSummary
+            {...(meta.senderShieldedAddress !== undefined ? { senderShieldedAddress: meta.senderShieldedAddress } : {})}
+            {...(meta.memoText !== undefined ? { memoText: meta.memoText } : {})}
+            {...(confirmedAt !== undefined ? { confirmedAt } : {})}
           />
         ),
       }

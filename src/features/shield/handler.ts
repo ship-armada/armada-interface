@@ -95,8 +95,9 @@ const PRIVACY_POOL_SHIELD_ABI = [
  *
  *   1. `build-proof`    — generate a random shieldPrivateKey → build ShieldRequest (no signature —
  *                         see lib/shielded/shield.ts for why the shield key is random, not derived).
- *                         When gasless: sign an EIP-2612 USDC permit for `amount + fee` to the
- *                         wrapper address — the only wallet prompt on this path.
+ *                         When gasless: sign an EIP-2612 USDC permit for `amount` (fee included)
+ *                         to the wrapper address, then the EIP-712 ShieldIntent — the only wallet
+ *                         prompts on this path.
  *   2. `submit-relayer` — direct path: approve USDC + writeContract(PrivacyPool.shield).
  *                         gasless path: encode `gaslessShield(...)` calldata + POST /relay +
  *                         poll /status. No EVM wallet prompts after build-proof on this branch.

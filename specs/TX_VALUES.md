@@ -64,7 +64,9 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-7 The rows add up.** Fee-on-top kinds: Amount + Fees = Total deducted. Fee-inclusive kinds (shields,
   a vault withdrawal): Amount − Fees = You'll receive. A fee that is neither on top nor inside the user's own
   figure — the CCTP fee of a cross-chain unshield, taken from the amount in transit — gets its own row,
-  labelled as taken from the amount, and is not part of "Fees".
+  labelled as taken from the amount, and is not part of "Fees". The amount step's fee caption follows the same
+  split: "+ $X FEE" for a fee charged on top, "incl. $X FEE" for one inside the figure typed (shields, a vault
+  withdrawal); network gas paid from the wallet stays "+".
 - **G-8 List row = receipt headline [D1].** ROW shows the same number as RCPT's big numeral, signed by
   direction (+ in, − out). Formatting: ROW 0–2 dp, RCPT/REV/CNF full precision (2–6 dp).
 - **G-9 Non-settled receipts.** When a failed or cancelled record's first on-chain transaction never
@@ -109,6 +111,7 @@ A sweep grows the change note only — every figure is unchanged.
 | SH-4 | Row | `+A` | ROW | +10 / +10 |
 | SH-5 | Max | public USDC balance (fee-inclusive); minimum `> F` on gasless | AMT | – |
 | SH-6 | `P` base | the note that reaches the pool: gasless `A − F`, direct `A` (`shieldProtocolFeeBase`) | REV → `meta.protocolFee` | – |
+| SH-7 | Wallet steps | direct: "Approve unlimited USDC" (only when the allowance is below `A`; the handler approves `maxUint256`), then "Submit `A` USDC shield"; gasless: "Authorize `A` USDC" (the permit is for `A`, fee included), then "Sign shield transaction". The same for `shield-xchain` | CNF (progress) | – |
 
 - **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `txFigures` (`deposit`). REV
   reads `P` from the fee module with the integrator the shield will carry (the configured one only for a direct
@@ -179,9 +182,8 @@ A sweep grows the change note only — every figure is unchanged.
 | PS-10 | Headline | Σ notes the tx paid us (split sends fold into one entry — SDK #101) | RCV | 10 |
 | PS-11 | Fees | none (no Fees row) | RCV | – |
 | PS-12 | Row | `+A` | ROW | +10 |
-
-- **Deviations:** F22 (layout: an empty "To recipient" row and a "Total" that repeats the amount; a disclosed
-  sender and memo are recovered but not shown).
+| PS-13 | From | the sender's 0zk — only when they disclosed it; no row otherwise (no recipient row, no Total) | RCV | – |
+| PS-14 | Memo | the memo the sender attached, when there is one | RCV | – |
 
 ## 7. Unshield, yield, merge
 
@@ -275,8 +277,6 @@ fallback / old records; **S4** cosmetic or labelling.
 | ID | Sev | Kind(s) | Summary | Issue |
 |---|---|---|---|---|
 | F8 | S2 | yield | Recovered withdrawals never show APY; recovered no-change deposits (all Max, fold-in) lose it too. | #76, armada-sdk#113 |
-| F22 | S4 | received | Receipt layout (empty recipient row, "Total", sender/memo hidden). | #83 |
-| F26 | S4 | shield | Labels: "+ fee" caption on fee-inclusive deposits; "Approve 10 USDC" while approving unlimited. | #83 |
 | F28 | S4 | tests | A test fixture that encodes a shape the SDK never emits (withdraw USDC-leg `selfMetadata`). | #76, armada-sdk#113 |
 
 ## 9. Decisions

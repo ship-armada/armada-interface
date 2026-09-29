@@ -32,7 +32,8 @@ function shieldArtifacts(record: ShieldRecord) {
 
 /**
  * Wallet prompts for deposit (shield) flows:
- * 1. Approve USDC — optional when allowance is low
+ * 1. Approve USDC — only when the allowance is below the amount; the handler approves an unlimited
+ *    allowance (maxUint256), so the row says so rather than naming the amount
  * 2. Submit deposit — on-chain shield / crossChainShield (direct) or relay submit (gasless)
  *
  * The build-proof stage runs silently (ephemeral shieldPrivateKey is generated locally; no
@@ -79,7 +80,7 @@ export function shieldWalletSteps(
 
   if (!approveSkipped) {
     steps.push({
-      label: `Approve ${amountLabel} USDC`,
+      label: 'Approve unlimited USDC',
       status: stepStatus(
         approveDone,
         onSubmitWallet && !approveDone,

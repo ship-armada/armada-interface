@@ -26,9 +26,16 @@ describe('shieldWalletSteps', () => {
     // pre-record snapshot starts with Approve pending, not an "Authorize" placeholder.
     const steps = shieldWalletSteps(null, 5_000_000n)
     expect(steps.map(s => s.label)).toEqual([
-      'Approve 5.00 USDC',
+      'Approve unlimited USDC',
       'Submit 5.00 USDC shield',
     ])
+  })
+
+  it('labels the approval as unlimited — the handler approves maxUint256, not the amount (F26, #83)', () => {
+    // WHY: the wallet prompt asks for an unlimited allowance (one approval, all future shields free); a checklist
+    // row saying "Approve 5.00 USDC" would misdescribe what the user signs.
+    const steps = shieldWalletSteps(null, 5_000_000n)
+    expect(steps[0]!.label).toBe('Approve unlimited USDC')
   })
 
   it('omits approve row when allowance was sufficient', () => {

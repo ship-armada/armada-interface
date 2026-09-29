@@ -238,6 +238,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     recipientReceives: netAmount,
     totalDeducted,
     recipientLabel: "You'll shield",
+    feesFromAmount: true,
   }
   // The record this shield will submit, built once from the reviewed figures: Review renders it (through txFigures,
   // like every later surface) and submit sends it, so the stored record is what Review showed — including a

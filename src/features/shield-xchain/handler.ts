@@ -467,8 +467,8 @@ async function runDirectSubmit(
  *
  * Zero EVM wallet prompts in this stage — the user already signed the USDC permit during
  * build-proof. The relayer broadcasts on the user's behalf and pays gas in the source
- * chain's native token; the wrapper pulls `amount + fee` USDC from the user via the permit
- * and reimburses the relayer.
+ * chain's native token; the wrapper pulls `amount` USDC (fee included) from the user via the
+ * permit and reimburses the relayer out of it.
  */
 async function runGaslessSubmit(
   record: TxRecord<'shield-xchain'>,

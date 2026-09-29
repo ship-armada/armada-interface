@@ -193,6 +193,20 @@ describe('DepositAmountCard — fee caption', () => {
     expect(screen.getByText('+ ~0.0012 ETH gas')).toBeInTheDocument()
   })
 
+  it('a fee that comes out of the amount reads "incl.", not "+" — a shield charges nothing on top (F26, #83)', () => {
+    // WHY: "+ $X FEE" says the fee is added to what the user typed; a shield takes it from the deposit (the pool
+    // receives amount − fees). Network gas IS paid on top, from the wallet, so it keeps its "+".
+    renderCard({ amount: '10', displayFees: fees(20_011n), flowBreakdown: { broadcasterFee: 1_000_003n, feesFromAmount: true }, userPaysNativeGas: true })
+    expect(screen.getByText('incl. $1.020014 FEE')).toBeInTheDocument()
+    expect(screen.getByText('+ ~0.0012 ETH gas')).toBeInTheDocument()
+    expect(screen.queryByText(/\+ \$/)).not.toBeInTheDocument()
+  })
+
+  it('a vault withdrawal\'s fee, taken from its proceeds, reads "incl." too', () => {
+    renderCard({ amount: '10', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 1_000_003n, feeFromProceeds: true } })
+    expect(screen.getByText('incl. $1.000003 FEE')).toBeInTheDocument()
+  })
+
   it('renders no caption segments before an amount is entered', () => {
     renderCard({ amount: '', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n }, userPaysNativeGas: true })
     expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()

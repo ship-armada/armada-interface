@@ -87,11 +87,26 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
   })
 
   describe('transfer-shielded-received', () => {
-    it('the amount received, and no Fees row (PS-10, PS-11)', () => {
+    it('the amount received — no Fees row, and no Total repeating it (PS-10, PS-11)', () => {
       showReceipt('transfer-shielded-received', { amount: A }, { stage: 'observed' } as Partial<TxRecord>)
       expect(headlineAmount()).toBe('10')
-      expect(summaryRow('Total')).toBe('10.00 USDC')
       expect(screen.queryByText('Fees')).toBeNull()
+      expect(screen.queryByText('Total')).toBeNull()
+    })
+
+    it('an anonymous sender: no From row, and no empty recipient row (PS-13)', () => {
+      showReceipt('transfer-shielded-received', { amount: A }, { stage: 'observed' } as Partial<TxRecord>)
+      expect(screen.queryByText('From')).toBeNull()
+      expect(screen.queryByText('To recipient')).toBeNull()
+    })
+
+    it('a sender who disclosed their address is shown as From, and the memo they attached (PS-13, PS-14)', () => {
+      showReceipt(
+        'transfer-shielded-received', { amount: A, senderShieldedAddress: RECIPIENT_0ZK, memoText: 'Rent for May' },
+        { stage: 'observed' } as Partial<TxRecord>,
+      )
+      expect(summaryRow('From')).toBe('0zkccc...cccc')
+      expect(summaryRow('Memo')).toBe('Rent for May')
     })
   })
 

@@ -194,8 +194,9 @@ export interface MetaShield extends MetaCommon {
   useGasless?: boolean
   /**
    * Phase B3 — USDC raw amount paid to the relayer's wrapper for gas reimbursement. Only set
-   * when `useGasless` is true. The permit signature authorises `amount + feeAmount` total; the
-   * wrapper splits `amount` to the pool and `feeAmount` to the relayer.
+   * when `useGasless` is true. The permit signature authorises `amount` — the total the user
+   * entered, fee included; the fee comes out of it: the user's note is `amount − feeAmount`, the
+   * relayer's fee note `feeAmount`.
    */
   feeAmount?: bigint
   /**
@@ -244,9 +245,9 @@ export interface MetaShieldXchain extends MetaCommon {
   useGasless?: boolean
   /**
    * Phase B4 — USDC raw amount paid to the relayer's wrapper for gas reimbursement on the
-   * source chain. Only set when `useGasless` is true. The permit signature authorises
-   * `amount + feeAmount` total; the wrapper splits `amount` into the CCTP burn and `feeAmount`
-   * to the relayer.
+   * source chain. Only set when `useGasless` is true. The permit signature authorises `amount` —
+   * the total the user entered, fee included; the fee comes out of it: the user's note is
+   * `amount − feeAmount`, the relayer's fee note `feeAmount`.
    */
   feeAmount?: bigint
   /**

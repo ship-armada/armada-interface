@@ -711,7 +711,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
 
     it('Review: the relayer + protocol fee and the net received (SH-1…SH-3)', async () => {
       gaslessShieldReview({ ...STUB_FEE_QUOTE, fees: { ...STUB_FEE_QUOTE.fees, shield: String(F) } })
-      await waitFor(() => expect(screen.getByText('+ $1.020014 FEE')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('incl. $1.020014 FEE')).toBeInTheDocument())
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
       expect(summaryRow('Fees')).toBe('1.020014 USDC')
       expect(summaryRow("You'll receive")).toBe('8.979986 USDC')
