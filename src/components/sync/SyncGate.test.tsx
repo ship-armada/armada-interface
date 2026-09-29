@@ -12,21 +12,19 @@ function wrap(store: ReturnType<typeof createStore>, ui: React.ReactElement) {
 }
 
 describe('isInitialSyncGated', () => {
-  it('gates while there is no balance yet and the scan has not completed', () => {
-    expect(isInitialSyncGated(null, 'idle')).toBe(true)
-    expect(isInitialSyncGated(null, 'syncing')).toBe(true)
-    expect(isInitialSyncGated(null, 'failed')).toBe(true)
-  })
-
-  it('does NOT gate once the scan is complete', () => {
-    expect(isInitialSyncGated(null, 'complete')).toBe(false)
+  it('gates while there is no balance yet — whatever the scan status, until its balance is read (G-11, #80)', () => {
+    // WHY: between the scan's `complete` and the SDK balance read landing, the dashboard has no real balance.
+    // Ungated, it showed one derived from local history (ignoring fees, received payments and merges) — the UI
+    // only ever shows the SDK balance, so it stays on the loading gate instead. The gate reads only the balance,
+    // so no sync status can lift it early.
+    expect(isInitialSyncGated(null)).toBe(true)
   })
 
   it('does NOT gate once a balance is known, even mid background re-sync', () => {
     // WHY: a balance of 0n is still a KNOWN balance (completed scan, empty wallet). Blanking the
     // dashboard on every background refresh after that would be a regression.
-    expect(isInitialSyncGated(0n, 'syncing')).toBe(false)
-    expect(isInitialSyncGated(5_000_000n, 'failed')).toBe(false)
+    expect(isInitialSyncGated(0n)).toBe(false)
+    expect(isInitialSyncGated(5_000_000n)).toBe(false)
   })
 })
 
