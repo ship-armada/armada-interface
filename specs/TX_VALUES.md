@@ -3,6 +3,9 @@
 What every figure the app shows for a transaction means, where it comes from, and which surfaces must
 agree. This spec is normative: every row ID (`SH-…`, `PS-…`, …) is meant to be pinned by a test, and a
 change to how a figure is computed or displayed changes its row here in the same PR.
+Figures are pinned per row in `src/lib/fees/txFigures.test.ts` (test names carry the row IDs; rows the code
+doesn't meet yet are `it.todo`s naming their deviation) and, per surface, in the Activity receipt and
+confirmation-screen tests that use the shared fixture `src/test/fixtures/txValues.ts`.
 
 Markers: **[Dn]** = the row follows design decision Dn (§9); **Deviation Fn** = the code does not meet the
 row yet (§8).
@@ -29,7 +32,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 | AMT | Amount step fee caption + breakdown tooltip + Max | `DepositAmountCard`, `FeeBreakdownTooltip`; per-flow hooks/modals |
 | REV | Review step | `ShieldReviewStep`, `SendReviewStep` → `TransferReviewSummary`, `EarnReviewSummary`, `ConsolidationSummary` |
 | CNF | Confirm / complete step | `ShieldCompleteStep`, `SendCompleteStep`, `EarnCompleteStep`, `MergeCompleteStep` |
-| ROW | Activity list row | `components/dashboard/txActivityAdapter.ts`, `lib/tx/headlineAmount.ts` |
+| ROW | Activity list row | `components/dashboard/txActivityAdapter.ts` (magnitude from `lib/fees/txFigures.ts::txHeadline`) |
 | RCPT | Activity receipt | `components/dashboard/ActivityReceipt/ActivityReceipt.tsx` |
 | REC | Receipt of a record recovered from chain history | SDK `reconstructHistory` → `lib/shielded/history.ts::historyEntryToTxRecord` (+ `xchain-recovery.ts`) → RCPT |
 | RCV | The recipient's receipt of a private send | `transfer-shielded-received` in RCPT |
@@ -37,7 +40,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 ## 3. Invariants (all kinds)
 
 - **G-1 The record is the source after submit.** CNF, ROW and RCPT render money figures only from the
-  record's `meta`, through the shared helpers in `lib/fees/displayFees.ts` — never from a live quote, live
+  record's `meta`, through `lib/fees/txFigures.ts` (`txFigures` / `txHeadline`) — never from a live quote, live
   rate or form state. *Deviation F12* (Earn CNF APY is live).
 - **G-2 Review figures are stored.** Every figure REV shows that a later surface also shows is written into
   `meta` at submit (as an estimate if it is one), so nothing shown at REV can silently vanish later.
@@ -99,7 +102,7 @@ A sweep grows the change note only — every figure is unchanged.
 | SH-5 | Max | public USDC balance (fee-inclusive); minimum `> F` on gasless | AMT | – |
 | SH-6 | `P` base | the note that reaches the pool: gasless `A − F`, direct `A` (`shieldProtocolFeeBase`) | REV → `meta.protocolFee` | – |
 
-- **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `shieldReceiptFromMeta`.
+- **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `txFigures` (`deposit`).
 - **Recovered:** SDK `value = A − F − P` (user notes), `shieldFee = P`, `broadcasterFee` = the relayer note's
   **gross** (`F`, including its own shield fee — SDK #92), so `amount = value + shieldFee + broadcasterFee = A`
   exactly. A scan snapshot written before SDK #88 has no relayer fee: amount `A − F`, fee `P`, shown as a
@@ -147,7 +150,7 @@ A sweep grows the change note only — every figure is unchanged.
 | PS-7 | Send-to-self | Not authorable — the Recipient step rejects the wallet's own 0zk. A record whose recipient is the wallet's own 0zk (authored before that guard, or recovered as the SDK's `self-transfer`) renders as a merge (§7 `consolidate`): amount 0, Fees = Total = `Φ` | AMT (block), CNF, ROW, RCPT, REC | Fees = Total 1.000003 |
 
 - **Stored:** `amount = A`, `broadcasterFeeAmount = Φ` (the handler patches in the fee actually charged),
-  `broadcasterFeePerProof = F`. CNF/RCPT via `spendReceiptFromMeta`.
+  `broadcasterFeePerProof = F`. CNF/RCPT via `txFigures` (`spend`).
 - **Recovered:** SDK `transfer-sent`: `amount = Σ sentOutputs` (all recipient notes of a split),
   `broadcasterFeeAmount` = Σ every BroadcasterFee output of the tx (`k·F` for a split, `F + c` for a fold-in).
   A fold-in has no change note, so its self-metadata (`feeCacheId`) is lost — not displayed, accepted.
