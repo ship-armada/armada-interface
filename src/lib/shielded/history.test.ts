@@ -281,7 +281,9 @@ describe('historyEntryToTxRecord (@armada/sdk read path)', () => {
       sdkEntry({ category: 'unshield', value: -(amount + 10_000n), broadcasterFee: 10_000n, recipient: POOL }), 'w', ctx, 5000,
     ) as TxRecord<'unshield-xchain'>
     expect(recovered.meta.cctpFee).toBe(cctpFastFeeForAmount(amount))
-    const authored = { amount, broadcasterFeeAmount: 10_000n, cctpFee: cctpFastFeeForAmount(amount) }
+    // An estimate, as the authored record's is — only the destination mint knows the actual fee.
+    expect(recovered.meta.cctpFeeIsEstimate).toBe(true)
+    const authored = { amount, broadcasterFeeAmount: 10_000n, cctpFee: cctpFastFeeForAmount(amount), cctpFeeIsEstimate: true }
     expect(txFigures(recovered)).toEqual(txFigures(txRecord('unshield-xchain', authored)))
   })
 

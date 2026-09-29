@@ -49,7 +49,8 @@ export function spendDraft<K extends SpendKind>(kind: K, input: SpendDraftInput)
           ...common,
           toChainId: input.toChainId,
           ...protocolFee,
-          ...(input.cctpFee > 0n ? { cctpFee: input.cctpFee } : {}),
+          // An estimate until the actual fee is known at delivery.
+          ...(input.cctpFee > 0n ? { cctpFee: input.cctpFee, cctpFeeIsEstimate: true } : {}),
         },
       } as TxDraft<K>
   }

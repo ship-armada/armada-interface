@@ -125,14 +125,15 @@ A sweep grows the change note only — every figure is unchanged.
 | SH-15 | Fees / receive while pending | as SH-11/12, marked ≈ | RCPT | 1.320021 / ≈ 8.679979 |
 | SH-16 | Row | `+A` | ROW | +10 |
 
-- **Stored:** `amount = A`, `feeAmount = F`, `protocolFee = P` (est.), `cctpFee = C` (est.) at submit; the
-  handler reconciles `amount`, `cctpFee = C'` (hub `MessageReceived`), `protocolFee`, `feeAmount` (SDK entry)
-  in the write that completes the record.
+- **Stored:** `amount = A`, `feeAmount = F`, `protocolFee = P` (est.), `cctpFee = C` with `cctpFeeIsEstimate` at
+  submit; the handler reconciles `amount`, `cctpFee = C'` (hub `MessageReceived`, clearing the marker),
+  `protocolFee`, `feeAmount` (SDK entry) in the write that completes the record. While the marker is set — pending,
+  or the delivery couldn't be read — Fees and the net read "≈". A record without the marker (written before it
+  existed) holds the reconciled actual.
 - **Recovered:** `amount` = the CCTP burn amount, `cctpFee = C'` from the hub `MessageReceived`; one row per
   deposit (an authored record matches the hub mint by `destTxHash`).
 - **Allowed differences:** REV (estimate, "≈") vs CNF (actual): by `C − C'` and the `P` base change.
-- **Deviations:** F3 (the CCTP estimate stored at submit reads as final — a pending receipt, or a settled one
-  whose reconcile couldn't read the delivery, shows it without "est." / "≈"), F9 (authored + recovered duplicate rows
+- **Deviations:** F9 (authored + recovered duplicate rows
   when delivery times out or recovery races the final write), F20 (recovery with no CCTP routing records a
   same-chain `shield`, headline short by `C'`).
 
@@ -191,7 +192,8 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | UN-8 | Max | SDK `maxUnshieldAmount` | AMT | – |
 
 - **Stored:** `amount = A`, `broadcasterFeeAmount = Φ`, `broadcasterFeePerProof = F`, `protocolFee` (0 by
-  contract), xchain `cctpFee = C` (reconciled to `C'` on delivery [D4]).
+  contract), xchain `cctpFee = C` with `cctpFeeIsEstimate` (reconciled to `C'` on delivery [D4]; a record without
+  the marker — written before it existed — holds the estimate).
 - **Recovered:** SDK `unshield`: `amount = |value| − broadcasterFee` (gross `A`), `protocolFee = unshieldFee`,
   `recipient = Unshield.to` — for a cross-chain exit that is the **final recipient** (`TransactModule` emits
   `Unshield(finalRecipient, …)`), not the pool. A cross-chain exit is identified by the hub CCTP `MessageSent`
@@ -269,7 +271,6 @@ fallback / old records; **S4** cosmetic or labelling.
 |---|---|---|---|---|
 | F1 | S1 | transfer (self) | Recovered send-to-self: Total deducted = `2Φ`; only `Φ` left the wallet. | #71 |
 | F2 | S1 | unshield-xchain | Recovery never recognises cross-chain unshields (matches the pool as recipient; the event carries the final recipient): wrong network, CCTP fee dropped. F2b latent recipient = destination pool. | #72 |
-| F3 | S3 | shield-xchain | The CCTP estimate stored at submit isn't marked est.: a pending receipt, or one whose reconcile couldn't read the delivery, shows it as final. | #73 |
 | F4 | S1 (rare) | shield | Same-chain `protocolFee` frozen at REV, can be a fallback (0 on fee-module fetch failure), never reconciled. | #74 |
 | F6 | S2 | unshield-xchain | #68 — every surface shows the CCTP estimate; the actual is available at delivery (relayer status / dest `MessageReceived`) but discarded. | #68 |
 | F7 | S2 | yield-withdraw | AMT tooltip uses the fee-on-top model. | #76 |

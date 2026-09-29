@@ -561,7 +561,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     it('cross-chain shield, reconciled: relayer + protocol + the actual CCTP fee (SH-13, SH-14)', async () => {
       const store = await submitShield(/Anvil Client A/)
       await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield-xchain')).toBe(true))
-      settle(store, 'shield-xchain', 'hub-mint-confirmed', { useGasless: true, feeAmount: F, protocolFee: P, cctpFee: C_ACTUAL })
+      settle(store, 'shield-xchain', 'hub-mint-confirmed', { useGasless: true, feeAmount: F, protocolFee: P, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false })
       await waitFor(() => expect(screen.getByText('You received')).toBeInTheDocument())
       expect(headlineAmount()).toBe('10')
       expect(summaryRow('Fees')).toBe('1.170015 USDC')

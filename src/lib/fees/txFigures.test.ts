@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { txFigures, txFiguresAs, txHeadline } from './txFigures'
-import { A, C_ACTUAL, F, FOLD, G, P, txRecord } from '@/test/fixtures/txValues'
+import { A, C, C_ACTUAL, F, FOLD, G, P, txRecord } from '@/test/fixtures/txValues'
 
 const RELAYER_0ZK = '0zk' + 'b'.repeat(64)
 const spend = (fee: bigint, extra: Record<string, unknown> = {}) => ({
@@ -14,36 +14,45 @@ describe('txFigures', () => {
   describe('shield (§5)', () => {
     it('SH-1…SH-3 gasless: headline A, Fees F + P, net A − F − P', () => {
       expect(txFigures(txRecord('shield', { amount: A, fromChainId: 31337, useGasless: true, feeAmount: F, protocolFee: P })))
-        .toEqual({ model: 'deposit', headline: A, fee: F + P, netAmount: A - F - P })
+        .toEqual({ model: 'deposit', headline: A, fee: F + P, netAmount: A - F - P, estimated: false })
     })
 
     it('SH-2, SH-3 direct: Fees P, net A − P', () => {
       expect(txFigures(txRecord('shield', { amount: A, fromChainId: 31337, protocolFee: P })))
-        .toEqual({ model: 'deposit', headline: A, fee: P, netAmount: A - P })
+        .toEqual({ model: 'deposit', headline: A, fee: P, netAmount: A - P, estimated: false })
     })
 
     it('a record written before the protocol fee was stored: no fee ("—"), net A', () => {
       expect(txFigures(txRecord('shield', { amount: A, fromChainId: 31337 })))
-        .toEqual({ model: 'deposit', headline: A, fee: null, netAmount: A })
+        .toEqual({ model: 'deposit', headline: A, fee: null, netAmount: A, estimated: false })
     })
 
     it('the real 4-USDC gasless shield nets by relayer AND protocol fee', () => {
       expect(txFigures(txRecord('shield', { amount: 4_000_000n, fromChainId: 31337, useGasless: true, feeAmount: 742_317n, protocolFee: 16_288n })))
-        .toEqual({ model: 'deposit', headline: 4_000_000n, fee: 758_605n, netAmount: 3_241_395n })
+        .toEqual({ model: 'deposit', headline: 4_000_000n, fee: 758_605n, netAmount: 3_241_395n, estimated: false })
     })
 
     it('never underflows the net if the fees somehow exceed the amount', () => {
       expect(txFigures(txRecord('shield', { amount: 100n, fromChainId: 31337, protocolFee: 500n })))
-        .toEqual({ model: 'deposit', headline: 100n, fee: 500n, netAmount: 100n })
+        .toEqual({ model: 'deposit', headline: 100n, fee: 500n, netAmount: 100n, estimated: false })
     })
 
     it('SH-13, SH-14 cross-chain, settled: Fees F + P + C\', net A − F − P − C\'', () => {
       expect(txFigures(txRecord('shield-xchain', {
         amount: A, fromChainId: 31338, useGasless: true, feeAmount: F, protocolFee: P, cctpFee: C_ACTUAL,
-      }))).toEqual({ model: 'deposit', headline: A, fee: F + P + C_ACTUAL, netAmount: A - F - P - C_ACTUAL })
+      }))).toEqual({ model: 'deposit', headline: A, fee: F + P + C_ACTUAL, netAmount: A - F - P - C_ACTUAL, estimated: false })
     })
 
-    it.todo('SH-15 cross-chain, pending: the stored CCTP estimate is in Fees and net, marked est. — F3, #73')
+    it('SH-15 cross-chain, pending: the CCTP estimate stored at submit is in Fees and net, marked est. (G-5)', () => {
+      expect(txFigures(txRecord('shield-xchain', {
+        amount: A, fromChainId: 31338, useGasless: true, feeAmount: F, protocolFee: P, cctpFee: C, cctpFeeIsEstimate: true,
+      }))).toEqual({ model: 'deposit', headline: A, fee: F + P + C, netAmount: A - F - P - C, estimated: true })
+    })
+
+    it('SH-13 cross-chain, reconciled to the actual CCTP fee: not an estimate', () => {
+      const reconciled = txRecord('shield-xchain', { amount: A, fromChainId: 31338, protocolFee: P, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false })
+      expect(txFiguresAs(reconciled, 'deposit').estimated).toBe(false)
+    })
   })
 
   describe('private send (§6)', () => {
@@ -123,7 +132,7 @@ describe('txFigures', () => {
 
     it('a recovered 3-USDC cross-chain shield nets by protocol AND CCTP fee', () => {
       expect(txFigures(txRecord('shield-xchain', { amount: 3_000_000n, fromChainId: 84532, protocolFee: 14_873n, cctpFee: 25_388n })))
-        .toEqual({ model: 'deposit', headline: 3_000_000n, fee: 40_261n, netAmount: 2_959_739n })
+        .toEqual({ model: 'deposit', headline: 3_000_000n, fee: 40_261n, netAmount: 2_959_739n, estimated: false })
     })
 
     it('a 0.5-USDC vault deposit debits amount + fee', () => {

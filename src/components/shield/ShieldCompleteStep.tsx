@@ -12,6 +12,8 @@ export interface ShieldCompleteStepProps {
   fee: bigint | null
   /** Net amount deposited (post-fee), raw 6-decimal USDC — the summary's "You'll receive". */
   netAmount: bigint
+  /** True while the fee and net are estimates (a cross-chain shield whose actual CCTP fee couldn't be read). */
+  estimated?: boolean
   walletAddress?: string
   walletProvider?: string
   shieldedAddress?: string
@@ -28,6 +30,7 @@ export function ShieldCompleteStep({
   amount,
   fee,
   netAmount,
+  estimated,
   walletAddress,
   walletProvider,
   shieldedAddress,
@@ -49,6 +52,7 @@ export function ShieldCompleteStep({
         amount={amount}
         fee={fee}
         netAmount={netAmount}
+        estimated={estimated}
         walletAddress={walletAddress}
         walletProvider={walletProvider}
         shieldedAddress={shieldedAddress}

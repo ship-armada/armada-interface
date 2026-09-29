@@ -91,7 +91,7 @@ export function DepositReviewSummary({
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>Fees</span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
-            {fee === null ? '—' : `${formatUsdcAmount(feeValue)} USDC`}
+            {fee === null ? '—' : `${estimated ? '≈ ' : ''}${formatUsdcAmount(feeValue)} USDC`}
           </span>
         </div>
         {/* Direct-path only (relayer down / no wrapper): the network gas the user pays in ETH from

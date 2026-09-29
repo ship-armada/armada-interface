@@ -181,7 +181,7 @@ export function ShieldModal() {
             isSubmitting={shieldFlow.isSubmitting}
             duplicateWarning={shieldFlow.duplicateWarning}
             feeUpdated={shieldFlow.feeChanged}
-            estimated={shieldFlow.fromChainId !== hubChainId}
+            estimated={shieldFlow.reviewFigures.estimated}
             // Direct path only: the user pays ETH gas from their wallet. Suppressed on the gasless
             // path (relayer covers gas) and while the relayer state is still resolving.
             nativeGas={
@@ -230,6 +230,7 @@ export function ShieldModal() {
           amount={shieldFlow.completeReceipt.headline}
           fee={shieldFlow.completeReceipt.fee}
           netAmount={shieldFlow.completeReceipt.netAmount}
+          estimated={shieldFlow.completeReceipt.estimated}
           walletAddress={shieldFlow.evmAddress}
           walletProvider={shieldFlow.walletProvider}
           shieldedAddress={shieldFlow.shieldedAddress}

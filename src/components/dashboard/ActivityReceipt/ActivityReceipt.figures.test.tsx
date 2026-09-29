@@ -52,6 +52,16 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(summaryRow('You received')).toBe('8.829985 USDC')
     })
 
+    it('pending, with the CCTP estimate stored at submit: Fees and the net marked as estimates (SH-15, G-5)', () => {
+      showReceipt(
+        'shield-xchain',
+        { amount: A, fromChainId: 31338, useGasless: true, feeAmount: F, protocolFee: P, cctpFee: C, cctpFeeIsEstimate: true },
+        { executionState: 'active' },
+      )
+      expect(summaryRow('Fees')).toBe('≈ 1.320021 USDC')
+      expect(summaryRow("You'll receive")).toBe('≈ 8.679979 USDC')
+    })
+
     it('pending, written before the CCTP estimate was stored at submit: the fee leaves it out', () => {
       showReceipt(
         'shield-xchain',

@@ -248,7 +248,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   }
   const reviewed: TxDraft<'shield' | 'shield-xchain'> = computedKind === 'shield'
     ? { kind: 'shield', meta: reviewedFees }
-    : { kind: 'shield-xchain', meta: { ...reviewedFees, ...(cctpFee > 0n ? { cctpFee } : {}) } }
+    : { kind: 'shield-xchain', meta: { ...reviewedFees, ...(cctpFee > 0n ? { cctpFee, cctpFeeIsEstimate: true } : {}) } }
   const reviewFigures = txFiguresAs(reviewed, 'deposit')
   // Minimum valid amount = the live fee. Below or equal to it the wrapper's `shieldAmount =
   // totalAmount - fee` would underflow / be zero. Surfaced via ShieldInputStep's `minAmount`

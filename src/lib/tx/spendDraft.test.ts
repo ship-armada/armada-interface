@@ -28,11 +28,12 @@ describe('spendDraft', () => {
     expect(spendDraft('unshield-local', { ...base, protocolFee: 0n }).meta).not.toHaveProperty('protocolFee')
   })
 
-  it('a cross-chain unshield carries its destination chain and the CCTP fee shown at review', () => {
+  it('a cross-chain unshield carries its destination chain and the CCTP fee shown at review, marked as the estimate it is', () => {
     expect(spendDraft('unshield-xchain', base)).toEqual({
       kind: 'unshield-xchain',
-      meta: { amount: A, feeCacheId: 'cache', recipient: '0xrecipient', toChainId: 31338, ...broadcaster, protocolFee: P, cctpFee: C },
+      meta: { amount: A, feeCacheId: 'cache', recipient: '0xrecipient', toChainId: 31338, ...broadcaster, protocolFee: P, cctpFee: C, cctpFeeIsEstimate: true },
     })
     expect(spendDraft('unshield-xchain', { ...base, protocolFee: 0n, cctpFee: 0n }).meta).not.toHaveProperty('cctpFee')
+    expect(spendDraft('unshield-xchain', { ...base, protocolFee: 0n, cctpFee: 0n }).meta).not.toHaveProperty('cctpFeeIsEstimate')
   })
 })

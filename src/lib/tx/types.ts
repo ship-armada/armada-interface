@@ -276,6 +276,12 @@ export interface MetaShieldXchain extends MetaCommon {
    * The note that lands is `amount - cctpFee - feeAmount - protocolFee`; `amount` is the true deposit.
    */
   cctpFee?: bigint
+  /**
+   * True while `cctpFee` is the review-time estimate; cleared once the actual `feeExecuted` replaces it, so every
+   * surface marks the fee (and the net) "≈" until then. Absent on records written before it existed — their
+   * `cctpFee`, if any, came from the reconcile, so it reads as the actual.
+   */
+  cctpFeeIsEstimate?: boolean
 }
 
 export interface MetaUnshieldLocal extends MetaCommon, MetaBroadcaster {
@@ -299,6 +305,9 @@ export interface MetaUnshieldXchain extends MetaCommon, MetaBroadcaster {
    *  only known on the destination chain. A chain-recovered record carries the same estimate, read back from
    *  the burn's `maxFee`. Absent on older records. */
   cctpFee?: bigint
+  /** True while `cctpFee` is an estimate (always, until the actual fee is read at delivery). Absent on records
+   *  written before it existed — their `cctpFee` was always the review-time estimate, so it reads as one. */
+  cctpFeeIsEstimate?: boolean
 }
 
 /**

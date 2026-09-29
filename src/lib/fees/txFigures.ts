@@ -8,7 +8,8 @@ export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
 
 /**
  * The figures a record is shown with, shaped per summary layout:
- *  - `deposit` (shield, shield-xchain): fee-inclusive — the net received is `amount − fees`.
+ *  - `deposit` (shield, shield-xchain): fee-inclusive — the net received is `amount − fees`; `estimated` while a
+ *    cross-chain shield's CCTP fee is still the review-time estimate (the fee and the net then read "≈").
  *  - `spend` (transfer-shielded, unshield-*): fee-on-top — the total deducted is `amount + relayer fee`.
  *  - `yield` (yield-deposit, yield-withdraw): the per-tab net — deposit debits `amount + fee`, withdraw nets `amount − fee`.
  *  - `merge` (consolidate): moves no value — the fee is both the headline and the only charge.
@@ -16,7 +17,7 @@ export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
  * `headline` is the big numeral and the Activity row's magnitude (the row adds the sign by direction).
  */
 export type TxFigures =
-  | { model: 'deposit'; headline: bigint; fee: bigint | null; netAmount: bigint }
+  | { model: 'deposit'; headline: bigint; fee: bigint | null; netAmount: bigint; estimated: boolean }
   | { model: 'spend'; headline: bigint; fee: bigint; totalDeducted: bigint }
   | { model: 'yield'; headline: bigint; fee: bigint; netAmount: bigint }
   | { model: 'merge'; headline: bigint; fee: bigint }
@@ -49,7 +50,10 @@ export function txFigures(record: TxFiguresSource): TxFigures {
       const cctpFee = 'cctpFee' in meta ? (meta.cctpFee ?? 0n) : 0n
       const totalFee = relayerFee + (meta.protocolFee ?? 0n) + cctpFee
       const netAmount = meta.amount > totalFee ? meta.amount - totalFee : meta.amount
-      return { model: 'deposit', headline: txHeadline(record), fee: totalFee > 0n ? totalFee : null, netAmount }
+      // A shield's stored CCTP fee is the actual unless marked otherwise (records predating the marker only ever
+      // stored the reconciled actual).
+      const estimated = cctpFee > 0n && 'cctpFeeIsEstimate' in meta && meta.cctpFeeIsEstimate === true
+      return { model: 'deposit', headline: txHeadline(record), fee: totalFee > 0n ? totalFee : null, netAmount, estimated }
     }
     case 'transfer-shielded':
     case 'unshield-local':

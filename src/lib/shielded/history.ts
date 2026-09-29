@@ -280,7 +280,7 @@ export function historyEntryToTxRecord(
             ...unshieldMeta, recipient: x?.recipient ?? entry.recipient ?? 'unknown', toChainId: destChainId,
             // The CCTP fee the app showed (and recorded) at review, read back from the maxFee the burn bound.
             // The actual fee is only known on the destination chain, so both receipts carry the estimate.
-            ...(x?.maxFee !== undefined ? { cctpFee: cctpFeeEstimateFromMaxFee(x.maxFee) } : {}),
+            ...(x?.maxFee !== undefined ? { cctpFee: cctpFeeEstimateFromMaxFee(x.maxFee), cctpFeeIsEstimate: true } : {}),
           },
         }
       }

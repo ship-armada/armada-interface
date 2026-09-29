@@ -74,7 +74,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       const meta = (record as TxRecord<'shield' | 'shield-xchain'>).meta
       // received = amount − relayerFee − protocolFee − cctpFee — the single receipt-math source shared
       // with the completion screen so a completed shield reads identically wherever it's shown.
-      const { headline: amount, fee, netAmount } = txFiguresAs(record, 'deposit')
+      const { headline: amount, fee, netAmount, estimated } = txFiguresAs(record, 'deposit')
       return {
         flowLabel: 'Shield',
         steps: DEPOSIT_STEPS,
@@ -89,6 +89,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             amount={amount}
             fee={fee}
             netAmount={netAmount}
+            estimated={estimated}
             confirmedAt={confirmedAt}
           />
         ),
