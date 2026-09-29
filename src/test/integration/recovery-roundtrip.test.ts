@@ -1,4 +1,3 @@
-// @vitest-environment node
 // ABOUTME: Recovery round-trip (spec G-6): for each tx kind, the notes / events it leaves on chain run through the SDK's real
 // ABOUTME: reconstructHistory → historyEntryToTxRecord, and the recovered figures must equal the recorded ones (txFigures).
 
@@ -33,7 +32,6 @@ const SHARES_HASH = 'bb'.repeat(32)
 const USDC = '0x00000000000000000000000000000000000000c1' as const
 const SHARES = '0x00000000000000000000000000000000000000c2' as const
 const ADAPTER = '0x00000000000000000000000000000000000000ad'
-const POOL = '0x0000000000000000000000000000000000000001'
 const EOA = '0x1234567890abcdef1234567890abcdef12345678'
 const TOKEN_DATA = { tokenType: 0, tokenAddress: USDC, tokenSubID: 0n }
 
@@ -98,7 +96,7 @@ function recoveredOne(chain: Chain, txid: string, ctx?: Partial<HistoryMapContex
 }
 
 const spendInput = { recipient: BOB_0ZK, toChainId: 0, perProofFee: F, protocolFee: 0n, cctpFee: 0n, feeCacheId: '', broadcasterShieldedAddress: RELAYER_0ZK }
-const authored = <K extends TxKind>(kind: K, meta: Record<string, unknown>) => txRecord(kind, meta)
+const authored = <K extends TxKind>(kind: K, meta: object) => txRecord(kind, meta)
 
 beforeAll(async () => {
   await initPoseidonPromise
@@ -175,7 +173,7 @@ describe('recovered figures equal the recorded ones (G-6)', () => {
       const recorded = authored('unshield-xchain', spendDraft('unshield-xchain', {
         ...spendInput, recipient: EOA, toChainId: dest.chainId, amount: A, fee: F, cctpFee: cctpFastFeeForAmount(A),
       }).meta)
-      const recovered = recoveredOne(chain, '0xexit', { poolAddress: POOL, xchainByTxid })
+      const recovered = recoveredOne(chain, '0xexit', { xchainByTxid })
       expect(recovered).toMatchObject({ kind: 'unshield-xchain', meta: { recipient: EOA, toChainId: dest.chainId } })
       expect(txFigures(recovered)).toEqual(txFigures(recorded))
     })

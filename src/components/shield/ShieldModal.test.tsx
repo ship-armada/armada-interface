@@ -659,7 +659,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       }
       fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '10' } })
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-      const rows = chainName ? { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total' } : { fees: 'Fees', total: 'Total' }
+      const rows: Record<string, string> = chainName ? { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total' } : { fees: 'Fees', total: 'Total' }
       const review = readFigures(rows)
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
