@@ -17,6 +17,8 @@ import { withTestQueryClient } from '@/test-utils/queryClient'
 import { txListAtom } from '@/state/tx'
 import type { TxRecord } from '@/lib/tx/types'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
+import { C, F } from '@/test/fixtures/txValues'
+import { headlineAmount, summaryRow } from '@/test/summaryRows'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults so the modal renders.
@@ -641,6 +643,49 @@ describe('<SendModal>', () => {
       expect(hoistedPlan.plan.invalidate).toHaveBeenCalledOnce()
       // Nothing was submitted.
       expect(store.get(txListAtom).some((r) => r.kind === 'transfer-shielded')).toBe(false)
+    })
+  })
+
+  describe('the confirmation screen shows the figures its record carries (spec fixture)', () => {
+    /** Submit a 10 USDC send, then settle its record with `meta` patched in, as a handler would. */
+    async function sendAndSettle(recipient: string, chain: string | undefined, kind: TxRecord['kind'], meta: Record<string, unknown>) {
+      const store = renderModal({ open: 'payment', shielded: 20_000_000n })
+      completeRecipientStep(recipient, chain)
+      fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === kind)).toBe(true))
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === kind ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed', meta: { ...r.meta, ...meta } } as TxRecord) : r,
+        ))
+      })
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+    }
+
+    it('private send, charged as a 2-proof split: Fees 2F, Total amount + 2F (PS-2, PS-3)', async () => {
+      hoistedPlan.plan = { ...hoistedPlan.defaults(), fee: F, proofs: 1, priceAt: vi.fn(async () => F) }
+      await sendAndSettle(VALID_0ZK, undefined, 'transfer-shielded', { broadcasterFeeAmount: 2n * F })
+      expect(headlineAmount()).toBe('10')
+      expect(summaryRow('Fees')).toBe('2.000006 USDC')
+      expect(summaryRow('Total')).toBe('12.000006 USDC')
+    })
+
+    it('public send on the hub: Fees F, Total amount + F (UN-2, UN-3)', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      await sendAndSettle(VALID_EVM, '31337', 'unshield-local', { broadcasterFeeAmount: F })
+      expect(headlineAmount()).toBe('10')
+      expect(summaryRow('Fees')).toBe('1.000003 USDC')
+      expect(summaryRow('Total')).toBe('11.000003 USDC')
+    })
+
+    it('public send cross-chain: Fees folds in the CCTP fee, Total amount + F (deviation F23, #75)', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      await sendAndSettle(VALID_EVM, '31338', 'unshield-xchain', { broadcasterFeeAmount: F, cctpFee: C })
+      expect(summaryRow('Fees')).toBe('1.30001 USDC')
+      expect(summaryRow('Total')).toBe('11.000003 USDC')
     })
   })
 })
