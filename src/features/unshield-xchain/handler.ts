@@ -259,7 +259,7 @@ async function runSubmitAndBurn(
     broadcastRecord = broadcast.record
     // #55: hold this spend's inputs so a rapid follow-up spend won't reselect them before the
     // Nullified event is scanned. No-op on resume (no stashed plan). Best-effort.
-    void markSpendPendingForRecord(record.id, txHash)
+    await markSpendPendingForRecord(record.id, txHash)
   }
 
   // Poll the relayer's /status until terminal. Same shape as unshield-local — the generic poll
@@ -289,7 +289,7 @@ async function runSubmitAndBurn(
     track('tx.relayer.rejected', { id: record.id, kind: record.kind, errorCode: 'EXECUTION_FAILED' })
     // #55: the hub burn reverted → its inputs were NOT nullified on-chain, so release the optimistic
     // hold now instead of waiting out the TTL, freeing the notes for the next spend.
-    void clearSpendPendingForTx(txHash)
+    await clearSpendPendingForTx(txHash)
     const error: TxError = {
       code: 'TX_REVERTED',
       message: final.error ?? 'Relayer-broadcast hub burn reverted on chain.',

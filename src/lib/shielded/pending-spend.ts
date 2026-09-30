@@ -28,7 +28,8 @@ export function forgetSpendPlan(recordId: string): void {
  * the on-chain `txid`, so a rapid follow-up `planTransfer` won't reselect them (which would revert
  * with "Note already spent"). The hold clears automatically on the `Nullified` event, via
  * `clearSpendPendingForTx` on a known drop/revert, or by the SDK's TTL. No-op when no Plan was stashed
- * (resumed tx, or a non-spend kind). Best-effort: never throws — a failed mark must not fail the tx.
+ * (resumed tx, or a non-spend kind). Resolves once the SDK has written the hold to storage, so it
+ * survives a reload from then on. Best-effort: never throws — a failed mark must not fail the tx.
  */
 export async function markSpendPendingForRecord(recordId: string, txid: string): Promise<void> {
   const plans = pendingPlans.get(recordId)
@@ -37,7 +38,7 @@ export async function markSpendPendingForRecord(recordId: string, txid: string):
   try {
     const wallet = await getSdkWallet()
     // Hold every group's inputs in one call so a split spend can't leave later groups' notes unheld.
-    wallet.markSpendPending(plans, txid)
+    await wallet.markSpendPending(plans, txid)
   } catch (err) {
     trackError('shielded.pendingSpend.mark', err)
   }
@@ -45,12 +46,13 @@ export async function markSpendPendingForRecord(recordId: string, txid: string):
 
 /**
  * Release the optimistic holds for a spend that will not confirm (dropped / reverted tx), so its notes
- * become spendable again immediately instead of waiting out the TTL. Best-effort: never throws.
+ * become spendable again immediately instead of waiting out the TTL. Resolves once the SDK has written
+ * the release to storage. Best-effort: never throws.
  */
 export async function clearSpendPendingForTx(txid: string): Promise<void> {
   try {
     const wallet = await getSdkWallet()
-    wallet.clearSpendPending(txid)
+    await wallet.clearSpendPending(txid)
   } catch (err) {
     trackError('shielded.pendingSpend.clear', err)
   }
