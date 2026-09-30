@@ -165,7 +165,7 @@ async function runSubmitAndConfirm(
     broadcastRecord = broadcast.record
     // #55: hold every merged note so a rapid follow-up spend won't reselect them before the
     // Nullified events are scanned. No-op on resume (no stashed plan). Best-effort.
-    void markSpendPendingForRecord(record.id, txHash)
+    await markSpendPendingForRecord(record.id, txHash)
   }
 
   // Enter the on-chain confirmation stage before polling (idempotent for resume/retry).
@@ -200,7 +200,7 @@ async function runSubmitAndConfirm(
     track('tx.relayer.rejected', { id: record.id, kind: record.kind, errorCode: 'EXECUTION_FAILED' })
     // #55: the tx reverted → its inputs were NOT nullified on-chain, so release the optimistic hold
     // now instead of waiting out the TTL.
-    void clearSpendPendingForTx(txHash)
+    await clearSpendPendingForTx(txHash)
     const error: TxError = {
       code: 'TX_REVERTED',
       message: final.error ?? 'Relayer-broadcast tx reverted on chain.',
