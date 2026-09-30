@@ -272,8 +272,8 @@ function sepoliaConfig(): NetworkConfig {
     // Stay one block behind head: Sepolia routinely reorgs its head block, and a 1-block hold-back means
     // those reorgs can never remove a note the SDK has already persisted — no note that appears then
     // vanishes, and no full rescan. The cost is ~one block (~12s) before a new note is visible. Deeper
-    // reorgs rely on the SDK's own recovery: from ship-armada/armada-sdk#118 it detects a reorg under its
-    // checkpoint by block hash and rescans; before that, some reorg shapes can wedge sync.
+    // reorgs are handled by the SDK: it detects a reorg under its checkpoint by block hash and rescans
+    // from the deploy block — correct, but slow, which is why this hold-back is worth keeping.
     confirmationDepth: 1,
     // Equal to confirmationDepth: a note is spendable as soon as it's visible — no separate `pending`
     // window (the split still exists; the window is just zero-width). Raise above confirmationDepth to

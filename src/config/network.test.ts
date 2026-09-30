@@ -189,8 +189,7 @@ describe('getNetworkConfig — sepolia reorg hold-back', () => {
   })
 
   // Sepolia routinely reorgs its head block. A 1-block hold-back means those can never remove a note the
-  // SDK already persisted, so they don't trigger a full rescan (or, with @armada/sdk before
-  // ship-armada/armada-sdk#118, a permanently wedged sync). finalityThreshold must stay >= the depth.
+  // SDK already persisted, so they don't trigger a full rescan. finalityThreshold must stay >= the depth.
   it('holds back at least one block on sepolia, with finalityThreshold >= confirmationDepth', async () => {
     vi.stubEnv('VITE_NETWORK', 'sepolia')
     vi.resetModules()
