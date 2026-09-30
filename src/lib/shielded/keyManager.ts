@@ -15,11 +15,11 @@ interface UnlockedState {
   /** The 0zk… address returned by the SDK. */
   shieldedAddress: string
   /**
-   * Hub-chain block at which the wallet was first enrolled. Captured at true first-enrollment,
-   * preserved across backups via the encrypted payload, and threaded into the SDK's
-   * `creationBlockNumbers` on every wallet recreation so the merkletree scan starts at the
-   * correct tree position rather than at chain head (which would silently truncate the user's
-   * commitment scan to the recent past).
+   * Hub-chain block the SDK starts looking for this wallet's notes from. Set at first enrollment on a
+   * device to the hub deploy block (`resolveCreationBlock`), preserved across backups via the
+   * encrypted payload, and passed as `fromRootSecret({ creationBlock })` on every wallet recreation,
+   * so note discovery covers the wallet's whole history rather than starting at chain head (which
+   * would silently drop the user's earlier notes).
    *
    * `null` means "not known in this session" — happens on paste-secret restores and on the
    * post-load-failure fallback paths in enroll/unlock. `exportBackup` writes 0 in the blob for

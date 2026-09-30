@@ -207,7 +207,8 @@ export function clearStoredWalletIdentity(): void {
  * user it's still an unlock, not a new identity.)
  *
  * Caller-supplied `creationBlock` semantics:
- *  - First-time enrollment passes the current hub block (the true wallet birthdate)
+ *  - First-time enrollment passes the hub deploy block (`resolveCreationBlock`), so a re-sign on
+ *    another device still discovers the wallet's earlier notes
  *  - Backup-file unlock passes the value embedded in the v2 blob
  *  - Paste-secret unlock and post-load-failure recovery pass `undefined` (forces a full rescan)
  *
@@ -419,9 +420,9 @@ export async function enrollFromSignature(
   // `creationBlock` to the hub deploy block — NOT the current head. The earlier value is
   // critical for chain-history recovery: a user who previously enrolled this wallet on another
   // device (or cleared local storage and re-signed) has on-chain activity at blocks prior to
-  // "now", and the SDK's merkletree scan starts at `creationBlockNumbers` and skips earlier
-  // commitments. Anchoring at the deploy block ensures every shield/transact/unshield this
-  // wallet ever authored is discoverable by `getWalletTransactionHistory`.
+  // "now", and the SDK only looks for the wallet's notes from `creationBlock` (the
+  // `fromRootSecret` option) onward. Anchoring at the deploy block ensures every
+  // shield/transact/unshield this wallet ever authored is discoverable by `wallet.history()`.
   // Fallback chain: deploy block from the manifest → current head (older manifests without a
   // deploy block) → undefined (SDK does a full rescan from genesis — slowest but correct).
   // Returning paths (cached walletId exists in localStorage) leave creationBlock undefined so
