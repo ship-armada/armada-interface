@@ -35,8 +35,8 @@ describe('getNetworkConfig', () => {
   // Invariant across all modes: a note can only be SPENDABLE once it is at least as deep as it is
   // VISIBLE (persisted), i.e. finalityThreshold >= confirmationDepth. A finalityThreshold BELOW the
   // confirmation depth would mark notes spendable before they're even scanned in — nonsensical. When
-  // strictly greater, freshly-scanned notes surface as `pending` in the gap. (Sepolia's exact values
-  // are verified at deploy-time review, per the maxLogRange note above; local pins both to 0.)
+  // strictly greater, freshly-scanned notes surface as `pending` in the gap. (Local pins both to 0;
+  // Sepolia's values are checked in the 'sepolia reorg hold-back' block below.)
   it('keeps finalityThreshold at or above confirmationDepth', () => {
     const cfg = getNetworkConfig()
     expect(cfg.finalityThreshold).toBeGreaterThanOrEqual(cfg.confirmationDepth)
@@ -179,6 +179,25 @@ describe('getNetworkConfig — empty-string env vars fall back to defaults (CI p
     const cfg = freshGetConfig()
     expect(cfg.clients.find(c => c.chainId === 84532)?.rpcUrls).toEqual(['https://sepolia.base.org'])
     expect(cfg.clients.find(c => c.chainId === 11155420)?.rpcUrls).toEqual(['https://sepolia.optimism.io'])
+  })
+})
+
+describe('getNetworkConfig — sepolia reorg hold-back', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  // Sepolia routinely reorgs its head block. A 1-block hold-back means those can never remove a note the
+  // SDK already persisted, so they don't trigger a full rescan (or, with @armada/sdk before
+  // ship-armada/armada-sdk#118, a permanently wedged sync). finalityThreshold must stay >= the depth.
+  it('holds back at least one block on sepolia, with finalityThreshold >= confirmationDepth', async () => {
+    vi.stubEnv('VITE_NETWORK', 'sepolia')
+    vi.resetModules()
+    const { getNetworkConfig: freshGetConfig } = await import('./network')
+    const cfg = freshGetConfig()
+    expect(cfg.confirmationDepth).toBeGreaterThanOrEqual(1)
+    expect(cfg.finalityThreshold).toBeGreaterThanOrEqual(cfg.confirmationDepth)
   })
 })
 
