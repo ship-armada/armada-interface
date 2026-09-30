@@ -44,16 +44,6 @@ vi.mock('@armada/sdk', async (importActual) => {
   }
 })
 
-// network.ts is pure ethers now; stub only `getCurrentHubBlock` (wallet.ts calls it on signIn and
-// the real one would hit an RPC jsdom can't reach). Keep the rest real.
-vi.mock('@/lib/shielded/network', async (importActual) => {
-  const actual = await importActual<typeof import('@/lib/shielded/network')>()
-  return {
-    ...actual,
-    getCurrentHubBlock: vi.fn(async () => 100),
-  }
-})
-
 vi.mock('wagmi/actions', () => ({
   signTypedData: hoisted.signTypedData,
 }))

@@ -25,7 +25,6 @@ import {
 import { loadDeployments } from '@/config/deployments'
 import { clearHistoryCheckpoint } from './history-checkpoint'
 import { deleteSdkReadStorage } from './sdk-read'
-import { getCurrentHubBlock } from './network'
 
 /**
  * Public state shape exposed to React (atoms / hooks). No secrets — just identity + status.
@@ -423,8 +422,9 @@ export async function enrollFromSignature(
   // "now", and the SDK only looks for the wallet's notes from `creationBlock` (the
   // `fromRootSecret` option) onward. Anchoring at the deploy block ensures every
   // shield/transact/unshield this wallet ever authored is discoverable by `wallet.history()`.
-  // Fallback chain: deploy block from the manifest → current head (older manifests without a
-  // deploy block) → undefined (SDK does a full rescan from genesis — slowest but correct).
+  // If the manifest can't supply the deploy block, creationBlock stays undefined: the SDK then looks
+  // for notes from the start, and since its tree scan always begins at the pool's deploy block, that
+  // costs the same as the anchored path.
   // Returning paths (cached walletId exists in localStorage) leave creationBlock undefined so
   // the SDK reuses the value it stored at original creation.
   const wasFirstTimeEnrollment = opts.evmAddress
@@ -555,16 +555,17 @@ export async function resetWallet(_id: string): Promise<void> {
  *   1. `hub.deployBlock` from the deployment manifest — guarantees full chain-history coverage
  *      regardless of when this wallet was originally enrolled or how many cleared-storage
  *      cycles have happened since.
- *   2. `getCurrentHubBlock()` — fallback for legacy manifests that don't carry deployBlock;
- *      preserves the pre-Phase-9 behavior but loses old activity on re-enrollment.
- *   3. `undefined` — SDK falls back to full genesis rescan; slowest but always correct.
+ *   2. `undefined` — when the manifest can't be loaded or carries no deployBlock. The SDK looks for
+ *      notes from the start; its tree scan always begins at the pool's deploy block, so this costs
+ *      the same as (1). Never the current head: that would silently hide a returning user's earlier
+ *      notes (a re-sign on a new device looks exactly like a first enrollment).
  */
 async function resolveCreationBlock(): Promise<number | undefined> {
   try {
     const deployments = await loadDeployments()
     if (deployments.hub.deployBlock !== undefined) return deployments.hub.deployBlock
   } catch {
-    // Manifest load failed (offline, dev plugin down) — fall through to head-block fallback.
+    // Manifest load failed (offline, dev plugin down) — fall through to undefined.
   }
-  return (await getCurrentHubBlock()) ?? undefined
+  return undefined
 }
