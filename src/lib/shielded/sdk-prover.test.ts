@@ -4,10 +4,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Stub the worker prover so importing this module doesn't pull the proving stack (or a Worker) into
-// the test. createInterfaceProver is lazy, so createWorkerProver isn't invoked until first prove().
-vi.mock('@armada/sdk', () => ({
-  createWorkerProver: () => ({ prove: async () => ({}), verify: async () => false, close: async () => {} }),
-}))
+// the test. The stub records the spawn function it is given, without calling it.
+const createWorkerProverMock = vi.hoisted(() =>
+  vi.fn((_spawn: () => unknown) => ({ prove: async () => ({}), verify: async () => false, close: async () => {} })),
+)
+vi.mock('@armada/sdk', () => ({ createWorkerProver: createWorkerProverMock, webWorkerChannel: vi.fn() }))
 
 // Stub the lazy loader — the ArtifactSource under test should delegate a registry miss to it.
 const ensureCircuitLoadedMock = vi.hoisted(() => vi.fn())
@@ -57,8 +58,13 @@ describe('createInterfaceArtifactSource', () => {
 })
 
 describe('createInterfaceProver', () => {
-  it('returns a ProverAdapter (snarkjs backend)', () => {
+  it('hands the SDK a worker factory without starting a worker (the SDK spawns lazily and respawns)', () => {
+    // WHY: the SDK's worker prover starts the worker on the first request and starts a fresh one after
+    // a crash or a cancelled proof — so it needs a factory, and read-only sessions never spawn a worker.
+    createWorkerProverMock.mockClear()
     const prover = createInterfaceProver()
+    expect(createWorkerProverMock).toHaveBeenCalledTimes(1)
+    expect(typeof createWorkerProverMock.mock.calls[0]?.[0]).toBe('function')
     expect(typeof prover.prove).toBe('function')
     expect(typeof prover.close).toBe('function')
   })

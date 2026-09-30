@@ -11,15 +11,18 @@ import { track, trackError } from '../telemetry'
  * dedicated telemetry (STUCK → tx.executor.no-progress, INTERRUPTED → tx.interrupted) — those are
  * counted via the tx.failed info event only, to keep the Sentry signal high.
  *
- * NOTE (latent coupling): a corrupt/invalid proving artifact currently surfaces as `OTHER` on our
- * runtime path — our own circuit fetch throws a plain Error (circuitFetch.ts) and the worker prover
- * flattens an in-worker ProofVerificationError to a plain Error across the message boundary, so
- * neither reaches classifyHandlerError as an `ArmadaError`. If proving ever moves to the same-thread
- * prover, or the artifact source gets wrapped in the SDK's `VerifiedArtifactSource`, those failures
- * would start mapping to `PRE_FLIGHT_REVERT` (errors.ts) and slip out of this set — reinstate
- * origin-aware handling for the ArtifactIntegrity / ProofVerification codes then.
+ * Our own circuit fetch throws a plain Error on a corrupt artifact (circuitFetch.ts), which lands in
+ * `OTHER` above.
  */
 const SENTRY_WORTHY_CODES: ReadonlySet<TxErrorCode> = new Set(['OTHER', 'TX_REVERTED', 'POLL_TIMEOUT'])
+
+/**
+ * `@armada/sdk` error codes (`TxError.sdkCode`) worth a Sentry alert even though they classify as
+ * `PRE_FLIGHT_REVERT` (nothing was sent — the right copy for the user): a proof that failed the SDK's
+ * self-check or an artifact that failed integrity means a bug or a corrupt artifact, and a crashed
+ * proving worker (e.g. out of memory) is a device limit we need to see.
+ */
+const SENTRY_WORTHY_SDK_CODES: ReadonlySet<string> = new Set(['PROOF_VERIFICATION', 'ARTIFACT_INTEGRITY', 'PROVER_WORKER'])
 
 /**
  * Emit telemetry for a record that just settled into `failed`. Called once from the executor's
@@ -36,11 +39,15 @@ export function reportTerminalFailure(record: TxRecord): void {
   const error = record.artifacts.error
   const code = error?.code
   track('tx.failed', { id: record.id, kind: record.kind, errorCode: code })
-  if (code !== undefined && SENTRY_WORTHY_CODES.has(code)) {
+  const sdkCode = error?.sdkCode
+  const sentryWorthy =
+    (code !== undefined && SENTRY_WORTHY_CODES.has(code)) || (sdkCode !== undefined && SENTRY_WORTHY_SDK_CODES.has(sdkCode))
+  if (code !== undefined && sentryWorthy) {
     trackError('tx.failure', new Error(error?.message ?? 'transaction failed'), {
       scope: 'tx.failure',
       kind: record.kind,
       code,
+      ...(sdkCode !== undefined ? { sdkCode } : {}),
       ...(error?.txHash !== undefined ? { txHash: error.txHash } : {}),
     })
   }

@@ -1,4 +1,4 @@
-// ABOUTME: Write-capable @armada/sdk wiring — a same-thread snarkjs ProverAdapter + an ArtifactSource
+// ABOUTME: Write-capable @armada/sdk wiring — a Web Worker snarkjs ProverAdapter + an ArtifactSource
 // ABOUTME: that resolves circuits from the interface's in-memory artifact registry (artifactGetter).
 
 import {
@@ -32,22 +32,12 @@ function createProverWorkerChannel(): WorkerChannel {
 
 /**
  * Off-main-thread Groth16 prover — snarkjs runs in a Web Worker so proving never blocks the UI
- * (replaces the engine's `yieldToPaint` main-thread block). The worker is created LAZILY on first
- * prove, so read-only sessions (which never prove) don't spawn one. `close()` terminates it.
+ * (replaces the engine's `yieldToPaint` main-thread block). The SDK starts the worker LAZILY on the
+ * first request, so read-only sessions (which never prove) don't spawn one; it starts a fresh worker
+ * after a crash or a cancelled proof, and `close()` terminates it.
  */
 export function createInterfaceProver(): ProverAdapter {
-  let inner: ProverAdapter | undefined
-  const ensure = (): ProverAdapter => {
-    if (inner === undefined) inner = createWorkerProver(createProverWorkerChannel())
-    return inner
-  }
-  return {
-    prove: (input, artifacts, options) => ensure().prove(input, artifacts, options),
-    verify: (proof, signals, vkey) => ensure().verify(proof, signals, vkey),
-    close: async () => {
-      if (inner !== undefined) await inner.close()
-    },
-  }
+  return createWorkerProver(createProverWorkerChannel)
 }
 
 /**

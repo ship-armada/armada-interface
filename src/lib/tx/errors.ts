@@ -74,6 +74,10 @@ function classifyRelayerError(err: unknown): TxError | null {
  */
 function classifySdkError(err: unknown): TxError | null {
   if (!(err instanceof ArmadaError)) return null
+  return { ...sdkErrorToTxError(err), sdkCode: err.code }
+}
+
+function sdkErrorToTxError(err: ArmadaError): TxError {
   switch (err.code) {
     case 'ROOT_MISMATCH':
       return {
@@ -121,6 +125,13 @@ function classifySdkError(err: unknown): TxError | null {
       return {
         code: 'PRE_FLIGHT_REVERT',
         message: 'The zero-knowledge proof failed local verification and was not submitted. Please try again.',
+      }
+    case 'PROVER_WORKER':
+      // The proving worker stopped (crashed, e.g. out of memory, or failed to load). The SDK starts a
+      // fresh worker on the next proof, so a retry is honest.
+      return {
+        code: 'PRE_FLIGHT_REVERT',
+        message: 'The prover stopped unexpectedly and nothing was sent. Please try again.',
       }
     case 'PROOF_EXPIRED':
     case 'PROOF_HANDLE_INVALIDATED':

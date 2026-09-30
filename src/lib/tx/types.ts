@@ -470,6 +470,12 @@ export interface TxError {
    * the spend's circuit shape — merging them (a `consolidate` tx) unblocks it.
    */
   remedy?: 'merge-notes'
+  /**
+   * The `@armada/sdk` `ArmadaError` code this failure was classified from, when it came from the SDK.
+   * Several SDK codes share one `code` (e.g. PRE_FLIGHT_REVERT), so failure reporting uses this to tell
+   * an expected refusal from a bug or a broken prover (`failureReport.ts`).
+   */
+  sdkCode?: string
 }
 
 export interface ArtifactsCommon {

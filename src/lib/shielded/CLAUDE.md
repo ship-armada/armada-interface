@@ -63,9 +63,11 @@ Privacy apps routinely leak through carelessly-written telemetry and dev logs. B
 
 ## Proving warmup
 
-Proving runs on an off-main-thread Web Worker created lazily by `sdk-prover.ts::createInterfaceProver`
-— the worker (snarkjs + `@armada/sdk/prover`) is spawned on the FIRST `prove()` call, so read-only
-sessions never pay for it, and it is terminated on `close()`. There is no separate engine-init step and
+Proving runs on an off-main-thread Web Worker: `sdk-prover.ts::createInterfaceProver` hands the SDK's
+`createWorkerProver` a worker factory, and the SDK spawns the worker (snarkjs + `@armada/sdk/prover`) on
+the FIRST proof, so read-only sessions never pay for it. If the worker crashes (e.g. out of memory) or a
+proof is cancelled, the SDK terminates it and starts a fresh one on the next proof (a crash surfaces as
+`ProverWorkerError` → a retryable `PRE_FLIGHT_REVERT`); it is terminated on `close()`. There is no separate engine-init step and
 no atom-observable warmup state anymore (the old `railgunEngineAtom` / `prover.ts::initProver` were removed
 with the stock engine). The circuit artifacts the worker needs are preloaded into the `artifactGetter`
 registry on app mount by `artifacts.ts::preloadArtifactsFromOrigin`, and each spend's planned shapes as soon as
