@@ -48,7 +48,7 @@ describe('buildTransferSdk', () => {
     })
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [{ to0zk: '0zk_bob', amount: 5_000_000n }],
-      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     expect(hoisted.buildTransactCalldata).toHaveBeenCalledWith([{ tx: 'data' }], POOL)
     expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 0n })
@@ -58,7 +58,6 @@ describe('buildTransferSdk', () => {
     await buildTransferSdk({ recipient: '0zk_bob', amount: 1n, broadcasterFee: null, poolAddress: POOL })
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [{ to0zk: '0zk_bob', amount: 1n }],
-      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
     })
   })
 
@@ -141,7 +140,7 @@ describe('planTransferFee', () => {
     expect(r).toEqual({ totalFee: 40_000n, proofs: 2 })
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [{ to0zk: '0zk_bob', amount: 5n }],
-      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     expect(hoisted.proveAll).not.toHaveBeenCalled()
     expect(hoisted.preflight).not.toHaveBeenCalled()
@@ -160,7 +159,7 @@ describe('maxTransferAmount', () => {
     hoisted.maxTransferAmount.mockResolvedValue(5_213_411n)
     expect(await maxTransferAmount({ broadcasterFee: FEE })).toBe(5_213_411n)
     expect(hoisted.maxTransferAmount).toHaveBeenCalledWith({
-      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
   })
 
@@ -168,7 +167,6 @@ describe('maxTransferAmount', () => {
     hoisted.maxTransferAmount.mockResolvedValue(1_000_000n)
     expect(await maxTransferAmount({ broadcasterFee: null })).toBe(1_000_000n)
     expect(hoisted.maxTransferAmount).toHaveBeenCalledWith({
-      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
     })
   })
 })

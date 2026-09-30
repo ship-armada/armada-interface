@@ -12,6 +12,7 @@ import {
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
+import { spendFeeFor } from './transfer-sdk'
 import { assertReviewedFee, totalFeeOf } from './spend-fee'
 
 const ZERO_BYTES32 = `0x${'00'.repeat(32)}` as const
@@ -131,14 +132,7 @@ export async function buildYieldAdaptSdk(
 
   // Lend pays the relayer via the SDK fee leg (a shielded USDC output note); redeem does not (its fee
   // is the contract-side re-shield above), so it plans with no fee output.
-  const fee = !isRedeem && inputs.broadcasterFee
-    ? {
-        schedule: { transfer: inputs.broadcasterFee.amount.toString() },
-        broadcasterShieldedAddress: inputs.broadcasterFee.recipientAddress,
-        feesCacheId: '',
-        expiresAt: 0,
-      }
-    : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
+  const fee = isRedeem ? undefined : spendFeeFor(inputs.broadcasterFee)
 
   // Yield ops are adaptParams unshields — not split (planSpend only splits plain transfers), so this is
   // exactly one group; the adapter call takes a single proved Transaction tuple.
@@ -146,7 +140,7 @@ export async function buildYieldAdaptSdk(
     outputs: [],
     unshield: { recipient: inputs.adapterAddress, amount: inputs.amount, adaptContract: inputs.adapterAddress, adaptParams },
     tokenAddress: inputs.unshieldToken,
-    fee,
+    ...(fee ? { fee } : {}),
   })
   const plan = plans[0]
   if (plans.length !== 1 || !plan) throw new Error('yield: expected a single plan group')

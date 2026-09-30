@@ -5,9 +5,15 @@ import { ArmadaError, buildTransactCalldata, type Plan, type PlanTransferRequest
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
-import { feeQuoteFor, type BroadcasterFee } from './transfer-sdk'
+import { spendFeeFor, type BroadcasterFee } from './transfer-sdk'
 import { assertReviewedFee, totalFeeOf } from './spend-fee'
 import { warmPlannedCircuits } from './artifacts'
+
+// The SDK consolidate request for one token, at the per-proof fee (none for direct submission).
+function consolidateRequest(tokenAddress: `0x${string}`, broadcasterFee: BroadcasterFee) {
+  const fee = spendFeeFor(broadcasterFee)
+  return { tokenAddress, ...(fee ? { fee } : {}) }
+}
 
 export interface SdkConsolidateInputs {
   /** The ONE token to merge (USDC or vault shares). */
@@ -46,7 +52,7 @@ export async function buildConsolidateSdk(
   inputs: SdkConsolidateInputs,
 ): Promise<{ to: `0x${string}`; data: `0x${string}` } & Omit<ConsolidationSummary, 'proofs'>> {
   const wallet = await getSdkWallet()
-  const plans = await wallet.consolidate({ tokenAddress: inputs.tokenAddress, fee: feeQuoteFor(inputs.broadcasterFee) })
+  const plans = await wallet.consolidate(consolidateRequest(inputs.tokenAddress, inputs.broadcasterFee))
   const { totalFee, notesMerged, notesCreated } = summarize(plans, inputs.tokenAddress)
   assertReviewedFee(totalFee, inputs.maxTotalFee)
   // Pre-proof gate over every group: reject a stale root / already-spent input in <1s, not after proving.
@@ -72,7 +78,7 @@ export async function previewConsolidation(inputs: {
   readonly blocked?: PlanTransferRequest
 }): Promise<ConsolidationSummary & { blockedWillWork?: boolean }> {
   const wallet = await getSdkWallet()
-  const plans = await wallet.consolidate({ tokenAddress: inputs.tokenAddress, fee: feeQuoteFor(inputs.broadcasterFee) })
+  const plans = await wallet.consolidate(consolidateRequest(inputs.tokenAddress, inputs.broadcasterFee))
   // Fetch the circuits this merge will prove while the user reviews it, not after Confirm.
   void warmPlannedCircuits(plans)
   const summary = summarize(plans, inputs.tokenAddress)

@@ -68,10 +68,10 @@ const DRY_RUN_UNSHIELD_RECIPIENT = '0x0000000000000000000000000000000000000001' 
  * The SDK request to dry-run a blocked spend with (`wallet.planTransferAfter`). It reproduces the spend's
  * circuit SHAPE — the same inputs selected for the same value and outputs — not its destination: every
  * blocked non-transfer spend is an unshield (plus fee and change), so its adapter / CCTP binding can be
- * left out. The fee schedule only needs the `transfer` tier: the SDK falls back to it for any spend kind.
+ * left out. The per-proof fee is what shapes the plan (the recipient doesn't matter for a dry run).
  */
 export function blockedSpendRequest(blocked: BlockedSpend, tokenAddress: `0x${string}`): PlanTransferRequest {
-  const fee = { schedule: { transfer: blocked.perProofFee.toString() }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
+  const fee = { perProof: blocked.perProofFee, broadcasterShieldedAddress: '' }
   if (blocked.kind === 'transfer-shielded') {
     return { outputs: [{ to0zk: blocked.recipient ?? '', amount: blocked.amount }], fee, tokenAddress }
   }

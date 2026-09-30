@@ -50,7 +50,7 @@ describe('blockedSpendRequest', () => {
   it('a private send dry-runs as a transfer to its recipient', () => {
     expect(blockedSpendRequest({ kind: 'transfer-shielded', amount: 5n, recipient: '0zk_bob', perProofFee: 20n }, USDC)).toEqual({
       outputs: [{ to0zk: '0zk_bob', amount: 5n }],
-      fee: { schedule: { transfer: '20' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20n, broadcasterShieldedAddress: '' },
       tokenAddress: USDC,
     })
   })
@@ -59,7 +59,7 @@ describe('blockedSpendRequest', () => {
     const r = blockedSpendRequest({ kind: 'unshield-xchain', amount: 7n, perProofFee: 30n }, USDC)
     expect(r.outputs).toEqual([])
     expect(r.unshield?.amount).toBe(7n)
-    expect(r.fee.schedule).toEqual({ transfer: '30' })
+    expect(r.fee).toEqual({ perProof: 30n, broadcasterShieldedAddress: '' })
     expect(r.tokenAddress).toBe(USDC)
   })
 })

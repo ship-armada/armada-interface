@@ -6,6 +6,7 @@ import { transactionToTuple, encodeCctpBinding } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
+import { spendFeeFor } from './transfer-sdk'
 import { assertReviewedFee, totalFeeOf } from './spend-fee'
 
 /**
@@ -109,14 +110,7 @@ export async function buildXchainUnshieldSdk(
   inputs: SdkXchainUnshieldInputs,
 ): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint }> {
   const wallet = await getSdkWallet()
-  const fee = inputs.broadcasterFee
-    ? {
-        schedule: { transfer: inputs.broadcasterFee.amount.toString() },
-        broadcasterShieldedAddress: inputs.broadcasterFee.recipientAddress,
-        feesCacheId: '',
-        expiresAt: 0,
-      }
-    : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
+  const fee = spendFeeFor(inputs.broadcasterFee)
 
   const adaptParams = encodeCctpBinding(inputs.finalRecipient, inputs.destinationDomain, inputs.maxFee)
   // Cross-chain unshield is an adaptParams unshield — not split (planSpend only splits plain transfers),
@@ -124,7 +118,7 @@ export async function buildXchainUnshieldSdk(
   const plans = await wallet.planTransfer({
     outputs: [],
     unshield: { recipient: inputs.privacyPoolAddress, amount: inputs.amount, adaptParams },
-    fee,
+    ...(fee ? { fee } : {}),
   })
   const plan = plans[0]
   if (plans.length !== 1 || !plan) throw new Error('unshield-xchain: expected a single plan group')
