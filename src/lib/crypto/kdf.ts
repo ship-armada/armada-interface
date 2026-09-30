@@ -199,9 +199,10 @@ export function assertEntropyFloor(name: string, key: Uint8Array): void {
  */
 /**
  * v2 backup envelope. The plaintext payload is 40 bytes: [0..32) rootSecret, [32..40) uint64-BE
- * creationBlock. `creationBlock` is the hub-chain block at which the wallet was first enrolled —
- * passed to the SDK's `creationBlockNumbers` on restore so the merkletree scan starts at
- * the right tree position. A value of 0 means "unknown" (e.g. a backup exported after a
+ * creationBlock. `creationBlock` is the hub-chain block note discovery starts from — the hub deploy
+ * block for wallets enrolled via `resolveCreationBlock` (a backup exported before that anchoring may
+ * carry its enrollment-time head instead) — passed as `fromRootSecret({ creationBlock })` on restore.
+ * A value of 0 means "unknown" (e.g. a backup exported after a
  * paste-secret restore where the true creation block was never persisted); the restore path
  * treats 0 as `undefined` and falls back to a full chain rescan (correct, slow).
  *

@@ -1,5 +1,5 @@
-// ABOUTME: Hub-chain RPC helpers — a one-shot timeout-bounded JsonRpcProvider plus current-block and
-// ABOUTME: block-timestamp lookups. Pure ethers; no @armada/sdk or shielded-engine coupling.
+// ABOUTME: Hub-chain RPC helpers — a one-shot timeout-bounded JsonRpcProvider plus block-timestamp
+// ABOUTME: lookups. Pure ethers; no @armada/sdk or shielded-engine coupling.
 
 import { ethers } from 'ethers'
 import { getNetworkConfig } from '@/config/network'
@@ -31,27 +31,6 @@ export function timeoutProvider(
     undefined,
     batchMaxCount !== undefined ? { batchMaxCount } : undefined,
   )
-}
-
-/**
- * Fetch the current block number on the hub chain. Used at wallet enroll to seed the
- * @armada/sdk wallet's creation block — tells the scan "this wallet didn't exist before block N,
- * skip decryption attempts on commitments older than that."
- *
- * Spins up a one-shot JsonRpcProvider. Cheap; not worth caching since the result changes.
- */
-export async function getCurrentHubBlock(): Promise<number | null> {
-  const hubChain = getNetworkConfig().hub
-  const primaryRpc = hubChain.rpcUrls[0]
-  if (!primaryRpc) return null
-  try {
-    const provider = timeoutProvider(primaryRpc)
-    return await provider.getBlockNumber()
-  } catch {
-    // Non-fatal — wallet enroll proceeds without a creation block, the scan just does slightly
-    // more decryption work on the first pass. No correctness impact.
-    return null
-  }
 }
 
 /**

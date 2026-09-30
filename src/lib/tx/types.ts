@@ -115,7 +115,7 @@ export type StageTransferShielded =
 
 /**
  * Synthetic received-transfer kind. These records are not authored by the user — they're
- * reconstructed from chain via `getWalletTransactionHistory` when another wallet shields to our
+ * reconstructed from chain via the `@armada/sdk` wallet's `history()` when another wallet shields to our
  * 0zk address. There's no proof/submit/confirm flow we drove, so the lifecycle collapses to a
  * single terminal `observed` stage: by the time we synthesize the record, the commitment is
  * already on the merkle tree.

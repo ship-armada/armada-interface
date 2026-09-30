@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   shieldedAddress: '0zk1qexampleaddressvalue00000000000000000000000000000000000000000000',
   deriveKeyset: vi.fn(),
   deleteSdkReadStorage: vi.fn(async () => {}),
+  loadDeployments: vi.fn(),
 }))
 
 // Identity comes from the SDK's keyset derivation (mocked — the real one needs poseidon/ed25519 init,
@@ -14,8 +15,8 @@ const h = vi.hoisted(() => ({
 vi.mock('@armada/sdk', () => ({ deriveKeyset: h.deriveKeyset }))
 // Reset wipes the SDK read instance's IDB scan state.
 vi.mock('./sdk-read', () => ({ deleteSdkReadStorage: h.deleteSdkReadStorage }))
-// wallet.ts only reads the current hub block (creation-block seed); return null so it's undefined.
-vi.mock('./network', () => ({ getCurrentHubBlock: vi.fn(async () => null) }))
+// The deployments manifest supplies the hub deploy block that first-time enrollment anchors at.
+vi.mock('@/config/deployments', () => ({ loadDeployments: h.loadDeployments }))
 
 import {
   enrollFromSignature,
@@ -25,7 +26,7 @@ import {
   resetWallet,
   MismatchedRecoverySecretError,
 } from './wallet'
-import { isUnlocked, getWalletId, getShieldedAddress, clear as clearKeyManager } from './keyManager'
+import { isUnlocked, getWalletId, getShieldedAddress, getCreationBlock, clear as clearKeyManager } from './keyManager'
 import { encryptBackup, deriveRootSecret, deriveWalletId } from '@/lib/crypto/kdf'
 
 const SAMPLE_EVM = '0xabcdef0123456789abcdef0123456789abcdef01' as `0x${string}`
@@ -68,6 +69,31 @@ beforeEach(() => {
   h.deriveKeyset.mockReset()
   h.deriveKeyset.mockResolvedValue({ shieldedAddress: h.shieldedAddress })
   h.deleteSdkReadStorage.mockClear()
+  h.loadDeployments.mockReset()
+  h.loadDeployments.mockResolvedValue({ hub: {} })
+})
+
+describe('enrollFromSignature — creationBlock anchoring (#93)', () => {
+  it('anchors a first-time enrollment at the hub deploy block from the manifest', async () => {
+    h.loadDeployments.mockResolvedValue({ hub: { deployBlock: 1_234 } })
+    await enrollFromSignature(fixedSig(), { evmAddress: SAMPLE_EVM, account: 0n })
+    expect(getCreationBlock()).toBe(1_234)
+  })
+
+  // WHY: the current head as a creation block silently hides every earlier note from a returning user
+  // (a re-sign on a new device). Unset makes the SDK look for notes from the start; its tree scan
+  // always begins at the deploy block, so that costs the same as the anchored path.
+  it('leaves creationBlock unset (never the current head) when the manifest fails to load', async () => {
+    h.loadDeployments.mockRejectedValue(new Error('offline'))
+    await enrollFromSignature(fixedSig(), { evmAddress: SAMPLE_EVM, account: 0n })
+    expect(getCreationBlock()).toBeNull()
+  })
+
+  it('leaves creationBlock unset (never the current head) when the manifest has no deploy block', async () => {
+    h.loadDeployments.mockResolvedValue({ hub: {} })
+    await enrollFromSignature(fixedSig(), { evmAddress: SAMPLE_EVM, account: 0n })
+    expect(getCreationBlock()).toBeNull()
+  })
 })
 
 describe('enrollFromSignature', () => {
