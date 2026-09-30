@@ -5,6 +5,7 @@ import { buildTransactCalldata } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
+import { spendFeeFor } from './transfer-sdk'
 import { assertReviewedFee, totalFeeOf } from './spend-fee'
 
 export interface SdkUnshieldInputs {
@@ -43,23 +44,14 @@ export async function buildUnshieldSdk(
   inputs: SdkUnshieldInputs,
 ): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint }> {
   const wallet = await getSdkWallet()
-  // planTransfer reads only `schedule.transfer` + `broadcasterShieldedAddress`; `feesCacheId`/`expiresAt`
-  // are part of the FeeQuote contract but unused here (the quote's staleness is the relayer's concern).
-  const fee = inputs.broadcasterFee
-    ? {
-        schedule: { transfer: inputs.broadcasterFee.amount.toString() },
-        broadcasterShieldedAddress: inputs.broadcasterFee.recipientAddress,
-        feesCacheId: '',
-        expiresAt: 0,
-      }
-    : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
+  const fee = spendFeeFor(inputs.broadcasterFee)
 
   // Unshields aren't split (the SDK's planSpend only splits plain single-recipient transfers), so this
   // is exactly one group. A shape the deployment can't prove surfaces as UnsupportedCircuitShapeError.
   const plans = await wallet.planTransfer({
     outputs: [],
     unshield: { recipient: inputs.recipient, amount: inputs.amount },
-    fee,
+    ...(fee ? { fee } : {}),
   })
   const plan = plans[0]
   if (plans.length !== 1 || !plan) throw new Error('unshield: expected a single plan group')
@@ -89,9 +81,9 @@ export async function buildUnshieldSdk(
  */
 export async function maxUnshieldAmount(inputs: { readonly perProofFee: bigint; readonly tokenAddress?: `0x${string}` }): Promise<bigint> {
   const wallet = await getSdkWallet()
-  // The fee tier is chosen here, so it rides in `schedule.transfer` (the tier the SDK falls back to).
+  // The per-proof fee (the tier chosen by the caller) is all the max needs; the recipient doesn't matter.
   return wallet.maxUnshieldAmount({
-    fee: { schedule: { transfer: inputs.perProofFee.toString() }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+    fee: { perProof: inputs.perProofFee, broadcasterShieldedAddress: '' },
     ...(inputs.tokenAddress !== undefined ? { tokenAddress: inputs.tokenAddress } : {}),
   })
 }

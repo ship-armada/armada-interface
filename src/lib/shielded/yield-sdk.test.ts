@@ -14,7 +14,9 @@ const hoisted = vi.hoisted(() => ({
   transactionToTuple: vi.fn(() => ['TUPLE']),
   encodeFunctionData: vi.fn(() => '0xcalldata'),
 }))
-vi.mock('@armada/sdk', () => ({
+// Real SDK (the preflight gate uses its assertPreflight); only these builders are stubbed.
+vi.mock('@armada/sdk', async (importActual) => ({
+  ...(await importActual<typeof import('@armada/sdk')>()),
   buildShieldRequest: hoisted.buildShieldRequest,
   generateShieldPrivateKey: hoisted.generateShieldPrivateKey,
   encodeYieldDepositBinding: hoisted.encodeYieldDepositBinding,
@@ -78,7 +80,7 @@ describe('buildYieldAdaptSdk', () => {
       outputs: [],
       unshield: { recipient: ADAPTER, amount: 5_000_000n, adaptContract: ADAPTER, adaptParams: '0xdepositbinding' },
       tokenAddress: USDC,
-      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     // lendAndShield(transaction tuple, npk, shieldCiphertext).
     expect(hoisted.encodeFunctionData).toHaveBeenCalledWith('lendAndShield', [['TUPLE'], NPK, { encryptedBundle: BUNDLE, shieldKey: SHIELD_KEY }])
@@ -109,7 +111,6 @@ describe('buildYieldAdaptSdk', () => {
       outputs: [],
       unshield: { recipient: ADAPTER, amount: 3_000_000n, adaptContract: ADAPTER, adaptParams: '0xredeembinding' },
       tokenAddress: VAULT,
-      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
     })
     expect(hoisted.encodeFunctionData).toHaveBeenCalledWith('redeemAndShield', [['TUPLE'], NPK, { encryptedBundle: BUNDLE, shieldKey: SHIELD_KEY }, FEE_NPK, { encryptedBundle: BUNDLE, shieldKey: SHIELD_KEY }, 15_000n])
     expect(r.feeShieldRandom).toBe('r-fee') // #312 — surfaced for the relayer's npk-reconstruction check

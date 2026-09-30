@@ -60,7 +60,7 @@ describe('buildConsolidateSdk', () => {
     })
     expect(hoisted.consolidate).toHaveBeenCalledWith({
       tokenAddress: USDC,
-      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     const plans = await hoisted.consolidate.mock.results[0]!.value
     expect(hoisted.preflight).toHaveBeenCalledWith(plans)
@@ -94,7 +94,7 @@ describe('buildConsolidateSdk', () => {
 })
 
 describe('previewConsolidation', () => {
-  const BLOCKED = { outputs: [], unshield: { recipient: `0x${'ab'.repeat(20)}` as const, amount: 5n }, fee: { schedule: {}, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 } }
+  const BLOCKED = { outputs: [], unshield: { recipient: `0x${'ab'.repeat(20)}` as const, amount: 5n } }
 
   it('prices the merge without proving', async () => {
     const r = await previewConsolidation({ tokenAddress: USDC, broadcasterFee: FEE })
@@ -132,7 +132,7 @@ describe('previewConsolidation', () => {
 })
 
 describe('checkSpendPlans', () => {
-  const SPEND = { outputs: [], unshield: { recipient: `0x${'ab'.repeat(20)}` as const, amount: 5n }, fee: { schedule: {}, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 } }
+  const SPEND = { outputs: [], unshield: { recipient: `0x${'ab'.repeat(20)}` as const, amount: 5n } }
 
   it('dry-runs the spend against the current notes (no merge, no proving) and returns the fee it plans', async () => {
     // One fee note of 27: a per-proof fee plus small change the SDK folded into it.

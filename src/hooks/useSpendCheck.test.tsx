@@ -39,11 +39,11 @@ describe('useSpendCheck', () => {
     const request = hoisted.checkSpendPlans.mock.calls[0]![0] as {
       tokenAddress: string
       unshield: { amount: bigint }
-      fee: { schedule: { transfer: string } }
+      fee: { perProof: bigint }
     }
     expect(request.tokenAddress).toBe(USDC)
     expect(request.unshield.amount).toBe(16_000_000n)
-    expect(request.fee.schedule.transfer).toBe('1500000')
+    expect(request.fee.perProof).toBe(1_500_000n)
   })
 
   it('is pending (no fee yet) while the check runs, so the review can hold Confirm', async () => {
@@ -96,8 +96,8 @@ describe('useSpendCheck', () => {
     await waitFor(() => expect(result.current.fee).toBe(1_500_000n))
     hoisted.checkSpendPlans.mockResolvedValue({ totalFee: 1_627_000n })
     await expect(result.current.priceAt(1_600_000n)).resolves.toBe(1_627_000n)
-    const request = hoisted.checkSpendPlans.mock.calls.at(-1)![0] as { fee: { schedule: { transfer: string } } }
-    expect(request.fee.schedule.transfer).toBe('1600000')
+    const request = hoisted.checkSpendPlans.mock.calls.at(-1)![0] as { fee: { perProof: bigint } }
+    expect(request.fee.perProof).toBe(1_600_000n)
   })
 
   it('offers the SDK\'s unshield max (one proof, one tree) at the per-proof fee, even before an amount is typed', async () => {

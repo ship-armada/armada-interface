@@ -1,41 +1,7 @@
 // ABOUTME: Pre-proof spend gate — runs wallet.preflight(plan) and throws the matching ArmadaError on a
 // ABOUTME: failed finding, so a stale root / already-spent note fails in <1s instead of after a 30s proof+revert.
 
-import {
-  FeeQuoteExpiredError,
-  InsufficientBalanceError,
-  InvalidRequestError,
-  NoteAlreadySpentError,
-  RootMismatchError,
-  type Plan,
-  type PreflightFinding,
-  type PreflightResult,
-} from '@armada/sdk'
-
-/**
- * Map a failed preflight finding to the `@armada/sdk` error the tx-error classifier already understands
- * (`lib/tx/errors.ts::classifySdkError`). Preflight failures and post-proof spend failures thus get one
- * shared, tested mapping — a failed `root-freshness` reads identically whether caught here (pre-proof)
- * or thrown later by `prove`.
- */
-function findingToError(f: PreflightFinding): Error {
-  const detail = f.detail ?? `preflight check '${f.check}' failed`
-  switch (f.check) {
-    case 'root-freshness':
-      return new RootMismatchError(detail)
-    case 'nullifier-unspent':
-      return new NoteAlreadySpentError(detail)
-    case 'fee-quote-expiry':
-      return new FeeQuoteExpiredError(detail)
-    case 'balance-sufficiency':
-      return new InsufficientBalanceError(detail)
-    case 'cctp-liveness':
-    case 'shield-pause':
-    default:
-      // No dedicated error class for these; INVALID_REQUEST maps to PRE_FLIGHT_REVERT (nothing sent).
-      return new InvalidRequestError(detail)
-  }
-}
+import { assertPreflight, type Plan, type PreflightResult } from '@armada/sdk'
 
 /**
  * Run `wallet.preflight` over a planned spend BEFORE proving. On any failed finding, throw the matching
@@ -54,9 +20,9 @@ export async function assertSpendPreflight(
 ): Promise<void> {
   // A split transfer passes ALL its groups so preflight verifies every group's root + nullifiers in one
   // batched call (one PreflightResult over the union of findings).
-  const result = await wallet.preflight(plan)
-  if (result.ok) return
-  const failed = result.findings.find((f) => !f.ok)
-  // `ok` is false ⇒ at least one finding failed; the guard is for the type-narrowing (and defense).
-  if (failed) throw findingToError(failed)
+  // The SDK maps the first failed finding to the ArmadaError the tx-error classifier
+  // (`lib/tx/errors.ts::classifySdkError`) already understands: root-freshness → RootMismatchError,
+  // nullifier-unspent → NoteAlreadySpentError, balance-sufficiency → InsufficientBalanceError, others →
+  // InvalidRequestError. So a failed check reads the same pre-proof as it would thrown later by `prove`.
+  assertPreflight(await wallet.preflight(plan))
 }

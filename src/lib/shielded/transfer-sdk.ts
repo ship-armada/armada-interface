@@ -1,7 +1,7 @@
 // ABOUTME: SDK-backed shielded-transfer builder — planTransfer → proveAll → buildTransactCalldata([...]), plus the
 // ABOUTME: review-time fee planning (planTransferFee / maxTransferAmount) that prices a split transfer before proving.
 
-import { buildTransactCalldata } from '@armada/sdk'
+import { buildTransactCalldata, type SpendFee } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
@@ -100,25 +100,20 @@ export async function planTransferFee(inputs: {
  */
 export async function maxTransferAmount(inputs: { readonly broadcasterFee: BroadcasterFee }): Promise<bigint> {
   const wallet = await getSdkWallet()
-  return wallet.maxTransferAmount({ fee: feeQuoteFor(inputs.broadcasterFee) })
+  const fee = spendFeeFor(inputs.broadcasterFee)
+  return wallet.maxTransferAmount(fee ? { fee } : {})
 }
 
 function transferRequest(recipient: string, amount: bigint, broadcasterFee: BroadcasterFee) {
-  return { outputs: [{ to0zk: recipient, amount }], fee: feeQuoteFor(broadcasterFee) }
+  const fee = spendFeeFor(broadcasterFee)
+  return { outputs: [{ to0zk: recipient, amount }], ...(fee ? { fee } : {}) }
 }
 
 /**
- * The SDK fee quote for a per-proof broadcaster fee. The planners (`planTransfer`, `maxTransferAmount`,
- * `consolidate`) read only `schedule.transfer` + `broadcasterShieldedAddress`; `feesCacheId`/`expiresAt`
- * are part of the FeeQuote contract but unused here (the quote's staleness is the relayer's concern).
+ * The SDK `SpendFee` for a per-proof broadcaster fee (the relayer tier this flow already chose), or
+ * `undefined` for direct submission — the planners then add no fee note. The quote's `cacheId` / expiry
+ * stay with the relayer submission, which the handlers own.
  */
-export function feeQuoteFor(broadcasterFee: BroadcasterFee) {
-  return broadcasterFee
-    ? {
-        schedule: { transfer: broadcasterFee.amount.toString() },
-        broadcasterShieldedAddress: broadcasterFee.recipientAddress,
-        feesCacheId: '',
-        expiresAt: 0,
-      }
-    : { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 }
+export function spendFeeFor(broadcasterFee: BroadcasterFee): SpendFee | undefined {
+  return broadcasterFee ? { perProof: broadcasterFee.amount, broadcasterShieldedAddress: broadcasterFee.recipientAddress } : undefined
 }

@@ -11,7 +11,9 @@ const hoisted = vi.hoisted(() => ({
   encodeCctpBinding: vi.fn(),
   encodeFunctionData: vi.fn(),
 }))
-vi.mock('@armada/sdk', () => ({
+// Real SDK (the preflight gate uses its assertPreflight); only these builders are stubbed.
+vi.mock('@armada/sdk', async (importActual) => ({
+  ...(await importActual<typeof import('@armada/sdk')>()),
   transactionToTuple: hoisted.transactionToTuple,
   encodeCctpBinding: hoisted.encodeCctpBinding,
 }))
@@ -58,7 +60,7 @@ describe('buildXchainUnshieldSdk', () => {
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [],
       unshield: { recipient: POOL, amount: 5_000_000n, adaptParams: BINDING },
-      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     // The proved tx is embedded as a POSITIONAL tuple, then the CCTP args.
     expect(hoisted.transactionToTuple).toHaveBeenCalledWith({ tx: 'data' })
@@ -84,7 +86,6 @@ describe('buildXchainUnshieldSdk', () => {
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [],
       unshield: { recipient: POOL, amount: 1n, adaptParams: BINDING },
-      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
     })
   })
 })

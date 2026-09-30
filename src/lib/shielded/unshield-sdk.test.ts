@@ -10,7 +10,11 @@ const hoisted = vi.hoisted(() => ({
   buildTransactCalldata: vi.fn(),
   maxUnshieldAmount: vi.fn(),
 }))
-vi.mock('@armada/sdk', () => ({ buildTransactCalldata: hoisted.buildTransactCalldata }))
+// Real SDK (the preflight gate uses its assertPreflight); only the calldata builder is stubbed.
+vi.mock('@armada/sdk', async (importActual) => ({
+  ...(await importActual<typeof import('@armada/sdk')>()),
+  buildTransactCalldata: hoisted.buildTransactCalldata,
+}))
 vi.mock('./sdk-read', () => ({
   getSdkWallet: async () => ({
     planTransfer: hoisted.planTransfer, prove: hoisted.prove, preflight: hoisted.preflight,
@@ -43,7 +47,7 @@ describe('buildUnshieldSdk', () => {
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [],
       unshield: { recipient: RECIPIENT, amount: 5_000_000n },
-      fee: { schedule: { transfer: '20000' }, broadcasterShieldedAddress: '0zk_relayer', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     expect(hoisted.buildTransactCalldata).toHaveBeenCalledWith([{ tx: 'data' }], POOL)
     expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 0n })
@@ -54,7 +58,6 @@ describe('buildUnshieldSdk', () => {
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [],
       unshield: { recipient: RECIPIENT, amount: 1n },
-      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
     })
   })
 })
@@ -97,7 +100,7 @@ describe('maxUnshieldAmount', () => {
     hoisted.maxUnshieldAmount.mockResolvedValue(5_832_098n)
     expect(await maxUnshieldAmount({ perProofFee: 1_286_550n })).toBe(5_832_098n)
     expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({
-      fee: { schedule: { transfer: '1286550' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 1286550n, broadcasterShieldedAddress: '' },
     })
   })
 
@@ -105,7 +108,7 @@ describe('maxUnshieldAmount', () => {
     hoisted.maxUnshieldAmount.mockResolvedValue(9_000n)
     expect(await maxUnshieldAmount({ perProofFee: 0n, tokenAddress: '0x00000000000000000000000000000000000000aa' })).toBe(9_000n)
     expect(hoisted.maxUnshieldAmount).toHaveBeenCalledWith({
-      fee: { schedule: { transfer: '0' }, broadcasterShieldedAddress: '', feesCacheId: '', expiresAt: 0 },
+      fee: { perProof: 0n, broadcasterShieldedAddress: '' },
       tokenAddress: '0x00000000000000000000000000000000000000aa',
     })
   })
