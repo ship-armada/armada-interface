@@ -14,6 +14,8 @@ import {
   TooFragmentedError,
   UnsupportedCircuitShapeError,
   NothingToConsolidateError,
+  ProofVerificationError,
+  ProverWorkerError,
 } from '@armada/sdk'
 import { classifyHandlerError } from './errors'
 import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
@@ -185,6 +187,30 @@ describe('classifyHandlerError — @armada/sdk ArmadaError branch', () => {
 
   it('maps transient StorageConflictError to RPC_ERROR (retry-appropriate)', () => {
     expect(classifyHandlerError(new StorageConflictError('concurrent write'), 'fallback').code).toBe('RPC_ERROR')
+  })
+
+  it('tags every SDK-derived TxError with the originating ArmadaError code (sdkCode)', () => {
+    // WHY: several SDK codes share a TxErrorCode (PRE_FLIGHT_REVERT), so failure reporting needs the
+    // original code to tell a stale-root refusal from a broken proof (failureReport.ts).
+    expect(classifyHandlerError(new RootMismatchError('tree moved'), 'fallback').sdkCode).toBe('ROOT_MISMATCH')
+    expect(classifyHandlerError(new ProofVerificationError('bad proof'), 'fallback').sdkCode).toBe('PROOF_VERIFICATION')
+    expect(classifyHandlerError(new InvalidKeyMaterialError('bad key'), 'fallback').sdkCode).toBe('INVALID_KEY_MATERIAL')
+    expect(classifyHandlerError(new Error('plain'), 'fallback').sdkCode).toBeUndefined()
+  })
+
+  it('maps ProofVerificationError to PRE_FLIGHT_REVERT (the proof was never submitted)', () => {
+    const r = classifyHandlerError(new ProofVerificationError('proof failed its self-check'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/not submitted/i)
+  })
+
+  it('maps ProverWorkerError to a retryable PRE_FLIGHT_REVERT (the prover stopped; nothing was sent)', () => {
+    // WHY: the SDK rejects in-flight proofs with ProverWorkerError when the proving worker crashes
+    // (e.g. out of memory) and starts a fresh worker on the next request — so "try again" is honest.
+    const r = classifyHandlerError(new ProverWorkerError('prover worker failed: out of memory'), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/try again/i)
+    expect(r.message).not.toMatch(/out of memory/) // category copy, not the raw worker message
   })
 
   it('falls through to OTHER for an unmapped SDK code, surfacing the (truncated) SDK message', () => {

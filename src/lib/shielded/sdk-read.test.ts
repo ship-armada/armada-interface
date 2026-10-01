@@ -12,6 +12,10 @@ vi.mock('@armada/sdk', () => ({
   LocalSigner: { fromRootSecret: vi.fn(async () => ({})) },
   getTokenDataERC20: vi.fn(),
   getTokenDataHash: vi.fn(),
+  // The SDK's worker prover is built with the instance; it only spawns a Worker on a proof, which these
+  // tests never make.
+  createWorkerProver: vi.fn(() => ({ prove: vi.fn(), verify: vi.fn(), close: vi.fn(async () => {}) })),
+  webWorkerChannel: vi.fn(),
 }))
 vi.mock('@/lib/telemetry', () => ({ track: vi.fn() }))
 // Mocks the ensureInstance path needs: a real keyManager throws when locked, and real deployments are

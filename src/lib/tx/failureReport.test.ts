@@ -97,3 +97,22 @@ describe('reportTerminalFailure — Sentry funnel (trackError)', () => {
     expect(props).toEqual({ scope: 'tx.failure', kind: 'shield', code: 'OTHER' })
   })
 })
+
+describe('reportTerminalFailure — SDK failures that mean a bug or a broken prover', () => {
+  // WHY: a failed proof self-check, an artifact integrity failure, or a crashed proving worker all
+  // classify as PRE_FLIGHT_REVERT (nothing was sent — honest for the user), but each points at a bug,
+  // a corrupt artifact, or a device limit we need to hear about. `sdkCode` carries the SDK origin.
+  it.each(['PROOF_VERIFICATION', 'ARTIFACT_INTEGRITY', 'PROVER_WORKER'])(
+    'forwards a PRE_FLIGHT_REVERT from SDK code %s to Sentry, tagged with that code',
+    (sdkCode: string) => {
+      reportTerminalFailure(failedRecord({ code: 'PRE_FLIGHT_REVERT', message: 'nothing was sent', sdkCode }))
+      expect(hoisted.trackError).toHaveBeenCalledTimes(1)
+      expect(hoisted.trackError.mock.calls[0]?.[2]).toMatchObject({ code: 'PRE_FLIGHT_REVERT', sdkCode })
+    },
+  )
+
+  it('does NOT forward an expected SDK refusal (e.g. ROOT_MISMATCH) to Sentry', () => {
+    reportTerminalFailure(failedRecord({ code: 'PRE_FLIGHT_REVERT', message: 'out of date', sdkCode: 'ROOT_MISMATCH' }))
+    expect(hoisted.trackError).not.toHaveBeenCalled()
+  })
+})
