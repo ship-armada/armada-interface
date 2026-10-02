@@ -63,7 +63,7 @@ export async function validateShieldedAddressStrict(value: string): Promise<bool
   const v = value.trim()
   // Fast pre-filter: avoid the decode path for obviously-malformed input.
   if (!isShieldedAddress(v)) return false
-  const { decodeAddress } = await import('@armada/sdk/core')
+  const { decodeAddress } = await import('@armada/sdk')
   try {
     decodeAddress(v)
     return true
