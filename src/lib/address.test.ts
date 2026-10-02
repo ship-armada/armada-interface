@@ -74,4 +74,19 @@ describe('validateShieldedAddressStrict', () => {
     expect(await validateShieldedAddressStrict('0x1234')).toBe(false)
     expect(await validateShieldedAddressStrict('0zkshort')).toBe(false)
   })
+
+  it('accepts a real 0zk address and rejects it with one character changed (bech32m checksum)', async () => {
+    // WHY: the shape regex alone waves a transposed character through; the SDK's decodeAddress (loaded from
+    // the @armada/sdk root, #92) must catch it so funds aren't sent to an address nobody owns.
+    // A real address: the SDK's deriveKeyset(32 bytes of 0x07).shieldedAddress, derived once under Node
+    // (jsdom's Uint8Array isn't accepted by Node's WebCrypto, so it can't be derived in this environment).
+    const shieldedAddress =
+      '0zk1qyv0wq8h0egurp4tegvl3w55zuwy6zllsgtxdujc7se7mw6krd0l9rv7j6fe3z53l760kqqv4umlxypp7luwl349wf0ep06cln5gq0c4vexy99hk49zqyuu5qza'
+    expect(await validateShieldedAddressStrict(shieldedAddress)).toBe(true)
+
+    const i = shieldedAddress.length - 10
+    const corrupted = shieldedAddress.slice(0, i) + (shieldedAddress[i] === 'q' ? 'p' : 'q') + shieldedAddress.slice(i + 1)
+    expect(isShieldedAddress(corrupted)).toBe(true) // still passes the shape pre-filter…
+    expect(await validateShieldedAddressStrict(corrupted)).toBe(false) // …but not the checksum
+  })
 })
