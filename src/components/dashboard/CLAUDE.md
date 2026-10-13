@@ -7,7 +7,7 @@ Dashboard presentation, ported from the armada-app design mockup. Composed by `p
 | Component / file | Purpose |
 |---|---|
 | `BalanceCard` | The "Private USDC" card: header (shield badge · label · eye/hide toggle), animated balance numeral, action row (SEND · `+` deposit · `↓` receive · `⋯` more menu = Earn/Withdraw/activity toggle), optional vault position bar. |
-| `RollingBalanceValue` | Odometer roll for the balance numeral (intro from zero; re-roll from previous value on change). |
+| `RollingBalanceValue` | Odometer roll for the balance numeral (intro from zero; re-roll from previous value on change). A re-roll pads the shorter value to line up the decimal point; those padding columns fold to zero width instead of showing zeros, so the row starts as the old value and ends as the new one. `onRollEnd` fires once the last staggered column lands, so a caller swapping in a static value doesn't re-derive the timing; `rollSettleMs(value, { mode, fromValue })` gives the same settle time for a caller that ends several rolls on one timer (BalanceCard ends the balance + vault re-rolls on the later of the two). Also drives the amount roll in `deposit/DepositAmountCard` and `VaultPositionBar`. |
 | `BalanceScrambleValue` | Steady-state hide/reveal scramble for the balance + activity amounts. |
 | `VaultPositionBar` | Vault (yield) position row inside BalanceCard; shows earned + APR. |
 | `SendButton`, `ShieldedUsdcBadge`, `TokenBadge` | Small presentational pieces of the card. |
@@ -33,6 +33,7 @@ Shared primitives `IconButton`, `Tooltip`, `BottomSheet` live in `@/design`; the
 
 ## Deviations from the vendored mockup
 
+- `RollingBalanceValue` re-rolls fold the decimal-alignment padding away instead of rendering it as zeros (`05.0`, `01.74`) that vanish when the roll ends. The mockup shows the zeros; they read as a jump at the hand-off to the static value.
 - `BalanceCard.module.css` `.armadaAddress` uses the sans UI font, not Geist Mono. The vendored mockup copy (cloned at the start of the redesign) specifies `mono-sm`, but the current designer mockup renders the shielded address in sans — the clone is likely stale. Re-cloning `.context/armada-app` may surface other drift.
 
 ## Known follow-ups

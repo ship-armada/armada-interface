@@ -10,13 +10,15 @@ import {
   PlusIcon,
 } from '@heroicons/react/24/outline'
 import { BalanceActionButton } from '@/components/dashboard/BalanceActionButton'
-import { RollingBalanceValue, type BalanceRollMode } from '@/components/dashboard/RollingBalanceValue'
+import {
+  RollingBalanceValue,
+  rollSettleMs,
+  type BalanceRollMode,
+} from '@/components/dashboard/RollingBalanceValue'
 import { BalanceScrambleValue } from '@/components/dashboard/BalanceScrambleValue'
 import {
   BALANCE_REVEAL_DELAY_MS,
   BALANCE_REVEAL_DURATION_MS,
-  BALANCE_ROLL_DIGIT_STAGGER_MS,
-  balanceRevealRollDurationMs,
   vaultPositionExitDurationMs,
 } from './balanceRevealMotion'
 import { VaultPositionBar } from '@/components/dashboard/VaultPositionBar'
@@ -72,12 +74,6 @@ function fitBalanceFontSize(rowWidth: number, naturalTextWidth: number): number 
 
   const scaled = (BALANCE_BASE_FONT_SIZE_PX * maxTextWidth) / naturalTextWidth
   return Math.max(BALANCE_MIN_FONT_SIZE_PX, scaled)
-}
-
-function estimateDepositRollDurationMs(formattedBalance: string): number {
-  const digitCount = formattedBalance.replace(/\D/g, '').length
-  const stagger = Math.max(0, digitCount - 1) * BALANCE_ROLL_DIGIT_STAGGER_MS
-  return balanceRevealRollDurationMs() + stagger + 80
 }
 
 export function BalanceCard({
@@ -153,15 +149,36 @@ export function BalanceCard({
   // 2-decimal truncation — a shielded balance should never look rounded.
   const formattedBalance = formatUsdcAmount(balance, 6)
 
+  // One timer ends both re-rolls (balance + vault row), so it waits for whichever settles last. Each
+  // settle time counts the odometer's alignment padding — a roll from a longer value runs longer than
+  // the new value's own digits suggest. Either odometer may be off screen (hidden / zero balance), so
+  // this is a computed timer rather than waiting on each odometer's `onRollEnd`.
   useEffect(() => {
     if (balanceRollTrigger <= completedRollTrigger) return
 
+    const balanceSettleMs = rollSettleMs(formattedBalance, {
+      mode: balanceRollMode,
+      fromValue: balanceRollFromValue,
+    })
+    // VaultPositionBar shows the vault at its default 2-decimal precision.
+    const vaultSettleMs =
+      vaultRollFromValue !== undefined
+        ? rollSettleMs(formatUsdcAmount(vaultBalance), { mode: 'fromValue', fromValue: vaultRollFromValue })
+        : 0
     const timer = window.setTimeout(
       () => setCompletedRollTrigger(balanceRollTrigger),
-      estimateDepositRollDurationMs(formattedBalance),
+      Math.max(balanceSettleMs, vaultSettleMs),
     )
     return () => window.clearTimeout(timer)
-  }, [balanceRollTrigger, completedRollTrigger, formattedBalance])
+  }, [
+    balanceRollTrigger,
+    completedRollTrigger,
+    formattedBalance,
+    balanceRollMode,
+    balanceRollFromValue,
+    vaultBalance,
+    vaultRollFromValue,
+  ])
 
   useLayoutEffect(() => {
     if (balanceIntroPlaying) return

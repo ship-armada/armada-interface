@@ -1,11 +1,14 @@
-// ABOUTME: Tests for DepositAmountCard's balance row — specifically the pendingBalance suffix that
-// ABOUTME: surfaces not-yet-spendable ("pending") notes alongside the available balance.
+// ABOUTME: Tests for DepositAmountCard — pending-balance suffix, amount typing, percent pills and the
+// ABOUTME: amount roll (lifetime + colour), fee caption, and the incomplete-CTA nudge shake.
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { incompleteCtaShakeClass } from '@/design'
 import { formatUsdcPlain } from '@/lib/format'
 import { DepositAmountCard } from './DepositAmountCard'
+
+/** Timers the odometer uses: its two-frame kick-off (rAF) and its settle timer (setTimeout). */
+const ROLL_TIMERS = ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] as const
 
 /** Temporarily report non-reduced motion (setup defaults to reduced) for the duration of `fn`. */
 function withMotionEnabled(fn: () => void) {
@@ -154,6 +157,64 @@ describe('DepositAmountCard — presets + amount roll', () => {
       />,
     )
     expect(screen.getByLabelText('Deposit amount')).not.toHaveAttribute('readonly')
+  })
+})
+
+describe('DepositAmountCard — roll lifetime and colour', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** Render at `from`, tap `pill`, then commit `to` as the parent would — starting the roll. */
+  function rollFrom(from: string, to: string, pill: string, extra: { error?: string } = {}) {
+    const onAmountChange = vi.fn()
+    const props = { onAmountChange, maxInput: 20_000000n, amountAriaLabel: 'Deposit amount', ...extra }
+    const { rerender, container } = render(<DepositAmountCard amount={from} {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: pill }))
+    rerender(<DepositAmountCard amount={to} {...props} />)
+    return container
+  }
+
+  it('holds the input read-only until a padded roll has fully settled', () => {
+    withMotionEnabled(() => {
+      vi.useFakeTimers({ toFake: [...ROLL_TIMERS] })
+      // 1.123456 → 10 rolls as the 8-column row "10.000000": it settles ~1.6s in, well after the
+      // ~1.15s that the two digits of "10" alone would suggest.
+      rollFrom('1.123456', '10', '50%')
+      // The odometer's two-frame kick-off, in its own act() so its effects flush as in a browser.
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+      act(() => {
+        vi.advanceTimersByTime(1250)
+      })
+      expect(screen.getByLabelText('Deposit amount')).toHaveAttribute('readonly')
+      act(() => {
+        vi.advanceTimersByTime(400)
+      })
+      expect(screen.getByLabelText('Deposit amount')).not.toHaveAttribute('readonly')
+    })
+  })
+
+  it('reddens the rolling odometer when the amount has an error, matching the static value', () => {
+    withMotionEnabled(() => {
+      const container = rollFrom('1', '10', '50%', { error: "That's more than you can deposit" })
+      const layer = container.querySelector('[class*="amountRollLayer"]')
+      expect(layer?.className).toContain('amountRollError')
+    })
+  })
+
+  it('dims the odometer when it rolls to the inactive 0, matching the placeholder it hands over to', () => {
+    withMotionEnabled(() => {
+      // No spendable balance: every pill lands on 0, which the card shows as the dim placeholder.
+      const onAmountChange = vi.fn()
+      const props = { onAmountChange, maxInput: 0n, amountAriaLabel: 'Deposit amount' }
+      const { rerender, container } = render(<DepositAmountCard amount="5" {...props} />)
+      fireEvent.click(screen.getByRole('button', { name: '25%' }))
+      rerender(<DepositAmountCard amount="0" {...props} />)
+      const layer = container.querySelector('[class*="amountRollLayer"]')
+      expect(layer?.className).toContain('amountRollInactive')
+    })
   })
 })
 

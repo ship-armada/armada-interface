@@ -7,10 +7,6 @@ import { formatAmountInputDisplay, hasActiveAmount, sanitizeAmountInput } from '
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { FeeBreakdownTooltip, type FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { RollingBalanceValue } from '@/components/dashboard/RollingBalanceValue'
-import {
-  BALANCE_ROLL_DURATION_MS,
-  BALANCE_ROLL_DIGIT_STAGGER_MS,
-} from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { formatUsdcAmount, formatUsdcPlain } from '@/lib/format'
 import { formatNativeGasAmount, type DisplayFees } from '@/lib/fees/displayFees'
 import { incompleteCtaShakeClass } from '@/design'
@@ -19,12 +15,6 @@ import styles from './DepositAmountCard.module.css'
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-/** Roll animation lifetime for a target value — long enough for the odometer + digit stagger to settle. */
-function amountRollMs(formatted: string): number {
-  const digitCount = formatted.replace(/\D/g, '').length
-  return BALANCE_ROLL_DURATION_MS + Math.max(0, digitCount - 1) * BALANCE_ROLL_DIGIT_STAGGER_MS + 80
 }
 
 export interface DepositAmountCardProps {
@@ -135,24 +125,14 @@ export function DepositAmountCard({
     toValue: string
     trigger: number
   } | null>(null)
-  const rollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rollCounterRef = useRef(0)
   const pendingRollFromRef = useRef<string | null>(null)
 
+  // The odometer reports when its last digit has landed (`onRollEnd`); until then the static value
+  // stays hidden and the input read-only.
   function clearAmountRoll() {
-    if (rollTimerRef.current) {
-      clearTimeout(rollTimerRef.current)
-      rollTimerRef.current = null
-    }
     setAmountRoll(null)
   }
-
-  useEffect(
-    () => () => {
-      if (rollTimerRef.current) clearTimeout(rollTimerRef.current)
-    },
-    [],
-  )
 
   // Start the roll once the preset-driven `amount` change lands. Typed changes leave the marker null.
   useEffect(() => {
@@ -167,11 +147,6 @@ export function DepositAmountCard({
     rollCounterRef.current += 1
     const trigger = rollCounterRef.current
     setAmountRoll({ fromValue, toValue, trigger })
-    if (rollTimerRef.current) clearTimeout(rollTimerRef.current)
-    rollTimerRef.current = setTimeout(() => {
-      rollTimerRef.current = null
-      setAmountRoll(null)
-    }, amountRollMs(toValue))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- roll is keyed off the amount change only.
   }, [amount])
 
@@ -270,7 +245,7 @@ export function DepositAmountCard({
                 styles.amountDisplay,
                 showActiveAmount && styles.amountDisplayActive,
                 hasError && styles.amountDisplayError,
-                isAmountRolling && styles.amountValueHidden,
+                isAmountRolling && styles.amountDisplayRolling,
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -299,7 +274,16 @@ export function DepositAmountCard({
               readOnly={isAmountRolling}
             />
             {isAmountRolling && amountRoll ? (
-              <span className={styles.amountRollLayer} aria-hidden>
+              <span
+                className={[
+                  styles.amountRollLayer,
+                  !showActiveAmount && styles.amountRollInactive,
+                  hasError && styles.amountRollError,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-hidden
+              >
                 <RollingBalanceValue
                   key={amountRoll.trigger}
                   value={formatAmountInputDisplay(amountRoll.toValue)}
@@ -307,6 +291,7 @@ export function DepositAmountCard({
                   mode="fromValue"
                   rollTrigger={amountRoll.trigger}
                   rollStartMs={0}
+                  onRollEnd={clearAmountRoll}
                 />
               </span>
             ) : null}

@@ -83,6 +83,11 @@ export function vaultWithdrawDashboardHoldMs(): number {
   return prefersReducedMotion() ? 0 : VAULT_WITHDRAW_DASHBOARD_HOLD_MS
 }
 
+/**
+ * Estimated settle time for a balance roll, used to sequence the banner / activity motion that follows
+ * it. Counts only the new value's digits, so a fromValue roll from a longer value (whose alignment
+ * padding adds columns) can run a little longer; the odometer's own lifetime uses `rollSettleMs`.
+ */
 export function balanceRollSettleMs(formattedBalance: string): number {
   const digitCount = formattedBalance.replace(/\D/g, '').length
   const stagger = Math.max(0, digitCount - 1) * BALANCE_ROLL_DIGIT_STAGGER_MS

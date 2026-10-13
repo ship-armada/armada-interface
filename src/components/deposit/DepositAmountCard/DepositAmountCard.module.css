@@ -1,5 +1,5 @@
-/* ABOUTME: DepositAmountCard — deposit flow amount entry with chain dropdown and USDC label. */
-/* ABOUTME: Matches armada-crowdfund showcase; chain/token icons from @web3icons/react. */
+/* ABOUTME: DepositAmountCard — in-card header/title, chain slot, large mono amount with its preset */
+/* ABOUTME: roll, balance row + percent pills, and fee caption. Shared by the shield/send/earn steps. */
 
 .card {
   display: flex;
@@ -222,7 +222,11 @@
 .amountField {
   position: relative;
   display: inline-block;
+  /* As wide as the digits, never wider than the card. An amount longer than the card runs past its
+     right edge rather than clipping, so every digit of the amount stays visible. */
+  width: max-content;
   max-width: 100%;
+  vertical-align: top;
 }
 
 .amountDisplay,
@@ -236,10 +240,18 @@
 
 .amountDisplay {
   display: block;
-  text-align: right;
+  text-align: left;
+  white-space: nowrap;
   color: color-mix(in srgb, var(--semantic-color-text-primary) 30%, transparent);
   pointer-events: none;
   user-select: none;
+}
+
+/* Out of flow while the odometer is showing, so the odometer row — not the stored string — sets
+   the field width, and the roll always starts at the card's left content edge. */
+.amountDisplayRolling {
+  position: absolute;
+  visibility: hidden;
 }
 
 .amountDisplayActive {
@@ -260,7 +272,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  text-align: right;
+  text-align: left;
   color: transparent;
   caret-color: var(--semantic-color-text-primary);
   outline: none;
@@ -275,23 +287,37 @@
   outline: none;
 }
 
-/* Odometer overlay shown while a preset/Max roll plays — sits over the (hidden) static value,
-   right-aligned to match the amount. RollingBalanceValue owns the digit-spin motion. */
+/* In-flow odometer. It defines the field width — alignment-padding columns included, while they fold
+   in or out — and starts at the left edge, so extra digits grow into the card instead of out of it.
+   RollingBalanceValue owns the digit-spin and padding-fold motion. */
 .amountRollLayer {
-  position: absolute;
-  inset: 0;
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  max-width: 100%;
   font-family: var(--primitives-fontFamily-mono), ui-monospace, monospace;
   font-size: calc(var(--primitives-fontSize-4xl) * 1px);
   font-weight: var(--primitives-fontWeight-regular);
   line-height: calc(var(--primitives-fontSize-4xl) * 1px);
+  font-variant-numeric: tabular-nums;
   color: var(--semantic-color-text-primary);
   pointer-events: none;
+  white-space: nowrap;
 }
 
-/* Hide the static value + caret during the roll so only the odometer shows. */
+/* Rolling to the inactive 0 placeholder — the same dim colour as the static value it hands over to. */
+.amountRollInactive {
+  color: color-mix(in srgb, var(--semantic-color-text-primary) 30%, transparent);
+}
+
+/* Error state for the roll — matches `.amountDisplayError`; must follow `.amountRollInactive`. */
+.amountRollError {
+  color: var(--semantic-color-status-error);
+}
+
+/* Hide the input (and its caret) during the roll so only the odometer shows. The static value is
+   hidden by `.amountDisplayRolling`. */
 .amountValueHidden {
   visibility: hidden;
 }
