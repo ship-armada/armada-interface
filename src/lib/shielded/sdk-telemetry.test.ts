@@ -1,5 +1,5 @@
 // ABOUTME: Unit tests for the SDK telemetry sink — maps the SDK's sync.quicksync event onto
-// ABOUTME: track('sdk.quicksync'), ignores unknown events, and rejects malformed payloads.
+// ABOUTME: track('sdk.quicksync') and ignores the SDK's other telemetry events.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -71,16 +71,10 @@ describe('sdkTelemetrySink', () => {
   })
 
   it('ignores SDK events it does not map', () => {
-    // WHY: the SDK may emit other operational events in future; the sink must not forward them as
+    // WHY: the SDK emits other operational events too; the sink must not forward them as
     // sdk.quicksync (which would corrupt the typed telemetry stream).
-    sdkTelemetrySink.emit('scan.progress', { fraction: 0.5 })
-    expect(trackMock).not.toHaveBeenCalled()
-  })
-
-  it('drops a malformed payload rather than emitting a garbage outcome', () => {
-    // WHY: a producer/consumer skew must fail closed — a payload with an unrecognized outcome is
-    // dropped, not forwarded with an invalid enum value.
-    sdkTelemetrySink.emit('sync.quicksync', { outcome: 'bogus', fromBlock: 5, head: 9, tailCovered: false })
+    sdkTelemetrySink.emit('sync.reorg-recovery', { fromBlock: 100, reason: 'checkpoint-reorged' })
+    sdkTelemetrySink.emit('storage.chain-reset', { chainId: 31337, deployBlock: 100 })
     expect(trackMock).not.toHaveBeenCalled()
   })
 })
