@@ -83,6 +83,13 @@ describe('<SendInputStep>', () => {
     )
   })
 
+  it.each(['0.', '0.00'])('keeps Review disabled for a zero amount ("%s") (#112)', (amountStr) => {
+    // WHY: "0." is a valid in-progress input (so sub-1 amounts can be typed), but it parses to 0. A zero-value
+    // unshield is rejected by the pool, so Review must stay off rather than plan a spend that can't succeed.
+    setup({ amountStr })
+    expect(screen.getByRole('button', { name: 'Input amount' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
   it('enables Review + fires onContinue for a valid amount', () => {
     const props = setup({ amountStr: '2' })
     const review = screen.getByRole('button', { name: /Review/ })

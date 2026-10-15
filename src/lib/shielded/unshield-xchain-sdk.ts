@@ -113,11 +113,19 @@ export async function buildXchainUnshieldSdk(
   const fee = spendFeeFor(inputs.broadcasterFee)
 
   const adaptParams = encodeCctpBinding(inputs.finalRecipient, inputs.destinationDomain, inputs.maxFee)
+  // The decoded binding goes with it: the SDK requires it for a cross-chain unshield, to reject a maxFee that
+  // isn't below the amount (the pool would revert) and to show the signer the destination it authorizes.
+  const adaptBinding = {
+    kind: 'cctp' as const,
+    recipient: inputs.finalRecipient,
+    destDomain: inputs.destinationDomain,
+    maxFee: inputs.maxFee,
+  }
   // Cross-chain unshield is an adaptParams unshield — not split (planSpend only splits plain transfers),
   // so this is exactly one group; atomicCrossChainUnshield takes a single proved Transaction tuple.
   const plans = await wallet.planTransfer({
     outputs: [],
-    unshield: { recipient: inputs.privacyPoolAddress, amount: inputs.amount, adaptParams },
+    unshield: { recipient: inputs.privacyPoolAddress, amount: inputs.amount, adaptParams, adaptBinding },
     ...(fee ? { fee } : {}),
   })
   const plan = plans[0]

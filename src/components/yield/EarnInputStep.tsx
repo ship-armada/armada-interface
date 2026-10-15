@@ -227,8 +227,9 @@ export function EarnInputStepFooter({
 >) {
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > maxInput
+  // "0." is a valid in-progress input but parses to 0, and a zero-value unshield is rejected by the pool (#112).
   const canReview =
-    hasActiveAmount(amountStr) && !tooMuch && !parseError && !continueBlockedReason
+    hasActiveAmount(amountStr) && amount > 0n && !tooMuch && !parseError && !continueBlockedReason
 
   return (
     <div className={`${depositOverlayShellStyles.buttonRow} ${modalActionRowEnter}`}>
