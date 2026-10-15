@@ -144,7 +144,8 @@ export function SendInputStepFooter({
 >) {
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > maxInput
-  const canReview = hasActiveAmount(amountStr) && !tooMuch && !parseError
+  // "0." is a valid in-progress input but parses to 0, and a zero-value unshield is rejected by the pool (#112).
+  const canReview = hasActiveAmount(amountStr) && amount > 0n && !tooMuch && !parseError
 
   return (
     <div className={`${depositOverlayShellStyles.buttonRow} ${modalActionRowEnter}`}>

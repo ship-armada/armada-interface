@@ -119,6 +119,12 @@ describe('<EarnInputStep>', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/more than you can withdraw/i)
   })
 
+  it.each(['0.', '0.00'])('keeps Review disabled for a zero amount ("%s") (#112)', (amountStr) => {
+    // WHY: "0." parses to 0; a zero-value vault deposit is a zero-value unshield, which the pool rejects.
+    setup({ max: 5_000_000n, amountStr })
+    expect(screen.getByRole('button', { name: 'Input amount' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
   it('enables Review when amount is positive and within maxInput', () => {
     setup({ max: 5_000_000n, amountStr: '3' })
     expect(screen.getByRole('button', { name: /Review/ })).not.toBeDisabled()

@@ -56,10 +56,16 @@ describe('buildXchainUnshieldSdk', () => {
     })
     // The binding covers the real destination (finalRecipient + domain + maxFee).
     expect(hoisted.encodeCctpBinding).toHaveBeenCalledWith(FINAL, 6, 1_000n)
-    // The unshield note's recipient is the POOL (it forwards via CCTP); adaptParams carries the binding.
+    // The unshield note's recipient is the POOL (it forwards via CCTP); adaptParams carries the binding, and the
+    // decoded binding rides along so the SDK can check maxFee < amount and the signer can inspect the destination.
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [],
-      unshield: { recipient: POOL, amount: 5_000_000n, adaptParams: BINDING },
+      unshield: {
+        recipient: POOL,
+        amount: 5_000_000n,
+        adaptParams: BINDING,
+        adaptBinding: { kind: 'cctp', recipient: FINAL, destDomain: 6, maxFee: 1_000n },
+      },
       fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     // The proved tx is embedded as a POSITIONAL tuple, then the CCTP args.
@@ -85,7 +91,12 @@ describe('buildXchainUnshieldSdk', () => {
     })
     expect(hoisted.planTransfer).toHaveBeenCalledWith({
       outputs: [],
-      unshield: { recipient: POOL, amount: 1n, adaptParams: BINDING },
+      unshield: {
+        recipient: POOL,
+        amount: 1n,
+        adaptParams: BINDING,
+        adaptBinding: { kind: 'cctp', recipient: FINAL, destDomain: 6, maxFee: 0n },
+      },
     })
   })
 })
