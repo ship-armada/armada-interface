@@ -8,6 +8,7 @@ Top-level route components. Each is a thin shell that composes header chrome (fr
 | `AddressBook.tsx` | `/address-book` | Parked placeholder — not in nav until built |
 | `Debug.tsx` | `/debug` | Developer panel — contract addresses, per-chain balances. Faucet drip column appears only in local mode (no faucet contracts on Sepolia). |
 | `PayViaLinkLanding.tsx` | `/pay-via-link` | Payer's view of a shared payment-request link. Registered **outside** the `<App>` shell (no wallet gate) so an un-onboarded payer can view it. Validates the link (`parsePayViaLinkSearch`), shows amount/note/recipient + a QR; "Continue to pay" writes a pending hand-off + navigates to `/`, where `usePayViaLinkIntent` opens the Send flow prefilled. |
+| `ArmAllocation.tsx` | `/allocation` | Public revenue-locked ARM lookup. Registered **outside** the `<App>` shell. Paste an address to read Ethereum mainnet (`src/lib/armAllocation.ts`). Marked `noindex` so the URL can be shared without search indexing. The public ledger and claim transactions are not wired yet. |
 
 ## Conventions
 

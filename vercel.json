@@ -13,6 +13,18 @@
   "_headersNote": "Security headers (P0-8) — KEEP THE CSP BYTE-IDENTICAL with netlify.toml's [[headers]]. Report-Only until a human clicks through every flow on a preview; promote to Content-Security-Policy after adding the runtime relayer origin + any IPFS gateway to connect-src.",
   "headers": [
     {
+      "source": "/allocation",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
+      "source": "/allocation/",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
