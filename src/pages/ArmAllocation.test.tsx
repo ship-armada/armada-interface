@@ -6,9 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { ArmAllocation } from './ArmAllocation'
 
-const { readAllocation, readUnlockSnapshot } = vi.hoisted(() => ({
+const { readAllocation, readUnlockSnapshot, readDirectLedger } = vi.hoisted(() => ({
   readAllocation: vi.fn(),
   readUnlockSnapshot: vi.fn(),
+  readDirectLedger: vi.fn(),
 }))
 
 vi.mock('@/lib/armAllocation', async (importOriginal) => {
@@ -17,6 +18,7 @@ vi.mock('@/lib/armAllocation', async (importOriginal) => {
     ...actual,
     readAllocation,
     readUnlockSnapshot,
+    readDirectLedger,
   }
 })
 
@@ -49,9 +51,11 @@ describe('ArmAllocation', () => {
       revenueUsd: 0,
       effectiveRevenueUsd: 0,
       unlockBps: 0,
+      lockAddress: '0x9f3918cdB8d4B4527B2199Efee70607899de21dD',
       next: { usd: 10_000, bps: 1_000, remainingUsd: 10_000 },
     })
     readAllocation.mockResolvedValue({ status: 'empty', address: VALID })
+    readDirectLedger.mockResolvedValue([])
   })
 
   it('renders the lookup and the supply split', () => {
@@ -91,12 +95,34 @@ describe('ArmAllocation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Check allocation' }))
     expect(await screen.findByRole('heading', { name: 'Allocation found' })).toBeInTheDocument()
     expect(screen.getAllByText('60,000').length).toBeGreaterThan(0)
-    expect(screen.getByText('Your unlock schedule based on project revenue')).toBeInTheDocument()
-    expect(screen.getAllByText('Revenue-locked').length).toBeGreaterThan(3)
-    expect(screen.getAllByText('Launch team').length).toBeGreaterThan(1)
-    expect(screen.getByText('Your allocation')).toBeInTheDocument()
+    expect(screen.getByText('Your ARM unlock schedule based on project revenue')).toBeInTheDocument()
+    expect(screen.getAllByText('Revenue-locked').length).toBeGreaterThan(1)
+    expect(screen.getAllByText('Launch team').length).toBeGreaterThan(0)
+    expect(screen.getByText('Launch team allocation')).toBeInTheDocument()
+    expect(screen.queryByText('Your allocation')).not.toBeInTheDocument()
     expect(screen.queryByText('Next unlock: 6,000 ARM at $10k revenue')).not.toBeInTheDocument()
     expect(screen.queryByText('Verified on-chain')).not.toBeInTheDocument()
+  })
+
+  it('lists direct allocations from Ethereum', async () => {
+    readDirectLedger.mockResolvedValue([
+      {
+        address: VALID,
+        source: 'direct',
+        total: 60_000,
+        unlocked: 0,
+        claimed: 0,
+        available: 0,
+        locked: 60_000,
+      },
+    ])
+    render(<ArmAllocation />)
+    const summary = screen.getAllByText('Direct allocations')[0]
+    expect(summary).toBeDefined()
+    if (!summary) return
+    fireEvent.click(summary)
+    expect(await screen.findByRole('rowheader', { name: VALID })).toBeInTheDocument()
+    expect(screen.getAllByText('60,000').length).toBeGreaterThan(0)
   })
 
   it('reports a read failure', async () => {

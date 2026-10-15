@@ -2,7 +2,7 @@
 // ABOUTME: Contract reads stay out of this file; they need Ethereum.
 
 import { describe, expect, it } from 'vitest'
-import { schedulePosition, summarizeAllocation } from './armAllocation'
+import { decodeStorageAddress, directLedgerRow, schedulePosition, summarizeAllocation } from './armAllocation'
 
 const ether = (arm: number) => BigInt(arm) * 10n ** 18n
 
@@ -17,6 +17,27 @@ describe('schedulePosition', () => {
 
   it('is 100 once revenue passes $1M', () => {
     expect(schedulePosition(2_000_000)).toBe(100)
+  })
+})
+
+describe('decodeStorageAddress', () => {
+  it('checksums the address in a storage word', () => {
+    expect(decodeStorageAddress('0x000000000000000000000000b202c7b6d456fd1f9b6633bb3c42b5cc0f0a52f1')).toBe(
+      '0xb202c7b6D456Fd1F9B6633bb3c42b5cC0F0A52F1',
+    )
+  })
+})
+
+describe('directLedgerRow', () => {
+  it('unlocks a direct allocation by the current bps', () => {
+    expect(directLedgerRow('0x1111111111111111111111111111111111111111', ether(60_000), 0n, 0n, 1_000n)).toMatchObject({
+      source: 'direct',
+      total: 60_000,
+      unlocked: 6_000,
+      claimed: 0,
+      available: 0,
+      locked: 54_000,
+    })
   })
 })
 
