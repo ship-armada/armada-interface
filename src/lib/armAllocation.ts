@@ -1,7 +1,7 @@
 // ABOUTME: Ethereum mainnet reads for the public ARM allocation page — RevenueLock plus the reserve distributor.
-// ABOUTME: Independent of the app's local/Sepolia network. Claims and the public ledger are not here.
+// ABOUTME: Independent of the app's local/Sepolia network. The direct beneficiary list is read from lock storage.
 
-import { Contract, formatUnits, getAddress } from 'ethers'
+import { Contract, formatUnits, getAddress, keccak256, toBeHex, zeroPadValue } from 'ethers'
 import { timeoutProvider } from '@/lib/shielded/network'
 
 /** Public read-only endpoint. No API key. Same source the original allocation page used. */
@@ -33,18 +33,29 @@ const LOCK_ABI = [
   'function allocation(address) view returns (uint256)',
   'function released(address) view returns (uint256)',
   'function releasable(address) view returns (uint256)',
+  'function beneficiaryCount() view returns (uint256)',
   'function unlockPercentage() view returns (uint256)',
   'function currentRevenue() view returns (uint256)',
   'function getCappedObservedRevenue() view returns (uint256)',
 ]
 
+/** Storage slot of RevenueLock._beneficiaries. Immutables are not in storage, so this is the third variable. */
+const BENEFICIARIES_SLOT = 2n
+const MAX_BENEFICIARIES = 500
+const LEDGER_CHUNK = 25
+
 interface LockReader {
   allocation(address: string): Promise<unknown>
   released(address: string): Promise<unknown>
   releasable(address: string): Promise<unknown>
+  beneficiaryCount(): Promise<unknown>
   unlockPercentage(): Promise<unknown>
   currentRevenue(): Promise<unknown>
   getCappedObservedRevenue(): Promise<unknown>
+}
+
+interface StorageReader {
+  getStorage(address: string, slot: bigint): Promise<string>
 }
 
 interface DistributorReader {
@@ -57,7 +68,19 @@ interface DistributorReader {
 
 interface Readers {
   lock: LockReader
+  lockAddress: string
   distributor: DistributorReader
+  storage: StorageReader
+}
+
+export interface LedgerRow {
+  address: string
+  source: 'direct'
+  total: number
+  unlocked: number
+  claimed: number
+  available: number
+  locked: number
 }
 
 export interface UnlockSnapshot {
@@ -66,6 +89,8 @@ export interface UnlockSnapshot {
   /** Revenue counted toward the unlock ratchet, in USD. */
   effectiveRevenueUsd: number
   unlockBps: number
+  /** RevenueLock contract that produced this snapshot. */
+  lockAddress: string
   next: { usd: number; bps: number; remainingUsd: number } | null
 }
 
@@ -110,6 +135,13 @@ function asAddress(value: unknown): string {
   return getAddress(value)
 }
 
+/** Last 20 bytes of a 32-byte storage word, checksummed. */
+export function decodeStorageAddress(word: string): string {
+  const hex = word.startsWith('0x') ? word.slice(2) : word
+  if (hex.length < 40) throw new Error('Unexpected beneficiary word from Ethereum')
+  return getAddress(`0x${hex.slice(-40)}`)
+}
+
 function mulBps(amount: bigint, bps: bigint): bigint {
   return (amount * bps) / BPS
 }
@@ -147,6 +179,25 @@ export function formatArm(value: number): string {
 
 export function formatUsd(value: number): string {
   return `$${Math.round(value).toLocaleString('en-US')}`
+}
+
+export function directLedgerRow(
+  address: string,
+  allocation: bigint,
+  released: bigint,
+  releasable: bigint,
+  unlockBps: bigint,
+): LedgerRow {
+  const unlocked = mulBps(allocation, unlockBps)
+  return {
+    address,
+    source: 'direct',
+    total: toArm(allocation),
+    unlocked: toArm(unlocked),
+    claimed: toArm(released),
+    available: toArm(releasable),
+    locked: toArm(max0(allocation - unlocked)),
+  }
 }
 
 export function summarizeAllocation(parts: AllocationParts): AllocationRead {
@@ -189,11 +240,49 @@ async function connect(): Promise<Readers> {
   const distributor = new Contract(ARM_DISTRIBUTOR, DIST_ABI, provider) as unknown as DistributorReader
   const lockAddress = asAddress(await distributor.revenueLock())
   const lock = new Contract(lockAddress, LOCK_ABI, provider) as unknown as LockReader
-  return { lock, distributor }
+  return { lock, lockAddress, distributor, storage: provider }
+}
+
+export async function readDirectLedger(): Promise<LedgerRow[]> {
+  const { lock, lockAddress, storage } = await readers()
+  const [countRaw, bpsRaw] = await Promise.all([lock.beneficiaryCount(), lock.unlockPercentage()])
+  const count = Number(asBigint(countRaw, 'beneficiary count'))
+  if (!Number.isSafeInteger(count) || count < 0 || count > MAX_BENEFICIARIES) {
+    throw new Error('Unexpected beneficiary count from Ethereum')
+  }
+  if (count === 0) return []
+  const unlockBps = asBigint(bpsRaw, 'unlock percentage')
+  const base = BigInt(keccak256(zeroPadValue(toBeHex(BENEFICIARIES_SLOT), 32)))
+  const words = await Promise.all(
+    Array.from({ length: count }, (_, index) => storage.getStorage(lockAddress, base + BigInt(index))),
+  )
+  const addresses = words.map((word) => decodeStorageAddress(word)).filter((address) => address !== getAddress('0x' + '0'.repeat(40)))
+  const rows: LedgerRow[] = []
+  for (let start = 0; start < addresses.length; start += LEDGER_CHUNK) {
+    const chunk = addresses.slice(start, start + LEDGER_CHUNK)
+    const part = await Promise.all(
+      chunk.map(async (address) => {
+        const [allocation, released, releasable] = await Promise.all([
+          lock.allocation(address),
+          lock.released(address),
+          lock.releasable(address),
+        ])
+        return directLedgerRow(
+          address,
+          asBigint(allocation, 'allocation'),
+          asBigint(released, 'released'),
+          asBigint(releasable, 'releasable'),
+          unlockBps,
+        )
+      }),
+    )
+    rows.push(...part)
+  }
+  return rows
 }
 
 export async function readUnlockSnapshot(): Promise<UnlockSnapshot> {
-  const { lock } = await readers()
+  const { lock, lockAddress } = await readers()
   const [raw, effective, bps] = await Promise.all([
     lock.currentRevenue(),
     lock.getCappedObservedRevenue(),
@@ -206,6 +295,7 @@ export async function readUnlockSnapshot(): Promise<UnlockSnapshot> {
     revenueUsd: toArm(asBigint(raw, 'revenue')),
     effectiveRevenueUsd: effectiveUsd,
     unlockBps,
+    lockAddress,
     next: nextStep
       ? { usd: nextStep.usd, bps: nextStep.bps, remainingUsd: Math.max(0, nextStep.usd - effectiveUsd) }
       : null,
