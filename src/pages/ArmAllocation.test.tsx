@@ -117,7 +117,9 @@ describe('ArmAllocation', () => {
       },
     ])
     render(<ArmAllocation />)
-    const [summary] = screen.getAllByText('Direct allocations')
+    const summary = screen.getAllByText('Direct allocations')[0]
+    expect(summary).toBeDefined()
+    if (!summary) return
     fireEvent.click(summary)
     expect(await screen.findByRole('rowheader', { name: VALID })).toBeInTheDocument()
     expect(screen.getAllByText('60,000').length).toBeGreaterThan(0)
