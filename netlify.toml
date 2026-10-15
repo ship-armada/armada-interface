@@ -70,6 +70,18 @@
 # enforcing `Content-Security-Policy` header only after that sweep — and AFTER adding the runtime
 # relayer origin (VITE_RELAYER_URL host) and any IPFS artifact-gateway host to connect-src, neither
 # of which is statically known here.
+# /allocation is a shared lookup, not a public marketing page. noindex must be on the
+# request path (not robots.txt) so crawlers can see the tag. The page also sets a meta robots tag.
+[[headers]]
+  for = "/allocation"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
+  for = "/allocation/"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 [[headers]]
   for = "/*"
   [headers.values]
