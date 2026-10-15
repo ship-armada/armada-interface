@@ -48,3 +48,6 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           VITE_ARTIFACTS_BASE_URL: ${{ vars.VITE_ARTIFACTS_BASE_URL || 'https://circuits.knowable.run/v0.1.0-dev' }}
+      # One @armada/sdk engine copy in the bundle (#92): its inlined WASM must appear exactly once.
+      - name: Check SDK bundled once
+        run: node scripts/check-sdk-bundle.mjs

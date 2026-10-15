@@ -48,6 +48,7 @@ src/
 
 - **All source files start with two-line `// ABOUTME:` comments.** Project-wide rule from the root CLAUDE.md.
 - **No `ethers` or `@railgun-community/*` imports in `components/**`.** Business logic lives in `hooks/` and `lib/`. Components are dumb.
+- **Import `@armada/sdk` from its root, not `/core` or `/wallet`, in production code.** The root has everything app code needs (including `decodeAddress`); tests may use `/core` for engine-level types. `src/test/sdk-imports.test.ts` enforces this, and CI's `scripts/check-sdk-bundle.mjs` fails a production build that bundles the SDK engine more than once.
 - **No `console.log`/`console.debug` in `lib/shielded/`.** Secret-leak prevention. Use `lib/telemetry.ts` instead. Telemetry is **typed** via an event registry (`lib/telemetry.ts::EventRegistry`); arbitrary props are not allowed.
 - **No typography Tailwind classes app-wide.** `text-xs`/`font-*`/`tracking-*`/`leading-*`/`uppercase` etc. are forbidden — typography flows from the body baseline + `@/design` CSS Modules. Layout utilities (`flex`, `grid`, `mx-auto`, `pt-20`, color tokens) are fine.
 - **TS strict + `noUncheckedIndexedAccess`.** No `any`, no `as any`. If a type is opaque (e.g. wagmi internals), narrow at the boundary.
