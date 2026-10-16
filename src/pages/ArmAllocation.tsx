@@ -403,7 +403,7 @@ export function ArmAllocation() {
               <dt>Unlocked</dt>
               <dd>{snapshot ? `${snapshot.unlockBps / 100}%` : '—'}</dd>
             </div>
-            <div>
+            <div className={styles.liveNext}>
               <dt>Next unlock</dt>
               <dd>
                 {snapshot ? (snapshot.next ? `${formatUsd(snapshot.next.usd)} revenue` : 'Fully unlocked') : '—'}

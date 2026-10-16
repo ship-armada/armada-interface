@@ -2,10 +2,19 @@
 // ABOUTME: Contract reads stay out of this file; they need Ethereum.
 
 import { describe, expect, it } from 'vitest'
-import { decodeStorageAddress, directLedgerRow, schedulePosition, summarizeAllocation } from './armAllocation'
+import { decodeStorageAddress, directLedgerRow, formatUsd, schedulePosition, summarizeAllocation } from './armAllocation'
 
 const ether = (arm: number) => BigInt(arm) * 10n ** 18n
 
+describe('formatUsd', () => {
+  it('keeps small amounts exact and compacts large ones', () => {
+    expect(formatUsd(0)).toBe('$0')
+    expect(formatUsd(950)).toBe('$950')
+    expect(formatUsd(120_000)).toBe('$120K')
+    expect(formatUsd(1_000_000)).toBe('$1M')
+    expect(formatUsd(1_200_000)).toBe('$1.2M')
+  })
+})
 describe('schedulePosition', () => {
   it('is 0 before the first milestone', () => {
     expect(schedulePosition(0)).toBe(0)

@@ -177,8 +177,18 @@ export function formatArm(value: number): string {
   return value.toLocaleString('en-US', { maximumFractionDigits: 2 })
 }
 
+function compactCount(value: number): string {
+  const text = value >= 10 ? Math.round(value).toString() : value.toFixed(1)
+  return text.replace(/\.0$/, '')
+}
+
 export function formatUsd(value: number): string {
-  return `$${Math.round(value).toLocaleString('en-US')}`
+  const rounded = Math.round(value)
+  const sign = rounded < 0 ? '-' : ''
+  const abs = Math.abs(rounded)
+  if (abs >= 1_000_000) return `${sign}$${compactCount(abs / 1_000_000)}M`
+  if (abs >= 10_000) return `${sign}$${compactCount(abs / 1_000)}K`
+  return `${sign}$${abs.toLocaleString('en-US')}`
 }
 
 export function directLedgerRow(
