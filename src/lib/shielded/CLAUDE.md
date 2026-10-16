@@ -50,8 +50,11 @@ Privacy apps routinely leak through carelessly-written telemetry and dev logs. B
      **raw** `IndexedDBStorageAdapter`; the SDK auto-wraps it **per wallet** in an `EncryptedStore` keyed from
      the **viewing private key** (AES-256-GCM, record-key bound as AAD), held only in memory. The DB holds
      only ciphertext at rest — a tab crash / disk read leaks no decrypted note data (value, recipient/sender
-     0zk, memo). Locking tears the instance down (`closeSdkRead`) → the SDK's key is dropped; Settings → Reset
-     deletes the DB. Prior-schema DBs (pre-encryption plaintext + the interface's earlier `-e1` rootSecret-keyed
+     0zk, memo). Locking tears the instance down (`closeSdkRead`) → the SDK's key is dropped, and `sdk.close()`
+     disposes the wallet: it wipes the viewing key and the spend key held by the SDK's default signer. **Don't
+     pass a `signer` to `fromRootSecret`** — the SDK only wipes a signer it made. Calls still in flight at the lock
+     reject with `INSTANCE_CLOSED`; `trackError` doesn't report those, and the tx classifier maps them to
+     `CANCELLED`. Settings → Reset deletes the DB. Prior-schema DBs (pre-encryption plaintext + the interface's earlier `-e1` rootSecret-keyed
      wrap) are best-effort deleted on the next unlock so nothing stale lingers. We never set the SDK's
      `dangerouslyAllowPlaintextStorage` escape hatch. **Do NOT re-wrap the adapter in `EncryptedStore` here —
      the SDK owns this; wrapping would double-encrypt under a mismatched key.**

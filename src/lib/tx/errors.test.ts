@@ -16,6 +16,7 @@ import {
   NothingToConsolidateError,
   ProofVerificationError,
   ProverWorkerError,
+  InstanceClosedError,
 } from '@armada/sdk'
 import { classifyHandlerError } from './errors'
 import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
@@ -211,6 +212,15 @@ describe('classifyHandlerError — @armada/sdk ArmadaError branch', () => {
     expect(r.code).toBe('PRE_FLIGHT_REVERT')
     expect(r.message).toMatch(/try again/i)
     expect(r.message).not.toMatch(/out of memory/) // category copy, not the raw worker message
+  })
+
+  it('maps InstanceClosedError to CANCELLED: the wallet locked under the operation', () => {
+    // WHY: locking (or switching accounts) closes the SDK instance, and an in-flight plan/prove then rejects with
+    // INSTANCE_CLOSED. That's the user stopping the operation, not a failure to report with the raw SDK message.
+    const r = classifyHandlerError(new InstanceClosedError('wallet: used after wallet.dispose() or sdk.close()'), 'fallback')
+    expect(r.code).toBe('CANCELLED')
+    expect(r.sdkCode).toBe('INSTANCE_CLOSED')
+    expect(r.message).toMatch(/locked/i)
   })
 
   it('falls through to OTHER for an unmapped SDK code, surfacing the (truncated) SDK message', () => {

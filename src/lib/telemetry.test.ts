@@ -35,3 +35,13 @@ describe('trackError message truncation', () => {
     expect(capturedMessage(spy)).toBe('plain string error')
   })
 })
+
+describe('trackError — @armada/sdk INSTANCE_CLOSED', () => {
+  it('does not report INSTANCE_CLOSED: a call cut short by a lock or account switch is not a failure', () => {
+    // WHY: locking closes the SDK instance, and any read or sync still in flight rejects with INSTANCE_CLOSED.
+    // Reporting those would file an error for every lock that lands mid-sync.
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    trackError('scope', Object.assign(new Error('sdk: used after close()'), { code: 'INSTANCE_CLOSED' }))
+    expect(spy).not.toHaveBeenCalled()
+  })
+})
