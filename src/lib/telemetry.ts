@@ -175,8 +175,12 @@ const ERROR_MESSAGE_MAX_CHARS = 200
  *    boundary by `lib/sentry.ts`'s `beforeSend` scrubber (redacts 0zk / EVM addresses + long hex)
  *    plus `sendDefaultPii: false`. Keep the two in lockstep: widen the scrubber before widening
  *    what reaches Sentry.
+ *
+ * An `@armada/sdk` `INSTANCE_CLOSED` error is not reported: it means the SDK instance was closed (a lock or account
+ * switch) under a call still in flight — the user stopping it, not a failure.
  */
 export function trackError(scope: string, err: unknown, props: ErrorProps = {}): void {
+  if (isInstanceClosed(err)) return
   const raw = err instanceof Error ? err.message : String(err)
   const firstLine = raw.split('\n', 1)[0] ?? ''
   const message =
@@ -185,4 +189,9 @@ export function trackError(scope: string, err: unknown, props: ErrorProps = {}):
       : firstLine
   emit('error', 'error', { scope, message, ...props })
   captureError(err, { scope, context: props })
+}
+
+// Matched on the SDK's stable `code` (its guidance: match `code`, never instance/message).
+function isInstanceClosed(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'INSTANCE_CLOSED'
 }

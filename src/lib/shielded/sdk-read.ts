@@ -4,7 +4,6 @@
 import {
   createArmadaSdk,
   IndexedDBStorageAdapter,
-  LocalSigner,
   getTokenDataERC20,
   getTokenDataHash,
   type ArmadaSdk,
@@ -196,14 +195,14 @@ async function createInstance(engineAddress: string): Promise<SdkInstance> {
     await sdk.close().catch(() => {})
     throw new Error('sdk-read: instance build superseded by teardown')
   }
-  // Attach a spend signer so the instance is write-capable (planTransfer/prove) — not just view-only.
-  // Derived from the same in-memory rootSecret the viewing key comes from, so it adds no new secret
-  // exposure; it only signs during prove(). Reads never invoke it.
+  // Spend-capable by default: the SDK attaches its own LocalSigner over the key it derives from the rootSecret, so it
+  // holds the only copy of the spend key and wipes it when the instance closes (on lock). It only signs during
+  // prove(); reads never invoke it. Don't pass a `signer` here — one we supply is ours to dispose, and close()
+  // would leave its key in memory.
   let wallet: ReadWallet
   try {
     wallet = await sdk.wallet.fromRootSecret(keyManager.getRootSecret(), {
       creationBlock: keyManager.getCreationBlock() ?? 0,
-      signer: await LocalSigner.fromRootSecret(keyManager.getRootSecret()),
     })
   } catch (err) {
     // Close the freshly-opened SDK so a lock landing mid-build (getRootSecret throws) can't leak the

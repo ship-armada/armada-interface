@@ -157,6 +157,9 @@ function sdkErrorToTxError(err: ArmadaError): TxError {
     case 'ABORTED':
       // Defensive: the handler's `ctx.signal.aborted` return normally beats this to the punch.
       return { code: 'CANCELLED', message: 'The operation was cancelled.' }
+    case 'INSTANCE_CLOSED':
+      // Locking (or switching accounts) closes the SDK instance; an in-flight plan/prove/sync rejects with this.
+      return { code: 'CANCELLED', message: 'Your wallet was locked, so the operation stopped.' }
     default:
       // INVALID_KEY_MATERIAL / NON_DETERMINISTIC_SIGNER / CLAIM_SEED_COUNTER / SIGNER_CONTRACT_VIOLATION
       // and any future ArmadaError — surface the SDK message honestly rather than swallow it.

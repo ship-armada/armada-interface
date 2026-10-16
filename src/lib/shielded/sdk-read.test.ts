@@ -5,11 +5,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Stub the heavy @armada/sdk value imports so importing sdk-read doesn't pull the SDK/wasm into the
 // test — syncTracked only needs the wallet's `sync()` return, not any real SDK runtime. `createArmadaSdk`
-// + `LocalSigner` are also exercised by the ensureInstance concurrency test below.
+// is also exercised by the ensureInstance concurrency test below.
 vi.mock('@armada/sdk', () => ({
   createArmadaSdk: vi.fn(),
   IndexedDBStorageAdapter: class {},
-  LocalSigner: { fromRootSecret: vi.fn(async () => ({})) },
   getTokenDataERC20: vi.fn(),
   getTokenDataHash: vi.fn(),
   // The SDK's worker prover is built with the instance; it only spawns a Worker on a proof, which these
@@ -126,6 +125,15 @@ describe('ensureInstance — concurrency guard (getSdkWallet)', () => {
     expect(createArmadaSdk).toHaveBeenCalledTimes(1)
     expect(a).toBe(b)
     expect(b).toBe(c)
+  })
+
+  it("loads the wallet with the SDK's own signer, so closing the instance wipes the spend key", async () => {
+    // WHY: an app-supplied LocalSigner is the app's to dispose, so the SDK's close() left its spend key in memory
+    // after a lock. With the SDK's default signer, close() disposes it and zeroes the key.
+    await getSdkWallet()
+    const opts = fakeSdk.wallet.fromRootSecret.mock.calls[0]![1] as Record<string, unknown>
+    expect(opts).not.toHaveProperty('signer')
+    expect(opts).not.toHaveProperty('viewOnly') // spend-capable by default
   })
 
   it('rebuilds after closeSdkRead — a fresh unlock creates a new instance', async () => {
