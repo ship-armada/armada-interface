@@ -1,5 +1,5 @@
 /* ABOUTME: ProgressStep styling — wrapper around the placeholder copy when no record exists yet. */
-/* ABOUTME: When a record is present, TxLifecycleStepper renders inside with its own module CSS. */
+/* ABOUTME: When a record is present, tx/processing/TxProcessingLayout renders inside with its own module CSS. */
 
 .root {
   display: flex;

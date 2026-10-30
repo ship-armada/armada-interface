@@ -11,8 +11,8 @@ Pure logic — **no React imports allowed.** These modules are unit-testable wit
 | `wagmi-adapter.ts` | `walletClientToSigner(walletClient)` — viem → ethers v6 signer. Duplicated from committer. | Working |
 | `telemetry.ts` | `track / trackTxTransition / trackError`. Console always; `trackError` also forwards the full error to Sentry via `sentry.ts::captureError` (no-op unless a DSN is configured). | Working |
 | `sentry.ts` | `initSentry` (DSN-gated no-op) + `captureError` + `scrubString`/`scrubEvent`. Errors-only, `sendDefaultPii: false`, `beforeSend` redacts 0zk/EVM addresses + long hex. Source-map upload is configured in `vite.config.ts` (`@sentry/vite-plugin`, gated on `SENTRY_AUTH_TOKEN`). | Working |
-| `relayer.ts` | HTTP client for `/fees`, `/relay`, `/status/:txHash`. **Stub** — signatures only. | Stub |
-| `cctp.ts` | `MessageSent` log parsing + `pollIrisOnce`. **Stub.** | Stub |
+| `relayer.ts` | Relayer HTTP client (`fetchFees`, `submitRelay`, `pollStatus`, `fetchHealth`, `fetchCctpDeliveryStatus`) + per-kind fee model (`userFeeForKind`, `feeModelForKind`, `computeFeeBreakdown`, CCTP fee helpers) + duplicate-tx recovery (`extractDuplicateTxHash`). | Working |
+| `cctp.ts` | CCTP `MessageSent` decoding from hub receipts/logs (`extractCctpMessageFromReceipt`, `readCctpMessage`, `readBurnMessage`, `readCctpFromLogs`) + destination `MessageReceived` lookup by nonce (`findMessageReceivedByNonce`). No Iris API polling. | Working |
 | `shielded/wallet.ts` | V2 signIn / unlockFromRootSecret / unlockFromBackup / lockWallet / resetWallet. Per-(EVM address, account) `armada.shielded.walletIds` + `armada.shielded.checksums` localStorage maps. | Working |
 | `shielded/schema-migration.ts` | V2 cold-boot migration — drops legacy v1 localStorage keys + the SDK/cache IndexedDB databases when `armada.shielded.schemaVersion < 2`. | Working |
 | `shielded/keyManager.ts` | Module-scope unlocked-state singleton: `rootSecret`, `walletId`, `sdkEncryptionKey`, `historyEncryptionKey` (Phase 7), `evmAddress` + `account` binding, address, checksum. Getters throw when locked; `clear()` zeroizes secret buffers. | Working |

@@ -1,5 +1,5 @@
 // ABOUTME: Human-readable copy for every (TxKind, stage) combination, optionally varying by executionState.
-// ABOUTME: Single source of truth for tx-related microcopy — TxLifecycleStepper, TxRow, ProgressStep, and stage-status messages all read from here.
+// ABOUTME: Row/stepper tx microcopy — TxRow, TxLifecycleStepper, and the activity adapter read from here. The in-flight processing view's copy lives in processing/processingView.ts.
 
 import type { TxKind, TxRecord, TxExecutionState } from '@/lib/tx/types'
 import { getChainById } from '@/config/network'

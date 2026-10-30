@@ -82,11 +82,14 @@ For Sepolia, set `VITE_NETWORK=sepolia` and ensure manifest files exist in `depl
 
 ## Tx lifecycle model — required reading
 
-The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and `src/lib/tx/executor.ts`. Every transaction kind (`shield`, `unshield-local`, `unshield-xchain`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `payment-xchain`) declares its own stage sequence with a per-kind `maxDurationMs` + `retry` policy. Records carry an `executionState` (lifecycle position: `pending | active | waiting | retrying | completed | failed | expired | cancelled`) separate from the protocol `stage`. The same `useTx()` hook handles all kinds; the same future `<TxLifecycleStepper>` component renders any record. Adding a new kind is a 3-file change:
+The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and `src/lib/tx/executor.ts`. Every transaction kind (`shield`, `shield-xchain`, `unshield-local`, `unshield-xchain`, `transfer-shielded`, `transfer-shielded-received`, `yield-deposit`, `yield-withdraw`, `consolidate`) declares its own stage sequence with a per-kind `maxDurationMs` + `retry` policy. Records carry an `executionState` (lifecycle position: `pending | active | waiting | retrying | completed | failed | expired | cancelled`) separate from the protocol `stage`. The same `useTx()` hook handles all kinds; the same in-flight processing view (`components/tx/processing/`, rendered by `components/flow/ProgressStep`) renders any record. Adding a new kind touches:
 
-1. Extend the `TxKind` union and add a stage union in `lib/tx/types.ts`.
-2. Add a lifecycle entry in `lib/tx/lifecycles.ts`.
-3. (Optional) Add custom rendering in `components/tx/`.
+1. The `TxKind` union, stage union, and meta in `lib/tx/types.ts`.
+2. A lifecycle entry in `lib/tx/lifecycles.ts`.
+3. A `StageHandler` registered from a `features/<area>/index.ts` module.
+4. The kind's copy in `components/tx/stageCopy.ts` and `components/tx/processing/processingView.ts` (both are `Record<TxKind, …>` maps, so the compiler flags a missing entry).
+
+The full checklist is in `src/lib/tx/CLAUDE.md`.
 
 This model fixes the crowdfund-committer's `useTransactionFlow` single-tx limitation — multi-instance, persistent, cross-chain-aware.
 
@@ -94,7 +97,7 @@ This model fixes the crowdfund-committer's `useTransactionFlow` single-tx limita
 
 ## What's intentionally NOT in the scaffold
 
-- Tx flows (shield/shield-xchain/unshield-local/unshield-xchain/transfer/yield) are wired end-to-end against real contracts + CCTP and run real ZK proofs; what's NOT done: the relayer-*mediated* submit path (`lib/relayer.ts::submitRelay` — today every handler submits from the user's own wallet via wagmi) and finer-grained real-CCTP-mode Iris polling (the xchain handler collapses the last delivery stages on a single destination-balance detection).
+- Tx flows (shield/shield-xchain/unshield-local/unshield-xchain/transfer/yield) are wired end-to-end against real contracts + CCTP and run real ZK proofs; every spend (unshield, transfer, yield, merge) is submitted by the relayer (`lib/relayer.ts::submitRelay`), and shield uses either the user's wallet (direct) or a permit + relay (gasless). What's NOT done: finer-grained real-CCTP-mode Iris polling (the xchain handler collapses the last delivery stages on a single destination-balance detection).
 - e2e tests.
 - A remote telemetry sink beyond Sentry. Sentry error capture IS wired (`lib/sentry.ts`, DSN-gated via `VITE_SENTRY_DSN` — see DEPLOYMENT.md), but the structured `track()` info events remain console-only.
 - Service worker / offline support.

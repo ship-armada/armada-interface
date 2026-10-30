@@ -31,7 +31,7 @@ arbitrary `0x`/`0zk` recipient is the Send flow (`payments/`, "send" copy). Both
 
 ## Wallet-signing UX
 
-`shield` is the only kind that requires a user wallet signature. The "Confirm in your wallet" copy is surfaced by `stageCopy.ts` when `executionState === 'waiting'` on the submit stage — `<TxLifecycleStepper>` (via `ProgressStep`) reads that automatically. No special handling here.
+`shield` is the only kind that requires a user wallet signature. The prompts are shown on the dedicated `wallet` step (`ShieldWalletStep` → `flow/WalletConfirmList`, statuses from `lib/tx/shieldWalletSteps`); `useShieldFlow` advances to `progress` once they're done. If a prompt is still open on the submit stage, the progress view's `processing/processingView.ts` shows "Confirm in your wallet" (the `waiting` subtitle variant).
 
 ## What's wired now (Phase 2)
 

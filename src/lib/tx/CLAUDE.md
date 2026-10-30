@@ -36,7 +36,7 @@ Transaction lifecycle model. The most important architectural surface in this ap
 4. (If cross-chain) extend `ArtifactsFor<K>` or reuse `ArtifactsXchain`.
 5. Add a `TxLifecycle<NewKind>` entry in `lifecycles.ts` with `maxDurationMs` + `retryableStages`.
 6. Register a `StageHandler<NewKind>` somewhere that gets imported on app load (typically a `features/<area>/handler.ts` module that side-effects `registerHandler(...)`).
-7. Optionally: custom rendering in `components/tx/<NewKind>/`. The default stepper handles it if you skip.
+7. Add the kind's copy to `components/tx/stageCopy.ts` (`COPY`, `KIND_TITLES`) and `components/tx/processing/processingView.ts` (`STAGE_COPY`, `resolveCardBase`). These are exhaustive over `TxKind`, so the compiler flags a missing entry.
 
 That's it. The reducer, storage, executor, and pollers handle any kind that conforms to the type contract.
 
@@ -54,9 +54,9 @@ Key behaviour:
 
 ### Stage naming caveat — `'submit-relayer'` is a framework label
 
-The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `unshield-xchain`, `shield-xchain`). The name suggests the relayer submits the tx — that's the eventual model when `submitRelay` is wired (see `lib/relayer.ts`), but **today every handler submits via the user's own wallet** through `wagmi/actions::sendTransaction` / `writeContract`. The stage name is a stable framework label for "tx-on-the-wire," not an indicator of who sends it.
+The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `unshield-xchain`, `shield-xchain`). Every handler calls `lib/relayer.ts::submitRelay` (POST `/relay`) and then polls `/status` via `poller.ts::pollRelayStatusOnce`. The exceptions are `shield`'s direct path (`writeContract(PrivacyPool.shield)` from the user's wallet, after an approve if needed) and `shield-xchain`'s source-chain step, which also uses the user's wallet. The stage name is a stable framework label for "tx-on-the-wire", not a guarantee of who sends it.
 
-This matters when scoping work like fee display, ETA estimation, or stage copy — don't assume `'submit-relayer'` means we're in relayer-mediated mode. Per-kind handler is the source of truth for submission shape.
+This matters when scoping work like fee display, ETA estimation, or stage copy. The per-kind handler is the source of truth for submission shape.
 
 ### Stage handler contract
 
@@ -71,7 +71,7 @@ interface StageHandler<K extends TxKind> {
 - `run` executes the **current** stage. It writes transitions via `ctx.upsert(nextRecord)`.
 - `run` returns when the stage is done (next stage advanced) OR the record is in `'waiting'` (chain pauses).
 - `run` MUST honour `ctx.signal`. Throwing on abort is fine.
-- `resumableFrom` lists stages this handler can safely re-enter on app reload — typically the same as `lifecycle.retryableStages`.
+- `resumableFrom` lists stages this handler can safely re-enter on app reload — typically the same as `lifecycle.retryableStages`. The executor does not currently read it: resume decides by `sourceTxHash` presence (see "Resume on unlock" above).
 
 ### Outer try/catch contract
 
@@ -96,7 +96,7 @@ The abort-check-before-markFailed pattern is invariant across every handler. If 
 
 ## Polling adapters
 
-`poller.ts` exports a generic `poll(pollOnce, opts)`. Stage-specific adapters (one per polling type) call into `lib/cctp.ts`, `lib/relayer.ts`, or RPC directly via `lib/events`. Convention: the adapter function is named `poll<Source>Once(...)` (e.g. `pollIrisOnce`, `pollReceiptOnce`) and returns `Promise<T | null>` — null means "no result yet, keep polling".
+`poller.ts` exports a generic `poll(pollOnce, opts)`. Stage-specific adapters (one per polling type) call into `lib/cctp.ts`, `lib/relayer.ts`, or RPC directly via `lib/events`. Convention: the adapter function is named `poll<Source>Once(...)` (e.g. `pollRelayStatusOnce`) and returns `Promise<T | null>` — null means "no result yet, keep polling".
 
 ## Resume policy
 

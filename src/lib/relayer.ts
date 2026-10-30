@@ -319,7 +319,7 @@ export interface RelayRequest {
    * NOTE: requires the relayer-side change to honour it (persist key→txHash, return 200 on repeat);
    * until that ships the relayer ignores this field and the client falls back to parsing the
    * DUPLICATE_TX message (see `handleRelaySubmitError`). See the relayer implementation plan in
-   * `reports/relayer-idempotency-key-plan.md`.
+   * the POC repo (https://github.com/ship-armada/armada-poc/blob/90156cf03598277c05b742fa1486550fc71fab5b/reports/relayer-idempotency-key-plan.md).
    */
   idempotencyKey: string
   /**
