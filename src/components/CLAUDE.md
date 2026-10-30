@@ -21,7 +21,7 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `WalletMenu/` | Wallet side-panel (pill → slide-out) — address, hide toggle, actions, and USDC balances. Since a shield is per-chain (#8), the balance defaults to a combined **Total** row ("N networks") that **expands** to a per-chain breakdown (one row per chain holding USDC; `buildWalletChainBalances`); a single-chain wallet shows that one row with no toggle. Chain-agnostic "Shield your USDC" opens the modal whose Network picker handles selection |
 | `RelayerStatusBanner/` | Banner shown when the relayer is unreachable / degraded |
 | `ui/` | App-local primitives (Card, Modal, AmountInput, ChainSelect, FeeSummary, RecipientInput, SectionHeader, StatusChip, Tabs, TechnicalDetailsDisclosure, EmptyState, SegmentedControl, Tooltip, FeeBreakdownTooltip, EstimatedFeeValue, GasBalanceNotice, WalletProviderIcon) — see `ui/CLAUDE.md` |
-| `flow/` | `FlowShell` (the live modal chrome, wrapping vendored `FlowModalOverlay + ModalShell + ModalStepSwitch`) + `useFlowExit` + `ErrorStep` + `ProgressStep`. Legacy `ActionFlowShell`/`FlowHeader`/`FlowFooter`/`FlowStepIndicator` are retained-but-unused — see `flow/CLAUDE.md` |
+| `flow/` | `FlowShell` (the live modal chrome, wrapping vendored `FlowModalOverlay + ModalShell + ModalStepSwitch`) + `useFlowExit` + `ErrorStep` + `ProgressStep`. Pre-redesign `ActionFlowShell` is unused; `FlowFooter` / `FlowHeader` / `FlowStepIndicator` are still used by `ErrorStep`, settings dialogs and onboarding — see `flow/CLAUDE.md` |
 | `deposit/` | Shared flow primitives — `DepositAmountCard` (amount + chain + fee caption + % pills), `DepositReviewSummary`, `DepositOverlayShell` — reused across shield/send/earn |
 | `tx/` | TxLifecycleStepper, TxRow, TxStatusChip, TxActions, stageCopy helpers, `processing/` (TxProgressCard + timeline) — see `tx/CLAUDE.md` |
 | `dashboard/` | BalanceCard + numerals + RecentActivityList (+ ActivityAllPanel / receipts) + DepositTooltip (centered card stack) — see `dashboard/CLAUDE.md` |
@@ -33,7 +33,7 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `payViaLink/` | `PaymentLinkQrCode` — QR of a pay-via-link URL (`qrcode.react`). Shared by the payer landing (`pages/PayViaLinkLanding`) |
 | `history/` | `HistoryRecoveryBanner` — chain-history-recovery status banner (mounted in AppLayout) |
 | `sync/` | `SyncGate` + `SyncBanner` — initial shielded-balance sync gate + banner |
-| `onboarding/` | `OnboardingFlowV2` (primary 4-step first-run: welcome → sign → checksum → complete) + `UnlockFlow` + `OnboardingLayout`/`OnboardingShell`; legacy 6-step `OnboardingFlow` retained — see `onboarding/CLAUDE.md` |
+| `onboarding/` | `SignInFlow` (the single state-agnostic account entry for first visit and returning users; restore-from-backup behind a link) + `NonDeterministicSignerScreen` + `OnboardingShell`; the legacy 6-step `OnboardingFlow` is not rendered — see `onboarding/CLAUDE.md` |
 | `OnboardingLayout/` | Shell chrome for the onboarding/unlock screens |
 | `settings/` | SettingsModal + RecoverySecretExportDialog, ResetWalletDialog, ClearHistoryDialog — see `settings/CLAUDE.md` |
 
