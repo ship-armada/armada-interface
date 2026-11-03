@@ -21,11 +21,18 @@ import type { BalanceRollMode } from '@/components/dashboard/RollingBalanceValue
 import { SyncGate, isInitialSyncGated } from '@/components/sync'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
-import { sharesToUsdc } from '@/lib/yield'
+import { formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
 import { openModalAtom, balanceHiddenAtom } from '@/state/ui'
-import { shieldedUsdcAtom, yieldSharesAtom, shieldedWalletAtom, evmAddressAtom } from '@/state/wallet'
+import {
+  shieldedUsdcAtom,
+  shieldedUsdcHeadlineAtom,
+  yieldSharesAtom,
+  yieldSharesHeadlineAtom,
+  shieldedWalletAtom,
+  evmAddressAtom,
+} from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
 import styles from './Dashboard.module.css'
@@ -44,6 +51,10 @@ export function Dashboard() {
   // Data (all hooks run unconditionally, before the sync gate's early return).
   const shielded = useAtomValue(shieldedUsdcAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
+  // Headline figures also count a broadcast spend's held inputs, so a send / vault withdrawal doesn't
+  // dip the numbers before its change note is scanned. Gating stays on the base atoms above.
+  const shieldedHeadline = useAtomValue(shieldedUsdcHeadlineAtom)
+  const yieldSharesHeadline = useAtomValue(yieldSharesHeadlineAtom)
   const { rate: yieldRate } = useYieldRate()
   const shieldedWallet = useAtomValue(shieldedWalletAtom)
   const txList = useAtomValue(activeTxListAtom)
@@ -104,9 +115,11 @@ export function Dashboard() {
     return () => cancelAnimationFrame(id)
   }, [gated, vaultLoaded])
   // The SDK balance only — the dashboard is gated until it's known (G-11), so the 0 is never shown.
-  const liveBalance = usdcToNumber(shielded ?? 0n)
+  const liveBalance = usdcToNumber(shieldedHeadline ?? shielded ?? 0n)
   const earningUsdc =
-    yieldShares !== null && yieldRate !== null ? sharesToUsdc(yieldShares, yieldRate.rate) : 0n
+    yieldShares !== null && yieldRate !== null
+      ? sharesToUsdc(yieldSharesHeadline ?? yieldShares, yieldRate.rate)
+      : 0n
   const liveVault = usdcToNumber(earningUsdc)
   const vaultApy = yieldRate !== null ? Number(yieldRate.apyBps) / 100 : undefined
   // Accrued vault yield = current vault value − net capital contributed (settled yield deposits −
@@ -288,10 +301,10 @@ export function Dashboard() {
             BadgeIcon={ChartBarIcon}
             badgeBackground="white"
             iconTileTone="purple"
-            headline={`Earn ~${(vaultApy ?? 0).toFixed(1)}% APY`}
+            headline={formatEarnApyHeadline(vaultApy ?? 0)}
             body="Add USDC to Armada's shielded vault and start earning now."
             infoTooltip="The APY is an estimate from recent shielded vault performance."
-            ariaLabel={`Estimated yearly yield ~${(vaultApy ?? 0).toFixed(1)}%`}
+            ariaLabel={`Estimated yearly yield ~${formatApyPercent(vaultApy ?? 0)}`}
             onDeposit={() => openActionModal('yield-deposit')}
           />
         </EarnBannerSlot>

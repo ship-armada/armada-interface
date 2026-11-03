@@ -1,4 +1,4 @@
-// ABOUTME: Bridges lib/shielded/sync's SDK balance events into shieldedUsdcAtom + yieldSharesAtom; drives an initial scan on unlock.
+// ABOUTME: Bridges lib/shielded/sync's SDK balance events into the shielded USDC / yield-share atoms (incl. the no-dip headline atoms); drives an initial scan on unlock.
 // ABOUTME: Mount once at App root. No-op when locked; auto-resubscribes on unlock.
 
 import { useEffect, useRef } from 'react'
@@ -6,10 +6,12 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import {
   activeShieldedWalletAtom,
   shieldedUsdcAtom,
+  shieldedUsdcHeadlineAtom,
   shieldedUsdcSpendableAtom,
   syncRetryEpochAtom,
   syncStateAtom,
   yieldSharesAtom,
+  yieldSharesHeadlineAtom,
 } from '@/state/wallet'
 import {
   refreshShieldedBalances,
@@ -28,7 +30,7 @@ import { trackError } from '@/lib/telemetry'
  *   4. On each event (or initial query), READ (not sync) BOTH shielded USDC and ayUSDC shares from
  *      the @armada/sdk scan state (which resolves the token set from the deployment internally)
  *
- * On lock or unmount, unsubscribes, zeroes both atoms, and closes the SDK read instance.
+ * On lock or unmount, unsubscribes, clears the balance atoms (to null), and closes the SDK read instance.
  *
  * The `latestWalletIdRef` guards against stale-closure writes if the wallet flips while a
  * balance query is in flight — only the most recent walletId is allowed to write atoms.
@@ -38,6 +40,8 @@ export function useShieldedBalanceSync(): void {
   const setShieldedUsdc = useSetAtom(shieldedUsdcAtom)
   const setShieldedUsdcSpendable = useSetAtom(shieldedUsdcSpendableAtom)
   const setYieldShares = useSetAtom(yieldSharesAtom)
+  const setShieldedUsdcHeadline = useSetAtom(shieldedUsdcHeadlineAtom)
+  const setYieldSharesHeadline = useSetAtom(yieldSharesHeadlineAtom)
   const setSyncState = useSetAtom(syncStateAtom)
   // Bumped by useSyncRetry ("Try Again"). Included in the effect deps so a bump re-runs the
   // subscribe + initial-scan path below.
@@ -54,6 +58,8 @@ export function useShieldedBalanceSync(): void {
       setShieldedUsdc(null)
       setShieldedUsdcSpendable(null)
       setYieldShares(null)
+      setShieldedUsdcHeadline(null)
+      setYieldSharesHeadline(null)
       setSyncState({ status: 'idle', progress: 0 })
       // This hook owns the @armada/sdk read instance — tear it down on lock.
       void closeSdkRead()
@@ -98,11 +104,16 @@ export function useShieldedBalanceSync(): void {
         if (usdcResult.status === 'fulfilled') {
           // `shieldedUsdcAtom` is the TOTAL (headline/hero); `shieldedUsdcSpendableAtom` is what MAX +
           // the fee-on-top guard draw from, so a pending (not-yet-final) note can't be spent.
-          setShieldedUsdc(usdcResult.value.spendable + usdcResult.value.pending)
+          // The dashboard headline also counts a broadcast spend's held inputs (`pendingSpent`), so
+          // it doesn't dip before the spend's change note is scanned (see `shieldedUsdcHeadlineAtom`).
+          const total = usdcResult.value.spendable + usdcResult.value.pending
+          setShieldedUsdc(total)
           setShieldedUsdcSpendable(usdcResult.value.spendable)
+          setShieldedUsdcHeadline(total + usdcResult.value.pendingSpent)
         }
         if (sharesResult.status === 'fulfilled') {
-          setYieldShares(sharesResult.value)
+          setYieldShares(sharesResult.value.position)
+          setYieldSharesHeadline(sharesResult.value.position + sharesResult.value.pendingSpent)
         }
       } catch (err) {
         trackError('useShieldedBalanceSync.refreshAll', err, {

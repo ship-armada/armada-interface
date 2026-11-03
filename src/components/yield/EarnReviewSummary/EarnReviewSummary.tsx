@@ -3,7 +3,7 @@
 
 import { ArmadaLogo } from '@/design'
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
-import { rateToApy } from '@/lib/yield'
+import { formatApyPercent, rateToApy } from '@/lib/yield'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { EarnTab } from '../EarnInputStep'
@@ -45,7 +45,7 @@ function formatApy(rate: YieldRate | null): string {
   if (!rate) return 'syncing…'
   const apy = rateToApy(rate.apyBps)
   if (apy === 0) return 'unavailable'
-  return `~${apy.toFixed(2)}%`
+  return `~${formatApyPercent(apy)}`
 }
 
 export function EarnReviewSummary({

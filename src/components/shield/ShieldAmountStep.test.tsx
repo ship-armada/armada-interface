@@ -161,3 +161,34 @@ describe('ShieldAmountStepFooter (Review gating)', () => {
     expect(onIncompleteContinue).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('ShieldAmountStepContent — over-max error names the limit', () => {
+  function renderOverMax(tab: ShieldTab) {
+    return render(
+      <ShieldAmountStepContent
+        tab={tab}
+        onTabChange={vi.fn()}
+        chainId={31337}
+        onChainIdChange={vi.fn()}
+        amountStr="150"
+        onAmountChange={vi.fn()}
+        balance="100.00"
+        maxInput={100_000_000n}
+        minAmount={0n}
+        displayFees={DISPLAY_FEES}
+        flowBreakdown={FLOW_BREAKDOWN}
+        gasChainId={31337}
+      />,
+    )
+  }
+
+  it('shield: the fee comes out of the amount, so the limit stands alone', () => {
+    renderOverMax('shield')
+    expect(screen.getByRole('alert')).toHaveTextContent(/^You can shield up to 100 USDC$/)
+  })
+
+  it('unshield: the fee is drawn from the same balance, so the copy says so', () => {
+    renderOverMax('unshield')
+    expect(screen.getByRole('alert')).toHaveTextContent('You can unshield up to 100 USDC — the fee is added on top')
+  })
+})

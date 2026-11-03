@@ -1,13 +1,12 @@
-// ABOUTME: Vault earnings helpers — APY constant, earning labels, and accrued-yield derivation for the vault bar.
+// ABOUTME: Vault earnings helpers — the vault bar's APY label, earned-amount format, and accrued-yield derivation.
 // ABOUTME: Ported from the armada-app design mockup (pages/earnFlowConstants.ts).
 import { formatUsdcAmount } from '@/components/dashboard/dashboardFormat'
+import { formatApyPercent } from '@/lib/yield'
 import type { TxRecord } from '@/lib/tx/types'
 
-/** Demo vault APY — matches BalanceCard ellipses menu meta. */
-export const DEMO_EARN_APY = 4.2
-
-export function formatVaultEarningLabel(apy: number): string {
-  return `Earning ${apy.toFixed(1)}% APR`
+/** The vault bar's rate label. An unknown rate (not loaded yet) reads "—", never a stand-in number. */
+export function formatVaultEarningLabel(apy: number | undefined): string {
+  return `Earning ${apy === undefined ? '—' : formatApyPercent(apy)} APY`
 }
 
 export function formatEarnedSoFarAmount(value: number): string {

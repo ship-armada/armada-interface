@@ -8,7 +8,7 @@ These primitives are NOT in `src/design` because they aren't yet stable enough t
 
 | Primitive | Purpose |
 |---|---|
-| `AmountInput` | USDC amount input. `display` variant (big serif numeral) and `compact` variant. MAX button + AVAILABLE caption when `max` is supplied. Used by the request screen; the transaction flows use `deposit/DepositAmountCard` instead. |
+| `AmountInput` | USDC amount input. `display` variant (big serif numeral) and `compact` variant. MAX button + AVAILABLE caption when `max` is supplied. **Not rendered by any screen at present** — the transaction flows use `deposit/DepositAmountCard` and the request screen a plain input, both sanitised by `src/utils/amountInput.ts` (which reads a typed comma as the decimal point). |
 | `AmountFieldWarning` | Action-style tooltip shown above an amount field for any amount validation error (`role="alert"`, wired to the input's `aria-describedby`). Used by `deposit/DepositAmountCard`. |
 | `Card` | Surface — bordered, rounded, padded body. `default` and `raised` variants. |
 | `ChainSelect` | Native `<select>` dropdown over `getAllChainIdentities()`; restrict via `chains` prop. |

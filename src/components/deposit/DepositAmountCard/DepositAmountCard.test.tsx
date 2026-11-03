@@ -79,6 +79,19 @@ describe('DepositAmountCard — amount typing', () => {
     expect(onAmountChange).toHaveBeenLastCalledWith('5')
   })
 
+  it('reads a typed comma as the decimal point, but keeps its own grouping commas as grouping', () => {
+    // Regression: comma-decimal users typing "1,5" got 15 (the comma was stripped).
+    const onAmountChange = vi.fn()
+    const { rerender } = renderCard({ amount: '1', onAmountChange, amountAriaLabel: 'Deposit amount' })
+    fireEvent.change(screen.getByLabelText('Deposit amount'), { target: { value: '1,' } })
+    expect(onAmountChange).toHaveBeenLastCalledWith('1.')
+
+    // The display groups "1000" as "1,000"; typing another digit must not read that comma as a decimal.
+    rerender(<DepositAmountCard amount="1000" onAmountChange={onAmountChange} balance="12.00" amountAriaLabel="Deposit amount" />)
+    fireEvent.change(screen.getByLabelText('Deposit amount'), { target: { value: '1,0005' } })
+    expect(onAmountChange).toHaveBeenLastCalledWith('10005')
+  })
+
   it('renders the amount with thousand grouping while storing it ungrouped', () => {
     // The input shows "1,000,000" but the sanitizer strips the commas on the next keystroke.
     const onAmountChange = vi.fn()

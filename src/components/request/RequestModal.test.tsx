@@ -65,6 +65,29 @@ describe('<RequestModal>', () => {
     expect(linkEl.getAttribute('title')).toContain('amount=25')
   })
 
+  it('lets a sub-one amount be typed keystroke by keystroke (#126)', () => {
+    // Regression: the field dropped the forward-typing states "0" and ".", so "0.5" became 5.
+    renderRequest()
+    const input = screen.getByLabelText('Requested amount in USDC')
+    fireEvent.change(input, { target: { value: '0' } })
+    expect(input).toHaveValue('0')
+    fireEvent.change(input, { target: { value: '0.' } })
+    expect(input).toHaveValue('0.')
+    fireEvent.change(input, { target: { value: '0.5' } })
+    expect(input).toHaveValue('0.5')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create link' }))
+    expect(screen.getByTitle(/\/pay-via-link\?/).getAttribute('title')).toContain('amount=0.5')
+  })
+
+  it.each(['0', '.', '0.', '0.00'])('keeps Create link disabled for a zero amount ("%s") (#126)', (value) => {
+    // Forward-typing states are now kept in the field, so the CTA must gate on a positive amount —
+    // otherwise "0." would build a link the payer landing rejects as invalid.
+    renderRequest()
+    fireEvent.change(screen.getByLabelText('Requested amount in USDC'), { target: { value } })
+    expect(screen.getByRole('button', { name: 'Input amount' })).toHaveAttribute('aria-disabled', 'true')
+  })
+
   it('disables Revoke with a "coming soon" marker (real revoke needs backend state)', () => {
     renderRequest()
     fireEvent.change(screen.getByLabelText('Requested amount in USDC'), { target: { value: '25' } })

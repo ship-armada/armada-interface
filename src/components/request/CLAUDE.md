@@ -7,7 +7,7 @@ The "Request USDC via link" flow — compose a payment request and share a link 
 | Component | Purpose |
 |---|---|
 | `RequestModal` | Orchestrator on `FlowShell` (steps `Receive → Share link`). Owns amount/expiry/note state; builds the link on Create via `lib/payViaLink.buildPayViaLinkUrl` from the active wallet's 0zk address. |
-| `RequestReceiveScreen` | Compose step — amount + `Link expires` SegmentedControl + optional note. "Create link" advances to the link screen. |
+| `RequestReceiveScreen` | Compose step — amount + `Link expires` SegmentedControl + optional note. The amount field keeps forward-typing states ("0", ".", "0.") so sub-one amounts are typeable, and reads a typed comma as the decimal point (`utils/amountInput::sanitizeAmountEdit`); "Create link" is enabled only for a positive amount and advances to the link screen. |
 | `RequestLinkScreen` | Link step — the generated URL (middle-truncated) + Copy, plus the wired-ready **Link revoked** variant. |
 
 ## What's real vs. deferred

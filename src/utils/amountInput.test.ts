@@ -1,8 +1,8 @@
 // ABOUTME: Unit tests for the deposit/send/earn amount-field sanitizer + active-amount predicate.
-// ABOUTME: Covers digit/dot filtering, the 6-decimal cap, leading-zero collapse, and forward-typing states (0, ., 0.).
+// ABOUTME: Covers digit/dot filtering, the 6-decimal cap, leading-zero collapse, forward-typing states, and comma-as-decimal edits.
 
 import { describe, it, expect } from 'vitest'
-import { sanitizeAmountInput, hasActiveAmount, formatAmountInputDisplay } from './amountInput'
+import { sanitizeAmountInput, sanitizeAmountEdit, hasActiveAmount, formatAmountInputDisplay } from './amountInput'
 
 describe('sanitizeAmountInput', () => {
   it('keeps digits and a single decimal point', () => {
@@ -66,5 +66,58 @@ describe('hasActiveAmount', () => {
     expect(hasActiveAmount('0.')).toBe(true) // mid-typing
     expect(hasActiveAmount('0.5')).toBe(true)
     expect(hasActiveAmount('10')).toBe(true)
+  })
+})
+
+describe('sanitizeAmountEdit — comma as a decimal mark', () => {
+  // WHY: phones in comma-decimal locales (and desktop users there) type "1,5" for 1.5. The plain
+  // sanitizer strips the comma, turning "1,5" into 15 and "0,25" into 25 — a 10–100× wrong amount.
+  // The edit is compared with the previous display so our own grouping commas ("1,500") are kept as grouping.
+
+  it('treats a typed comma as the decimal point', () => {
+    expect(sanitizeAmountEdit('1,', '1')).toBe('1.')
+    expect(sanitizeAmountEdit('0,', '0')).toBe('0.')
+    expect(sanitizeAmountEdit(',', '')).toBe('.')
+  })
+
+  it('keeps typing forward after the comma became a dot', () => {
+    // After "1," the stored value is "1." so the field displays "1."; the next keystroke appends to that.
+    expect(sanitizeAmountEdit('1.5', '1.')).toBe('1.5')
+    expect(sanitizeAmountEdit('0.25', '0.2')).toBe('0.25')
+  })
+
+  it('treats a comma typed after a grouped number as the decimal point', () => {
+    // Display shows our grouping "1,000"; typing "," at the end means a decimal.
+    expect(sanitizeAmountEdit('1,000,', '1,000')).toBe('1000.')
+    // Typing "," in the middle (caret after "1,0") puts the decimal there.
+    expect(sanitizeAmountEdit('1,0,00', '1,000')).toBe('10.00')
+  })
+
+  it('keeps our own grouping commas as grouping while typing digits', () => {
+    expect(sanitizeAmountEdit('1,0000', '1,000')).toBe('10000')
+    expect(sanitizeAmountEdit('1,5000', '1,500')).toBe('15000')
+    expect(sanitizeAmountEdit('100', '1,000')).toBe('100') // deleting
+  })
+
+  it('ignores a typed comma when there is already a decimal point', () => {
+    expect(sanitizeAmountEdit('1.5,', '1.5')).toBe('1.5')
+  })
+
+  it('reads a pasted value with both separators by its last separator', () => {
+    expect(sanitizeAmountEdit('1,500.25', '')).toBe('1500.25')
+    expect(sanitizeAmountEdit('1.500,25', '')).toBe('1500.25')
+    expect(sanitizeAmountEdit('$1,500.00', '')).toBe('1500.00')
+  })
+
+  it('reads a pasted single comma as decimal unless exactly three digits follow (then grouping)', () => {
+    expect(sanitizeAmountEdit('1,5', '')).toBe('1.5')
+    expect(sanitizeAmountEdit('0,25', '')).toBe('0.25')
+    expect(sanitizeAmountEdit('12,345678', '')).toBe('12.345678')
+    expect(sanitizeAmountEdit('1,500', '')).toBe('1500') // ambiguous → grouping (matches our own display)
+    expect(sanitizeAmountEdit('1,000,000', '')).toBe('1000000')
+  })
+
+  it('still caps decimals at six after converting a comma', () => {
+    expect(sanitizeAmountEdit('1,1234567', '')).toBe('1.123456')
   })
 })

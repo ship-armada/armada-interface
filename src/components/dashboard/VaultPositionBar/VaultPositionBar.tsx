@@ -1,4 +1,4 @@
-// ABOUTME: Compact vault position row showing shielded vault balance, APR, and accrued earnings.
+// ABOUTME: Compact vault position row showing shielded vault balance, APY, and accrued earnings.
 // ABOUTME: Ported from the armada-app design mockup.
 import { useState } from 'react'
 import { ChartBarIcon } from '@heroicons/react/24/outline'
@@ -8,16 +8,17 @@ import { RollingBalanceValue } from '@/components/dashboard/RollingBalanceValue'
 import { hidePeekEventHandlers } from '@/hooks/useHidePeek'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 import {
-  DEMO_EARN_APY,
   formatEarnedSoFarAmount,
   formatVaultEarningLabel,
 } from '@/components/dashboard/vaultEarnings'
+import { formatApyPercent } from '@/lib/yield'
 import { formatUsdcAmount } from '@/components/dashboard/dashboardFormat'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import styles from './VaultPositionBar.module.css'
 
 export interface VaultPositionBarProps {
   balance: number
+  /** Net vault APY as a percentage (4.2 = 4.2%). Undefined until the rate loads → rendered as "—". */
   apy?: number
   earnedAmount?: number
   vaultRollActive?: boolean
@@ -37,7 +38,7 @@ export interface VaultPositionBarProps {
 
 export function VaultPositionBar({
   balance,
-  apy = DEMO_EARN_APY,
+  apy,
   earnedAmount,
   vaultRollActive = false,
   vaultRollFromValue,
@@ -65,7 +66,7 @@ export function VaultPositionBar({
   // estimate that could be mistaken for a wired, real value.
   const formattedEarned =
     earnedAmount !== undefined ? formatEarnedSoFarAmount(earnedAmount) : '???'
-  const formattedApy = `${apy.toFixed(1)}%`
+  const formattedApy = apy === undefined ? '—' : formatApyPercent(apy)
   const earningLabel = formatVaultEarningLabel(apy)
   const amountLabel = balanceRevealed ? `${formattedBalance} USDC` : 'Shielded vault balance hidden'
   const earnedLabel = balanceRevealed ? `${formattedEarned} earned` : 'Earned amount hidden'
@@ -103,7 +104,7 @@ export function VaultPositionBar({
             <span className={styles.amountSuffix}>USDC</span>
           </span>
           <span className={styles.apr} aria-label={apyLabel}>
-            Earning <BalanceScrambleValue value={formattedApy} revealed={balanceRevealed} /> APR
+            Earning <BalanceScrambleValue value={formattedApy} revealed={balanceRevealed} /> APY
           </span>
         </div>
       </div>

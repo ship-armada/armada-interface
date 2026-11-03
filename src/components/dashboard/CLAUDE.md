@@ -9,7 +9,7 @@ Dashboard presentation, ported from the armada-app design mockup. Composed by `p
 | `BalanceCard` | The "Private USDC" card: header (shield badge · label · eye/hide toggle), animated balance numeral, action row (SEND · `+` deposit · `↓` receive · `⋯` more menu = Earn/Withdraw/activity toggle), optional vault position bar. |
 | `RollingBalanceValue` | Odometer roll for the balance numeral (intro from zero; re-roll from previous value on change). A re-roll pads the shorter value to line up the decimal point; those padding columns fold to zero width instead of showing zeros, so the row starts as the old value and ends as the new one. `onRollEnd` fires once the last staggered column lands, so a caller swapping in a static value doesn't re-derive the timing; `rollSettleMs(value, { mode, fromValue })` gives the same settle time for a caller that ends several rolls on one timer (BalanceCard ends the balance + vault re-rolls on the later of the two). Also drives the amount roll in `deposit/DepositAmountCard` and `VaultPositionBar`. |
 | `BalanceScrambleValue` | Steady-state hide/reveal scramble for the balance + activity amounts. |
-| `VaultPositionBar` | Vault (yield) position row inside BalanceCard; shows earned + APR. |
+| `VaultPositionBar` | Vault (yield) position row inside BalanceCard; shows earned + APY ("Earning X.XX% APY", or "—" until the rate loads — never a stand-in rate). |
 | `SendButton`, `ShieldedUsdcBadge`, `TokenBadge` | Small presentational pieces of the card. |
 | `DepositTooltip` | First-run "Make your first deposit" callout under the card (empty state). |
 | `RecentActivityList` | Activity list — icon-badge rows with scrambled amounts + per-item peek. `variant="preview"` (dashboard, with "View all" → the `ActivityAllPanel`) or `variant="full"` (inside the panel). |
@@ -21,7 +21,7 @@ Dashboard presentation, ported from the armada-app design mockup. Composed by `p
 | `ReceivedSummary` | A received payment's receipt table — date, "From" (only when the sender disclosed their 0zk), memo; no Fees or Total (the recipient pays nothing, and the amount is the headline). |
 | `txActivityAdapter.ts` | Maps `TxRecord[]` → `DashboardActivityItem[]` (direction/sign/label — a `consolidate` record is a `merge` item whose amount is its fee — + a `status` bucket via `deriveActivityStatus`: `settled`/`pending`/`failed`/`cancelled`/`unknown`). Indeterminate codes (`POLL_TIMEOUT`/`DISMISSED`/`DUPLICATE_TX`) + `expired` → `unknown` (never "failed" — they may still have settled). `buildActivityItems(txList, requestLinks)` merges in created-payment-link rows. The data seam for the activity list; the row renders `failed` struck-red / `cancelled` struck-muted. |
 | `dashboardFormat.ts` | Number-based `formatUsdcAmount` / `truncateArmadaAddress` / `formatTimeAgo` used by the ported (number-typed) components. Distinct from `@/lib/format` (bigint-based). |
-| `vaultEarnings.ts` | `DEMO_EARN_APY` + vault-earning label/amount-format helpers used by VaultPositionBar. |
+| `vaultEarnings.ts` | VaultPositionBar's helpers — the APY label (`formatVaultEarningLabel`, via `lib/yield::formatApyPercent`), the earned-amount format, and `accruedVaultYieldRaw`. |
 
 Shared primitives `IconButton`, `Tooltip`, `BottomSheet` live in `@/design`; the hooks (`useMobileLayout`, `useEscapeKey`, `useBodyScrollLock`, `useDashboardBackground`) live in `@/hooks`.
 
@@ -34,6 +34,7 @@ Shared primitives `IconButton`, `Tooltip`, `BottomSheet` live in `@/design`; the
 ## Deviations from the vendored mockup
 
 - `RollingBalanceValue` re-rolls fold the decimal-alignment padding away instead of rendering it as zeros (`05.0`, `01.74`) that vanish when the roll ends. The mockup shows the zeros; they read as a jump at the hand-off to the static value.
+- `VaultPositionBar` reads "Earning X.XX% APY" (mockup: "X.X% APR", with a hard-coded 4.2 default). The number is the vault's net APY (`useYieldRate().apyBps`), shown with the same label and two-decimal format as every other APY surface (`lib/yield::formatApyPercent`), and an unknown rate renders "—" (#124).
 - `BalanceCard.module.css` `.armadaAddress` uses the sans UI font, not Geist Mono. The vendored mockup copy (cloned at the start of the redesign) specifies `mono-sm`, but the current designer mockup renders the shielded address in sans — the clone is likely stale. Re-cloning `.context/armada-app` may surface other drift.
 
 ## Known follow-ups

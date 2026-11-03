@@ -10,6 +10,7 @@ import {
   truncateAddress,
   formatRelativeTime,
   usdcInputErrorMessage,
+  overMaxAmountMessage,
 } from './format'
 
 describe('formatUsdc', () => {
@@ -121,6 +122,30 @@ describe('usdcInputErrorMessage', () => {
     expect(usdcInputErrorMessage('too-many-decimals')).toMatch(/6 decimal/)
     expect(usdcInputErrorMessage('negative')).toMatch(/negative/i)
     expect(usdcInputErrorMessage('invalid')).toMatch(/valid number/i)
+  })
+})
+
+describe('overMaxAmountMessage', () => {
+  // WHY: "That's more than you can send" fired when the user typed their visible balance, with no hint
+  // that the fee is drawn from the same balance — so the limit looked arbitrary. Name the limit, and the
+  // reason when the fee is added on top.
+  it('names the limit and says the fee is added on top for fee-on-top flows', () => {
+    expect(overMaxAmountMessage({ verb: 'send', maxInput: 99_500_000n, feeOnTop: true })).toBe(
+      'You can send up to 99.5 USDC — the fee is added on top',
+    )
+  })
+
+  it('names the limit alone when the fee comes out of the amount', () => {
+    expect(overMaxAmountMessage({ verb: 'shield', maxInput: 120_000_000n, feeOnTop: false })).toBe(
+      'You can shield up to 120 USDC',
+    )
+  })
+
+  it('explains a zero limit instead of saying "up to 0"', () => {
+    expect(overMaxAmountMessage({ verb: 'send', maxInput: 0n, feeOnTop: true })).toBe(
+      "Your balance doesn't cover the fee to send",
+    )
+    expect(overMaxAmountMessage({ verb: 'shield', maxInput: 0n, feeOnTop: false })).toBe('You have no USDC to shield')
   })
 })
 

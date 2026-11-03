@@ -10,7 +10,7 @@ import { useNudgeShake } from '@/hooks/useNudgeShake'
 import type { DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
-import { formatUsdcPlain, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
+import { formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { hasActiveAmount } from '@/utils/amountInput'
 import type { SendFlowVariant } from './SendRecipientStep'
 import styles from './SendInputStep.module.css'
@@ -93,8 +93,9 @@ export function SendInputStepContent({
   // kinds default to the relayer path; the wallet-submit override flips `gaslessMode` to false.
   const showGasNotice = !gaslessMode && gasWarning.show
   const tooMuch = amount > maxInput
+  // Every Send kind (private transfer, unshield) draws its fee from the same balance as the amount.
   const amountError = usdcInputErrorMessage(parseError)
-    ?? (tooMuch ? "That's more than you can send" : undefined)
+    ?? (tooMuch ? overMaxAmountMessage({ verb: 'send', maxInput, feeOnTop: true }) : undefined)
 
   return (
     <div className={`${styles.sendContent} ${modalStepBodyEnter}`}>
