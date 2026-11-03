@@ -70,14 +70,14 @@ function deliveryNonce(recordId: string): `0x${string}` {
  *                                    until confirmed. Once confirmed, fetch the hub receipt by
  *                                    the relayer's txHash to extract the CCTP MessageSent log.
  *   3. `hub-burn-confirmed`       — wait for hub receipt
- *   4. `iris-attestation-pending` — polls destination chain for the recipient's USDC balance to
- *                                    tick up (signal that CCTP delivered + hook router minted).
- *                                    In MOCK mode the local cctp-relay handles this; in REAL
- *                                    mode Iris attestation + the relayer's iris-relay handles it.
+ *   4. `iris-attestation-pending` — polls for the destination mint: the relayer's CCTP delivery
+ *                                    status (`fetchCctpDeliveryStatus`, authoritative in both MOCK
+ *                                    `cctp-relay` and REAL `iris-relay` modes), falling back to a
+ *                                    bounded `MessageReceived` scan on the destination chain.
  *   5. `iris-attestation-ready` / `client-mint-pending` / `client-mint-confirmed` — advanced
  *                                    through in quick succession on detection. The intermediate
  *                                    states exist for finer-grained UI; v1 collapses them since
- *                                    our single "balance increased on destination" signal can't
+ *                                    our single "mint delivered on destination" signal can't
  *                                    distinguish them.
  */
 export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
