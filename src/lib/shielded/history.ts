@@ -6,7 +6,6 @@ import type { TxKind, TxRecord } from '@/lib/tx/types'
 import { getChainByDomain, getNetworkConfig } from '@/config/network'
 import { getCachedDeployments } from '@/config/deployments'
 import { cctpFeeEstimateFromMaxFee } from '@/lib/relayer'
-import { getHubBlockTimestamps } from './network'
 import { readSdkHistory } from './sdk-read'
 import { decodeTxSelfMetadata } from './selfMetadata'
 import { buildXchainCctpMap, type XchainCctp } from './xchain-recovery'
@@ -383,9 +382,10 @@ async function withXchainRouting(
 /**
  * Single entry point for both first-time recovery and ongoing incoming-transfer detection. Syncs
  * the @armada/sdk wallet, maps its history entries to `TxRecord`s, and surfaces a checkpoint
- * candidate (`highestBlock`). The SDK doesn't stamp a timestamp on every chain, so block times are
- * backfilled in bulk from `getHubBlockTimestamps` (entries without a recovered timestamp keep 0 and
- * sort to the bottom of the feed). Deliberately does NOT touch IDB or atoms — that's the hook's job.
+ * candidate (`highestBlock`). Block times come with the SDK's entries, recorded during sync — never fetched
+ * here: asking the RPC for exactly this wallet's blocks would tell it which transactions are the wallet's
+ * (armada-sdk#135). An entry without one keeps 0 and sorts to the bottom of the feed. Deliberately does NOT
+ * touch IDB or atoms — that's the hook's job.
  */
 export async function runHistoryScan(
   walletId: string,
@@ -393,8 +393,6 @@ export async function runHistoryScan(
   fromBlock: number | undefined,
 ): Promise<HistoryScanResult> {
   const entries = await readSdkHistory(fromBlock)
-  const blocks = [...new Set(entries.map(e => e.blockNumber))]
-  const timestamps = blocks.length > 0 ? await getHubBlockTimestamps(blocks) : new Map<number, number>()
 
   // Tier 2: recover cross-chain routing from the hub CCTP events, so recovered shields/unshields that
   // were actually cross-chain remap to `shield-xchain` / `unshield-xchain` with their real source /
@@ -417,8 +415,7 @@ export async function runHistoryScan(
   for (const entry of entries) {
     if (highest === null || entry.blockNumber > highest) highest = entry.blockNumber
     if (routing.unresolved.has(entry.txid)) continue
-    const seconds = timestamps.get(entry.blockNumber)
-    const record = historyEntryToTxRecord(entry, walletId, enrichedCtx, seconds !== undefined ? seconds * 1000 : 0)
+    const record = historyEntryToTxRecord(entry, walletId, enrichedCtx, entry.timestamp !== undefined ? entry.timestamp * 1000 : 0)
     if (record) records.push(record)
   }
   if (unresolvedFrom !== null && highest !== null) highest = Math.min(highest, unresolvedFrom - 1)

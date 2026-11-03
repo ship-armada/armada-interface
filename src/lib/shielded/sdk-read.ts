@@ -242,10 +242,10 @@ export async function getSdkWallet(): Promise<ReadWallet> {
   return (await ensureInstance()).wallet
 }
 
-// The SDK's `wallet.sync()` has no in-flight guard; two concurrent calls would double-apply the same
-// events and corrupt the scan state. Chain every sync so they run strictly one-at-a-time, and each
-// caller's sync runs AFTER any in-flight one — so a post-tx refresh still observes the new block
-// rather than piggybacking on a scan that started earlier.
+// The SDK coalesces concurrent `wallet.sync()` calls onto the one in flight, which is safe but means a
+// call made mid-sync returns that sync's result. Chain every sync instead, so each caller's sync runs
+// AFTER any in-flight one — a post-tx refresh then observes the new block rather than piggybacking on a
+// scan that started earlier.
 let syncChain: Promise<void> = Promise.resolve()
 
 /**
