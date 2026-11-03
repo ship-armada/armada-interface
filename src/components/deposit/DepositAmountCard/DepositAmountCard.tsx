@@ -3,7 +3,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { WalletIcon } from '@heroicons/react/24/solid'
-import { formatAmountInputDisplay, hasActiveAmount, sanitizeAmountInput } from '@/utils/amountInput'
+import { formatAmountInputDisplay, hasActiveAmount, sanitizeAmountEdit } from '@/utils/amountInput'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { FeeBreakdownTooltip, type FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { RollingBalanceValue } from '@/components/dashboard/RollingBalanceValue'
@@ -157,8 +157,9 @@ export function DepositAmountCard({
     // and `0.` that `hasActiveAmount` reports false. Rewriting those to `''` (the previous
     // behaviour) discarded a leading `0`/`.` keystroke, making sub-one amounts impossible to type.
     // `hasActiveAmount` still gates display styling (`showActiveAmount`) and the `amount > 0n`
-    // submit checks, so a bare `0`/`.` never advances the flow.
-    onAmountChange(sanitizeAmountInput(raw))
+    // submit checks, so a bare `0`/`.` never advances the flow. The edit is read against what the field
+    // showed (`displayAmount`, grouped), so a typed comma is a decimal point but our grouping commas aren't.
+    onAmountChange(sanitizeAmountEdit(raw, displayAmount))
   }
 
   /** Mark the current display as the roll origin, then apply the preset amount (the effect rolls it). */
@@ -191,7 +192,7 @@ export function DepositAmountCard({
   const showActiveAmount = hasActiveAmount(amount)
   const isAmountRolling = amountRoll !== null
   // Thousand-grouped for display only ("1,000,000"); the stored `amount` stays ungrouped and the
-  // sanitizer strips the commas back out on the next keystroke (mockup parity).
+  // sanitizer strips the grouping commas back out on the next keystroke (mockup parity).
   const displayAmount = formatAmountInputDisplay(amount)
   // Any validation error (over-balance, below-minimum, parse, withdraw fee-shortfall) reddens the
   // amount numeral + balance row (mockup parity) alongside the above-field warning tooltip.

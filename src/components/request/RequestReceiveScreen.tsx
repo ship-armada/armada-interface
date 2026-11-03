@@ -11,7 +11,7 @@ import {
 } from '@/design'
 import { SegmentedControl } from '@/components/ui'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
-import { hasActiveAmount, sanitizeAmountInput } from '@/utils/amountInput'
+import { hasActiveAmount, sanitizeAmountEdit } from '@/utils/amountInput'
 import {
   REQUEST_LINK_EXPIRY_OPTIONS,
   REQUEST_NOTE_MAX_LENGTH,
@@ -51,7 +51,8 @@ export function RequestReceiveScreen({
   const ctaLabel = canCreateLink ? 'Create link' : 'Input amount'
 
   function handleAmountChange(raw: string) {
-    const next = sanitizeAmountInput(raw)
+    // Read against the field's previous text so a typed comma is the decimal point ("1,5" → 1.5).
+    const next = sanitizeAmountEdit(raw, amount)
     onAmountChange(hasActiveAmount(next) ? next : '')
   }
 
