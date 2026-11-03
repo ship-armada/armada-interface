@@ -1,5 +1,5 @@
 // ABOUTME: Modal primitive — centered dialog with backdrop, ESC/backdrop dismissal, focus management, and portal mount.
-// ABOUTME: Used by every action flow (ActionFlowShell) and the wallet-unlock dialog; `dismissible={false}` for in-progress flows.
+// ABOUTME: Used by the onboarding shell, settings dialogs, receive dialog, and cancel-setup dialog (tx flows use FlowShell); `dismissible={false}` for in-progress flows.
 
 import {
   useCallback,

@@ -1,5 +1,5 @@
 // ABOUTME: Per-record retry/cancel CTAs. Stage-aware: pre-broadcast records get "Cancel" (abort safely), post-broadcast records get "Stop tracking" (the on-chain tx still runs; we just stop watching).
-// ABOUTME: Rendered inside History's expanded detail and inside ProgressStep (cancel only). Operates on TxRecord directly — no `useTx` subscription needed.
+// ABOUTME: Not rendered by any screen at present (the in-flight view is processing/ via flow/ProgressStep). Operates on TxRecord directly — no `useTx` subscription needed.
 
 import { Button } from '@/design'
 import { cancelTx, canRetryTx, dismissTx, getIsLeader, retryTx } from '@/lib/tx/executor'
@@ -10,7 +10,7 @@ export interface TxActionsProps {
   record: TxRecord
   /**
    * Subset of buttons to render. Default `'both'` shows Cancel/Stop + Retry depending on state.
-   * Modals' Progress step uses `'cancel'` since they handle Retry via the dedicated ErrorStep.
+   * `'cancel'` suits a flow modal's progress step, where Retry is handled by the dedicated ErrorStep.
    */
   variant?: 'both' | 'cancel'
 }

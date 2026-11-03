@@ -1,4 +1,4 @@
-// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account / recipient / fees) with a fee-on-top "Total" row + a leading privacy notice.
+// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account / recipient / fees) with a fee-on-top "Total" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
 import { GlobeAltIcon } from '@heroicons/react/24/outline'

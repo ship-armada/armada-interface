@@ -15,9 +15,13 @@
 | `WalletConfirmList` | Per-step "confirm in your wallet" checklist (shield signing sub-state). |
 | `overlayFlow.ts` | `overlayIndicatorStep` / `overlayIndicatorStatus` — map a step string → the ModalShell Steps indicator position + status (default/confirmed/error). Used by the feature modals. |
 
-### Legacy (retained, no runtime consumers)
+### Pre-redesign primitives
 
-`ActionFlowShell`, `FlowHeader`, `FlowFooter`, `FlowStepIndicator` predate the redesign and are **no longer rendered by any app code** (only their own tests). They're kept for now rather than deleted; don't build new flows on them — use `FlowShell`.
+`ActionFlowShell`, `FlowHeader`, `FlowFooter`, `FlowStepIndicator` predate the redesign. Don't build new tx flows on them — use `FlowShell`.
+
+- `ActionFlowShell` is not rendered by any app code (`overlayFlow.ts` imports only its `FlowStep` type).
+- `FlowFooter` is still live: `ErrorStep`, the settings dialogs (`ResetWalletDialog`, `RecoverySecretExportDialog`, `ClearHistoryDialog`), and onboarding (`SignInFlow`, `CancelSetupConfirmDialog`, the backup/checksum steps) render it.
+- `FlowHeader` (and the `FlowStepIndicator` it renders) is still live in `onboarding/OnboardingShell`.
 
 ## FlowShell motion
 

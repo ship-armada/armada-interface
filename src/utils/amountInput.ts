@@ -1,3 +1,6 @@
+// ABOUTME: Amount-field string helpers for DepositAmountCard — keystroke/paste sanitiser (digits + one dot, ≤ 6 decimals),
+// ABOUTME: en-US thousands-grouping for display, and the "has a non-zero or mid-entry amount" check.
+
 /** Sanitize free-form decimal entry (digits + single dot), capped at USDC's 6 decimal places. */
 export function sanitizeAmountInput(raw: string): string {
   const normalized = raw.replace(/,/g, '')

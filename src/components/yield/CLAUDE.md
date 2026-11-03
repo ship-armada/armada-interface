@@ -9,7 +9,7 @@ The Earn flow — deposit private USDC into the vault to earn yield, or withdraw
 | `EarnModal` | Orchestrator. Two `useTx` hooks (`yield-deposit` / `yield-withdraw`); tab switching changes both the max and the dispatched kind. |
 | `EarnInputStep` | Add/Withdraw `SegmentedControl` inside a chain-less `DepositAmountCard`, with a `DepositTooltip` APY intro banner above; fees route through the card's `flowBreakdown` tooltip. Split into `EarnInputStepContent` + `EarnInputStepFooter`. |
 | `EarnReviewStep` | Echo of amount, mode, APY value used for the quote. |
-| `EarnCompleteStep` | "You're now earning yield…" or "Returned X USDC to your private balance." |
+| `EarnCompleteStep` | Frost-card confirmation titled "USDC shielded transfer to vault complete" (Add) or "USDC withdrawal complete" (Withdraw). |
 
 ## Kind selection
 
@@ -31,9 +31,9 @@ The conversion path means the displayed "amount" is the **expected USDC output**
 
 `useYieldRate()` returns the vault's rate snapshot plus a net APY (`apyBps` — gross spoke yield reduced by the vault's `yieldFeeBps`). The modal renders via `rateToApy(rate.apyBps)`:
 
-- No rate yet → "syncing…" copy in the APY panel
-- `apyBps === 0n` → "unavailable — pool currently pays no yield" (Aave reserve set to 0)
-- Otherwise → "~X.XX%" with the caveat "Based on the vault's recent rate; the actual yield earned will vary."
+- No rate yet → "syncing…" (APY value) / "Estimating vault APY…" (intro banner headline)
+- `apyBps === 0n` → "unavailable — pool currently pays no yield" / "Vault currently pays no yield" (Aave reserve set to 0)
+- Otherwise → "~X.XX%" / "Earn ~X.XX% APY"; the banner's info tooltip reads "The APY is an estimate from recent shielded vault performance."
 
 ## What's wired now
 

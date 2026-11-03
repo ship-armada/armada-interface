@@ -40,7 +40,7 @@ export function useWallet(): UseWalletResult {
 
   // Ref so the toast deduplication survives StrictMode's double-fire and remembers across the
   // same address-change event. The effect below sets this when an account-switch fires; the
-  // setEvmAddress call later in the effect kicks off other UI changes (UnlockFlow renders),
+  // setEvmAddress call later in the effect kicks off other UI changes (SignInFlow renders),
   // but we want the toast to fire exactly once per switch event.
   const lastSeenAddress = useRef<string | null>(null)
 
@@ -103,10 +103,9 @@ export function useWallet(): UseWalletResult {
 
         // Flip the active wallet's status to 'locked' (keep the entry + the activeId) so the
         // derived `shieldedWalletAtom` reports `{ status: 'locked', ... }` and App.tsx's
-        // lock-watch effect routes the user from the dashboard to UnlockFlow. Wiping the atoms
-        // entirely produces `{ status: 'missing' }`, which App.tsx's existing guard doesn't
-        // catch — the user would see the toast but stay on the dashboard. The cached walletId
-        // in localStorage also persists, so re-signing with the original EVM restores the same
+        // lock-watch effect routes the user from the dashboard to SignInFlow
+        // (`lib/app-mode.ts::appModeForWalletStatus`). Keeping the entry, together with the cached
+        // walletId in localStorage, means re-signing with the original EVM restores the same
         // identity (no re-enroll).
         if (lockedWalletId) {
           const idForUpdate = lockedWalletId

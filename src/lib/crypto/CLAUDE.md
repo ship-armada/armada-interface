@@ -8,6 +8,9 @@ Pure-logic crypto primitives for the signature-derived key system. No React, no 
 |---|---|
 | `eip712.ts` | Enrollment typed-data builder + signature normalization (65-byte r‖s‖v, EIP-2098 compact expansion, v∈{0,1}→{27,28}). |
 | `kdf.ts` | HKDF-SHA-256 derivation (root + spend/view subkeys), anti-phish checksum, AES-256-GCM backup encryption with PBKDF2-SHA-256@600k, `bytesToBigIntBE`, IC-2 entropy floor canary. |
+| `cache-cipher.ts` | AES-256-GCM at-rest envelope (`wrap` / `unwrap`, fresh 12-byte nonce per record, BigInt via a JSON sentinel). Used by `lib/tx/storage` under `historyEncryptionKey`. |
+| `determinism.ts` | `NonDeterministicSignerError` + `verifySignatureDeterminism` — the RFC 6979 re-sign check run at first sign-in and on unlock. |
+| `hex.ts` | Dependency-free hex ↔ bytes codec (explicit nibble decoder, no `parseInt` on key material). Shared by `kdf`, `cache-cipher`, and the paste-secret path. |
 | `boundary-vectors.test.ts` | The 6 bytes-to-scalar boundary vectors from spec §"Bytes to Field Element Mapping" (Vector 1 zero, r exactly, r−1, r+1, 0xFF…FF, 2r+42). |
 
 ## Hard rules
