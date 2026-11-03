@@ -12,7 +12,7 @@ import { useNudgeShake } from '@/hooks/useNudgeShake'
 import type { DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
-import { formatUsdcPlain, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
+import { formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { formatApyPercent, formatEarnApyHeadline, rateToApy } from '@/lib/yield'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { hasActiveAmount } from '@/utils/amountInput'
@@ -139,10 +139,9 @@ export function EarnInputStepContent({
   const tooMuch = amount > maxInput
   const amountError =
     usdcInputErrorMessage(parseError)
+    // A vault deposit charges its fee on top; a withdrawal's fee is taken from the redeemed proceeds.
     ?? (tooMuch
-      ? tab === 'add'
-        ? "That's more than you can add"
-        : "That's more than you can withdraw"
+      ? overMaxAmountMessage({ verb: tab === 'add' ? 'add' : 'withdraw', maxInput, feeOnTop: tab === 'add' })
       : undefined)
   // Surface the withdraw fee-shortfall pre-flight block through the same amount-field tooltip as the
   // amount errors. An active amount error takes precedence (immediate feedback on what's being typed);

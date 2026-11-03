@@ -8,7 +8,7 @@ import { DepositAmountCard } from '@/components/deposit/DepositAmountCard/Deposi
 import { depositOverlayShellStyles } from '@/components/deposit/DepositOverlayShell/DepositOverlayShell'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { DisplayFees } from '@/lib/fees/displayFees'
-import { formatUsdcPlain, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
+import { formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
 import { hasActiveAmount } from '@/utils/amountInput'
 import styles from './ShieldAmountStep.module.css'
@@ -91,10 +91,9 @@ export function ShieldAmountStepContent({
   const tooSmall = minAmount > 0n && amount > 0n && amount <= minAmount
   const errorMessage =
     usdcInputErrorMessage(parseError) ??
+    // Shield takes its fee out of the deposited amount; unshield charges it on top from the shielded balance.
     (tooMuch
-      ? isShield
-        ? "That's more than you can shield"
-        : "That's more than you can unshield"
+      ? overMaxAmountMessage({ verb: isShield ? 'shield' : 'unshield', maxInput, feeOnTop: !isShield })
       : undefined) ??
     (tooSmall
       ? `That's below the relayer fee (${formatUsdcPlain(minAmount)} USDC)`

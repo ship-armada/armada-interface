@@ -113,6 +113,28 @@ export function usdcInputErrorMessage(error: UsdcInputError | undefined): string
   }
 }
 
+/**
+ * The amount field's over-max error. Names the limit (`maxInput`, the most the flow can take), and — for
+ * flows whose fee is drawn from the same balance as the amount (send, unshield, vault deposit) — says so,
+ * because that's why the limit sits below the balance shown under the field. A zero limit explains itself
+ * instead of reading "up to 0".
+ */
+export function overMaxAmountMessage({
+  verb,
+  maxInput,
+  feeOnTop,
+}: {
+  /** The flow's action, as it reads after "You can …" — e.g. "send", "shield", "withdraw". */
+  verb: string
+  maxInput: bigint
+  /** True when the fee is charged on top of the amount from the same balance. */
+  feeOnTop: boolean
+}): string {
+  if (maxInput <= 0n) return feeOnTop ? `Your balance doesn't cover the fee to ${verb}` : `You have no USDC to ${verb}`
+  const limit = `You can ${verb} up to ${formatUsdcPlain(maxInput)} USDC`
+  return feeOnTop ? `${limit} — the fee is added on top` : limit
+}
+
 const TRANSACTION_DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',

@@ -111,12 +111,13 @@ describe('<EarnInputStep>', () => {
       'aria-disabled',
       'true',
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(/more than you can add/i)
+    expect(screen.getByRole('alert')).toHaveTextContent('You can add up to 1 USDC — the fee is added on top')
   })
 
   it('shows the withdraw-specific over-max error when tab=withdraw', () => {
     setup({ tab: 'withdraw', max: 1_000_000n, amountStr: '5' })
-    expect(screen.getByRole('alert')).toHaveTextContent(/more than you can withdraw/i)
+    // A withdrawal's fee is taken from the proceeds, so the limit stands alone.
+    expect(screen.getByRole('alert')).toHaveTextContent(/^You can withdraw up to 1 USDC$/)
   })
 
   it.each(['0.', '0.00'])('keeps Review disabled for a zero amount ("%s") (#112)', (amountStr) => {

@@ -75,7 +75,7 @@ describe('<SendInputStep>', () => {
 
   it('gates Review on the amount — too much shows an error and marks Review aria-disabled', () => {
     setup({ amountStr: '10', maxInput: 5_000_000n, max: 5_000_000n })
-    expect(screen.getByText(/more than you can send/i)).toBeInTheDocument()
+    expect(screen.getByText('You can send up to 5 USDC — the fee is added on top')).toBeInTheDocument()
     // The incomplete CTA keeps its DOM click (for the nudge) but is aria-disabled.
     expect(screen.getByRole('button', { name: /Review|Input amount/ })).toHaveAttribute(
       'aria-disabled',
