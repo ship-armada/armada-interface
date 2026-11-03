@@ -42,7 +42,6 @@ import { Dashboard } from '@/pages/Dashboard'
 import { AddressBook } from '@/pages/AddressBook'
 import { Debug } from '@/pages/Debug'
 import { PayViaLinkLanding } from '@/pages/PayViaLinkLanding'
-import { ArmAllocation } from '@/pages/ArmAllocation'
 
 import '@rainbow-me/rainbowkit/styles.css'
 import './index.css'
@@ -89,8 +88,6 @@ createRoot(document.getElementById('root')!).render(
               {/* Standalone payer landing for a shared payment-request link — sits OUTSIDE the
                   wallet-gated App shell so it renders for a payer who isn't onboarded yet. */}
               <Route path="pay-via-link" element={<PayViaLinkLanding />} />
-              {/* Public allocation lookup — outside the signed-in shell, same as pay-via-link. */}
-              <Route path="allocation" element={<ArmAllocation />} />
               <Route element={<App />}>
                 <Route index element={<Dashboard />} />
                 <Route path="address-book" element={<AddressBook />} />
