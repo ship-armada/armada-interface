@@ -282,29 +282,36 @@ export async function refreshShieldedBalances(_walletId?: string): Promise<void>
 
 /**
  * Read the current shielded USDC balance from the scan state, split into `spendable` (notes past the
- * `finalityThreshold` confirmation buffer — safe to prove/spend) and `pending` (notes newer than that
- * — visible but not yet spendable). On local Anvil (`finalityThreshold` 0) `pending` is always 0.
- * Does not sync. Callers surface `spendable` for MAX / the fee-on-top guard; `pending` is display-only.
+ * `finalityThreshold` confirmation buffer — safe to prove/spend), `pending` (notes newer than that
+ * — visible but not yet spendable), and `pendingSpent` (inputs of a broadcast-but-unconfirmed spend,
+ * held by the SDK until its Nullified event is scanned; 0 when none). On local Anvil
+ * (`finalityThreshold` 0) `pending` is always 0. Does not sync. Callers surface `spendable` for MAX /
+ * the fee-on-top guard; `pending` and `pendingSpent` are display-only.
  */
-export async function readSdkUsdcBalance(): Promise<{ spendable: bigint; pending: bigint }> {
+export async function readSdkUsdcBalance(): Promise<{ spendable: bigint; pending: bigint; pendingSpent: bigint }> {
   const { wallet } = await ensureInstance()
   const cfg = await readPathConfig()
   const usdcHash = getTokenDataHash(getTokenDataERC20(cfg.pool.usdcAddress))
   const usdc = (await wallet.balances()).find(b => b.tokenHash === usdcHash)
-  return usdc ? { spendable: usdc.spendable, pending: usdc.pending } : { spendable: 0n, pending: 0n }
+  return usdc
+    ? { spendable: usdc.spendable, pending: usdc.pending, pendingSpent: usdc.pendingSpent ?? 0n }
+    : { spendable: 0n, pending: 0n, pendingSpent: 0n }
 }
 
-// The whole vault position (spendable + pending) — what the dashboard and Earn modal show. The withdraw Max
+// `position` is the whole vault position (spendable + pending) — what the Earn modal shows. The withdraw Max
 // doesn't read it: it's the SDK's max over spendable shares (`unshield-sdk.ts::maxUnshieldAmount`), so shares
-// still inside the finalityThreshold buffer aren't offered.
-/** Read the current shielded yield-vault shares (ayUSDC) from the scan state. 0 if no vault. Does not sync. */
-export async function readSdkYieldShares(): Promise<bigint> {
+// still inside the finalityThreshold buffer aren't offered. `pendingSpent` is the share inputs of a
+// broadcast-but-unconfirmed vault withdrawal (0 when none) — added only to the dashboard headline.
+/** Read the current shielded yield-vault shares (ayUSDC) from the scan state. 0s if no vault. Does not sync. */
+export async function readSdkYieldShares(): Promise<{ position: bigint; pendingSpent: bigint }> {
   const vault = await vaultTokenAddress()
-  if (vault === undefined) return 0n
+  if (vault === undefined) return { position: 0n, pendingSpent: 0n }
   const { wallet } = await ensureInstance()
   const vaultHash = getTokenDataHash(getTokenDataERC20(vault))
   const shares = (await wallet.balances()).find(b => b.tokenHash === vaultHash)
-  return shares ? shares.spendable + shares.pending : 0n
+  return shares
+    ? { position: shares.spendable + shares.pending, pendingSpent: shares.pendingSpent ?? 0n }
+    : { position: 0n, pendingSpent: 0n }
 }
 
 /** The token address a note merge targets: the hub USDC, or the yield-vault share token (undefined with
