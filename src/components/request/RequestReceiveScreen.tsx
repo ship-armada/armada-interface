@@ -11,7 +11,8 @@ import {
 } from '@/design'
 import { SegmentedControl } from '@/components/ui'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
-import { hasActiveAmount, sanitizeAmountEdit } from '@/utils/amountInput'
+import { parseUsdcInput } from '@/lib/format'
+import { sanitizeAmountEdit } from '@/utils/amountInput'
 import {
   REQUEST_LINK_EXPIRY_OPTIONS,
   REQUEST_NOTE_MAX_LENGTH,
@@ -47,13 +48,17 @@ export function RequestReceiveScreen({
   const amountInputRef = useRef<HTMLInputElement>(null)
   const { shaking, nudge, onShakeAnimationEnd } = useNudgeShake()
 
-  const canCreateLink = hasActiveAmount(amount)
+  // Gate on a positive parsed amount, not `hasActiveAmount` (which is true for the mid-typing "0."): the
+  // field keeps forward-typing states, and a link for "0." / "0.00" would be refused by the payer landing.
+  const parsedAmount = parseUsdcInput(amount)
+  const canCreateLink = parsedAmount.error === undefined && parsedAmount.value > 0n
   const ctaLabel = canCreateLink ? 'Create link' : 'Input amount'
 
   function handleAmountChange(raw: string) {
-    // Read against the field's previous text so a typed comma is the decimal point ("1,5" → 1.5).
-    const next = sanitizeAmountEdit(raw, amount)
-    onAmountChange(hasActiveAmount(next) ? next : '')
+    // Read against the field's previous text so a typed comma is the decimal point ("1,5" → 1.5). Pass the
+    // result straight through — including the forward-typing states "0", "." and "0." — so a sub-one amount
+    // can be typed ("0.5"); `canCreateLink` above keeps the CTA off until the amount is positive.
+    onAmountChange(sanitizeAmountEdit(raw, amount))
   }
 
   return (
