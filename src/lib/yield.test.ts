@@ -1,7 +1,8 @@
-// ABOUTME: Tests for lib/yield helpers — sharesToUsdc bigint math (zero, normal, large), rateToApy bps→percentage conversion.
+// ABOUTME: Tests for lib/yield helpers — sharesToUsdc bigint math (zero, normal, large), rateToApy bps→percentage conversion,
+// ABOUTME: and the shared APY display formats (formatApyPercent, formatEarnApyHeadline).
 
 import { describe, it, expect } from 'vitest'
-import { sharesToUsdc, rateToApy } from './yield'
+import { sharesToUsdc, rateToApy, formatApyPercent, formatEarnApyHeadline } from './yield'
 
 describe('sharesToUsdc', () => {
   it('returns 0 for zero shares', () => {
@@ -51,5 +52,27 @@ describe('rateToApy', () => {
 
   it('handles large bps values (above 100% APY in extreme reward markets)', () => {
     expect(rateToApy(50_000n)).toBe(500)
+  })
+})
+
+describe('formatApyPercent', () => {
+  it('renders two decimals with a percent sign', () => {
+    expect(formatApyPercent(4.2)).toBe('4.20%')
+    expect(formatApyPercent(4.5)).toBe('4.50%')
+  })
+
+  it('rounds to two decimals', () => {
+    expect(formatApyPercent(4.567)).toBe('4.57%')
+  })
+
+  it('renders zero as 0.00%', () => {
+    expect(formatApyPercent(0)).toBe('0.00%')
+  })
+})
+
+describe('formatEarnApyHeadline', () => {
+  it('reads "Earn ~X.XX% APY" in the shared two-decimal format', () => {
+    expect(formatEarnApyHeadline(4.2)).toBe('Earn ~4.20% APY')
+    expect(formatEarnApyHeadline(4.567)).toBe('Earn ~4.57% APY')
   })
 })

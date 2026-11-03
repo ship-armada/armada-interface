@@ -29,7 +29,7 @@ The conversion path means the displayed "amount" is the **expected USDC output**
 
 ## APY display
 
-`useYieldRate()` returns the vault's rate snapshot plus a net APY (`apyBps` — gross spoke yield reduced by the vault's `yieldFeeBps`). The modal renders via `rateToApy(rate.apyBps)`:
+`useYieldRate()` returns the vault's rate snapshot plus a net APY (`apyBps` — gross spoke yield reduced by the vault's `yieldFeeBps`). The modal renders via `rateToApy(rate.apyBps)`, formatted by `lib/yield::formatApyPercent` / `formatEarnApyHeadline` — the same two-decimal "APY" format the dashboard vault bar and earn banner use, so the rate reads identically everywhere:
 
 - No rate yet → "syncing…" (APY value) / "Estimating vault APY…" (intro banner headline)
 - `apyBps === 0n` → "unavailable — pool currently pays no yield" / "Vault currently pays no yield" (Aave reserve set to 0)

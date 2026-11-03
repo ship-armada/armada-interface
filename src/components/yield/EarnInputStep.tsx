@@ -13,7 +13,7 @@ import type { DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
 import { formatUsdcPlain, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
-import { rateToApy } from '@/lib/yield'
+import { formatApyPercent, formatEarnApyHeadline, rateToApy } from '@/lib/yield'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { hasActiveAmount } from '@/utils/amountInput'
 import styles from './EarnInputStep.module.css'
@@ -77,7 +77,7 @@ function formatApy(rate: YieldRate | null): string {
   if (!rate) return 'syncing…'
   const apy = rateToApy(rate.apyBps)
   if (apy === 0) return 'unavailable — pool currently pays no yield'
-  return `~${apy.toFixed(2)}%`
+  return `~${formatApyPercent(apy)}`
 }
 
 /** Headline for the APY intro banner — driven by the live vault rate, with sync/zero states. */
@@ -85,7 +85,7 @@ function apyBannerHeadline(rate: YieldRate | null): string {
   if (!rate) return 'Estimating vault APY…'
   const apy = rateToApy(rate.apyBps)
   if (apy === 0) return 'Vault currently pays no yield'
-  return `Earn ~${apy.toFixed(2)}% APY`
+  return formatEarnApyHeadline(apy)
 }
 
 export function EarnInputStepContent({

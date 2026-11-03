@@ -1,7 +1,8 @@
-// ABOUTME: Unit tests for accruedVaultYieldRaw — vault yield = current value − net capital contributed.
+// ABOUTME: Unit tests for accruedVaultYieldRaw (vault yield = current value − net capital contributed) and the
+// ABOUTME: vault bar's earning label (APY, shared format, "—" when the rate is unknown).
 
 import { describe, it, expect } from 'vitest'
-import { accruedVaultYieldRaw } from './vaultEarnings'
+import { accruedVaultYieldRaw, formatVaultEarningLabel } from './vaultEarnings'
 import type { TxRecord } from '@/lib/tx/types'
 
 /** Minimal settled yield record — only the fields accruedVaultYieldRaw reads. */
@@ -48,5 +49,15 @@ describe('accruedVaultYieldRaw', () => {
 
   it('is 0 with no vault activity', () => {
     expect(accruedVaultYieldRaw([], 0n)).toBe(0n)
+  })
+})
+
+describe('formatVaultEarningLabel', () => {
+  it('labels the net rate as APY in the shared two-decimal format', () => {
+    expect(formatVaultEarningLabel(4.2)).toBe('Earning 4.20% APY')
+  })
+
+  it('shows "—" when the rate is not known yet, never a placeholder number', () => {
+    expect(formatVaultEarningLabel(undefined)).toBe('Earning — APY')
   })
 })

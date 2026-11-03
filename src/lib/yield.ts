@@ -1,5 +1,5 @@
 // ABOUTME: Pure yield-math helpers — shares→USDC conversion, APY derivation from the vault rate.
-// ABOUTME: No React, no IO. BalanceHero uses sharesToUsdc; the Earn modal will use rateToApy when it lands.
+// ABOUTME: No React, no IO. formatApyPercent / formatEarnApyHeadline are the APY display formats shared by the dashboard and the Earn flow.
 
 /**
  * Convert raw 18-decimal yield shares to raw 6-decimal USDC, given a shares→USDC rate.
@@ -23,4 +23,19 @@ export function sharesToUsdc(shares: bigint, rate: bigint): bigint {
  */
 export function rateToApy(apyBps: bigint): number {
   return Number(apyBps) / 100
+}
+
+/**
+ * The one display format for an APY percentage (e.g. 4.2 → "4.20%"), shared by every surface that
+ * shows the vault rate — the dashboard vault bar and earn banner, the Earn modal, its review and the
+ * activity receipt — so the same number never reads differently in two places. Callers add their own
+ * "~" / "Earn … APY" framing.
+ */
+export function formatApyPercent(apy: number): string {
+  return `${apy.toFixed(2)}%`
+}
+
+/** The earn banner headline ("Earn ~4.20% APY") — shared by the dashboard banner and the Earn modal's intro banner. */
+export function formatEarnApyHeadline(apy: number): string {
+  return `Earn ~${formatApyPercent(apy)} APY`
 }
