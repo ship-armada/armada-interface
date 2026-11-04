@@ -73,7 +73,9 @@
 # without SharedArrayBuffer, and COEP would break Google Fonts + WalletConnect iframes.
 #
 # The CSP ships as Content-Security-Policy-Report-Only FIRST so it can't break a flow before a
-# human has clicked through every path on a preview deploy with devtools open. Promote to the
+# human has clicked through every path on a Netlify draft deploy with devtools open (the headers only apply on
+# Netlify, not the local dev server — publish one by hand with `npx netlify-cli deploy --no-build --dir=dist`
+# after `npm run build`; CI no longer publishes PR previews). Promote to the
 # enforcing `Content-Security-Policy` header only after that sweep — and AFTER adding the runtime
 # relayer origin (VITE_RELAYER_URL host) and any IPFS artifact-gateway host to connect-src, neither
 # of which is statically known here.
