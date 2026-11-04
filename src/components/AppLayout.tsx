@@ -3,7 +3,7 @@
 
 import { type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { Cog6ToothIcon } from '@heroicons/react/24/outline'
 import { ArmadaLogo } from '@/design'
 import { WalletConnector } from './WalletConnector'
@@ -13,6 +13,7 @@ import { HistoryRecoveryBanner } from './history'
 import { PendingTxPill } from './tx/PendingTxPill'
 import { openModalAtom } from '@/state/ui'
 import { pendingTxsAtom } from '@/state/tx'
+import { txNoticeAnnouncementAtom } from '@/state/txNotices'
 import { useOpenTxActivity } from '@/hooks/useOpenTxActivity'
 import { getNetworkMode } from '@/config/network'
 import styles from './AppLayout.module.css'
@@ -30,6 +31,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   // One tx in flight → straight to its receipt (live progress); several → the All activity panel.
   const onlyPending = pendingTxs.length === 1 ? pendingTxs[0] : undefined
   const openPending = () => (onlyPending ? openReceipt(onlyPending.id) : openActivity())
+  // The "pill" notice style announces a tx notice in the pill for a moment (set by useTxNoticePresenter).
+  const [announcement, setAnnouncement] = useAtom(txNoticeAnnouncementAtom)
+  const openAnnounced = () => {
+    if (announcement) openReceipt(announcement.recordId)
+    setAnnouncement(null)
+  }
 
   return (
     <div className="flex min-h-screen flex-col text-foreground">
@@ -63,8 +70,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {/* V2 Phase 3a: merged pill — the 0zk shielded identity now lives inside
               `WalletConnector`'s `WalletPillMenu` dropdown (via the `extraSection` prop), so
               the separate `ShieldedAddressPill` previously sat here is gone. */}
-          {/* In-flight txs, beside the wallet pill; hidden when nothing is pending. */}
-          <PendingTxPill count={pendingTxs.length} onOpen={openPending} />
+          {/* In-flight txs, beside the wallet pill; hidden when nothing is pending and nothing is being announced. */}
+          <PendingTxPill
+            count={pendingTxs.length}
+            onOpen={openPending}
+            announcement={announcement}
+            onAnnouncementOpen={openAnnounced}
+            onAnnouncementDismiss={() => setAnnouncement(null)}
+          />
           <WalletConnector />
         </div>
       </header>

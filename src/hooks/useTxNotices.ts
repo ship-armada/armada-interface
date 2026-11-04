@@ -23,7 +23,6 @@ export function useTxNotices(): void {
   const hydratedFor = useAtomValue(txHistoryHydratedAtom)
   const setFeed = useSetAtom(txNoticeFeedAtom)
   const lastRef = useRef<{ walletId: string; snapshot: TxWatchSnapshot } | null>(null)
-  const seqRef = useRef(0)
 
   useEffect(() => {
     if (walletId === null || hydratedFor !== walletId) {
@@ -35,8 +34,13 @@ export function useTxNotices(): void {
     if (last !== null && last.walletId === walletId) {
       const events = detectTxNotices(last.snapshot, records, inView, Date.now())
       if (events.length > 0) {
-        const items = events.map((event) => ({ ...event, seq: ++seqRef.current }))
-        setFeed((feed) => [...feed, ...items].slice(-FEED_CAP))
+        // Numbered on from the feed's last item, so anything else appending (the Debug page's sample notices)
+        // keeps the sequence monotonic.
+        setFeed((feed) => {
+          const lastSeq = feed[feed.length - 1]?.seq ?? 0
+          const items = events.map((event, i) => ({ ...event, seq: lastSeq + i + 1 }))
+          return [...feed, ...items].slice(-FEED_CAP)
+        })
       }
     }
     lastRef.current = { walletId, snapshot: snapshotTxs(records, inView) }
