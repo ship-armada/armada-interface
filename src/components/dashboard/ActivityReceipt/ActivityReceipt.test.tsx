@@ -1,5 +1,5 @@
 // ABOUTME: Tests for ActivityReceipt — reconstructs a past tx's confirm-step summary from its record.
-// ABOUTME: Covers the title/amount + a summary row for a deposit, and that null record renders nothing.
+// ABOUTME: Covers the title/amount + a summary row for a deposit, that null record renders nothing, and a pending record's live progress.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
@@ -33,6 +33,23 @@ function mergeRecord(): TxRecord {
 }
 
 describe('<ActivityReceipt>', () => {
+  it('shows a pending tx\'s live progress (the flow modal\'s progress view) instead of a static receipt', () => {
+    const pending = {
+      ...shieldRecord(),
+      stage: 'submit-relayer',
+      stagesCompleted: ['build-proof'],
+      executionState: 'active',
+    } as unknown as TxRecord
+    const { rerender } = render(<ActivityReceipt record={pending} open onClose={vi.fn()} />)
+    expect(screen.getAllByText(/being shielded/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('USDC shield')).toBeNull()
+
+    // It updates in place: once the record settles, the usual receipt replaces the progress view.
+    rerender(<ActivityReceipt record={shieldRecord()} open onClose={vi.fn()} />)
+    expect(screen.getByText('USDC shield')).toBeInTheDocument()
+    expect(screen.queryByText(/being shielded/)).toBeNull()
+  })
+
   it('a cross-chain unshield receipt includes the CCTP fee it recorded, as the confirmation screen does', () => {
     const xchain = {
       ...shieldRecord(),

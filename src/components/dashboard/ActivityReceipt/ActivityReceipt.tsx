@@ -1,10 +1,12 @@
-// ABOUTME: Activity receipt — reopens a past tx's confirm-step view (same FlowShell chrome + frost card + review summary).
+// ABOUTME: Activity receipt — reopens a past tx's confirm-step view (same FlowShell chrome + frost card + review summary); a pending tx shows its live progress.
 // ABOUTME: Reconstructs the summary props from the record's meta/artifacts (no stored snapshot — chunk 6b decision a); step-bar hidden, CTAs are View-on-explorer + Done.
 
 import { type ReactNode } from 'react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { FlowShell } from '@/components/flow/FlowShell'
 import { useFlowExit } from '@/components/flow/useFlowExit'
+import { ProgressStep } from '@/components/flow/ProgressStep'
+import type { SendVariant } from '@/components/tx/processing/processingView'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
@@ -57,6 +59,8 @@ interface ReceiptView {
   status: DashboardActivityStatus
   /** Category-aware failure copy; null for settled/pending records. */
   errorCopy: TxErrorCopy | null
+  /** Send vs withdraw, for a pending unshield's live progress title (the record doesn't store which it was). */
+  sendVariant?: SendVariant
 }
 
 function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptView {
@@ -125,6 +129,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
         explorerUrl,
         status,
         errorCopy,
+        sendVariant: asWithdraw ? 'withdraw' : 'send',
         summary: (
           <TransferReviewSummary
             recipient={meta.recipient}
@@ -247,37 +252,46 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: Act
     >
       {view ? (
         <div className={`${modalStepBodyEnter} ${styles.root}`}>
-          <div className={styles.titleBlock}>
-            <h1 className={styles.title}>{view.title}</h1>
-            <div className={styles.amountRow}>
-              <span
-                className={[
-                  styles.amountValue,
-                  view.status === 'failed' && styles.amountValueFailed,
-                  view.status === 'cancelled' && styles.amountValueCancelled,
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {formatUsdcPlain(view.amount)}
-              </span>
+          {/* A tx still in flight shows the flow modal's live progress view in place of the title and amount (the
+              summary's figures stay below it); once it settles the record updates and the usual receipt takes over. */}
+          {view.status === 'pending' && record ? (
+            <ProgressStep record={record} {...(view.sendVariant !== undefined ? { sendVariant: view.sendVariant } : {})} />
+          ) : (
+            <>
+            <div className={styles.titleBlock}>
+              <h1 className={styles.title}>{view.title}</h1>
+              <div className={styles.amountRow}>
+                <span
+                  className={[
+                    styles.amountValue,
+                    view.status === 'failed' && styles.amountValueFailed,
+                    view.status === 'cancelled' && styles.amountValueCancelled,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {formatUsdcPlain(view.amount)}
+                </span>
+              </div>
             </div>
-          </div>
 
-          {view.errorCopy ? (
-            <div
-              className={[
-                styles.statusBanner,
-                view.status === 'unknown' ? styles.statusBannerUnknown : styles.statusBannerError,
-              ].join(' ')}
-              role="status"
-            >
-              <span className={styles.statusBannerTitle}>{view.errorCopy.title}</span>
-              {view.errorCopy.body ? (
-                <span className={styles.statusBannerBody}>{view.errorCopy.body}</span>
-              ) : null}
-            </div>
-          ) : null}
+            {view.errorCopy ? (
+              <div
+                className={[
+                  styles.statusBanner,
+                  view.status === 'unknown' ? styles.statusBannerUnknown : styles.statusBannerError,
+                ].join(' ')}
+                role="status"
+              >
+                <span className={styles.statusBannerTitle}>{view.errorCopy.title}</span>
+                {view.errorCopy.body ? (
+                  <span className={styles.statusBannerBody}>{view.errorCopy.body}</span>
+                ) : null}
+              </div>
+            ) : null}
+
+            </>
+          )}
 
           {view.summary}
           {/* A cross-chain tx's second half: the CCTP mint on the destination chain ("View on explorer" is the source tx). */}
