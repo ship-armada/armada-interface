@@ -20,7 +20,7 @@ import {
   isWithdrawToSelf,
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
-import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
+import { resolveTxErrorCopy, userPaidNetworkFee, type TxErrorCopy } from '@/lib/tx/errorCopy'
 import { moneyMoved, txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
@@ -67,7 +67,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
   const errorCopy =
     status === 'settled' || status === 'pending'
       ? null
-      : resolveTxErrorCopy(record.artifacts.error)
+      : resolveTxErrorCopy(record.artifacts.error, undefined, { userPaidNetworkFee: userPaidNetworkFee(record) })
   const explorerUrl = txExplorerUrl(record.walletContext.sourceChainId, displayTxHash(record))
   // A tx that failed or was cancelled before its first on-chain transaction confirmed moved no money: its fees and
   // totals read "—" (the headline stays, struck through). One that did move money shows what it was charged.

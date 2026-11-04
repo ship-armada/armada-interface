@@ -191,6 +191,11 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       expect(summaryRow("You'll receive")).toBe('—')
     })
 
+    it('a reverted direct-path shield admits the network fee was spent (7D)', () => {
+      showReceipt('shield', { amount: A, fromChainId: 31337, protocolFee: P }, reverted)
+      expect(screen.getByText(/the network fee was spent/)).toBeInTheDocument()
+    })
+
     it('a failed vault deposit moved nothing', () => {
       showReceipt('yield-deposit', spendMeta(F), reverted)
       expect(summaryRow('Fees')).toBe('—')

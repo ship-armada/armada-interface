@@ -34,6 +34,7 @@ import { ShieldCompleteStep } from './ShieldCompleteStep'
 import { SendReviewStep } from '@/components/payments/SendReviewStep'
 import { SendCompleteStep } from '@/components/payments/SendCompleteStep'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
+import { userPaidNetworkFee } from '@/lib/tx/errorCopy'
 
 /** Why Review holds a shield while the fee module's read of its protocol fee hasn't landed. */
 const SHIELD_FEE_PENDING_REASON = 'Getting the shield fee…'
@@ -280,6 +281,7 @@ export function ShieldModal() {
         <ErrorStep
           remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
+          userPaidNetworkFee={userPaidNetworkFee(record)}
           message={active.submitError ?? undefined}
           explorerUrl={explorerUrl}
           primaryLabel={active.errorPrimaryLabel}

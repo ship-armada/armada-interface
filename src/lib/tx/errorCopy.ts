@@ -1,7 +1,7 @@
 // ABOUTME: Category-aware copy for a failed/cancelled TxError, shared by the live ErrorStep modal + the ActivityReceipt.
 // ABOUTME: Keyed off TxErrorCode so the UI never says "Something went wrong" when we actually know what happened.
 
-import type { TxError, TxErrorCode } from './types'
+import type { TxError, TxErrorCode, TxRecord } from './types'
 
 export interface TxErrorCopy {
   title: string
@@ -65,14 +65,36 @@ export const TX_ERROR_COPY: Record<TxErrorCode, TxErrorCopy> = {
 }
 
 /**
+ * TX_REVERTED body when the user's own wallet sent the reverted tx: the USDC didn't move, but unlike a
+ * relayer-submitted tx (the relayer pays gas) the user's network fee WAS spent — "No funds were moved" would be wrong.
+ */
+const TX_REVERTED_USER_PAID_BODY =
+  "The network mined your transaction but the contract reverted. Your USDC didn't move, but the network fee was spent."
+
+/**
+ * True when the user's own wallet sent (and paid gas for) the record's on-chain tx: a shield or cross-chain shield on
+ * the direct path (`useGasless` not set). Every spend, and the gasless shield, is relayer-submitted — the relayer pays.
+ */
+export function userPaidNetworkFee(record: TxRecord | null | undefined): boolean {
+  if (!record) return false
+  if (record.kind !== 'shield' && record.kind !== 'shield-xchain') return false
+  return (record.meta as { useGasless?: boolean }).useGasless !== true
+}
+
+/**
  * Resolve title + body for an error. Prefers the category's stock body over the raw `error.message`
  * (which is often technical), falling back to the message when a code has no stock body, then to a
- * bare fallback message (submit-time throws before a record exists).
+ * bare fallback message (submit-time throws before a record exists). Pass `userPaidNetworkFee` (see
+ * {@link userPaidNetworkFee}) so a reverted tx the user paid gas for says the fee was spent.
  */
 export function resolveTxErrorCopy(
   error?: TxError | null,
   fallbackMessage?: string,
+  options?: { userPaidNetworkFee?: boolean },
 ): TxErrorCopy {
+  if (error?.code === 'TX_REVERTED' && options?.userPaidNetworkFee) {
+    return { title: TX_ERROR_COPY.TX_REVERTED.title, body: TX_REVERTED_USER_PAID_BODY }
+  }
   const copy = error ? TX_ERROR_COPY[error.code] : undefined
   return {
     title: copy?.title ?? 'Something went wrong',

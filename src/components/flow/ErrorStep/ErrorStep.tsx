@@ -39,6 +39,9 @@ export interface ErrorStepProps {
    * primary button and the retry / start-over action moves to the secondary slot.
    */
   remedy?: { label: string; onClick: () => void }
+  /** The user's own wallet sent (and paid gas for) the failed tx — a TX_REVERTED body then says the fee was spent
+   *  (`lib/tx/errorCopy::userPaidNetworkFee`). Only the direct-path shield sets this; every spend is relayer-paid. */
+  userPaidNetworkFee?: boolean
 }
 
 export function ErrorStep({
@@ -49,10 +52,11 @@ export function ErrorStep({
   primaryLabel = 'Try again',
   onViewDetails,
   remedy,
+  userPaidNetworkFee,
 }: ErrorStepProps) {
   // Category-aware copy (shared with the ActivityReceipt) — prefers the code's stock body over the
   // raw error.message (often technical), falling back to the bare message prop for submit-time throws.
-  const { title, body } = resolveTxErrorCopy(error, message)
+  const { title, body } = resolveTxErrorCopy(error, message, { userPaidNetworkFee })
 
   return (
     <div className={styles.root}>

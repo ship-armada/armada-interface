@@ -28,6 +28,13 @@ describe('<ErrorStep>', () => {
   it('uses category-specific copy for TX_REVERTED', () => {
     render(<ErrorStep error={{ code: 'TX_REVERTED', message: 'execution reverted' }} />)
     expect(screen.getByText('Transaction failed on chain')).toBeInTheDocument()
+    expect(screen.getByText(/No funds were moved/)).toBeInTheDocument()
+  })
+
+  it('says the network fee was spent when the user paid it (direct-path shield, 7D)', () => {
+    render(<ErrorStep error={{ code: 'TX_REVERTED', message: 'execution reverted' }} userPaidNetworkFee />)
+    expect(screen.getByText(/the network fee was spent/)).toBeInTheDocument()
+    expect(screen.queryByText(/No funds were moved/)).toBeNull()
   })
 
   it('uses pre-flight-specific copy for PRE_FLIGHT_REVERT and surfaces the actual revert reason', () => {
