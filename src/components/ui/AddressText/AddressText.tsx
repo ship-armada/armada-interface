@@ -1,8 +1,7 @@
-// ABOUTME: Counterparty address display — the fixed prefix ("0zk1" / "0x") muted, then the head and tail a user
-// ABOUTME: verifies, middle elided; the full address is in the title. Split rules live in lib/address.
+// ABOUTME: Counterparty address display — shortened to its fixed prefix ("0zk1" / "0x") + the head and tail a user verifies
+// ABOUTME: (0zk: 8 + 6, 0x: 4 + 4), as plain text with the full address in the title. Split rules live in lib/address.
 
-import { splitAddressForDisplay } from '@/lib/address'
-import styles from './AddressText.module.css'
+import { shortAddress } from '@/lib/address'
 
 export interface AddressTextProps {
   address: string
@@ -10,14 +9,10 @@ export interface AddressTextProps {
 }
 
 export function AddressText({ address, className }: AddressTextProps) {
-  const parts = splitAddressForDisplay(address)
-  if (!parts) return <span className={className}>{address}</span>
+  const short = shortAddress(address)
   return (
-    <span className={[styles.root, className].filter(Boolean).join(' ')} title={address}>
-      <span className={styles.prefix}>{parts.prefix}</span>
-      <span>{parts.head}</span>
-      <span className={styles.prefix}>...</span>
-      <span>{parts.tail}</span>
+    <span className={className} title={short === address ? undefined : address}>
+      {short}
     </span>
   )
 }
