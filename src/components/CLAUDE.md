@@ -14,7 +14,7 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 
 | File / dir | Purpose |
 |---|---|
-| `AppLayout.tsx` | Fixed-inset header + nav + body wrap |
+| `AppLayout.tsx` | Fixed-inset header + nav + body wrap. The header's right group holds the network badge, theme toggle, settings gear, the pending-tx pill (`tx/PendingTxPill`: one pending tx opens its receipt, several the All activity panel) and the wallet pill |
 | `AppErrorBoundary.tsx` | Top-level error boundary (outside the providers) — a render error anywhere surfaces a recoverable card instead of a white screen; funnels to Sentry via telemetry |
 | `SingleTabGate/` | Full-screen "Armada is open in another tab" screen — shown when the SDK's per-origin scan-DB lock rejects a second tab (`anotherTabActiveAtom`, set in `sdk-read.ts::ensureInstance` on `StorageConflictError`). Rendered as App's first early-return; Reload CTA re-inits once the other tab is closed |
 | `WalletConnector.tsx` | Header wallet button — RainbowKit render-prop wired to the `@/design` `WalletButton` (all 4 states) |

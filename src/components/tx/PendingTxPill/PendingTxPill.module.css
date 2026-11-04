@@ -1,0 +1,49 @@
+/* ABOUTME: PendingTxPill styling — a 40px pill on the header controls' surface-main fill (like the settings gear and
+   ABOUTME: wallet pill), with a small lavender spinner that stops spinning under reduced motion. */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+  flex-shrink: 0;
+  height: var(--primitives-spacing-10);
+  padding: 0 var(--primitives-spacing-4);
+  border: none;
+  border-radius: calc(var(--primitives-borderRadius-full) * 1px);
+  background: var(--semantic-color-surface-main);
+  color: var(--semantic-color-text-primary);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pill:hover {
+  background: var(--semantic-color-surface-raised-hover);
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  border: 2px solid var(--semantic-color-border-lavender);
+  border-top-color: var(--semantic-color-brand-lavender);
+  animation: pendingTxPillSpin 700ms linear infinite;
+}
+
+@keyframes pendingTxPillSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

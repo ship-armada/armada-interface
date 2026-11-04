@@ -1,16 +1,19 @@
 // ABOUTME: App-wide layout — fixed @armada/ui-style header with our routes, body padding to clear the inset header.
-// ABOUTME: Header is local to this app (not the crowdfund-shared AppHeader) — different nav, a network badge, custom right-side chrome.
+// ABOUTME: Header is local to this app (not the crowdfund-shared AppHeader) — different nav, a network badge, custom right-side chrome (incl. the pending-tx pill).
 
 import { type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useSetAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { Cog6ToothIcon } from '@heroicons/react/24/outline'
 import { ArmadaLogo } from '@/design'
 import { WalletConnector } from './WalletConnector'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { SyncBanner } from './sync'
 import { HistoryRecoveryBanner } from './history'
+import { PendingTxPill } from './tx/PendingTxPill'
 import { openModalAtom } from '@/state/ui'
+import { pendingTxsAtom } from '@/state/tx'
+import { useOpenTxActivity } from '@/hooks/useOpenTxActivity'
 import { getNetworkMode } from '@/config/network'
 import styles from './AppLayout.module.css'
 
@@ -22,6 +25,11 @@ const NETWORK_BADGE_LABEL = getNetworkMode() === 'sepolia' ? 'Testnet' : 'Local'
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const setOpenModal = useSetAtom(openModalAtom)
+  const pendingTxs = useAtomValue(pendingTxsAtom)
+  const { openReceipt, openActivity } = useOpenTxActivity()
+  // One tx in flight → straight to its receipt (live progress); several → the All activity panel.
+  const onlyPending = pendingTxs.length === 1 ? pendingTxs[0] : undefined
+  const openPending = () => (onlyPending ? openReceipt(onlyPending.id) : openActivity())
 
   return (
     <div className="flex min-h-screen flex-col text-foreground">
@@ -55,6 +63,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {/* V2 Phase 3a: merged pill — the 0zk shielded identity now lives inside
               `WalletConnector`'s `WalletPillMenu` dropdown (via the `extraSection` prop), so
               the separate `ShieldedAddressPill` previously sat here is gone. */}
+          {/* In-flight txs, beside the wallet pill; hidden when nothing is pending. */}
+          <PendingTxPill count={pendingTxs.length} onOpen={openPending} />
           <WalletConnector />
         </div>
       </header>
