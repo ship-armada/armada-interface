@@ -1,5 +1,5 @@
-// ABOUTME: Derives the Send flow's "recently used addresses" list from settled tx history —
-// ABOUTME: dedupes recipients by normalized address, newest-first, capped, each carrying its destination chain.
+// ABOUTME: Derives the Send flow's "recently used addresses" list from settled tx history (deduped by normalized address,
+// ABOUTME: newest-first, capped, each with its destination chain) and counts settled sends to one address (Review's history line).
 
 import type { TxRecord } from './types'
 
@@ -75,4 +75,20 @@ export function deriveRecentRecipients(
   }
 
   return out
+}
+
+/**
+ * How many settled (`completed`) sends already went to `address` — drives the Review step's "First time sending to this
+ * address" / "You've sent to this address N times before" line. Same matching as the recent list: 0x addresses compare
+ * case-insensitively, 0zk exactly; surrounding whitespace is ignored. Local history only — nothing leaves the device.
+ */
+export function countSendsTo(records: readonly TxRecord[], address: string): number {
+  const key = dedupeKey(address.trim())
+  let count = 0
+  for (const record of records) {
+    if (record.executionState !== 'completed' || !isRecipientKind(record.kind)) continue
+    const recipient = (record.meta as { recipient?: string }).recipient
+    if (recipient && dedupeKey(recipient.trim()) === key) count += 1
+  }
+  return count
 }

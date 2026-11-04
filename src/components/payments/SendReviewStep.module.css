@@ -114,3 +114,14 @@
     padding: var(--primitives-spacing-5);
   }
 }
+
+/* Recipient-history line under the summary ("First time sending to this address…" / "You've sent … before"). */
+.historyNote {
+  margin: 0;
+  color: var(--semantic-color-text-secondary);
+}
+
+/* First-time recipients get the amber caution tone — that's when a mistyped or lookalike address is likeliest. */
+.historyNoteFirstTime {
+  color: var(--semantic-color-text-amber);
+}

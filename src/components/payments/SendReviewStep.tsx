@@ -31,6 +31,10 @@ export interface SendReviewStepProps {
   submitBlockedReason?: string | null
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean
+  /** Settled sends already made to this recipient (local history). Drives the history line; omitted → no line. */
+  previousSendCount?: number
+  /** The recipient is the user's own connected wallet — the history line says so instead of "first time". */
+  recipientIsOwnWallet?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
   feeUpdated?: boolean
   /** Set when the wallet is too fragmented for the send — shows the "Too many small notes" callout (with its
@@ -52,6 +56,8 @@ export function SendReviewStep({
   recipientWalletProvider,
   submitBlockedReason,
   isSubmitting,
+  previousSendCount,
+  recipientIsOwnWallet,
   feeUpdated,
   onMergeNotes,
   onBack,
@@ -64,6 +70,7 @@ export function SendReviewStep({
         ? 'Review your USDC shielded transfer'
         : 'Review your USDC transfer'
   const confirmLabel = variant === 'withdraw' ? 'Confirm' : 'Confirm send'
+  const historyLine = recipientHistoryLine(previousSendCount, recipientIsOwnWallet)
 
   return (
     <div className={styles.root}>
@@ -88,6 +95,11 @@ export function SendReviewStep({
           recipientWalletProvider={recipientWalletProvider}
         />
 
+        {historyLine ? (
+          <p className={[styles.historyNote, historyLine.firstTime && styles.historyNoteFirstTime].filter(Boolean).join(' ')}>
+            {historyLine.text}
+          </p>
+        ) : null}
         {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
 
         {submitBlockedReason ? (
@@ -118,4 +130,19 @@ export function SendReviewStep({
       </div>
     </div>
   )
+}
+
+/**
+ * The Review step's line about the user's history with this recipient — a first-time recipient is the moment a
+ * mistyped or lookalike address is most likely, so it asks for a careful check. Null when no count was provided.
+ */
+function recipientHistoryLine(
+  previousSendCount: number | undefined,
+  recipientIsOwnWallet: boolean | undefined,
+): { text: string; firstTime: boolean } | null {
+  if (recipientIsOwnWallet) return { text: 'This is your connected wallet', firstTime: false }
+  if (previousSendCount === undefined) return null
+  if (previousSendCount === 0) return { text: 'First time sending to this address — check it carefully', firstTime: true }
+  if (previousSendCount === 1) return { text: "You've sent to this address once before", firstTime: false }
+  return { text: `You've sent to this address ${previousSendCount} times before`, firstTime: false }
 }

@@ -16,7 +16,7 @@ import { useTx } from '@/hooks/useTx'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
 import { useSpendCheck } from '@/hooks/useSpendCheck'
 import type { BlockedSpend } from '@/lib/shielded/merge-intent'
-import { useRecentRecipients } from '@/hooks/useRecentRecipients'
+import { useRecentRecipients, useSendCountTo } from '@/hooks/useRecentRecipients'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
@@ -195,6 +195,8 @@ export function SendModal() {
   // Recently-used recipients (from settled history) offered on the recipient step. Selecting one
   // fills the address and restores its destination chain (0zk transfers have none → back to hub).
   const recentAddresses = useRecentRecipients(5)
+  // Settled sends already made to the current recipient — Review's "First time sending to this address" line.
+  const previousSendCount = useSendCountTo(recipient)
   function handleSelectRecent(item: RecentRecipient) {
     setRecipient(item.address)
     setDestChainId(item.destChainId ?? hubChainId)
@@ -583,6 +585,8 @@ export function SendModal() {
             : {})}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}
+          previousSendCount={previousSendCount}
+          recipientIsOwnWallet={recipientIsConnectedWallet}
           onConfirm={handleSubmit}
         />
       )}

@@ -20,6 +20,8 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     submitBlockedReason: extras?.submitBlockedReason,
     onMergeNotes: extras?.onMergeNotes,
     isSubmitting: extras?.isSubmitting,
+    previousSendCount: extras?.previousSendCount,
+    recipientIsOwnWallet: extras?.recipientIsOwnWallet,
     onBack: extras?.onBack ?? vi.fn(),
     onConfirm: extras?.onConfirm ?? vi.fn(),
   }
@@ -65,6 +67,21 @@ describe('<SendReviewStep>', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy address' }))
     })
     expect(writeText).toHaveBeenCalledWith(VALID_0ZK)
+  })
+
+  it.each([
+    [{ previousSendCount: 0 }, 'First time sending to this address — check it carefully'],
+    [{ previousSendCount: 1 }, "You've sent to this address once before"],
+    [{ previousSendCount: 3 }, "You've sent to this address 3 times before"],
+    [{ previousSendCount: 0, recipientIsOwnWallet: true }, 'This is your connected wallet'],
+  ])('tells the user their history with this recipient (9B): %o', (extras, line) => {
+    renderReview({ recipient: VALID_0ZK, ...extras })
+    expect(screen.getByText(line)).toBeInTheDocument()
+  })
+
+  it('shows no history line when the count is not provided', () => {
+    renderReview({ recipient: VALID_0ZK })
+    expect(screen.queryByText(/sending to this address|sent to this address|connected wallet/)).toBeNull()
   })
 
   it('public: shows the network row + a "Public transfer." notice + an EVM-style truncated recipient', () => {
