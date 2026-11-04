@@ -103,7 +103,7 @@ describe('<SendRecipientStep>', () => {
     ]
     const props = setup({ recentAddresses: recent })
     expect(screen.getByText('Recent address')).toBeInTheDocument()
-    fireEvent.click(screen.getByText(/0x1234\.\.\.5678/))
+    fireEvent.click(screen.getByTitle(VALID_EVM))
     expect(props.onSelectRecent).toHaveBeenCalledWith(recent[0])
   })
 

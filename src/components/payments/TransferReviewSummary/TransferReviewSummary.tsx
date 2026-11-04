@@ -4,7 +4,8 @@
 import { GlobeAltIcon } from '@heroicons/react/24/outline'
 import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
-import { formatTransactionDateTime, formatUsdcAmount, truncateAddress } from '@/lib/format'
+import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
+import { AddressText } from '@/components/ui/AddressText'
 import { isShieldedAddress } from '@/lib/address'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
@@ -81,7 +82,7 @@ export function TransferReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <span>{truncateAddress(armadaAddress)}</span>
+                <AddressText address={armadaAddress} />
               </span>
             </span>
           </div>
@@ -98,7 +99,7 @@ export function TransferReviewSummary({
               ) : (
                 <WalletProviderIcon provider={recipientWalletProvider} size={ROW_ICON_PX} />
               )}
-              <span>{truncateAddress(recipient)}</span>
+              <AddressText address={recipient} />
             </span>
           </span>
         </div>

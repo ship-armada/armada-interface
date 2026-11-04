@@ -15,8 +15,8 @@ import iconButtonStyles from '@/design/components/IconButton/IconButton.module.c
 import { ChainSelect } from '@/components/ui'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
-import { isShieldedAddress, validateEvmAddress } from '@/lib/address'
-import { truncateAddress } from '@/lib/format'
+import { isShieldedAddress, shortAddress, validateEvmAddress } from '@/lib/address'
+import { AddressText } from '@/components/ui/AddressText'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { RecentAddressList } from './RecentAddressList'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
@@ -130,7 +130,7 @@ export function SendRecipientStep({
   const recipientErrorId = useId()
 
   // Full address while focused/editing; middle-truncated when blurred so long addresses stay legible.
-  const inputDisplayValue = inputFocused || !hasInput ? recipient : truncateAddress(recipientTrimmed)
+  const inputDisplayValue = inputFocused || !hasInput ? recipient : shortAddress(recipientTrimmed)
 
   // The prompt differs by variant per design: withdraw leans into "where", send is imperative.
   const title =
@@ -206,9 +206,7 @@ export function SendRecipientStep({
               <span className={styles.clipboardPasteCopy}>
                 <span className={styles.clipboardPasteLabel}>Paste from clipboard</span>
                 {clipboardAddress ? (
-                  <span className={styles.clipboardPasteAddress} title={clipboardAddress}>
-                    {truncateAddress(clipboardAddress)}
-                  </span>
+                  <AddressText className={styles.clipboardPasteAddress} address={clipboardAddress} />
                 ) : (
                   <span className={styles.clipboardPasteAddressInvalid}>Not a valid address</span>
                 )}

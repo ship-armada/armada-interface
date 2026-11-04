@@ -105,7 +105,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
         'transfer-shielded-received', { amount: A, senderShieldedAddress: RECIPIENT_0ZK, memoText: 'Rent for May' },
         { stage: 'observed' } as Partial<TxRecord>,
       )
-      expect(summaryRow('From')).toBe('0zkccc...cccc')
+      expect(summaryRow('From')).toBe('0zkcccccccc...cccccc')
       expect(summaryRow('Memo')).toBe('Rent for May')
     })
   })

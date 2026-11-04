@@ -1,8 +1,9 @@
-// ABOUTME: Send flow's "Recent address" list — previously-used recipients as tappable rows (arrow badge + truncated address + relative time).
+// ABOUTME: Send flow's "Recent address" list — previously-used recipients as tappable rows (arrow badge + shortened address + relative time).
 // ABOUTME: Presentational; data is derived by useRecentRecipients and a row click fills the recipient (+ restores its chain) in SendModal.
 
 import { ArrowRightIcon } from '@heroicons/react/24/outline'
-import { truncateAddress, formatRelativeTime } from '@/lib/format'
+import { formatRelativeTime } from '@/lib/format'
+import { AddressText } from '@/components/ui/AddressText'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
 import styles from './RecentAddressList.module.css'
 
@@ -26,7 +27,7 @@ export function RecentAddressList({ items, onSelect, now = Date.now() }: RecentA
               <span className={styles.recentIconBadge} aria-hidden>
                 <ArrowRightIcon className={styles.recentIcon} strokeWidth={1.5} />
               </span>
-              <span className={styles.recentAddress}>{truncateAddress(item.address)}</span>
+              <AddressText className={styles.recentAddress} address={item.address} />
               <span className={styles.recentTime}>{formatRelativeTime(item.lastAt, now)}</span>
             </button>
           </li>

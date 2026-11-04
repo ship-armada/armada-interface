@@ -1,0 +1,15 @@
+/* ABOUTME: AddressText styling — the fixed prefix and the elision read muted; the verifiable head/tail are emphasised.
+   ABOUTME: Inherits size/family from the surrounding row so it drops into any summary or list cell. */
+
+.root {
+  white-space: nowrap;
+}
+
+.prefix {
+  color: var(--semantic-color-text-muted);
+}
+
+.strong {
+  font-weight: var(--primitives-fontWeight-semibold);
+  color: inherit;
+}

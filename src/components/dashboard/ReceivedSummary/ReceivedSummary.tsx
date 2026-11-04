@@ -2,7 +2,8 @@
 // ABOUTME: the recipient pays nothing, and the amount is the headline. Shares the deposit/transfer summary styling.
 
 import { ArmadaLogo } from '@/design'
-import { formatTransactionDateTime, truncateAddress } from '@/lib/format'
+import { formatTransactionDateTime } from '@/lib/format'
+import { AddressText } from '@/components/ui/AddressText'
 // The deposit summary's styles, so the received table stays in visual sync with the other flows' summaries.
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
@@ -31,7 +32,7 @@ export function ReceivedSummary({ senderShieldedAddress, memoText, confirmedAt }
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <span>{truncateAddress(senderShieldedAddress)}</span>
+                <AddressText address={senderShieldedAddress} />
               </span>
             </span>
           </div>

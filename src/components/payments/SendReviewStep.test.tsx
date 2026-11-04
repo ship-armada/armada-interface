@@ -48,10 +48,9 @@ describe('<SendReviewStep>', () => {
     expect(screen.queryByText('Network')).toBeNull()
   })
 
-  it('private: truncates the 0zk recipient (6 chars + ellipsis + last 4)', () => {
+  it('private: shows the 0zk recipient as its fixed prefix + 8 head + 6 tail characters (full address in the title)', () => {
     renderReview({ recipient: VALID_0ZK })
-    // truncateAddress → "0zkabc...aaaa"
-    expect(screen.getByText('0zkabc...aaaa')).toBeInTheDocument()
+    expect(screen.getByTitle(VALID_0ZK)).toHaveTextContent('0zkabcdefgh...89aaaa')
   })
 
   it('public: shows the network row + a "Public transfer." notice + an EVM-style truncated recipient', () => {
@@ -62,7 +61,7 @@ describe('<SendReviewStep>', () => {
     expect(screen.getByText('Network')).toBeInTheDocument()
     expect(screen.getByText('Anvil Hub (local)')).toBeInTheDocument()
     expect(screen.getByText('Public transfer.')).toBeInTheDocument()
-    expect(screen.getByText('0x1234...5678')).toBeInTheDocument()
+    expect(screen.getByTitle(VALID_EVM)).toHaveTextContent('0x1234...5678')
   })
 
   it('withdraw variant: uses the unshield title + "Confirm" label', () => {

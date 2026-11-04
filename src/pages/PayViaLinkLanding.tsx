@@ -5,7 +5,8 @@ import { useMemo, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArmadaLogo, Button } from '@/design'
 import { PaymentLinkQrCode } from '@/components/payViaLink/PaymentLinkQrCode'
-import { formatUsdcAmount, parseUsdcInput, truncateArmadaAddress } from '@/lib/format'
+import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
+import { AddressText } from '@/components/ui/AddressText'
 import {
   formatPaymentLinkExpiry,
   parsePayViaLinkSearch,
@@ -138,7 +139,7 @@ export function PayViaLinkLanding() {
           <dd className={styles.summaryValue}>
             <span className={styles.valueWithIcon}>
               <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-              <span>{truncateArmadaAddress(params.recipient)}</span>
+              <AddressText address={params.recipient} />
             </span>
           </dd>
         </div>
