@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArmadaLogo, Button } from '@/design'
 import { PaymentLinkQrCode } from '@/components/payViaLink/PaymentLinkQrCode'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
-import { AddressText } from '@/components/ui/AddressText'
+import { CopyableAddress } from '@/components/ui/CopyableAddress'
 import {
   formatPaymentLinkExpiry,
   parsePayViaLinkSearch,
@@ -139,7 +139,7 @@ export function PayViaLinkLanding() {
           <dd className={styles.summaryValue}>
             <span className={styles.valueWithIcon}>
               <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-              <AddressText address={params.recipient} />
+              <CopyableAddress address={params.recipient} label="Copy recipient address" copiedLabel="Recipient address copied" />
             </span>
           </dd>
         </div>

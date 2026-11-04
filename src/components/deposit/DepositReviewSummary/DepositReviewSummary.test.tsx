@@ -1,8 +1,8 @@
-// ABOUTME: Tests for DepositReviewSummary — the estimated (cross-chain) affordance on the "You'll receive" total.
-// ABOUTME: A cross-chain shield's final amount depends on the CCTP fee at delivery, so it renders `≈` + a caption.
+// ABOUTME: Tests for DepositReviewSummary — the estimated (cross-chain) affordance on the "You'll receive" total (`≈` + a caption,
+// ABOUTME: since a cross-chain shield's final amount depends on the CCTP fee at delivery), the gas row, and the copyable addresses.
 
-import { describe, it, expect } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { DepositReviewSummary } from './DepositReviewSummary'
 
 describe('<DepositReviewSummary>', () => {
@@ -64,5 +64,33 @@ describe('<DepositReviewSummary>', () => {
       <DepositReviewSummary fromChainId={31337} amount={3_000_000n} fee={25_651n} netAmount={2_974_349n} />,
     )
     expect(queryByText('Network gas')).toBeNull()
+  })
+
+  it('shows the wallet and Armada addresses shortened, each with a copy button for the FULL address', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    const wallet = '0x1234567890abcdef1234567890abcdef12345678'
+    const shielded = '0zk1qyk9nn28x0u3rwn5pknglda68wrn7gw6anjw8gg94mcj6eq5u48tlrv7j6fe3z53lama02nutwtcqc979wnce0'
+    render(
+      <DepositReviewSummary
+        fromChainId={31337}
+        amount={3_000_000n}
+        fee={0n}
+        netAmount={3_000_000n}
+        walletAddress={wallet}
+        shieldedAddress={shielded}
+      />,
+    )
+    // Same shortened form as every other address row (ui/AddressText), the full address in the title.
+    expect(screen.getByTitle(wallet)).toHaveTextContent('0x1234...5678')
+    expect(screen.getByTitle(shielded)).toHaveTextContent('0zk1qyk9nn28...9wnce0')
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy wallet address' }))
+    })
+    expect(writeText).toHaveBeenLastCalledWith(wallet)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy Armada address' }))
+    })
+    expect(writeText).toHaveBeenLastCalledWith(shielded)
   })
 })

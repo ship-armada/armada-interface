@@ -6,10 +6,9 @@ import { GlobeAltIcon } from '@heroicons/react/24/outline'
 import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
-import { AddressText } from '@/components/ui/AddressText'
 import { AddressReveal } from '@/components/ui/AddressReveal'
 import { FullAddress } from '@/components/ui/FullAddress'
-import { CopyAddressButton } from '@/components/ui/CopyAddressButton'
+import { CopyableAddress } from '@/components/ui/CopyableAddress'
 import { isShieldedAddress } from '@/lib/address'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
@@ -88,10 +87,7 @@ export function TransferReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <span className={styles.addressWithCopy}>
-                  <AddressText address={armadaAddress} />
-                  <CopyAddressButton address={armadaAddress} label="Copy your address" copiedLabel="Your address copied" />
-                </span>
+                <CopyableAddress address={armadaAddress} label="Copy your address" copiedLabel="Your address copied" />
               </span>
             </span>
           </div>
