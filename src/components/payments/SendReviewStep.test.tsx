@@ -1,7 +1,8 @@
-// ABOUTME: Tests for SendReviewStep — privacy notice by recipient format, optional network row, variant copy, recipient truncation, CTAs.
+// ABOUTME: Tests for SendReviewStep — privacy notice by recipient format, optional network row, variant copy, recipient display
+// ABOUTME: (shortened, revealable in full + copyable), CTAs.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { SendReviewStep, type SendReviewStepProps } from './SendReviewStep'
 
 const VALID_EVM = '0x1234567890abcdef1234567890abcdef12345678'
@@ -51,6 +52,19 @@ describe('<SendReviewStep>', () => {
   it('private: shows the 0zk recipient as its fixed prefix + 8 head + 6 tail characters (full address in the title)', () => {
     renderReview({ recipient: VALID_0ZK })
     expect(screen.getByTitle(VALID_0ZK)).toHaveTextContent('0zkabcdefgh...89aaaa')
+  })
+
+  it('lets the user reveal and copy the FULL recipient address before confirming (5E)', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    renderReview({ recipient: VALID_0ZK })
+    expect(screen.queryByText(VALID_0ZK)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show full address' }))
+    expect(screen.getByText(VALID_0ZK)).toBeInTheDocument()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy address' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(VALID_0ZK)
   })
 
   it('public: shows the network row + a "Public transfer." notice + an EVM-style truncated recipient', () => {

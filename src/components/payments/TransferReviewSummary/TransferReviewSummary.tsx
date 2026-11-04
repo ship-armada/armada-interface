@@ -1,4 +1,4 @@
-// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account / recipient / fees) with a fee-on-top "Total" row + a trailing privacy notice.
+// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account / recipient — revealable in full + copyable — / fees) with a fee-on-top "Total" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
 import { GlobeAltIcon } from '@heroicons/react/24/outline'
@@ -6,6 +6,7 @@ import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import { AddressText } from '@/components/ui/AddressText'
+import { AddressReveal } from '@/components/ui/AddressReveal'
 import { isShieldedAddress } from '@/lib/address'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
@@ -99,7 +100,8 @@ export function TransferReviewSummary({
               ) : (
                 <WalletProviderIcon provider={recipientWalletProvider} size={ROW_ICON_PX} />
               )}
-              <AddressText address={recipient} />
+              {/* Tap to see the full address (and copy it) before confirming — the shortened form alone isn't enough to verify. */}
+              <AddressReveal address={recipient} />
             </span>
           </span>
         </div>
