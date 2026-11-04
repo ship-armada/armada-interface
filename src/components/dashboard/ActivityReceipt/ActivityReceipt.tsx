@@ -12,7 +12,8 @@ import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSumm
 import { ReceivedSummary } from '@/components/dashboard/ReceivedSummary'
 import { frozenApyRate, type YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
-import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { DeliveryTxLink } from '@/components/tx/DeliveryTxLink'
 import { getChainById, getNetworkConfig } from '@/config/network'
 import {
   deriveActivityStatus,
@@ -279,6 +280,8 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: Act
           ) : null}
 
           {view.summary}
+          {/* A cross-chain tx's second half: the CCTP mint on the destination chain ("View on explorer" is the source tx). */}
+          {record ? <DeliveryTxLink link={deliveryExplorerLink(record)} /> : null}
 
           <div className={`${modalActionRowEnter} ${styles.buttonRow}`}>
             <Button

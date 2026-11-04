@@ -33,7 +33,7 @@ import { txFiguresAs } from '@/lib/fees/txFigures'
 import { isWithdrawToSelf } from '@/components/dashboard/txActivityAdapter'
 import { spendDraft } from '@/lib/tx/spendDraft'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
-import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
@@ -606,6 +606,7 @@ export function SendModal() {
           // Hub-chain explorer link for the on-chain submission. The destination delivery for
           // xchain is a separate event tracked elsewhere; this is the source-chain action.
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
+          deliveryLink={record ? deliveryExplorerLink(record) : null}
           onViewExplorer={() => {
             const url = txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))
             if (url) window.open(url, '_blank', 'noopener,noreferrer')

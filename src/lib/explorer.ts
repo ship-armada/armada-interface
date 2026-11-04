@@ -1,7 +1,7 @@
-// ABOUTME: Compose block-explorer URLs from (chainId, txHash) using the per-chain explorerUrl in config/network; also exposes displayTxHash to pick the right hash for a record's error UI.
+// ABOUTME: Compose block-explorer URLs from (chainId, txHash) using the per-chain explorerUrl in config/network; also exposes displayTxHash to pick the right hash for a record's error UI, and deliveryExplorerLink (a cross-chain tx's destination-mint link).
 // ABOUTME: Returns null when either the chain is unknown or the chain has no explorerUrl configured — callers must handle the no-link case rather than rendering a broken anchor.
 
-import { getChainById } from '@/config/network'
+import { getChainById, getNetworkConfig } from '@/config/network'
 import type { TxRecord } from '@/lib/tx/types'
 
 /**
@@ -39,4 +39,22 @@ export function displayTxHash(record: TxRecord | null | undefined): `0x${string}
   if (errHash) return errHash
   const sourceHash = (record.artifacts as { sourceTxHash?: `0x${string}` }).sourceTxHash
   return sourceHash ?? undefined
+}
+
+/**
+ * The explorer link for a cross-chain tx's DESTINATION transaction — the CCTP mint the relayer delivered
+ * (`artifacts.destTxHash`). A cross-chain unshield mints on its `toChainId`; a cross-chain shield mints into the hub.
+ * The receipt's main "View on explorer" link is the source-chain tx; this is the second half of the journey. Null
+ * until delivery recorded the hash, for same-chain kinds, and when the chain has no explorer configured.
+ */
+export function deliveryExplorerLink(record: TxRecord): { url: string; chainName: string } | null {
+  const destTxHash = (record.artifacts as { destTxHash?: `0x${string}` }).destTxHash
+  if (!destTxHash) return null
+  const chainId =
+    record.kind === 'unshield-xchain' ? (record.meta as { toChainId?: number }).toChainId
+    : record.kind === 'shield-xchain' ? getNetworkConfig().hub.chainId
+    : undefined
+  const url = txExplorerUrl(chainId, destTxHash)
+  const chain = chainId !== undefined ? getChainById(chainId) : undefined
+  return url && chain ? { url, chainName: chain.name } : null
 }

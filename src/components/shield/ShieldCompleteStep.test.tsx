@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ShieldCompleteStep } from './ShieldCompleteStep'
 
-function setup(overrides?: { explorerUrl?: string }) {
+function setup(overrides?: { explorerUrl?: string; deliveryLink?: { url: string; chainName: string } | null }) {
   const onViewExplorer = vi.fn()
   const onGoToDashboard = vi.fn()
   render(
@@ -17,6 +17,7 @@ function setup(overrides?: { explorerUrl?: string }) {
       explorerUrl={'explorerUrl' in (overrides ?? {}) ? overrides?.explorerUrl : 'https://example.com/tx/0xabc'}
       onViewExplorer={onViewExplorer}
       onGoToDashboard={onGoToDashboard}
+      deliveryLink={overrides?.deliveryLink}
     />,
   )
   return { onViewExplorer, onGoToDashboard }
@@ -47,5 +48,13 @@ describe('<ShieldCompleteStep>', () => {
   it('disables the explorer CTA when no explorerUrl is provided', () => {
     setup({ explorerUrl: undefined })
     expect(screen.getByRole('button', { name: /View on explorer/ })).toBeDisabled()
+  })
+
+  it('a cross-chain shield links to its delivery (mint) into the hub (14A)', () => {
+    setup({ deliveryLink: { url: 'https://sepolia.etherscan.io/tx/0xcd', chainName: 'Ethereum Sepolia' } })
+    expect(screen.getByRole('link', { name: /View delivery on Ethereum Sepolia/ })).toHaveAttribute(
+      'href',
+      'https://sepolia.etherscan.io/tx/0xcd',
+    )
   })
 })

@@ -11,7 +11,7 @@ import { QUOTE_PENDING_REASON } from '@/lib/tx/submitQuote'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcPlain } from '@/lib/format'
 import { txFiguresAs } from '@/lib/fees/txFigures'
-import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import {
   ProgressStep,
   ErrorStep,
@@ -89,6 +89,8 @@ export function ShieldModal() {
   const step = active.step
   const record = active.record
   const explorerUrl = txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))
+  // A cross-chain shield / unshield's destination (CCTP mint) tx — shown under the confirmation summary.
+  const deliveryLink = record ? deliveryExplorerLink(record) : null
   // An unshield's confirmation reports what it actually charged, from its record (the live quote keeps
   // refreshing after submit), matching the Activity receipt.
   const unshieldReceipt = !isShield && record ? txFiguresAs(record, 'spend') : null
@@ -246,6 +248,7 @@ export function ShieldModal() {
           shieldedAddress={shieldFlow.shieldedAddress}
           confirmedAt={record?.updatedAt ?? Date.now()}
           explorerUrl={explorerUrl}
+          deliveryLink={deliveryLink}
           onViewExplorer={() => {
             if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
           }}
@@ -265,6 +268,7 @@ export function ShieldModal() {
           recipientWalletProvider={unshieldFlow.recipientWalletProvider}
           confirmedAt={record?.updatedAt ?? Date.now()}
           explorerUrl={explorerUrl}
+          deliveryLink={deliveryLink}
           onViewExplorer={() => {
             if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
           }}
