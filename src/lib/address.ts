@@ -1,4 +1,4 @@
-// ABOUTME: Address-format helpers — validators for EVM (0x…) and shielded (0zk…) recipient strings, plus the counterparty
+// ABOUTME: Address-format helpers — validators for EVM (0x…) and shielded (0zk…) recipient strings, address extraction from pasted text, plus the counterparty
 // ABOUTME: display split (fixed prefix + verifiable head/tail). No React. Uses ethers for EIP-55 checksum verification.
 
 import { getAddress } from 'ethers'
@@ -111,4 +111,22 @@ export function splitAddressForDisplay(address: string): AddressDisplayParts | n
 export function shortAddress(address: string): string {
   const parts = splitAddressForDisplay(address)
   return parts ? `${parts.prefix}${parts.head}...${parts.tail}` : address
+}
+
+const EVM_IN_TEXT = /0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/g
+const ZK_IN_TEXT = /0zk[a-zA-Z0-9]{32,}/g
+
+/**
+ * Pull a recipient address out of pasted text — a bare address (trimmed), or the one address inside a message
+ * ("pay me at 0x… thanks") or a payment URI ("ethereum:0x…@1"). Returns null when there's no valid address, or
+ * when the text holds two DIFFERENT addresses (we don't guess which one the user meant). EVM candidates must pass
+ * the EIP-55 checksum (when mixed-case); 0zk candidates the shape check, like typed input.
+ */
+export function extractAddress(text: string): string | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  if (isShieldedAddress(trimmed) || isEvmAddress(trimmed)) return trimmed
+  const candidates = [...(trimmed.match(EVM_IN_TEXT) ?? []), ...(trimmed.match(ZK_IN_TEXT) ?? [])]
+  const valid = new Set(candidates.filter((c) => isEvmAddress(c) || isShieldedAddress(c)))
+  return valid.size === 1 ? [...valid][0] ?? null : null
 }

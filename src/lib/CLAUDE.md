@@ -7,7 +7,7 @@ Pure logic — **no React imports allowed.** These modules are unit-testable wit
 | `rpc.ts` | `FallbackJsonRpcProvider` + `createProvider`. Duplicated from crowdfund-shared. | Working |
 | `cache.ts` | Generic IndexedDB helpers (`cacheGet/Put/Delete/All/Clear`) keyed by store name. | Working |
 | `format.ts` | `formatUsdc`, `truncateAddress`, etc. Duplicated from crowdfund-shared. | Working |
-| `address.ts` | EVM / shielded address validators (`validateEvmAddress`, `isShieldedAddress`, `validateShieldedAddressStrict`) + the counterparty display split (`splitAddressForDisplay`, `shortAddress`: fixed prefix + 8/6 (0zk) or 4/4 (0x) verifiable characters). | Working |
+| `address.ts` | EVM / shielded address validators (`validateEvmAddress`, `isShieldedAddress`, `validateShieldedAddressStrict`) + the counterparty display split (`splitAddressForDisplay`, `shortAddress`: fixed prefix + 8/6 (0zk) or 4/4 (0x) verifiable characters) + `extractAddress` (the one valid address inside pasted text / a payment URI). | Working |
 | `revert.ts` | `mapRevertToMessage(err)` for wallet + relayer errors. | Working |
 | `wagmi-adapter.ts` | `walletClientToSigner(walletClient)` — viem → ethers v6 signer. Duplicated from committer. | Working |
 | `telemetry.ts` | `track / trackTxTransition / trackError`. Console always; `trackError` also forwards the full error to Sentry via `sentry.ts::captureError` (no-op unless a DSN is configured). | Working |

@@ -111,4 +111,19 @@ describe('<SendRecipientStep>', () => {
     setup({ recentAddresses: [] })
     expect(screen.queryByText('Recent address')).toBeNull()
   })
+
+  it('pulls the address out of a pasted message (9I)', () => {
+    const props = setup({ recipient: '' })
+    fireEvent.change(screen.getByLabelText('Recipient address'), {
+      target: { value: `Hi! Send it to ${VALID_EVM} please` },
+    })
+    expect(props.onRecipientChange).toHaveBeenLastCalledWith(VALID_EVM)
+  })
+
+  it('leaves single-keystroke edits alone (no silent rewriting while typing)', () => {
+    const props = setup({ recipient: VALID_EVM })
+    fireEvent.change(screen.getByLabelText('Recipient address'), { target: { value: `${VALID_EVM}a` } })
+    expect(props.onRecipientChange).toHaveBeenLastCalledWith(`${VALID_EVM}a`)
+  })
 })
+
