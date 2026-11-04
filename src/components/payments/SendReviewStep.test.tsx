@@ -93,7 +93,7 @@ describe('<SendReviewStep>', () => {
   it.each([
     [{ previousSendCount: 1 }, 'Sent once before'],
     [{ previousSendCount: 3 }, 'Sent 3 times before'],
-    [{ previousSendCount: 0, recipientIsOwnWallet: true }, 'Your connected wallet'],
+    [{ previousSendCount: 0, recipientIsOwnWallet: true }, '(Your connected wallet)'],
   ])('shows a known recipient as a "History" row in the summary, with no warning (9B): %o', (extras, value) => {
     renderReview({ recipient: VALID_0ZK, ...extras })
     const label = screen.getByText('History')

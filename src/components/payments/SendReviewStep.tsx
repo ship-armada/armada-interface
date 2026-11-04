@@ -140,7 +140,7 @@ function recipientHistory(
   previousSendCount: number | undefined,
   recipientIsOwnWallet: boolean | undefined,
 ): { kind: 'first' } | { kind: 'known'; text: string } | null {
-  if (recipientIsOwnWallet) return { kind: 'known', text: 'Your connected wallet' }
+  if (recipientIsOwnWallet) return { kind: 'known', text: '(Your connected wallet)' }
   if (previousSendCount === undefined) return null
   if (previousSendCount === 0) return { kind: 'first' }
   if (previousSendCount === 1) return { kind: 'known', text: 'Sent once before' }
