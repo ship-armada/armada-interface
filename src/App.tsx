@@ -26,6 +26,7 @@ import { useNullifierCrossCheck } from '@/hooks/useNullifierCrossCheck'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { useDebugSync } from '@/hooks/useDebugSync'
 import { useTxHistory } from '@/hooks/useTxHistory'
+import { useTxNotices } from '@/hooks/useTxNotices'
 import { useRequestLinks } from '@/hooks/useRequestLinks'
 import { useTxResume } from '@/hooks/useTxResume'
 import { useUsdcBalances } from '@/hooks/useUsdcBalances'
@@ -67,6 +68,7 @@ export function App() {
   useTxResume() // on unlock (leader only), resume watchers for broadcast txs / fail pre-broadcast interruptions (P0-2)
   useHistoryRecovery() // chain-recover synthetic rows on unlock + re-scan epoch (Phase 9.3)
   useIncomingTransferDetector() // re-scan on balance events so received transfers surface live (Phase 9.4)
+  useTxNotices() // tx changes the user isn't watching → the notice feed (header pill / toasts)
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
   usePayViaLinkIntent() // pick up a pending pay-via-link hand-off + open the prefilled Send on unlock
   // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (OnboardingFlow's

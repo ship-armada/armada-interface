@@ -27,4 +27,5 @@ export {
   OVERLAY_STEP_LABELS,
   overlayIndicatorStep,
   overlayIndicatorStatus,
+  showsSubmittedTx,
 } from './overlayFlow'

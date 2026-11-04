@@ -16,6 +16,13 @@ import { activeShieldedWalletIdAtom } from './wallet'
 export const txListAtom = atom<TxRecord[]>([])
 
 /**
+ * The shielded wallet whose stored records `useTxHistory` has finished loading into `txListAtom` (null while
+ * locked or loading). The tx-notice watcher takes the list at that moment as its baseline, so loading history
+ * never reads as news.
+ */
+export const txHistoryHydratedAtom = atom<string | null>(null)
+
+/**
  * Records scoped to the currently-active shielded wallet — drives all UI consumers. When the
  * active wallet is null (locked or never-unlocked), returns [] so leaking-prior-history is
  * structurally impossible.

@@ -28,6 +28,7 @@ import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import {
   ProgressStep,
   ErrorStep,
+  showsSubmittedTx,
   type FlowStep,
   type FlowVisibleStep,
 } from '@/components/flow'
@@ -231,8 +232,9 @@ export function EarnModal() {
     || spendCheck.blockReason
 
   // Two useTx hooks; only one gets a record per flow.
-  const txDeposit = useTx({ kind: 'yield-deposit' })
-  const txWithdraw = useTx({ kind: 'yield-withdraw' })
+  const txInView = isOpen && showsSubmittedTx(step)
+  const txDeposit = useTx({ kind: 'yield-deposit', inView: txInView })
+  const txWithdraw = useTx({ kind: 'yield-withdraw', inView: txInView })
   const activeTx =
     submittedKind === 'yield-deposit' ? txDeposit
     : submittedKind === 'yield-withdraw' ? txWithdraw

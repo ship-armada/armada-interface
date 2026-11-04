@@ -42,6 +42,7 @@ import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import {
   ProgressStep,
   ErrorStep,
+  showsSubmittedTx,
   type FlowStep,
   type FlowVisibleStep,
 } from '@/components/flow'
@@ -204,9 +205,10 @@ export function SendModal() {
   }
 
   // Three useTx hooks mounted; only one gets a record per flow.
-  const txTransfer = useTx({ kind: 'transfer-shielded' })
-  const txUnshieldLocal = useTx({ kind: 'unshield-local' })
-  const txUnshieldXchain = useTx({ kind: 'unshield-xchain' })
+  const txInView = isOpen && showsSubmittedTx(step)
+  const txTransfer = useTx({ kind: 'transfer-shielded', inView: txInView })
+  const txUnshieldLocal = useTx({ kind: 'unshield-local', inView: txInView })
+  const txUnshieldXchain = useTx({ kind: 'unshield-xchain', inView: txInView })
 
   const activeTx =
     submittedKind === 'transfer-shielded' ? txTransfer

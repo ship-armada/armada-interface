@@ -12,13 +12,14 @@ Transaction-rendering primitives. Each one consumes a `TxRecord` and renders som
 | `TxActions` | Per-record CTAs: Retry (gated by the executor's `canRetryTx`), and Cancel (pre-broadcast, `cancelTx`) or Stop tracking (post-broadcast, `dismissTx`). Hidden on follower tabs. **Not rendered by any screen at present.** |
 | `processing/` | The redesigned in-flight "processing" surface — `TxProgressCard` (tick-ring around the USDC logo) + `TransactionProgressDisclosure` timeline + `TxProcessingLayout`; view model in `processingView.ts` / copy in `processingCopy.ts`. Rendered by `flow/ProgressStep` off the live record. |
 | `DeliveryTxLink/` | "View delivery on {chain} ↗" — the explorer link to a cross-chain tx's destination (CCTP mint) tx, from `lib/explorer::deliveryExplorerLink` (`artifacts.destTxHash` on the unshield's `toChainId`, or the hub for a cross-chain shield). Under the summary on the Send / Shield / Unshield confirmation and the Activity receipt; renders nothing until the mint hash is known. |
+| `noticeCopy.ts` | `txNoticeTitle(record, tone, { hideAmounts, ownEvmAddress })` — the one-line title of a tx notice (header pill / toast): "Shielding 5.00 USDC…", "Sent 5.00 USDC", "Shield failed", "Couldn't confirm the send", "Received 5.00 USDC". An unshield to the user's own wallet reads "Unshielded"; hidden balances drop the amount ("Received USDC"). |
 | `stageCopy.ts` | Pure helpers: `stageCopy(kind, stage, executionState?)`, `kindTitle(kind)`, `recordTitle(record)`. Row/stepper/activity copy; the in-flight view's copy is in `processing/processingView.ts`. |
 
 ## Conventions
 
 - **No data fetching inside components.** A row or stepper takes a record via props; the caller (page or feature component) reads `txListAtom` / `pendingTxsAtom` and forwards.
 - **No business logic.** If you find yourself deriving lifecycle math (e.g. ETA-from-history) inside a render, push it into `lib/tx/` or a hook.
-- **Copy lives in two maps, never inline in a component.** `stageCopy.ts` (`COPY`, `KIND_TITLES`) serves `TxRow`, `TxLifecycleStepper`, and the dashboard activity adapter. `processing/processingView.ts` (`STAGE_COPY`, `GROUP_COPY`, `resolveCardBase`) serves the live in-flight view. Adding a stage means editing both.
+- **Copy lives in maps, never inline in a component.** `stageCopy.ts` (`COPY`, `KIND_TITLES`) serves `TxRow`, `TxLifecycleStepper`, and the dashboard activity adapter. `processing/processingView.ts` (`STAGE_COPY`, `GROUP_COPY`, `resolveCardBase`) serves the live in-flight view. Adding a stage means editing both. `noticeCopy.ts` (`COPY`, per kind, not per stage) serves the tx notices outside the modal.
 - **Explorer links via `getChainById(chainId).explorerUrl`.** Don't hardcode hostnames.
 - **Don't expose raw stage strings in the primary UX.** They're allowed inside `TechnicalDetailsDisclosure` for debugging, never in the row title or stepper-row label.
 

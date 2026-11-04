@@ -26,3 +26,12 @@ export function overlayIndicatorStatus(step: FlowStep): FlowStepIndicatorStatus 
   if (step === 'error') return 'error'
   return 'default'
 }
+
+/**
+ * The steps on which a flow modal shows the tx it submitted (its progress, outcome or error). While the modal is open
+ * on one of them, `useTx({ inView })` keeps that tx's toast / header notice quiet. Takes any step name, since some
+ * flows add their own pre-submit steps (Send's `recipient`, Shield's `wallet`).
+ */
+export function showsSubmittedTx(step: string): boolean {
+  return step === 'progress' || step === 'complete' || step === 'error'
+}

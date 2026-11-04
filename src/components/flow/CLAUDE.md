@@ -13,7 +13,7 @@
 | `FeeUpdatedBanner` | Warning-toned Review-step callout shown when a submit-time fee refetch changed the fee (`lib/tx/submitQuote.ts`). Each review step (`ShieldReviewStep` / `SendReviewStep` / `EarnReviewStep`) renders it when its flow reports `feeChanged`, so the user re-confirms the new amount instead of it silently swapping. |
 | `FlowAmountHero` | Big-numeral amount hero used inside step bodies. |
 | `WalletConfirmList` | Per-step "confirm in your wallet" checklist (shield signing sub-state). |
-| `overlayFlow.ts` | `overlayIndicatorStep` / `overlayIndicatorStatus` — map a step string → the ModalShell Steps indicator position + status (default/confirmed/error). Used by the feature modals. |
+| `overlayFlow.ts` | `overlayIndicatorStep` / `overlayIndicatorStatus` — map a step string → the ModalShell Steps indicator position + status (default/confirmed/error). Used by the feature modals. `showsSubmittedTx(step)` — true on progress / complete / error, the steps that show the submitted tx; every flow passes `isOpen && showsSubmittedTx(step)` as `useTx`'s `inView`. |
 
 ### Pre-redesign primitives
 

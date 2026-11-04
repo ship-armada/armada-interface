@@ -23,6 +23,7 @@ vi.mock('@/lib/tx/storage', () => storage)
 import { useTx } from './useTx'
 import { activeShieldedWalletIdAtom } from '@/state/wallet'
 import { txListAtom } from '@/state/tx'
+import { txInViewIdsAtom } from '@/state/txNotices'
 
 function makeWrapper(store: ReturnType<typeof createStore>) {
   return ({ children }: { children: ReactNode }) => <Provider store={store}>{children}</Provider>
@@ -66,5 +67,26 @@ describe('useTx.submit follower-tab guard (P1-26)', () => {
     expect(executor.executeTx).toHaveBeenCalledWith(id)
     expect(storage.putTxIfFresh).toHaveBeenCalledOnce()
     expect(store.get(txListAtom)).toHaveLength(1)
+  })
+})
+
+describe('useTx inView', () => {
+  it('registers its record as on screen while inView, and drops it when the flow stops showing it', async () => {
+    executor.getIsLeader.mockReturnValue(true)
+    storage.putTxIfFresh.mockResolvedValue(true)
+    const store = createStore()
+    store.set(activeShieldedWalletIdAtom, 'rw-1')
+    const { result, rerender } = renderHook(({ inView }) => useTx({ kind: 'shield', inView }), {
+      wrapper: makeWrapper(store),
+      initialProps: { inView: true },
+    })
+    expect(store.get(txInViewIdsAtom).size).toBe(0)
+
+    const id = await result.current.submit(SHIELD_META)
+    rerender({ inView: true })
+    expect([...store.get(txInViewIdsAtom)]).toEqual([id])
+
+    rerender({ inView: false })
+    expect(store.get(txInViewIdsAtom).size).toBe(0)
   })
 })
