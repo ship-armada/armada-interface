@@ -27,6 +27,7 @@ import { useTabVisible } from '@/hooks/useTabVisible'
 import { useDebugSync } from '@/hooks/useDebugSync'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { useTxNotices } from '@/hooks/useTxNotices'
+import { usePendingTabTitle } from '@/hooks/usePendingTabTitle'
 import { useRequestLinks } from '@/hooks/useRequestLinks'
 import { useTxResume } from '@/hooks/useTxResume'
 import { useUsdcBalances } from '@/hooks/useUsdcBalances'
@@ -69,6 +70,7 @@ export function App() {
   useHistoryRecovery() // chain-recover synthetic rows on unlock + re-scan epoch (Phase 9.3)
   useIncomingTransferDetector() // re-scan on balance events so received transfers surface live (Phase 9.4)
   useTxNotices() // tx changes the user isn't watching → the notice feed (header pill / toasts)
+  usePendingTabTitle() // "(1) Armada App — …" in the tab while a tx is in flight
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
   usePayViaLinkIntent() // pick up a pending pay-via-link hand-off + open the prefilled Send on unlock
   // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (OnboardingFlow's
