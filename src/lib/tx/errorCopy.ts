@@ -9,8 +9,9 @@ export interface TxErrorCopy {
 }
 
 /**
- * Per-code copy. POLL_TIMEOUT / DISMISSED / DUPLICATE_TX phrase "may still complete" (we stopped
- * watching, but the tx could have landed); the definitive failures are unambiguous; USER_REJECTED /
+ * Per-code copy. POLL_TIMEOUT / STUCK / DISMISSED / DUPLICATE_TX phrase "may still complete" (we stopped
+ * watching, but the tx could have landed) and ask the user to check their balance before starting a new
+ * transaction, so they don't pay twice; the definitive failures are unambiguous; USER_REJECTED /
  * CANCELLED make clear nothing was sent.
  */
 export const TX_ERROR_COPY: Record<TxErrorCode, TxErrorCopy> = {
@@ -25,7 +26,7 @@ export const TX_ERROR_COPY: Record<TxErrorCode, TxErrorCopy> = {
   },
   POLL_TIMEOUT: {
     title: 'Lost track of your transaction',
-    body: 'We stopped watching after the time budget elapsed. The transaction may still complete — check the explorer to confirm.',
+    body: 'We stopped watching after the time budget elapsed. The transaction may still complete — check the explorer to confirm. Check your balance before starting a new transaction.',
   },
   RPC_ERROR: {
     title: 'Network error',
@@ -45,7 +46,7 @@ export const TX_ERROR_COPY: Record<TxErrorCode, TxErrorCopy> = {
   },
   DUPLICATE_TX: {
     title: 'Already submitted',
-    body: 'The relayer already has this transaction — it may still complete. Check the explorer to confirm.',
+    body: 'The relayer already has this transaction — it may still complete. Check the explorer to confirm. Check your balance before starting a new transaction.',
   },
   CANCELLED: {
     title: 'Cancelled',
@@ -53,11 +54,11 @@ export const TX_ERROR_COPY: Record<TxErrorCode, TxErrorCopy> = {
   },
   DISMISSED: {
     title: 'Stopped tracking',
-    body: 'You asked us to stop watching this transaction. It may still complete on chain — check the explorer.',
+    body: 'You asked us to stop watching this transaction. It may still complete on chain — check the explorer. Check your balance before starting a new transaction.',
   },
   STUCK: {
     title: 'Lost track of your transaction',
-    body: 'This transaction stalled unexpectedly. It may still complete on chain — check the explorer to confirm.',
+    body: 'This transaction stalled unexpectedly. It may still complete on chain — check the explorer to confirm. Check your balance before starting a new transaction.',
   },
   OTHER: {
     title: 'Something went wrong',
@@ -100,4 +101,16 @@ export function resolveTxErrorCopy(
     title: copy?.title ?? 'Something went wrong',
     body: copy?.body ?? error?.message ?? fallbackMessage,
   }
+}
+
+/** Codes whose retry only RE-CHECKS an already-broadcast tx (re-enters the confirmation wait with the known hash). */
+const RECHECK_CODES: ReadonlySet<TxErrorCode> = new Set<TxErrorCode>(['POLL_TIMEOUT', 'STUCK', 'DISMISSED'])
+
+/**
+ * The error step's in-place retry label. For an outcome we lost track of, retrying never resends — it re-watches the
+ * tx by its hash — so "Try again" (which reads as "send it again") would make the user fear paying twice: say
+ * "Check again". Callers still use "Start over" when the record isn't retryable in place (`canRetryTx`).
+ */
+export function retryActionLabel(error?: TxError | null): 'Check again' | 'Try again' {
+  return error && RECHECK_CODES.has(error.code) ? 'Check again' : 'Try again'
 }

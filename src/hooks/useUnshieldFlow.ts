@@ -16,6 +16,7 @@ import { findDeploymentForChain, loadDeployments, type ResolvedDeployments } fro
 import { parseUsdcInput } from '@/lib/format'
 import { isShieldedAddress } from '@/lib/address'
 import { canRetryTx } from '@/lib/tx/executor'
+import { retryActionLabel } from '@/lib/tx/errorCopy'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
@@ -319,7 +320,13 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
   }
 
   const errorRetryable = errorAtStep === 'review' || (record != null && canRetryTx(record))
-  const errorPrimaryLabel = errorRetryable ? 'Try again' : 'Start over'
+  // A retry that only re-checks a tx we lost track of reads "Check again" — it never resends (retryActionLabel).
+  const errorPrimaryLabel =
+    errorAtStep === 'review'
+      ? 'Try again'
+      : errorRetryable
+        ? retryActionLabel(record?.artifacts.error)
+        : 'Start over'
   function onErrorPrimary() {
     if (errorAtStep === 'review') {
       setSubmitError(null)

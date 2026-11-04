@@ -2,7 +2,7 @@
 // ABOUTME: spent when the user's own wallet sent the reverted tx (direct-path shield), via userPaidNetworkFee.
 
 import { describe, it, expect } from 'vitest'
-import { resolveTxErrorCopy, userPaidNetworkFee } from './errorCopy'
+import { resolveTxErrorCopy, retryActionLabel, userPaidNetworkFee } from './errorCopy'
 import type { TxRecord } from './types'
 
 const reverted = { code: 'TX_REVERTED' as const, message: 'execution reverted', txHash: '0x01' as `0x${string}` }
@@ -51,5 +51,31 @@ describe('userPaidNetworkFee', () => {
 
   it('is false without a record', () => {
     expect(userPaidNetworkFee(null)).toBe(false)
+  })
+})
+
+describe('indeterminate outcomes (7E)', () => {
+  // WHY: these txs may still land. Starting a fresh one without checking risks paying twice.
+  it.each(['POLL_TIMEOUT', 'STUCK', 'DUPLICATE_TX', 'DISMISSED'] as const)(
+    '%s tells the user to check their balance before starting a new transaction',
+    (code) => {
+      expect(resolveTxErrorCopy({ code, message: 'x' }).body).toMatch(
+        /may still complete.*Check your balance before starting a new transaction\.$/,
+      )
+    },
+  )
+})
+
+describe('retryActionLabel', () => {
+  it('reads "Check again" when a retry only re-checks a tx that may already have landed', () => {
+    // Retrying these re-enters the confirmation wait with the known hash — it never resends.
+    expect(retryActionLabel({ code: 'POLL_TIMEOUT', message: 'x' })).toBe('Check again')
+    expect(retryActionLabel({ code: 'STUCK', message: 'x' })).toBe('Check again')
+    expect(retryActionLabel({ code: 'DISMISSED', message: 'x' })).toBe('Check again')
+  })
+
+  it('reads "Try again" otherwise', () => {
+    expect(retryActionLabel({ code: 'RPC_ERROR', message: 'x' })).toBe('Try again')
+    expect(retryActionLabel(null)).toBe('Try again')
   })
 })

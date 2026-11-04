@@ -35,6 +35,7 @@ import { spendDraft } from '@/lib/tx/spendDraft'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
 import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
+import { retryActionLabel } from '@/lib/tx/errorCopy'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
@@ -621,9 +622,11 @@ export function SendModal() {
           message={submitError ?? undefined}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
           primaryLabel={
-            errorAtStep === 'review' || (record != null && canRetryTx(record))
+            errorAtStep === 'review'
               ? 'Try again'
-              : 'Start over'
+              : record != null && canRetryTx(record)
+                ? retryActionLabel(record.artifacts.error)
+                : 'Start over'
           }
           onRetry={
             errorAtStep === 'review'
