@@ -22,10 +22,11 @@
 #       VITE_SENTRY_DSN, VITE_SENTRY_ENVIRONMENT, SENTRY_ORG, SENTRY_PROJECT
 name: Deploy
 
+# main only: PRs are previewed on the local dev server, and CI's "Production Build" job (ci.yml) already
+# builds them (including the ZK-artifact check via `prebuild`), so a PR run here would only duplicate it.
 on:
   push:
     branches: [main]
-  pull_request:
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -87,7 +88,7 @@ jobs:
       # build (it reads netlify.toml's [build] command and re-runs it), which both wastes work and
       # fails here — we've already built above. With --no-build it just uploads --dir; netlify.toml's
       # SPA redirect + security headers are still read from the repo root and applied to the deploy.
-      # Production on main only — PRs are previewed on the local dev server, so no draft deploy is published for them.
+      # Production deploy (this workflow only runs on push to main).
       - name: Deploy to Netlify (production)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npx --yes netlify-cli deploy --no-build --dir=dist --prod --message "GH Actions ${{ github.sha }}"
