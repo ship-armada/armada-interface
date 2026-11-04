@@ -60,9 +60,12 @@ describe('<SendReviewStep>', () => {
     const writeText = vi.fn(async () => {})
     Object.assign(navigator, { clipboard: { writeText } })
     renderReview({ recipient: VALID_0ZK })
-    expect(screen.queryByText(VALID_0ZK)).toBeNull()
+    expect(screen.queryByRole('group', { name: 'Full address' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Show full address' }))
-    expect(screen.getByText(VALID_0ZK)).toBeInTheDocument()
+    // The full address opens as its own full-width block under the To row, in groups of 4.
+    expect(screen.getByRole('group', { name: 'Full address' }).textContent?.replace(/\s/g, '')).toBe(VALID_0ZK)
+    fireEvent.click(screen.getByRole('button', { name: 'Hide full address' }))
+    expect(screen.queryByRole('group', { name: 'Full address' })).toBeNull()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy address' }))
     })

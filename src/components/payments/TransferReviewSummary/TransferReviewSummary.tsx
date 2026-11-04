@@ -1,12 +1,14 @@
 // ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account / recipient — revealable in full + copyable — / fees) with a fee-on-top "Total" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
+import { useState } from 'react'
 import { GlobeAltIcon } from '@heroicons/react/24/outline'
 import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import { AddressText } from '@/components/ui/AddressText'
 import { AddressReveal } from '@/components/ui/AddressReveal'
+import { FullAddress } from '@/components/ui/FullAddress'
 import { isShieldedAddress } from '@/lib/address'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
@@ -54,6 +56,8 @@ export function TransferReviewSummary({
   recipientWalletProvider,
   confirmedAt,
 }: TransferReviewSummaryProps) {
+  // Whether the full recipient address is open (its own full-width block under the To row).
+  const [showFullRecipient, setShowFullRecipient] = useState(false)
   // Private (0zk → 0zk) transfers stay inside the shielded pool; anything else exits to a public
   // wallet. Drives the recipient-row icon, whether the network row shows, and the privacy notice.
   const isPrivate = isShieldedAddress(recipient)
@@ -101,10 +105,16 @@ export function TransferReviewSummary({
                 <WalletProviderIcon provider={recipientWalletProvider} size={ROW_ICON_PX} />
               )}
               {/* Tap to see the full address (and copy it) before confirming — the shortened form alone isn't enough to verify. */}
-              <AddressReveal address={recipient} />
+              <AddressReveal
+                address={recipient}
+                expanded={showFullRecipient}
+                onToggle={() => setShowFullRecipient((open) => !open)}
+              />
             </span>
           </span>
         </div>
+        {/* The full address gets its own full-width row (groups of 4 that wrap), not the one-line value cell. */}
+        {showFullRecipient ? <FullAddress address={recipient} /> : null}
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>{cctpFee ? 'Relayer fee' : 'Fees'}</span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>

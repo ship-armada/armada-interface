@@ -1,0 +1,20 @@
+/* ABOUTME: FullAddress styling — a full-width, softly framed block of monospace 4-character groups that wrap by group,
+   ABOUTME: so a long 0zk address never overflows the card. */
+
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: var(--primitives-spacing-2);
+  row-gap: var(--primitives-spacing-1);
+  padding: var(--primitives-spacing-2) var(--primitives-spacing-3);
+  border-radius: var(--primitives-borderRadius-md);
+  background: color-mix(in srgb, var(--semantic-color-text-primary) 6%, transparent);
+  font-family: var(--primitives-fontFamily-mono), monospace;
+  font-size: calc(var(--primitives-fontSize-base) * 1px);
+  color: var(--semantic-color-text-secondary);
+}
+
+.group {
+  white-space: nowrap;
+}

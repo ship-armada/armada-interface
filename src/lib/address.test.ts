@@ -10,6 +10,7 @@ import {
   splitAddressForDisplay,
   shortAddress,
   extractAddress,
+  groupAddress,
 } from './address'
 
 // Canonical EIP-55 checksummed address from the spec's test vectors.
@@ -164,5 +165,16 @@ describe('extractAddress', () => {
   it('returns null when there is no valid address (including a bad EIP-55 checksum)', () => {
     expect(extractAddress('no address here')).toBeNull()
     expect(extractAddress('0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAeD')).toBeNull()
+  })
+})
+
+describe('groupAddress', () => {
+  it('splits an address into groups of 4 for side-by-side checking (last group may be shorter)', () => {
+    expect(groupAddress('0zk1qyk9nn28x0u3rw')).toEqual(['0zk1', 'qyk9', 'nn28', 'x0u3', 'rw'])
+    expect(groupAddress('0x1234567890ab')).toEqual(['0x12', '3456', '7890', 'ab'])
+  })
+
+  it('trims surrounding whitespace first', () => {
+    expect(groupAddress('  0x1234  ')).toEqual(['0x12', '34'])
   })
 })

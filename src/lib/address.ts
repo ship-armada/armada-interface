@@ -130,3 +130,11 @@ export function extractAddress(text: string): string | null {
   const valid = new Set(candidates.filter((c) => isEvmAddress(c) || isShieldedAddress(c)))
   return valid.size === 1 ? [...valid][0] ?? null : null
 }
+
+/** Split an address into groups of `size` characters (last group may be shorter) — the full-address block on Review. */
+export function groupAddress(address: string, size = 4): string[] {
+  const v = address.trim()
+  const groups: string[] = []
+  for (let i = 0; i < v.length; i += size) groups.push(v.slice(i, i + size))
+  return groups
+}

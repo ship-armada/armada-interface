@@ -1,13 +1,5 @@
-/* ABOUTME: AddressReveal styling — shortened address + copy icon on one line; the full address wraps below when open.
+/* ABOUTME: AddressReveal styling — the shortened address (a show/hide toggle) + copy icon on one line.
    ABOUTME: Inherits the summary row's typography; buttons are unstyled text-like controls with a visible focus ring. */
-
-.root {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--primitives-spacing-1);
-  min-width: 0;
-}
 
 .line {
   display: inline-flex;
@@ -41,11 +33,4 @@
 .copyIcon {
   width: 14px;
   height: 14px;
-}
-
-.full {
-  max-width: 100%;
-  text-align: right;
-  word-break: break-all;
-  color: var(--semantic-color-text-secondary);
 }
