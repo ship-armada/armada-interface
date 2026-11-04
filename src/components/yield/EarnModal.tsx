@@ -21,6 +21,7 @@ import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { isShieldedAddress } from '@/lib/address'
 import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
+import { retryActionLabel } from '@/lib/tx/errorCopy'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { sharesToUsdc } from '@/lib/yield'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
@@ -502,9 +503,11 @@ export function EarnModal() {
           message={submitError ?? undefined}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
           primaryLabel={
-            errorAtStep === 'review' || (record != null && canRetryTx(record))
+            errorAtStep === 'review'
               ? 'Try again'
-              : 'Start over'
+              : record != null && canRetryTx(record)
+                ? retryActionLabel(record.artifacts.error)
+                : 'Start over'
           }
           onRetry={
             errorAtStep === 'review'

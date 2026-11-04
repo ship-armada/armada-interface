@@ -18,8 +18,8 @@ describe('<RecentAddressList>', () => {
   it('renders the label, a truncated address, and a relative time per item', () => {
     render(<RecentAddressList items={ITEMS} onSelect={vi.fn()} now={NOW} />)
     expect(screen.getByText('Recent address')).toBeInTheDocument()
-    // Middle-truncated address (first 6 + "..." + last 4), not the full string.
-    expect(screen.getByText('0x1111...1111')).toBeInTheDocument()
+    // Shortened address ("0x" + 4 + "..." + 4, ends emphasised), with the full address in the title.
+    expect(screen.getByTitle(EVM_A)).toHaveTextContent('0x1111...1111')
     expect(screen.getByText('3d ago')).toBeInTheDocument()
     expect(screen.getByText('1m ago')).toBeInTheDocument()
   })

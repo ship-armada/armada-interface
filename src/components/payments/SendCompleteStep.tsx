@@ -2,6 +2,7 @@
 // ABOUTME: Presentation via design ConfirmedScreenLayout (armada-app SendConfirmedScreen parity).
 
 import { ConfirmedScreenLayout } from '@/design'
+import { DeliveryTxLink } from '@/components/tx/DeliveryTxLink'
 import type { CctpFeeFigure } from '@/lib/fees/txFigures'
 import { TransferReviewSummary } from './TransferReviewSummary'
 import { formatUsdcPlain } from '@/lib/format'
@@ -28,6 +29,8 @@ export interface SendCompleteStepProps {
   recipientWalletProvider?: string
   /** Completion timestamp (ms) — drives the summary's "Date and time" row. */
   confirmedAt: number
+  /** A cross-chain send's destination (CCTP mint) tx link (`lib/explorer::deliveryExplorerLink`); shown under the summary. */
+  deliveryLink?: { url: string; chainName: string } | null
   /** Source-chain explorer URL for the tx; absent disables the "View on explorer" button. */
   explorerUrl?: string
   onViewExplorer: () => void
@@ -35,6 +38,7 @@ export interface SendCompleteStepProps {
 }
 
 export function SendCompleteStep({
+  deliveryLink,
   variant,
   recipient,
   armadaAddress,
@@ -75,6 +79,7 @@ export function SendCompleteStep({
         recipientWalletProvider={recipientWalletProvider}
         confirmedAt={confirmedAt}
       />
+      <DeliveryTxLink link={deliveryLink ?? null} />
     </ConfirmedScreenLayout>
   )
 }

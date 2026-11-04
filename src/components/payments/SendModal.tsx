@@ -16,7 +16,7 @@ import { useTx } from '@/hooks/useTx'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
 import { useSpendCheck } from '@/hooks/useSpendCheck'
 import type { BlockedSpend } from '@/lib/shielded/merge-intent'
-import { useRecentRecipients } from '@/hooks/useRecentRecipients'
+import { useRecentRecipients, useSendCountTo } from '@/hooks/useRecentRecipients'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
@@ -33,8 +33,9 @@ import { txFiguresAs } from '@/lib/fees/txFigures'
 import { isWithdrawToSelf } from '@/components/dashboard/txActivityAdapter'
 import { spendDraft } from '@/lib/tx/spendDraft'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
-import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
+import { retryActionLabel } from '@/lib/tx/errorCopy'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
@@ -195,6 +196,8 @@ export function SendModal() {
   // Recently-used recipients (from settled history) offered on the recipient step. Selecting one
   // fills the address and restores its destination chain (0zk transfers have none → back to hub).
   const recentAddresses = useRecentRecipients(5)
+  // Settled sends already made to the current recipient — Review's "New recipient" callout / "History" row.
+  const previousSendCount = useSendCountTo(recipient)
   function handleSelectRecent(item: RecentRecipient) {
     setRecipient(item.address)
     setDestChainId(item.destChainId ?? hubChainId)
@@ -583,6 +586,8 @@ export function SendModal() {
             : {})}
           onBack={() => setStep('input')}
           isSubmitting={isSubmitting}
+          previousSendCount={previousSendCount}
+          recipientIsOwnWallet={recipientIsConnectedWallet}
           onConfirm={handleSubmit}
         />
       )}
@@ -602,6 +607,7 @@ export function SendModal() {
           // Hub-chain explorer link for the on-chain submission. The destination delivery for
           // xchain is a separate event tracked elsewhere; this is the source-chain action.
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
+          deliveryLink={record ? deliveryExplorerLink(record) : null}
           onViewExplorer={() => {
             const url = txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))
             if (url) window.open(url, '_blank', 'noopener,noreferrer')
@@ -616,9 +622,11 @@ export function SendModal() {
           message={submitError ?? undefined}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
           primaryLabel={
-            errorAtStep === 'review' || (record != null && canRetryTx(record))
+            errorAtStep === 'review'
               ? 'Try again'
-              : 'Start over'
+              : record != null && canRetryTx(record)
+                ? retryActionLabel(record.artifacts.error)
+                : 'Start over'
           }
           onRetry={
             errorAtStep === 'review'

@@ -1,7 +1,8 @@
-// ABOUTME: Tests for deriveRecentRecipients — dedupe by normalized address, newest-first, cap, completed-only, per-kind chain.
+// ABOUTME: Tests for deriveRecentRecipients (dedupe by normalized address, newest-first, cap, completed-only, per-kind chain)
+// ABOUTME: and countSendsTo (how many settled sends already went to an address — the Review "first time" line).
 
 import { describe, it, expect } from 'vitest'
-import { deriveRecentRecipients } from './recentRecipients'
+import { countSendsTo, deriveRecentRecipients } from './recentRecipients'
 import type { TxRecord, TxKind, TxExecutionState } from './types'
 
 const HUB = 31337
@@ -92,5 +93,37 @@ describe('deriveRecentRecipients', () => {
     const out = deriveRecentRecipients(records, { hubChainId: HUB })
     expect(out).toHaveLength(1)
     expect(out[0]?.address).toBe(EVM_A)
+  })
+})
+
+describe('countSendsTo', () => {
+  it('counts settled sends of every send kind to the address', () => {
+    const records = [
+      rec({ kind: 'transfer-shielded', createdAt: 1, recipient: ZK_A }),
+      rec({ kind: 'transfer-shielded', createdAt: 2, recipient: ZK_A }),
+      rec({ kind: 'unshield-local', createdAt: 3, recipient: EVM_A }),
+      rec({ kind: 'unshield-xchain', createdAt: 4, recipient: EVM_A, toChainId: CLIENT }),
+    ]
+    expect(countSendsTo(records, ZK_A)).toBe(2)
+    expect(countSendsTo(records, EVM_A)).toBe(2)
+    expect(countSendsTo(records, EVM_B)).toBe(0)
+  })
+
+  it('ignores sends that did not settle and non-send kinds', () => {
+    const records = [
+      rec({ kind: 'transfer-shielded', createdAt: 1, recipient: ZK_A, executionState: 'failed' }),
+      rec({ kind: 'transfer-shielded', createdAt: 2, recipient: ZK_A, executionState: 'active' }),
+      rec({ kind: 'shield', createdAt: 3, recipient: ZK_A }),
+    ]
+    expect(countSendsTo(records, ZK_A)).toBe(0)
+  })
+
+  it('compares 0x addresses case-insensitively and 0zk addresses exactly, ignoring surrounding whitespace', () => {
+    const records = [
+      rec({ kind: 'unshield-local', createdAt: 1, recipient: EVM_A.toUpperCase().replace('0X', '0x') }),
+      rec({ kind: 'transfer-shielded', createdAt: 2, recipient: ZK_A }),
+    ]
+    expect(countSendsTo(records, `  ${EVM_A}  `)).toBe(1)
+    expect(countSendsTo(records, ZK_A.toUpperCase())).toBe(0)
   })
 })

@@ -1,0 +1,8 @@
+/* ABOUTME: CopyableAddress styling — the shortened address and its copy icon on one line.
+   ABOUTME: Same spacing as ui/AddressReveal, so every address row lines up. */
+
+.line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+}

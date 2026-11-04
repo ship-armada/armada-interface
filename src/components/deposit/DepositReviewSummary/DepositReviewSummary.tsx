@@ -1,14 +1,10 @@
-// ABOUTME: DepositReviewSummary — subtle bordered deposit summary table (network / wallet / Armada account / fees) with a "You'll receive" total.
+// ABOUTME: DepositReviewSummary — subtle bordered deposit summary table (network / wallet / Armada account — both copyable — / fees) with a "You'll receive" total.
 // ABOUTME: Shared by ShieldReviewStep and ShieldCompleteStep; an optional confirmedAt adds a leading "Date and time" row for confirmations.
 
 import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
-import {
-  formatTransactionDateTime,
-  formatUsdcAmount,
-  truncateAddress,
-  truncateArmadaAddress,
-} from '@/lib/format'
+import { CopyableAddress } from '@/components/ui/CopyableAddress'
+import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import { getChainById } from '@/config/network'
 import { formatNativeGasAmount, type NativeGasEstimate } from '@/lib/fees/displayFees'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
@@ -21,11 +17,11 @@ export interface DepositReviewSummaryProps {
   amount: bigint
   fee: bigint | null
   netAmount: bigint | null
-  /** Connected EVM wallet address — rendered (truncated) as the "From your wallet" row when present. */
+  /** Connected EVM wallet address — rendered (shortened, with a copy button for the full address) as the "From your wallet" row when present. */
   walletAddress?: string
   /** Connected wallet provider name (wagmi connector) — drives the "From your wallet" brand glyph. */
   walletProvider?: string
-  /** Shielded (Armada) destination address — rendered (truncated) as the "To your private account" row when present. */
+  /** Shielded (Armada) destination address — rendered (shortened, with a copy button for the full address) as the "To Armada" row when present. */
   shieldedAddress?: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row for confirmations. */
   confirmedAt?: number
@@ -72,7 +68,7 @@ export function DepositReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <WalletProviderIcon provider={walletProvider} size={ROW_ICON_PX} />
-                <span>{truncateAddress(walletAddress)}</span>
+                <CopyableAddress address={walletAddress} label="Copy wallet address" copiedLabel="Wallet address copied" />
               </span>
             </span>
           </div>
@@ -83,7 +79,7 @@ export function DepositReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <span>{truncateArmadaAddress(shieldedAddress)}</span>
+                <CopyableAddress address={shieldedAddress} label="Copy Armada address" copiedLabel="Armada address copied" />
               </span>
             </span>
           </div>

@@ -1,5 +1,5 @@
-// ABOUTME: Address-format helpers — validators for EVM (0x…) and shielded (0zk…) recipient strings.
-// ABOUTME: No React. Uses ethers (allowed in lib/) for EIP-55 checksum verification of mixed-case EVM addresses.
+// ABOUTME: Address-format helpers — validators for EVM (0x…) and shielded (0zk…) recipient strings, address extraction from pasted text, plus the counterparty
+// ABOUTME: display split (fixed prefix + verifiable head/tail). No React. Uses ethers for EIP-55 checksum verification.
 
 import { getAddress } from 'ethers'
 
@@ -70,4 +70,71 @@ export async function validateShieldedAddressStrict(value: string): Promise<bool
   } catch {
     return false
   }
+}
+
+/** A counterparty address split for display: the fixed `prefix`, then the `head` and `tail` a user verifies. */
+export interface AddressDisplayParts {
+  prefix: string
+  head: string
+  tail: string
+}
+
+const ZK_HEAD = 8
+const ZK_TAIL = 6
+const EVM_HEAD = 4
+const EVM_TAIL = 4
+
+/**
+ * Split a recipient / sender address for display. A shielded address's "0zk1" (bech32m hrp + separator)
+ * is the same for everyone, so it's the `prefix` and the verifiable part starts after it: 8 head + 6
+ * tail characters. (Showing the first 6 + last 4 of the whole string left ~5 meaningful characters —
+ * cheap for a lookalike address to match.) EVM addresses keep the familiar "0x" + 4 + 4. Returns null
+ * for a string too short to shorten or of another shape, so callers render it as-is.
+ */
+export function splitAddressForDisplay(address: string): AddressDisplayParts | null {
+  const v = address.trim()
+  if (v.startsWith('0zk')) {
+    const prefix = v.startsWith('0zk1') ? '0zk1' : '0zk'
+    const body = v.slice(prefix.length)
+    if (body.length <= ZK_HEAD + ZK_TAIL) return null
+    return { prefix, head: body.slice(0, ZK_HEAD), tail: body.slice(-ZK_TAIL) }
+  }
+  if (v.startsWith('0x')) {
+    const body = v.slice(2)
+    if (body.length <= EVM_HEAD + EVM_TAIL) return null
+    return { prefix: '0x', head: body.slice(0, EVM_HEAD), tail: body.slice(-EVM_TAIL) }
+  }
+  return null
+}
+
+/** Plain-text form of {@link splitAddressForDisplay} ("0zk1qyk9nn28...9wnce0"), for places that can't style the parts. */
+export function shortAddress(address: string): string {
+  const parts = splitAddressForDisplay(address)
+  return parts ? `${parts.prefix}${parts.head}...${parts.tail}` : address
+}
+
+const EVM_IN_TEXT = /0x[a-fA-F0-9]{40}(?![a-fA-F0-9])/g
+const ZK_IN_TEXT = /0zk[a-zA-Z0-9]{32,}/g
+
+/**
+ * Pull a recipient address out of pasted text — a bare address (trimmed), or the one address inside a message
+ * ("pay me at 0x… thanks") or a payment URI ("ethereum:0x…@1"). Returns null when there's no valid address, or
+ * when the text holds two DIFFERENT addresses (we don't guess which one the user meant). EVM candidates must pass
+ * the EIP-55 checksum (when mixed-case); 0zk candidates the shape check, like typed input.
+ */
+export function extractAddress(text: string): string | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  if (isShieldedAddress(trimmed) || isEvmAddress(trimmed)) return trimmed
+  const candidates = [...(trimmed.match(EVM_IN_TEXT) ?? []), ...(trimmed.match(ZK_IN_TEXT) ?? [])]
+  const valid = new Set(candidates.filter((c) => isEvmAddress(c) || isShieldedAddress(c)))
+  return valid.size === 1 ? [...valid][0] ?? null : null
+}
+
+/** Split an address into groups of `size` characters (last group may be shorter) — the full-address block on Review. */
+export function groupAddress(address: string, size = 4): string[] {
+  const v = address.trim()
+  const groups: string[] = []
+  for (let i = 0; i < v.length; i += size) groups.push(v.slice(i, i + size))
+  return groups
 }

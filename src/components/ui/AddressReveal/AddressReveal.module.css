@@ -1,0 +1,24 @@
+/* ABOUTME: AddressReveal styling — the shortened address (a show/hide toggle) + copy icon on one line.
+   ABOUTME: Inherits the summary row's typography; the toggle is an unstyled text-like control with a visible focus ring. */
+
+.line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+}
+
+.toggle {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--primitives-borderRadius-sm);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+}

@@ -2,6 +2,7 @@
 // ABOUTME: Presentation via design ConfirmedScreenLayout (armada-app DepositConfirmedScreen parity).
 
 import { ConfirmedScreenLayout } from '@/design'
+import { DeliveryTxLink } from '@/components/tx/DeliveryTxLink'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { formatUsdcPlain } from '@/lib/format'
 
@@ -19,6 +20,8 @@ export interface ShieldCompleteStepProps {
   shieldedAddress?: string
   /** Completion timestamp (ms) — drives the summary's "Date and time" row. */
   confirmedAt: number
+  /** A cross-chain shield's destination (CCTP mint into the hub) tx link (`lib/explorer::deliveryExplorerLink`); shown under the summary. */
+  deliveryLink?: { url: string; chainName: string } | null
   /** Source-chain explorer URL for the deposit tx; absent disables the "View on explorer" button. */
   explorerUrl?: string
   onViewExplorer: () => void
@@ -36,6 +39,7 @@ export function ShieldCompleteStep({
   shieldedAddress,
   confirmedAt,
   explorerUrl,
+  deliveryLink,
   onViewExplorer,
   onGoToDashboard,
 }: ShieldCompleteStepProps) {
@@ -58,6 +62,7 @@ export function ShieldCompleteStep({
         shieldedAddress={shieldedAddress}
         confirmedAt={confirmedAt}
       />
+      <DeliveryTxLink link={deliveryLink ?? null} />
     </ConfirmedScreenLayout>
   )
 }

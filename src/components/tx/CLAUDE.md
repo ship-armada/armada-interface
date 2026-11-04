@@ -11,6 +11,7 @@ Transaction-rendering primitives. Each one consumes a `TxRecord` and renders som
 | `TxStatusChip` | Maps `TxExecutionState` → `StatusChip` variant + label. Consolidates pre-terminal states (`pending`/`active`/`waiting`/`retrying`) under a single "Pending" badge. |
 | `TxActions` | Per-record CTAs: Retry (gated by the executor's `canRetryTx`), and Cancel (pre-broadcast, `cancelTx`) or Stop tracking (post-broadcast, `dismissTx`). Hidden on follower tabs. **Not rendered by any screen at present.** |
 | `processing/` | The redesigned in-flight "processing" surface — `TxProgressCard` (tick-ring around the USDC logo) + `TransactionProgressDisclosure` timeline + `TxProcessingLayout`; view model in `processingView.ts` / copy in `processingCopy.ts`. Rendered by `flow/ProgressStep` off the live record. |
+| `DeliveryTxLink/` | "View delivery on {chain} ↗" — the explorer link to a cross-chain tx's destination (CCTP mint) tx, from `lib/explorer::deliveryExplorerLink` (`artifacts.destTxHash` on the unshield's `toChainId`, or the hub for a cross-chain shield). Under the summary on the Send / Shield / Unshield confirmation and the Activity receipt; renders nothing until the mint hash is known. |
 | `stageCopy.ts` | Pure helpers: `stageCopy(kind, stage, executionState?)`, `kindTitle(kind)`, `recordTitle(record)`. Row/stepper/activity copy; the in-flight view's copy is in `processing/processingView.ts`. |
 
 ## Conventions

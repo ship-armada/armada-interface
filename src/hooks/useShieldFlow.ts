@@ -17,6 +17,7 @@ import { getIntegratorAddress, getNetworkConfig } from '@/config/network'
 import { loadDeployments } from '@/config/deployments'
 import { formatUsdc, parseUsdcInput } from '@/lib/format'
 import { canRetryTx } from '@/lib/tx/executor'
+import { retryActionLabel } from '@/lib/tx/errorCopy'
 import { resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { hasUnresolvedShield } from '@/lib/tx/duplicateGuard'
 import {
@@ -427,7 +428,13 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // Error-step primary action — same decision the old inline ErrorStep wiring made:
   //   review-stage error → back to review; retryable record → re-dispatch; else start over.
   const errorRetryable = errorAtStep === 'review' || (record != null && canRetryTx(record))
-  const errorPrimaryLabel = errorRetryable ? 'Try again' : 'Start over'
+  // A retry that only re-checks a tx we lost track of reads "Check again" — it never resends (retryActionLabel).
+  const errorPrimaryLabel =
+    errorAtStep === 'review'
+      ? 'Try again'
+      : errorRetryable
+        ? retryActionLabel(record?.artifacts.error)
+        : 'Start over'
   function onErrorPrimary() {
     if (errorAtStep === 'review') {
       setSubmitError(null)

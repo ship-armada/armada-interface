@@ -105,7 +105,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
         'transfer-shielded-received', { amount: A, senderShieldedAddress: RECIPIENT_0ZK, memoText: 'Rent for May' },
         { stage: 'observed' } as Partial<TxRecord>,
       )
-      expect(summaryRow('From')).toBe('0zkccc...cccc')
+      expect(summaryRow('From')).toBe('0zkcccccccc...cccccc')
       expect(summaryRow('Memo')).toBe('Rent for May')
     })
   })
@@ -189,6 +189,11 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       showReceipt('shield', { amount: A, fromChainId: 31337, useGasless: true, feeAmount: F, protocolFee: P }, cancelled)
       expect(summaryRow('Fees')).toBe('—')
       expect(summaryRow("You'll receive")).toBe('—')
+    })
+
+    it('a reverted direct-path shield admits the network fee was spent (7D)', () => {
+      showReceipt('shield', { amount: A, fromChainId: 31337, protocolFee: P }, reverted)
+      expect(screen.getByText(/the network fee was spent/)).toBeInTheDocument()
     })
 
     it('a failed vault deposit moved nothing', () => {

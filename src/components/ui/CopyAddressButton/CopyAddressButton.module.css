@@ -1,0 +1,24 @@
+/* ABOUTME: CopyAddressButton styling — an unstyled, muted 14px copy icon that sits inline beside an address.
+   ABOUTME: Visible focus ring for keyboard users. */
+
+.copy {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--primitives-borderRadius-sm);
+  display: inline-flex;
+  color: var(--semantic-color-text-muted);
+}
+
+.copy:focus-visible {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+}
+
+.copyIcon {
+  width: 14px;
+  height: 14px;
+}

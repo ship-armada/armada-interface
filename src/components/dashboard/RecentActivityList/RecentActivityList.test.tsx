@@ -58,4 +58,15 @@ describe('RecentActivityList', () => {
     fireEvent.click(screen.getByText('Deposit'))
     expect(onItemClick).toHaveBeenCalledWith(items[0])
   })
+
+  it('shows the full date and time on hover over the row time (8B)', () => {
+    const at = new Date(2026, 0, 5, 15, 42).getTime()
+    render(
+      <RecentActivityList
+        items={[{ id: 'h', kind: 'deposit', label: 'Deposit', amount: 5, occurredAt: at, status: 'settled', pending: false }]}
+      />,
+    )
+    expect(screen.getByTitle('Jan 5, 2026 · 3:42 PM')).toBeInTheDocument()
+  })
 })
+

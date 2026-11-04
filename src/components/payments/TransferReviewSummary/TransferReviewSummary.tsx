@@ -1,10 +1,14 @@
-// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account / recipient / fees) with a fee-on-top "Total" row + a trailing privacy notice.
+// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / history / fees) with a fee-on-top "Total" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
+import { useState } from 'react'
 import { GlobeAltIcon } from '@heroicons/react/24/outline'
 import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
-import { formatTransactionDateTime, formatUsdcAmount, truncateAddress } from '@/lib/format'
+import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
+import { AddressReveal } from '@/components/ui/AddressReveal'
+import { FullAddress } from '@/components/ui/FullAddress'
+import { CopyableAddress } from '@/components/ui/CopyableAddress'
 import { isShieldedAddress } from '@/lib/address'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
@@ -17,7 +21,7 @@ const ROW_ICON_PX = 16
 export interface TransferReviewSummaryProps {
   /** Destination address (0zk shielded or 0x public) — its format drives the privacy notice + recipient icon. */
   recipient: string
-  /** The user's own shielded (Armada) address — rendered (truncated) as the "From your private account" row when present. */
+  /** The user's own shielded (Armada) address — rendered (truncated, with a copy button for the full address) as the "From your private account" row when present. */
   armadaAddress?: string
   /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null (pre-quote-load). */
   fee: bigint | null
@@ -38,6 +42,9 @@ export interface TransferReviewSummaryProps {
   recipientWalletProvider?: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row and hides the privacy notice. */
   confirmedAt?: number
+  /** The user's history with a known recipient (e.g. "Sent 3 times before") — a "History" row under the recipient.
+   *  The review step passes it; a first-time recipient gets a warning callout outside the table instead. */
+  recipientHistory?: string
 }
 
 // `variant` is accepted for API symmetry with the review/complete steps; the summary copy no longer
@@ -51,7 +58,10 @@ export function TransferReviewSummary({
   networkName,
   recipientWalletProvider,
   confirmedAt,
+  recipientHistory,
 }: TransferReviewSummaryProps) {
+  // Whether the full recipient address is open (its own full-width block under the To row).
+  const [showFullRecipient, setShowFullRecipient] = useState(false)
   // Private (0zk → 0zk) transfers stay inside the shielded pool; anything else exits to a public
   // wallet. Drives the recipient-row icon, whether the network row shows, and the privacy notice.
   const isPrivate = isShieldedAddress(recipient)
@@ -81,7 +91,7 @@ export function TransferReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <span>{truncateAddress(armadaAddress)}</span>
+                <CopyableAddress address={armadaAddress} label="Copy your address" copiedLabel="Your address copied" />
               </span>
             </span>
           </div>
@@ -98,10 +108,23 @@ export function TransferReviewSummary({
               ) : (
                 <WalletProviderIcon provider={recipientWalletProvider} size={ROW_ICON_PX} />
               )}
-              <span>{truncateAddress(recipient)}</span>
+              {/* Tap to see the full address (and copy it) before confirming — the shortened form alone isn't enough to verify. */}
+              <AddressReveal
+                address={recipient}
+                expanded={showFullRecipient}
+                onToggle={() => setShowFullRecipient((open) => !open)}
+              />
             </span>
           </span>
         </div>
+        {/* The full address gets its own full-width row (groups of 4 that wrap), not the one-line value cell. */}
+        {showFullRecipient ? <FullAddress address={recipient} /> : null}
+        {recipientHistory ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>History</span>
+            <span className={styles.summaryValue}>{recipientHistory}</span>
+          </div>
+        ) : null}
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>{cctpFee ? 'Relayer fee' : 'Fees'}</span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>

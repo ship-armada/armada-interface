@@ -1,8 +1,8 @@
 // ABOUTME: Tests for PayViaLinkLanding — renders per parse state + hands off a valid link to the Send flow.
 // ABOUTME: Uses MemoryRouter so useLocation() sees the link query; a '/' stub stands in for the dashboard.
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { PayViaLinkLanding } from './PayViaLinkLanding'
 
@@ -31,6 +31,16 @@ describe('PayViaLinkLanding', () => {
     expect(screen.getByText('25.00')).toBeInTheDocument()
     expect(screen.getByText('Invoice 7')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Scan to open payment request' })).toBeInTheDocument()
+  })
+
+  it('lets the payer copy the FULL recipient address', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    renderAt(`/pay-via-link?to=${VALID_0ZK}&id=req_a&expires=${FUTURE}&amount=25`)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy recipient address' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(VALID_0ZK)
   })
 
   it('shows the invalid state for a non-shielded recipient', () => {

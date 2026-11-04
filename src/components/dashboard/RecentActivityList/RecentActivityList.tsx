@@ -26,6 +26,7 @@ import {
 import { BalanceScrambleValue } from '@/components/dashboard/BalanceScrambleValue'
 import { formatUsdcAmount, formatTimeAgo } from '@/components/dashboard/dashboardFormat'
 import { formatPaymentLinkExpiry } from '@/lib/payViaLink'
+import { formatTransactionDateTime } from '@/lib/format'
 import type {
   DashboardActivityItem,
   DashboardActivityKind,
@@ -168,7 +169,9 @@ function ActivityListItems({
                 <span className={[styles.label, struck && styles.labelStruck].filter(Boolean).join(' ')}>
                   {item.label}
                 </span>
-                <span className={styles.time}>{formatActivitySubtitle(item)}</span>
+                <span className={styles.time} title={formatTransactionDateTime(item.occurredAt)}>
+                  {formatActivitySubtitle(item)}
+                </span>
               </div>
               <span
                 className={[styles.amount, usdcAmount.font, amountTone].filter(Boolean).join(' ')}

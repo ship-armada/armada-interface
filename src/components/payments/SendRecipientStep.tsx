@@ -15,8 +15,8 @@ import iconButtonStyles from '@/design/components/IconButton/IconButton.module.c
 import { ChainSelect } from '@/components/ui'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
-import { isShieldedAddress, validateEvmAddress } from '@/lib/address'
-import { truncateAddress } from '@/lib/format'
+import { extractAddress, isShieldedAddress, shortAddress, validateEvmAddress } from '@/lib/address'
+import { AddressText } from '@/components/ui/AddressText'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { RecentAddressList } from './RecentAddressList'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
@@ -27,11 +27,8 @@ export type SendFlowVariant = 'send' | 'withdraw'
 
 /** Returns the trimmed clipboard text if it's a valid shielded (0zk) or public (0x) address, else null. */
 function validClipboardAddress(text: string): string | null {
-  const trimmed = text.trim()
-  if (!trimmed) return null
-  if (isShieldedAddress(trimmed)) return trimmed
-  if (validateEvmAddress(trimmed).valid) return trimmed
-  return null
+  // The clipboard often holds a whole message ("pay me at 0x…"); preview the one address inside it.
+  return extractAddress(text)
 }
 
 export interface SendRecipientStepProps {
@@ -130,7 +127,7 @@ export function SendRecipientStep({
   const recipientErrorId = useId()
 
   // Full address while focused/editing; middle-truncated when blurred so long addresses stay legible.
-  const inputDisplayValue = inputFocused || !hasInput ? recipient : truncateAddress(recipientTrimmed)
+  const inputDisplayValue = inputFocused || !hasInput ? recipient : shortAddress(recipientTrimmed)
 
   // The prompt differs by variant per design: withdraw leans into "where", send is imperative.
   const title =
@@ -162,7 +159,13 @@ export function SendRecipientStep({
               valueFont="mono"
               value={inputDisplayValue}
               title={recipientTrimmed || undefined}
-              onChange={(e) => onRecipientChange(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value
+                // A paste (more than one character inserted) may carry a whole message — keep just the address
+                // inside it. Single keystrokes pass through untouched, so typing is never silently rewritten.
+                const pasted = next.length - recipient.length > 1
+                onRecipientChange(pasted ? (extractAddress(next) ?? next) : next)
+              }}
               onFocus={() => setInputFocused(true)}
               onBlur={() => setInputFocused(false)}
               placeholder="Enter address"
@@ -206,9 +209,7 @@ export function SendRecipientStep({
               <span className={styles.clipboardPasteCopy}>
                 <span className={styles.clipboardPasteLabel}>Paste from clipboard</span>
                 {clipboardAddress ? (
-                  <span className={styles.clipboardPasteAddress} title={clipboardAddress}>
-                    {truncateAddress(clipboardAddress)}
-                  </span>
+                  <AddressText className={styles.clipboardPasteAddress} address={clipboardAddress} />
                 ) : (
                   <span className={styles.clipboardPasteAddressInvalid}>Not a valid address</span>
                 )}

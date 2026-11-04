@@ -1,7 +1,8 @@
-// ABOUTME: Tests for SendReviewStep — privacy notice by recipient format, optional network row, variant copy, recipient truncation, CTAs.
+// ABOUTME: Tests for SendReviewStep — privacy notice by recipient format, optional network row, variant copy, recipient display
+// ABOUTME: (shortened, revealable in full + copyable), CTAs.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { SendReviewStep, type SendReviewStepProps } from './SendReviewStep'
 
 const VALID_EVM = '0x1234567890abcdef1234567890abcdef12345678'
@@ -19,6 +20,8 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     submitBlockedReason: extras?.submitBlockedReason,
     onMergeNotes: extras?.onMergeNotes,
     isSubmitting: extras?.isSubmitting,
+    previousSendCount: extras?.previousSendCount,
+    recipientIsOwnWallet: extras?.recipientIsOwnWallet,
     onBack: extras?.onBack ?? vi.fn(),
     onConfirm: extras?.onConfirm ?? vi.fn(),
   }
@@ -48,10 +51,60 @@ describe('<SendReviewStep>', () => {
     expect(screen.queryByText('Network')).toBeNull()
   })
 
-  it('private: truncates the 0zk recipient (6 chars + ellipsis + last 4)', () => {
+  it('private: shows the 0zk recipient as its fixed prefix + 8 head + 6 tail characters (full address in the title)', () => {
     renderReview({ recipient: VALID_0ZK })
-    // truncateAddress → "0zkabc...aaaa"
-    expect(screen.getByText('0zkabc...aaaa')).toBeInTheDocument()
+    expect(screen.getByTitle(VALID_0ZK)).toHaveTextContent('0zkabcdefgh...89aaaa')
+  })
+
+  it('lets the user reveal and copy the FULL recipient address before confirming (5E)', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    renderReview({ recipient: VALID_0ZK })
+    expect(screen.queryByRole('group', { name: 'Full address' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show full address' }))
+    // The full address opens as its own full-width block under the To row, in groups of 4.
+    expect(screen.getByRole('group', { name: 'Full address' }).textContent?.replace(/\s/g, '')).toBe(VALID_0ZK)
+    fireEvent.click(screen.getByRole('button', { name: 'Hide full address' }))
+    expect(screen.queryByRole('group', { name: 'Full address' })).toBeNull()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy address' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(VALID_0ZK)
+  })
+
+  it('lets the user copy their own FULL private address from the "From" row', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    const ownAddress = '0zkownaddressownaddressownaddressownaddress1234'
+    renderReview({ recipient: VALID_0ZK, armadaAddress: ownAddress })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy your address' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(ownAddress)
+  })
+
+  it('flags a first-time recipient with a "New recipient" warning callout, not a History row (9B)', () => {
+    renderReview({ recipient: VALID_0ZK, previousSendCount: 0 })
+    const notice = screen.getByRole('note', { name: 'New recipient' })
+    expect(notice).toHaveTextContent("You haven't sent to this address before. Check it carefully.")
+    expect(screen.queryByText('History')).toBeNull()
+  })
+
+  it.each([
+    [{ previousSendCount: 1 }, 'Sent once before'],
+    [{ previousSendCount: 3 }, 'Sent 3 times before'],
+    [{ previousSendCount: 0, recipientIsOwnWallet: true }, '(Your connected wallet)'],
+  ])('shows a known recipient as a "History" row in the summary, with no warning (9B): %o', (extras, value) => {
+    renderReview({ recipient: VALID_0ZK, ...extras })
+    const label = screen.getByText('History')
+    expect(label.parentElement).toHaveTextContent(value)
+    expect(screen.queryByRole('note', { name: 'New recipient' })).toBeNull()
+  })
+
+  it('shows no history row or callout when the count is not provided', () => {
+    renderReview({ recipient: VALID_0ZK })
+    expect(screen.queryByText('History')).toBeNull()
+    expect(screen.queryByRole('note', { name: 'New recipient' })).toBeNull()
   })
 
   it('public: shows the network row + a "Public transfer." notice + an EVM-style truncated recipient', () => {
@@ -62,7 +115,7 @@ describe('<SendReviewStep>', () => {
     expect(screen.getByText('Network')).toBeInTheDocument()
     expect(screen.getByText('Anvil Hub (local)')).toBeInTheDocument()
     expect(screen.getByText('Public transfer.')).toBeInTheDocument()
-    expect(screen.getByText('0x1234...5678')).toBeInTheDocument()
+    expect(screen.getByTitle(VALID_EVM)).toHaveTextContent('0x1234...5678')
   })
 
   it('withdraw variant: uses the unshield title + "Confirm" label', () => {

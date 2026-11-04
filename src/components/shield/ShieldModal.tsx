@@ -11,7 +11,7 @@ import { QUOTE_PENDING_REASON } from '@/lib/tx/submitQuote'
 import { getNetworkConfig } from '@/config/network'
 import { formatUsdcPlain } from '@/lib/format'
 import { txFiguresAs } from '@/lib/fees/txFigures'
-import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import {
   ProgressStep,
   ErrorStep,
@@ -34,6 +34,7 @@ import { ShieldCompleteStep } from './ShieldCompleteStep'
 import { SendReviewStep } from '@/components/payments/SendReviewStep'
 import { SendCompleteStep } from '@/components/payments/SendCompleteStep'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
+import { userPaidNetworkFee } from '@/lib/tx/errorCopy'
 
 /** Why Review holds a shield while the fee module's read of its protocol fee hasn't landed. */
 const SHIELD_FEE_PENDING_REASON = 'Getting the shield fee…'
@@ -89,6 +90,8 @@ export function ShieldModal() {
   const step = active.step
   const record = active.record
   const explorerUrl = txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))
+  // A cross-chain shield / unshield's destination (CCTP mint) tx — shown under the confirmation summary.
+  const deliveryLink = record ? deliveryExplorerLink(record) : null
   // An unshield's confirmation reports what it actually charged, from its record (the live quote keeps
   // refreshing after submit), matching the Activity receipt.
   const unshieldReceipt = !isShield && record ? txFiguresAs(record, 'spend') : null
@@ -246,6 +249,7 @@ export function ShieldModal() {
           shieldedAddress={shieldFlow.shieldedAddress}
           confirmedAt={record?.updatedAt ?? Date.now()}
           explorerUrl={explorerUrl}
+          deliveryLink={deliveryLink}
           onViewExplorer={() => {
             if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
           }}
@@ -265,6 +269,7 @@ export function ShieldModal() {
           recipientWalletProvider={unshieldFlow.recipientWalletProvider}
           confirmedAt={record?.updatedAt ?? Date.now()}
           explorerUrl={explorerUrl}
+          deliveryLink={deliveryLink}
           onViewExplorer={() => {
             if (explorerUrl) window.open(explorerUrl, '_blank', 'noopener,noreferrer')
           }}
@@ -276,6 +281,7 @@ export function ShieldModal() {
         <ErrorStep
           remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
+          userPaidNetworkFee={userPaidNetworkFee(record)}
           message={active.submitError ?? undefined}
           explorerUrl={explorerUrl}
           primaryLabel={active.errorPrimaryLabel}

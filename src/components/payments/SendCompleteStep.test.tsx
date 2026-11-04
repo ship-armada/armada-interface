@@ -18,6 +18,7 @@ function renderComplete(extras?: Partial<SendCompleteStepProps>) {
     networkName: extras?.networkName,
     confirmedAt: extras?.confirmedAt ?? Date.now(),
     explorerUrl: extras?.explorerUrl,
+    deliveryLink: extras?.deliveryLink,
     onViewExplorer: extras?.onViewExplorer ?? vi.fn(),
     onGoToDashboard: extras?.onGoToDashboard ?? vi.fn(),
   }
@@ -69,5 +70,13 @@ describe('<SendCompleteStep>', () => {
     renderComplete({ explorerUrl: 'https://example.test/tx/0xabc', onViewExplorer })
     fireEvent.click(screen.getByRole('button', { name: /View on explorer/ }))
     expect(onViewExplorer).toHaveBeenCalledTimes(1)
+  })
+
+  it('a cross-chain send links to its delivery (mint) on the destination chain (14A)', () => {
+    renderComplete({ recipient: VALID_EVM, deliveryLink: { url: 'https://sepolia.basescan.org/tx/0xab', chainName: 'Base Sepolia' } })
+    expect(screen.getByRole('link', { name: /View delivery on Base Sepolia/ })).toHaveAttribute(
+      'href',
+      'https://sepolia.basescan.org/tx/0xab',
+    )
   })
 })

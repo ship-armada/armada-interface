@@ -12,14 +12,15 @@ import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSumm
 import { ReceivedSummary } from '@/components/dashboard/ReceivedSummary'
 import { frozenApyRate, type YieldRate } from '@/hooks/useYieldRate'
 import { formatUsdcPlain } from '@/lib/format'
-import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
+import { DeliveryTxLink } from '@/components/tx/DeliveryTxLink'
 import { getChainById, getNetworkConfig } from '@/config/network'
 import {
   deriveActivityStatus,
   isWithdrawToSelf,
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
-import { resolveTxErrorCopy, type TxErrorCopy } from '@/lib/tx/errorCopy'
+import { resolveTxErrorCopy, userPaidNetworkFee, type TxErrorCopy } from '@/lib/tx/errorCopy'
 import { moneyMoved, txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
@@ -66,7 +67,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
   const errorCopy =
     status === 'settled' || status === 'pending'
       ? null
-      : resolveTxErrorCopy(record.artifacts.error)
+      : resolveTxErrorCopy(record.artifacts.error, undefined, { userPaidNetworkFee: userPaidNetworkFee(record) })
   const explorerUrl = txExplorerUrl(record.walletContext.sourceChainId, displayTxHash(record))
   // A tx that failed or was cancelled before its first on-chain transaction confirmed moved no money: its fees and
   // totals read "—" (the headline stays, struck through). One that did move money shows what it was charged.
@@ -279,6 +280,8 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: Act
           ) : null}
 
           {view.summary}
+          {/* A cross-chain tx's second half: the CCTP mint on the destination chain ("View on explorer" is the source tx). */}
+          {record ? <DeliveryTxLink link={deliveryExplorerLink(record)} /> : null}
 
           <div className={`${modalActionRowEnter} ${styles.buttonRow}`}>
             <Button

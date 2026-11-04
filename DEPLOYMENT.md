@@ -43,7 +43,7 @@ message, stack, breadcrumbs, and request URL before transmission.
 - [ ] **Sentry** (optional): set `VITE_SENTRY_DSN` to enable error capture; add `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` to upload source maps. All inert until set.
 - [ ] **`VITE_RELAYER_URL`** set to the relayer's **HTTPS** origin and the VPS relayer confirmed reachable over HTTPS, if you want relayer-mediated flows (fees / gasless). Unset → wallet-submit only + a "no relayer configured" banner (P0-10).
 - [ ] **WalletConnect** (P2): set a real `VITE_WALLETCONNECT_PROJECT_ID` and enable the **domain allowlist (Verify API)** for the deploy origin in WalletConnect Cloud, so the project ID can't be used from other origins.
-- [ ] **CSP** promoted from `Content-Security-Policy-Report-Only` to enforcing only after a preview click-through with devtools open, and after adding the relayer origin + any IPFS gateway host to `connect-src` in both `netlify.toml` and `vercel.json` (P0-8).
+- [ ] **CSP** promoted from `Content-Security-Policy-Report-Only` to enforcing only after a click-through with devtools open on a Netlify draft deploy (headers only apply on Netlify; publish one by hand with `npx netlify-cli deploy --no-build --dir=dist` after `npm run build` — CI doesn't publish PR previews), and after adding the relayer origin + any IPFS gateway host to `connect-src` in both `netlify.toml` and `vercel.json` (P0-8).
 
 ## Running the relayer for Sepolia
 

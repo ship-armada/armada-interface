@@ -6,6 +6,7 @@ import type { CctpFeeFigure } from '@/lib/fees/txFigures'
 import { TransferReviewSummary } from './TransferReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
 import { MergeNotesNotice } from '@/components/consolidate/MergeNotesNotice'
+import { FirstSendNotice } from './FirstSendNotice'
 import { formatUsdcPlain } from '@/lib/format'
 import { isShieldedAddress } from '@/lib/address'
 import type { SendFlowVariant } from './SendRecipientStep'
@@ -31,6 +32,11 @@ export interface SendReviewStepProps {
   submitBlockedReason?: string | null
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean
+  /** Settled sends already made to this recipient (local history). 0 → the "New recipient" callout; more → the
+   *  summary's "History" row; omitted → neither. */
+  previousSendCount?: number
+  /** The recipient is the user's own connected wallet — the History row says so instead of a first-send warning. */
+  recipientIsOwnWallet?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
   feeUpdated?: boolean
   /** Set when the wallet is too fragmented for the send — shows the "Too many small notes" callout (with its
@@ -52,6 +58,8 @@ export function SendReviewStep({
   recipientWalletProvider,
   submitBlockedReason,
   isSubmitting,
+  previousSendCount,
+  recipientIsOwnWallet,
   feeUpdated,
   onMergeNotes,
   onBack,
@@ -64,6 +72,7 @@ export function SendReviewStep({
         ? 'Review your USDC shielded transfer'
         : 'Review your USDC transfer'
   const confirmLabel = variant === 'withdraw' ? 'Confirm' : 'Confirm send'
+  const history = recipientHistory(previousSendCount, recipientIsOwnWallet)
 
   return (
     <div className={styles.root}>
@@ -86,8 +95,10 @@ export function SendReviewStep({
           variant={variant}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
+          recipientHistory={history?.kind === 'known' ? history.text : undefined}
         />
 
+        {history?.kind === 'first' ? <FirstSendNotice /> : null}
         {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
 
         {submitBlockedReason ? (
@@ -118,4 +129,20 @@ export function SendReviewStep({
       </div>
     </div>
   )
+}
+
+/**
+ * The user's history with this recipient. A first-time recipient is the moment a mistyped or lookalike address is
+ * most likely, so it gets a warning callout asking for a careful check; a known one is a quiet "History" row in the
+ * summary. Null when no count was provided.
+ */
+function recipientHistory(
+  previousSendCount: number | undefined,
+  recipientIsOwnWallet: boolean | undefined,
+): { kind: 'first' } | { kind: 'known'; text: string } | null {
+  if (recipientIsOwnWallet) return { kind: 'known', text: '(Your connected wallet)' }
+  if (previousSendCount === undefined) return null
+  if (previousSendCount === 0) return { kind: 'first' }
+  if (previousSendCount === 1) return { kind: 'known', text: 'Sent once before' }
+  return { kind: 'known', text: `Sent ${previousSendCount} times before` }
 }
