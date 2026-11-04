@@ -1,5 +1,5 @@
 // ABOUTME: Derives the Send flow's "recently used addresses" list from settled tx history (deduped by normalized address,
-// ABOUTME: newest-first, capped, each with its destination chain) and counts settled sends to one address (Review's history line).
+// ABOUTME: newest-first, capped, each with its destination chain) and counts settled sends to one address (Review's recipient history).
 
 import type { TxRecord } from './types'
 
@@ -78,8 +78,8 @@ export function deriveRecentRecipients(
 }
 
 /**
- * How many settled (`completed`) sends already went to `address` — drives the Review step's "First time sending to this
- * address" / "You've sent to this address N times before" line. Same matching as the recent list: 0x addresses compare
+ * How many settled (`completed`) sends already went to `address` — drives the Review step's "New recipient"
+ * callout (0) / "History" row ("Sent N times before"). Same matching as the recent list: 0x addresses compare
  * case-insensitively, 0zk exactly; surrounding whitespace is ignored. Local history only — nothing leaves the device.
  */
 export function countSendsTo(records: readonly TxRecord[], address: string): number {

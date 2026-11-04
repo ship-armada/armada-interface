@@ -83,19 +83,28 @@ describe('<SendReviewStep>', () => {
     expect(writeText).toHaveBeenCalledWith(ownAddress)
   })
 
-  it.each([
-    [{ previousSendCount: 0 }, 'First time sending to this address — check it carefully'],
-    [{ previousSendCount: 1 }, "You've sent to this address once before"],
-    [{ previousSendCount: 3 }, "You've sent to this address 3 times before"],
-    [{ previousSendCount: 0, recipientIsOwnWallet: true }, 'This is your connected wallet'],
-  ])('tells the user their history with this recipient (9B): %o', (extras, line) => {
-    renderReview({ recipient: VALID_0ZK, ...extras })
-    expect(screen.getByText(line)).toBeInTheDocument()
+  it('flags a first-time recipient with a "New recipient" warning callout, not a History row (9B)', () => {
+    renderReview({ recipient: VALID_0ZK, previousSendCount: 0 })
+    const notice = screen.getByRole('note', { name: 'New recipient' })
+    expect(notice).toHaveTextContent("You haven't sent to this address before. Check it carefully.")
+    expect(screen.queryByText('History')).toBeNull()
   })
 
-  it('shows no history line when the count is not provided', () => {
+  it.each([
+    [{ previousSendCount: 1 }, 'Sent once before'],
+    [{ previousSendCount: 3 }, 'Sent 3 times before'],
+    [{ previousSendCount: 0, recipientIsOwnWallet: true }, 'Your connected wallet'],
+  ])('shows a known recipient as a "History" row in the summary, with no warning (9B): %o', (extras, value) => {
+    renderReview({ recipient: VALID_0ZK, ...extras })
+    const label = screen.getByText('History')
+    expect(label.parentElement).toHaveTextContent(value)
+    expect(screen.queryByRole('note', { name: 'New recipient' })).toBeNull()
+  })
+
+  it('shows no history row or callout when the count is not provided', () => {
     renderReview({ recipient: VALID_0ZK })
-    expect(screen.queryByText(/sending to this address|sent to this address|connected wallet/)).toBeNull()
+    expect(screen.queryByText('History')).toBeNull()
+    expect(screen.queryByRole('note', { name: 'New recipient' })).toBeNull()
   })
 
   it('public: shows the network row + a "Public transfer." notice + an EVM-style truncated recipient', () => {

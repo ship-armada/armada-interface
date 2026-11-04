@@ -6,6 +6,7 @@ import type { CctpFeeFigure } from '@/lib/fees/txFigures'
 import { TransferReviewSummary } from './TransferReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
 import { MergeNotesNotice } from '@/components/consolidate/MergeNotesNotice'
+import { FirstSendNotice } from './FirstSendNotice'
 import { formatUsdcPlain } from '@/lib/format'
 import { isShieldedAddress } from '@/lib/address'
 import type { SendFlowVariant } from './SendRecipientStep'
@@ -31,9 +32,10 @@ export interface SendReviewStepProps {
   submitBlockedReason?: string | null
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean
-  /** Settled sends already made to this recipient (local history). Drives the history line; omitted → no line. */
+  /** Settled sends already made to this recipient (local history). 0 → the "New recipient" callout; more → the
+   *  summary's "History" row; omitted → neither. */
   previousSendCount?: number
-  /** The recipient is the user's own connected wallet — the history line says so instead of "first time". */
+  /** The recipient is the user's own connected wallet — the History row says so instead of a first-send warning. */
   recipientIsOwnWallet?: boolean
   /** True when a submit-time fee refetch changed the fee — surfaces the FeeUpdatedBanner. */
   feeUpdated?: boolean
@@ -70,7 +72,7 @@ export function SendReviewStep({
         ? 'Review your USDC shielded transfer'
         : 'Review your USDC transfer'
   const confirmLabel = variant === 'withdraw' ? 'Confirm' : 'Confirm send'
-  const historyLine = recipientHistoryLine(previousSendCount, recipientIsOwnWallet)
+  const history = recipientHistory(previousSendCount, recipientIsOwnWallet)
 
   return (
     <div className={styles.root}>
@@ -93,13 +95,10 @@ export function SendReviewStep({
           variant={variant}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
+          recipientHistory={history?.kind === 'known' ? history.text : undefined}
         />
 
-        {historyLine ? (
-          <p className={[styles.historyNote, historyLine.firstTime && styles.historyNoteFirstTime].filter(Boolean).join(' ')}>
-            {historyLine.text}
-          </p>
-        ) : null}
+        {history?.kind === 'first' ? <FirstSendNotice /> : null}
         {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
 
         {submitBlockedReason ? (
@@ -133,16 +132,17 @@ export function SendReviewStep({
 }
 
 /**
- * The Review step's line about the user's history with this recipient — a first-time recipient is the moment a
- * mistyped or lookalike address is most likely, so it asks for a careful check. Null when no count was provided.
+ * The user's history with this recipient. A first-time recipient is the moment a mistyped or lookalike address is
+ * most likely, so it gets a warning callout asking for a careful check; a known one is a quiet "History" row in the
+ * summary. Null when no count was provided.
  */
-function recipientHistoryLine(
+function recipientHistory(
   previousSendCount: number | undefined,
   recipientIsOwnWallet: boolean | undefined,
-): { text: string; firstTime: boolean } | null {
-  if (recipientIsOwnWallet) return { text: 'This is your connected wallet', firstTime: false }
+): { kind: 'first' } | { kind: 'known'; text: string } | null {
+  if (recipientIsOwnWallet) return { kind: 'known', text: 'Your connected wallet' }
   if (previousSendCount === undefined) return null
-  if (previousSendCount === 0) return { text: 'First time sending to this address — check it carefully', firstTime: true }
-  if (previousSendCount === 1) return { text: "You've sent to this address once before", firstTime: false }
-  return { text: `You've sent to this address ${previousSendCount} times before`, firstTime: false }
+  if (previousSendCount === 0) return { kind: 'first' }
+  if (previousSendCount === 1) return { kind: 'known', text: 'Sent once before' }
+  return { kind: 'known', text: `Sent ${previousSendCount} times before` }
 }

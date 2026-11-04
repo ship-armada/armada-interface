@@ -1,4 +1,4 @@
-// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / fees) with a fee-on-top "Total" row + a trailing privacy notice.
+// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / history / fees) with a fee-on-top "Total" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
 import { useState } from 'react'
@@ -42,6 +42,9 @@ export interface TransferReviewSummaryProps {
   recipientWalletProvider?: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row and hides the privacy notice. */
   confirmedAt?: number
+  /** The user's history with a known recipient (e.g. "Sent 3 times before") — a "History" row under the recipient.
+   *  The review step passes it; a first-time recipient gets a warning callout outside the table instead. */
+  recipientHistory?: string
 }
 
 // `variant` is accepted for API symmetry with the review/complete steps; the summary copy no longer
@@ -55,6 +58,7 @@ export function TransferReviewSummary({
   networkName,
   recipientWalletProvider,
   confirmedAt,
+  recipientHistory,
 }: TransferReviewSummaryProps) {
   // Whether the full recipient address is open (its own full-width block under the To row).
   const [showFullRecipient, setShowFullRecipient] = useState(false)
@@ -115,6 +119,12 @@ export function TransferReviewSummary({
         </div>
         {/* The full address gets its own full-width row (groups of 4 that wrap), not the one-line value cell. */}
         {showFullRecipient ? <FullAddress address={recipient} /> : null}
+        {recipientHistory ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>History</span>
+            <span className={styles.summaryValue}>{recipientHistory}</span>
+          </div>
+        ) : null}
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>{cctpFee ? 'Relayer fee' : 'Fees'}</span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>

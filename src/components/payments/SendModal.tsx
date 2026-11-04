@@ -196,7 +196,7 @@ export function SendModal() {
   // Recently-used recipients (from settled history) offered on the recipient step. Selecting one
   // fills the address and restores its destination chain (0zk transfers have none → back to hub).
   const recentAddresses = useRecentRecipients(5)
-  // Settled sends already made to the current recipient — Review's "First time sending to this address" line.
+  // Settled sends already made to the current recipient — Review's "New recipient" callout / "History" row.
   const previousSendCount = useSendCountTo(recipient)
   function handleSelectRecent(item: RecentRecipient) {
     setRecipient(item.address)
