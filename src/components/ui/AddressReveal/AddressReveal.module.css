@@ -1,5 +1,5 @@
 /* ABOUTME: AddressReveal styling — the shortened address (a show/hide toggle) + copy icon on one line.
-   ABOUTME: Inherits the summary row's typography; buttons are unstyled text-like controls with a visible focus ring. */
+   ABOUTME: Inherits the summary row's typography; the toggle is an unstyled text-like control with a visible focus ring. */
 
 .line {
   display: inline-flex;
@@ -7,8 +7,7 @@
   gap: var(--primitives-spacing-1);
 }
 
-.toggle,
-.copy {
+.toggle {
   appearance: none;
   background: none;
   border: 0;
@@ -19,18 +18,7 @@
   border-radius: var(--primitives-borderRadius-sm);
 }
 
-.toggle:focus-visible,
-.copy:focus-visible {
+.toggle:focus-visible {
   outline: 2px solid var(--semantic-color-text-lavender);
   outline-offset: 2px;
-}
-
-.copy {
-  display: inline-flex;
-  color: var(--semantic-color-text-muted);
-}
-
-.copyIcon {
-  width: 14px;
-  height: 14px;
 }

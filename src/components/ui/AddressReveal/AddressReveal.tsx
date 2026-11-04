@@ -1,9 +1,8 @@
 // ABOUTME: AddressReveal — the recipient row's controls: the shortened address as a show/hide toggle for the full address
 // ABOUTME: (the caller renders `ui/FullAddress` as its own full-width row when expanded), plus a copy button for the FULL address.
 
-import { CheckIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline'
 import { AddressText } from '@/components/ui/AddressText'
-import { useCopyToClipboard } from '@/hooks/useCopyToClipboard'
+import { CopyAddressButton } from '@/components/ui/CopyAddressButton'
 import styles from './AddressReveal.module.css'
 
 export interface AddressRevealProps {
@@ -14,8 +13,6 @@ export interface AddressRevealProps {
 }
 
 export function AddressReveal({ address, expanded, onToggle }: AddressRevealProps) {
-  const { copied, copy } = useCopyToClipboard()
-
   return (
     <span className={styles.line}>
       <button
@@ -27,18 +24,7 @@ export function AddressReveal({ address, expanded, onToggle }: AddressRevealProp
       >
         <AddressText address={address} />
       </button>
-      <button
-        type="button"
-        className={styles.copy}
-        aria-label={copied ? 'Address copied' : 'Copy address'}
-        onClick={() => void copy(address)}
-      >
-        {copied ? (
-          <CheckIcon className={styles.copyIcon} strokeWidth={1.75} aria-hidden />
-        ) : (
-          <DocumentDuplicateIcon className={styles.copyIcon} strokeWidth={1.75} aria-hidden />
-        )}
-      </button>
+      <CopyAddressButton address={address} />
     </span>
   )
 }

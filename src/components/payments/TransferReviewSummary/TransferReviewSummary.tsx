@@ -1,4 +1,4 @@
-// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account / recipient — revealable in full + copyable — / fees) with a fee-on-top "Total" row + a trailing privacy notice.
+// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / fees) with a fee-on-top "Total" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
 import { useState } from 'react'
@@ -9,6 +9,7 @@ import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import { AddressText } from '@/components/ui/AddressText'
 import { AddressReveal } from '@/components/ui/AddressReveal'
 import { FullAddress } from '@/components/ui/FullAddress'
+import { CopyAddressButton } from '@/components/ui/CopyAddressButton'
 import { isShieldedAddress } from '@/lib/address'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
@@ -21,7 +22,7 @@ const ROW_ICON_PX = 16
 export interface TransferReviewSummaryProps {
   /** Destination address (0zk shielded or 0x public) — its format drives the privacy notice + recipient icon. */
   recipient: string
-  /** The user's own shielded (Armada) address — rendered (truncated) as the "From your private account" row when present. */
+  /** The user's own shielded (Armada) address — rendered (truncated, with a copy button for the full address) as the "From your private account" row when present. */
   armadaAddress?: string
   /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null (pre-quote-load). */
   fee: bigint | null
@@ -87,7 +88,10 @@ export function TransferReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <AddressText address={armadaAddress} />
+                <span className={styles.addressWithCopy}>
+                  <AddressText address={armadaAddress} />
+                  <CopyAddressButton address={armadaAddress} label="Copy your address" copiedLabel="Your address copied" />
+                </span>
               </span>
             </span>
           </div>

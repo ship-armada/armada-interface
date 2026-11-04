@@ -72,6 +72,17 @@ describe('<SendReviewStep>', () => {
     expect(writeText).toHaveBeenCalledWith(VALID_0ZK)
   })
 
+  it('lets the user copy their own FULL private address from the "From" row', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    const ownAddress = '0zkownaddressownaddressownaddressownaddress1234'
+    renderReview({ recipient: VALID_0ZK, armadaAddress: ownAddress })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy your address' }))
+    })
+    expect(writeText).toHaveBeenCalledWith(ownAddress)
+  })
+
   it.each([
     [{ previousSendCount: 0 }, 'First time sending to this address — check it carefully'],
     [{ previousSendCount: 1 }, "You've sent to this address once before"],

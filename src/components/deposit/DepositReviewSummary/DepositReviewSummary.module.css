@@ -65,6 +65,13 @@
   white-space: nowrap;
 }
 
+/* A shortened address with its copy button beside it — the same spacing as ui/AddressReveal on the To row. */
+.addressWithCopy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+}
+
 .armadaIcon {
   width: var(--primitives-spacing-4);
   height: var(--primitives-spacing-4);
