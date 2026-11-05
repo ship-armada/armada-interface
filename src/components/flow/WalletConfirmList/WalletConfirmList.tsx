@@ -29,6 +29,7 @@ export function WalletConfirmList({ steps, className }: WalletConfirmListProps) 
           <span className={styles.labelBlock}>
             <span className={styles.label}>{step.label}</span>
             {step.detail ? <span className={styles.detail}>{step.detail}</span> : null}
+            {step.why ? <span className={styles.why}>{step.why}</span> : null}
           </span>
           <div className={styles.status} aria-label={STATUS_LABEL[step.status]}>
             {step.status === 'loading' || step.status === 'confirming' ? (

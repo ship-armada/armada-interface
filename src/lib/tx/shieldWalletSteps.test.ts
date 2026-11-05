@@ -131,5 +131,21 @@ describe('shieldWalletSteps', () => {
     const gasless = { ...base, meta: { ...base.meta, useGasless: true } } as TxRecord<'shield'>
     expect(shieldWalletSteps(gasless, 5_000_000n)[0]).toMatchObject({ status: 'loading', detail: 'In your wallet' })
   })
+
+  it('the active row says why the wallet is asking — exactly what each prompt does (4C)', () => {
+    const gasless = { ...base, meta: { ...base.meta, useGasless: true } } as TxRecord<'shield'>
+    expect(shieldWalletSteps(gasless, 5_000_000n)[0]?.why).toBe('Lets Armada\u2019s shield contract take exactly 5.00 USDC for this shield. No gas.')
+    const permitted = { ...gasless, artifacts: { permitSigned: true } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(permitted, 5_000_000n)[1]?.why).toBe('Locks in where your USDC goes, so the relayer can submit it but not change it. No gas.')
+    // Only the active row explains itself.
+    expect(shieldWalletSteps(permitted, 5_000_000n)[0]?.why).toBeUndefined()
+
+    const prompting = { ...base, stage: 'submit-relayer', executionState: 'waiting', stagesCompleted: ['build-proof'] } as TxRecord<'shield'>
+    expect(shieldWalletSteps(prompting, 5_000_000n)[0]?.why).toBe('Lets Armada\u2019s contract take exactly 5.00 USDC from your wallet.')
+    const shieldPrompt = { ...prompting, artifacts: { approveSkipped: true } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(shieldPrompt, 5_000_000n)[0]?.why).toBe('Sends 5.00 USDC to the privacy pool. You pay the network gas.')
+    const xchainPrompt = { ...shieldPrompt, kind: 'shield-xchain' } as unknown as TxRecord<'shield-xchain'>
+    expect(shieldWalletSteps(xchainPrompt, 5_000_000n)[0]?.why).toBe('Sends 5.00 USDC across chains to the privacy pool. You pay the network gas.')
+  })
 })
 

@@ -34,6 +34,14 @@
   color: var(--semantic-color-text-muted);
 }
 
+/* Why the wallet is asking (the active row only) — a quiet line under the detail. */
+.why {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-sm) * 1px);
+  line-height: var(--primitives-lineHeight-normal);
+  color: var(--semantic-color-text-muted);
+}
+
 /* Where the active row is — "In your wallet" / "Confirming on chain" — under its label. */
 .detail {
   font-family: var(--primitives-fontFamily-ui), sans-serif;

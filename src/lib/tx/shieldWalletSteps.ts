@@ -11,6 +11,8 @@ export interface WalletStep {
   status: WalletStepStatus
   /** Where the active row is: "In your wallet" / "Confirming on chain". */
   detail?: string
+  /** While its prompt is open: why the wallet is asking — exactly what the signature / transaction does. */
+  why?: string
 }
 
 const DETAIL: Partial<Record<WalletStepStatus, string>> = {
@@ -18,9 +20,15 @@ const DETAIL: Partial<Record<WalletStepStatus, string>> = {
   confirming: 'Confirming on chain',
 }
 
-function step(label: string, status: WalletStepStatus): WalletStep {
+function step(label: string, status: WalletStepStatus, why?: string): WalletStep {
   const detail = DETAIL[status]
-  return detail ? { label, status, detail } : { label, status }
+  return {
+    label,
+    status,
+    ...(detail ? { detail } : {}),
+    // Only the row whose prompt is open explains itself.
+    ...(why && status === 'loading' ? { why } : {}),
+  }
 }
 
 function stepStatus(done: boolean, confirming: boolean, active: boolean): WalletStepStatus {
@@ -69,8 +77,19 @@ export function shieldWalletSteps(
     const authorized = Boolean(record?.stagesCompleted.includes('build-proof'))
     const permitDone = authorized || Boolean(record && shieldArtifacts(record).permitSigned)
     return [
-      step(`Authorize ${amountLabel} USDC`, permitDone ? 'done' : 'loading'),
-      step('Sign shield transaction', authorized ? 'done' : permitDone ? 'loading' : 'pending'),
+      // The EIP-2612 permit: its spender is the gasless shield wrapper, for exactly the amount (fee included).
+      step(
+        `Authorize ${amountLabel} USDC`,
+        permitDone ? 'done' : 'loading',
+        `Lets Armada\u2019s shield contract take exactly ${amountLabel} USDC for this shield. No gas.`,
+      ),
+      // The EIP-712 shield intent binds the note array (yours + the relayer's fee note): any relayer can submit it, none
+      // can redirect it.
+      step(
+        'Sign shield transaction',
+        authorized ? 'done' : permitDone ? 'loading' : 'pending',
+        'Locks in where your USDC goes, so the relayer can submit it but not change it. No gas.',
+      ),
     ]
   }
 
@@ -89,7 +108,14 @@ export function shieldWalletSteps(
   const steps: WalletStep[] = []
 
   if (!approveSkipped) {
-    steps.push(step(`Approve ${amountLabel} USDC`, stepStatus(approveDone, approveSent, onSubmitWallet)))
+    // The spender is the PrivacyPool (shield) or the PrivacyPoolClient (cross-chain) — both Armada's contracts.
+    steps.push(
+      step(
+        `Approve ${amountLabel} USDC`,
+        stepStatus(approveDone, approveSent, onSubmitWallet),
+        `Lets Armada\u2019s contract take exactly ${amountLabel} USDC from your wallet.`,
+      ),
+    )
   }
 
   const depositLabel =
@@ -97,8 +123,12 @@ export function shieldWalletSteps(
       ? `Submit ${amountLabel} USDC cross-chain shield`
       : `Submit ${amountLabel} USDC shield`
 
+  const depositWhy =
+    record?.kind === 'shield-xchain'
+      ? `Sends ${amountLabel} USDC across chains to the privacy pool. You pay the network gas.`
+      : `Sends ${amountLabel} USDC to the privacy pool. You pay the network gas.`
   steps.push(
-    step(depositLabel, stepStatus(terminalSuccess, depositBroadcast, approveDone && onSubmitWallet)),
+    step(depositLabel, stepStatus(terminalSuccess, depositBroadcast, approveDone && onSubmitWallet), depositWhy),
   )
 
   return steps

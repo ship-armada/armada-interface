@@ -41,4 +41,14 @@ describe('ShieldWalletStep', () => {
     expect(screen.getByText('Step 1 of 2 \u00b7 Waiting for the network to confirm')).toBeInTheDocument()
     expect(screen.queryByText(/Confirm in your wallet/)).toBeNull()
   })
+
+  it('shows why the wallet is asking under the active row (4C)', () => {
+    const steps: WalletStep[] = [
+      { label: 'Approve 5.00 USDC', status: 'loading', detail: 'In your wallet', why: 'Lets Armada\u2019s contract take exactly 5.00 USDC from your wallet.' },
+      { label: 'Submit 5.00 USDC shield', status: 'pending' },
+    ]
+    render(<ShieldWalletStep steps={steps} />)
+    expect(screen.getByText('Lets Armada\u2019s contract take exactly 5.00 USDC from your wallet.')).toBeInTheDocument()
+  })
 })
+
