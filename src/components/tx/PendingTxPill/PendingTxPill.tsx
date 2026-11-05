@@ -66,13 +66,14 @@ export function PendingTxPill({
 }: PendingTxPillProps) {
   const content = pillContent(count, pendingLabel, announcement)
   const key = content ? contentKey(content) : null
-  const { shown, leaving, phase } = usePillMotion(content, key)
+  const shellRef = useRef<HTMLSpanElement>(null)
+  const { shown, leaving, phase } = usePillMotion(content, key, shellRef)
   const contentRef = useRef<HTMLSpanElement>(null)
   const contentWidth = useMeasuredWidth(contentRef, key)
   // Live content whenever there is some; the last-shown snapshot only while the pill folds away.
   const display = content ?? shown
   if (!display) return null
-  const exiting = phase === 'closing' || phase === 'vanishing'
+  const exiting = phase === 'closing'
 
   function body(item: PillContent) {
     switch (item.kind) {
@@ -126,6 +127,7 @@ export function PendingTxPill({
 
   return (
     <span
+      ref={shellRef}
       className={styles.pill}
       data-phase={phase}
       // Open: exactly the content's width, so a change of content eases the width across (CSS transition).

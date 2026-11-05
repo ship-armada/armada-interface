@@ -1,5 +1,5 @@
 /* ABOUTME: PendingTxPill styling — a 40px pill on the header controls' surface-main fill that unfolds from (and folds back
-   ABOUTME: to) the icon circle, eases its width between contents and crossfades them; motion stops under reduced motion. */
+   ABOUTME: to) a 40px circle as it fades, eases its width between contents and crossfades them; no motion when reduced. */
 
 /* The shell: clips its content and carries the width. Its right edge sits against the wallet pill, so a change of width
    grows / shrinks it leftward and the header controls to its left slide along. */
@@ -30,40 +30,27 @@
   outline-offset: 2px;
 }
 
-/* Appearing: the icon circle pops in, then (open) widens to the content. */
-.pill[data-phase='circle'] {
-  width: var(--primitives-spacing-10);
-  animation: pendingTxPillPopIn 140ms var(--pill-ease);
-}
-
-/* Disappearing: narrow back to the circle (quicker, easing in)… */
+/* Entering (rendered for one frame, before paint) and closing: the 40px circle, transparent. Width and opacity transition
+   together from / to it, so the icon and text arrive and leave as one unit and the clip reveals the text as it unfolds. */
+.pill[data-phase='entering'],
 .pill[data-phase='closing'] {
   width: var(--primitives-spacing-10);
-  transition: width 140ms ease-in;
+  opacity: 0;
 }
 
-/* …then the circle scales and fades out. */
-.pill[data-phase='vanishing'] {
-  width: var(--primitives-spacing-10);
-  animation: pendingTxPillPopOut 100ms ease-in forwards;
+/* Opening: width eases out over the full duration, the fade-in lands early. */
+.pill[data-phase='open'] {
+  transition:
+    width 280ms var(--pill-ease),
+    opacity 160ms ease-out,
+    background 0.15s ease;
 }
 
-@keyframes pendingTxPillPopIn {
-  from {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes pendingTxPillPopOut {
-  to {
-    opacity: 0;
-    transform: scale(0.6);
-  }
+/* Closing: a little quicker, easing in; the fade is weighted toward the end so the pill doesn't vanish before it folds. */
+.pill[data-phase='closing'] {
+  transition:
+    width 220ms ease-in,
+    opacity 160ms ease-in 60ms;
 }
 
 /* One state's content. Left-anchored, so the icon leads as the pill unfolds and the text slides out behind it. A fresh
@@ -101,17 +88,10 @@
   }
 }
 
-/* The text hides while the pill is only the circle (appearing / closing) and fades in once it opens. */
 .text {
   display: inline-flex;
   align-items: center;
   gap: var(--primitives-spacing-2);
-  transition: opacity 180ms ease 80ms;
-}
-
-.pill:not([data-phase='open']) .text {
-  opacity: 0;
-  transition: opacity 120ms ease;
 }
 
 /* The icon sits centred in the 40px circle (13px in from the left edge). */
@@ -169,14 +149,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pill,
-  .pill[data-phase='closing'],
-  .text,
-  .pill:not([data-phase='open']) .text {
+  .pill[data-phase='open'],
+  .pill[data-phase='closing'] {
     transition: none;
   }
 
-  .pill[data-phase='circle'],
-  .pill[data-phase='vanishing'],
   .content,
   .leaving {
     animation: none;

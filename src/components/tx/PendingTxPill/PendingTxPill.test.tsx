@@ -1,5 +1,5 @@
 // ABOUTME: Tests for PendingTxPill — the header's pending pill: hidden when idle, the one tx by name (or the count), an
-// ABOUTME: announced tx notice, what a click opens, and the unfold / crossfade / fold motion (skipped under reduced motion).
+// ABOUTME: announced tx notice, what a click opens, and the unfold / crossfade / fold motion and its sizing.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
@@ -91,18 +91,34 @@ describe('<PendingTxPill> motion', () => {
 
   const shell = (container: HTMLElement) => container.firstElementChild as HTMLElement | null
 
-  it('unfolds from the icon circle when it appears', () => {
+  it('appears in its entering style, then opens before paint (so the CSS transition runs from it)', () => {
     const { container, rerender } = render(<PendingTxPill count={0} onOpen={vi.fn()} />)
     expect(shell(container)).toBeNull()
+    const observer = new MutationObserver(() => {})
+    observer.observe(container, { subtree: true, attributes: true, attributeFilter: ['data-phase'], attributeOldValue: true })
     rerender(<PendingTxPill count={1} pendingLabel="Shielding 5.00 USDC…" onOpen={vi.fn()} />)
-    expect(shell(container)).toHaveAttribute('data-phase', 'circle')
-    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.unfold))
+    const changes = observer.takeRecords().map((record) => record.oldValue)
+    observer.disconnect()
+    expect(changes).toContain('entering')
     expect(shell(container)).toHaveAttribute('data-phase', 'open')
+  })
+
+  it('sizes to the content\'s layout width, not its transformed on-screen box', () => {
+    const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(152)
+    const rect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ width: 91, height: 24, top: 0, left: 0, right: 91, bottom: 24, x: 0, y: 0, toJSON() {} })
+    try {
+      const { container } = render(<PendingTxPill count={1} pendingLabel="Shielding 5.00 USDC…" onOpen={vi.fn()} />)
+      expect(shell(container)?.style.width).toBe('152px')
+    } finally {
+      offsetWidth.mockRestore()
+      rect.mockRestore()
+    }
   })
 
   it('crossfades between states: the old content fades out over the new', () => {
     const { container, rerender } = render(<PendingTxPill count={1} pendingLabel="Shielding 5.00 USDC…" onOpen={vi.fn()} />)
-    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.unfold))
     rerender(
       <PendingTxPill
         count={0}
@@ -119,25 +135,37 @@ describe('<PendingTxPill> motion', () => {
     expect(container.querySelector('[data-leaving]')).toBeNull()
   })
 
-  it('folds back to the circle, then vanishes, when there is nothing left to show', () => {
+  it('folds back and fades out, in one movement, when there is nothing left to show', () => {
     const { container, rerender } = render(<PendingTxPill count={1} pendingLabel="Sending 5.00 USDC…" onOpen={vi.fn()} />)
-    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.unfold))
     rerender(<PendingTxPill count={0} onOpen={vi.fn()} />)
     expect(shell(container)).toHaveAttribute('data-phase', 'closing')
     expect(shell(container)).toHaveTextContent('Sending 5.00 USDC…')
-    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.fold))
-    expect(shell(container)).toHaveAttribute('data-phase', 'vanishing')
-    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.vanish))
+    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.close - 1))
+    expect(shell(container)).toHaveAttribute('data-phase', 'closing')
+    act(() => vi.advanceTimersByTime(1))
     expect(shell(container)).toBeNull()
+  })
+
+  it('starts from the entering style again on its next appearance', () => {
+    const { container, rerender } = render(<PendingTxPill count={1} pendingLabel="Sending 5.00 USDC…" onOpen={vi.fn()} />)
+    rerender(<PendingTxPill count={0} onOpen={vi.fn()} />)
+    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.close))
+    expect(shell(container)).toBeNull()
+    const observer = new MutationObserver(() => {})
+    observer.observe(container, { subtree: true, attributes: true, attributeFilter: ['data-phase'], attributeOldValue: true })
+    rerender(<PendingTxPill count={1} pendingLabel="Shielding 5.00 USDC…" onOpen={vi.fn()} />)
+    const changes = observer.takeRecords().map((record) => record.oldValue)
+    observer.disconnect()
+    expect(changes).toEqual(['entering'])
+    expect(shell(container)).toHaveAttribute('data-phase', 'open')
   })
 
   it('reopens instead of vanishing when something new arrives mid-fold', () => {
     const { container, rerender } = render(<PendingTxPill count={1} pendingLabel="Sending 5.00 USDC…" onOpen={vi.fn()} />)
-    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.unfold))
     rerender(<PendingTxPill count={0} onOpen={vi.fn()} />)
     rerender(<PendingTxPill count={2} onOpen={vi.fn()} />)
     expect(shell(container)).toHaveAttribute('data-phase', 'open')
-    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.fold + PILL_MOTION_MS.vanish))
+    act(() => vi.advanceTimersByTime(PILL_MOTION_MS.close))
     expect(screen.getByRole('button', { name: '2 transactions pending — view activity' })).toBeInTheDocument()
   })
 })
