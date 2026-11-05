@@ -96,6 +96,8 @@ export interface ShieldFlow {
   // Actions
   onContinueToReview: () => void
   onBackToInput: () => void
+  /** The last shield was declined in the wallet — Review shows a quiet note instead of the error screen (4D). */
+  walletDeclined: boolean
   submit: () => Promise<void>
   errorPrimaryLabel: string
   onErrorPrimary: () => void
@@ -119,6 +121,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   const [step, setStep] = useState<ShieldStep>('input')
   const [errorAtStep, setErrorAtStep] = useState<FlowVisibleStep | undefined>(undefined)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [walletDeclined, setWalletDeclined] = useState(false)
   const [submittedKind, setSubmittedKind] = useState<SubmittedKind | null>(null)
   // Set when a submit-time fee refetch changed the fee — keeps the flow on Review with the banner.
   const [feeChanged, setFeeChanged] = useState(false)
@@ -291,6 +294,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
       setErrorAtStep(undefined)
       setAmountStr('')
       setSubmittedKind(null)
+      setWalletDeclined(false)
     }
   }, [isOpen])
 
@@ -301,6 +305,11 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   useEffect(() => {
     if (!record) return
     if (record.executionState === 'completed') setStep('complete')
+    // Declined in the wallet: nothing was shielded and nothing went wrong — back to Review with a quiet note (4D).
+    else if (record.executionState === 'failed' && record.artifacts.error?.code === 'USER_REJECTED') {
+      setWalletDeclined(true)
+      setStep('review')
+    }
     else if (record.executionState === 'failed' || record.executionState === 'expired') {
       setStep('error')
       setErrorAtStep('progress')
@@ -322,6 +331,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     submittingRef.current = true
     setIsSubmitting(true)
     setSubmitError(null)
+    setWalletDeclined(false)
     try {
       // null ⇒ submit was refused on a follower tab (useTx.submit toasts + persists nothing); we
       // keep the user on the review step rather than advancing to a never-driven progress spinner.
@@ -499,7 +509,11 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     submitError,
     walletSteps,
     onContinueToReview: () => setStep('review'),
-    onBackToInput: () => setStep('input'),
+    onBackToInput: () => {
+      setWalletDeclined(false)
+      setStep('input')
+    },
+    walletDeclined,
     submit,
     errorPrimaryLabel,
     onErrorPrimary,

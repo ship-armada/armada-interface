@@ -14,7 +14,8 @@ import {
   usdcBalancesAtom,
 } from '@/state/wallet'
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
-import { txListAtom } from '@/state/tx'
+import { txListAtom, upsertTxAtom } from '@/state/tx'
+import { markFailed } from '@/lib/tx/reducer'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { TxRecord } from '@/lib/tx/types'
@@ -698,6 +699,38 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       expect(review).toEqual({ headline: '10', fees: '0.022011 USDC', net: '9.977989 USDC' })
       expect(confirm).toEqual(review)
       expect(receipt).toEqual(review)
+    })
+
+    it('a shield declined in the wallet goes quietly back to Review with a note — not the error screen (4D)', async () => {
+      hoistedDisplay.protocolFee = P
+      const store = renderModal({ open: true, max: 20_000_000n })
+      act(() => store.set(usdcBalancesAtom, { 31337: 20_000_000n, 31338: 20_000_000n }))
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'shield') as TxRecord
+      act(() => store.set(upsertTxAtom, markFailed(record, { code: 'USER_REJECTED', message: 'You declined the action in your wallet.' })))
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Review your USDC shield' })).toBeInTheDocument())
+      expect(screen.getByText('You cancelled in your wallet, so nothing was shielded. Confirm to try again.')).toBeInTheDocument()
+    })
+
+    it('a shield that fails for another reason still shows the error screen (4D)', async () => {
+      hoistedDisplay.protocolFee = P
+      const store = renderModal({ open: true, max: 20_000_000n })
+      act(() => store.set(usdcBalancesAtom, { 31337: 20_000_000n, 31338: 20_000_000n }))
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'shield') as TxRecord
+      act(() => store.set(upsertTxAtom, markFailed(record, { code: 'TX_REVERTED', message: 'reverted' })))
+      await waitFor(() => expect(screen.queryByRole('heading', { name: 'Review your USDC shield' })).toBeNull())
+      expect(screen.queryByText(/You cancelled in your wallet/)).toBeNull()
     })
 
     it('unshield on the hub', async () => {
