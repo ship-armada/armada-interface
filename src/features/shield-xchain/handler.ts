@@ -208,11 +208,15 @@ async function runBuildProof(
   // on the hub at full value), then sign an EIP-2612 USDC permit on the CLIENT chain AND an EIP-712
   // CrossChainShieldIntent binding both notes + the CCTP maxFee/finality. All wallet prompts surface
   // here back-to-back; the submit stage is network-only. Permit value = the entered `amount`.
-  const gaslessArtifacts = record.meta.useGasless
+  const gasless = record.meta.useGasless
     ? await buildGaslessXchainArtifacts(record, ctx, request, clientUsdcAddress, hubUsdcAddress)
     : undefined
+  const gaslessArtifacts = gasless?.artifacts
+  // buildGaslessXchainArtifacts wrote an intermediate `permitSigned` record (bumping updatedSeq) between the two
+  // signatures — advance from THAT record, not the original, or OCC drops this transition.
+  const baseRecord = gasless?.record ?? record
 
-  await ctx.upsert(advance(record, 'submit-relayer', {
+  await ctx.upsert(advance(baseRecord, 'submit-relayer', {
     shieldRequest: {
       npk: request.npk,
       value: request.value.toString(),
@@ -240,15 +244,20 @@ async function buildGaslessXchainArtifacts(
   clientUsdcAddress: string,
   hubUsdcAddress: string,
 ): Promise<{
-  permitV: number
-  permitR: `0x${string}`
-  permitS: `0x${string}`
-  feeNote: { npk: `0x${string}`; value: string; encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]; shieldKey: `0x${string}` }
-  feeShieldRandom: string
-  intentSig: `0x${string}`
-  intentNonce: string
-  intentMaxFee: string
-  intentMinFinality: number
+  /** The record after the intermediate `permitSigned` upsert — advance from THIS (bumped seq). */
+  record: TxRecord<'shield-xchain'>
+  artifacts: {
+    permitV: number
+    permitR: `0x${string}`
+    permitS: `0x${string}`
+    feeNote: { npk: `0x${string}`; value: string; encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]; shieldKey: `0x${string}` }
+    feeShieldRandom: string
+    intentSig: `0x${string}`
+    intentNonce: string
+    intentMaxFee: string
+    intentMinFinality: number
+    permitSigned: true
+  }
 }> {
   if (
     record.meta.feeAmount === undefined ||
@@ -290,6 +299,18 @@ async function buildGaslessXchainArtifacts(
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  // Intermediate write BETWEEN the two prompts (as the hub shield does): mark the permit signed so the wallet checklist
+  // flips the "Authorize" row to done while the intent prompt is still pending — otherwise both rows flip together only
+  // at build-proof completion. Bump updatedSeq so OCC accepts it; the caller must advance from THIS record.
+  const afterPermit: TxRecord<'shield-xchain'> = {
+    ...record,
+    artifacts: { ...record.artifacts, permitSigned: true },
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
+  }
+  await ctx.upsert(afterPermit)
+  if (ctx.signal.aborted) throw new Error('cancelled')
+
   // 2. EIP-712 CrossChainShieldIntent binding both note hashes + CCTP params + deadline + nonce.
   const intentSig = await signCrossChainShieldIntent({
     wrapperAddress: wrapper,
@@ -305,20 +326,24 @@ async function buildGaslessXchainArtifacts(
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   return {
-    permitV: permitSig.v,
-    permitR: permitSig.r,
-    permitS: permitSig.s,
-    feeNote: {
-      npk: feeNote.npk,
-      value: feeNote.value.toString(),
-      encryptedBundle: feeNote.encryptedBundle,
-      shieldKey: feeNote.shieldKey,
+    record: afterPermit,
+    artifacts: {
+      permitV: permitSig.v,
+      permitR: permitSig.r,
+      permitS: permitSig.s,
+      feeNote: {
+        npk: feeNote.npk,
+        value: feeNote.value.toString(),
+        encryptedBundle: feeNote.encryptedBundle,
+        shieldKey: feeNote.shieldKey,
+      },
+      feeShieldRandom: feeNote.random,
+      intentSig,
+      intentNonce: intentNonce.toString(),
+      intentMaxFee: maxFee.toString(),
+      intentMinFinality: minFinalityThreshold,
+      permitSigned: true,
     },
-    feeShieldRandom: feeNote.random,
-    intentSig,
-    intentNonce: intentNonce.toString(),
-    intentMaxFee: maxFee.toString(),
-    intentMinFinality: minFinalityThreshold,
   }
 }
 

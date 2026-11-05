@@ -664,6 +664,8 @@ export interface ArtifactsShieldXchain extends ArtifactsXchain {
   approveTxHash?: `0x${string}`
   approveSkipped?: boolean
   approveSubmittedHash?: `0x${string}`
+  /** Gasless: the permit is signed while the intent prompt is still open — see ArtifactsShield. */
+  permitSigned?: boolean
 }
 
 export interface ArtifactsTransfer extends ArtifactsCommon {
