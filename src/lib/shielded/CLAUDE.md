@@ -76,6 +76,10 @@ with the stock engine). The circuit artifacts the worker needs are preloaded int
 registry on app mount by `artifacts.ts::preloadArtifactsFromOrigin`, and each spend's planned shapes as soon as
 it's planned at review (`artifacts.ts::warmPlannedCircuits`), so the download overlaps the user reading Review.
 
+**Timings.** `sdk-prover.ts` reports each proof (`sdk.proof`: `durationMs`, `firstOfSession` — the page's first proof also
+pays the worker start-up) and each circuit resolve (`sdk.artifact.resolve`: shape, `durationMs`, `cached` = no download).
+Console-only, like all `track()` events.
+
 ## Spec compliance gaps tracked for v2
 
 See `specs/TX_SIGNING_V2_AMENDMENT.md` §"Outstanding compliance gaps from this redesign":

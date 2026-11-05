@@ -121,4 +121,32 @@ describe('buildProcessingView', () => {
     )
     expect(post.cardCopy.subtitleLines).toEqual(['You can close this tab.', "We'll finish in the background."])
   })
+
+  it('times the active row from its first stage stamp, with that stage\'s estimate', () => {
+    const r = { ...rec('unshield-local', 'hub-pending', 'waiting'), stageEnteredAt: { 'build-proof': 1, 'hub-pending': 5_000 } } as unknown as TxRecord
+    expect(buildProcessingView(r).timing).toEqual({ startedAt: 5_000, usualMs: 15_000, slowMs: 45_000, safeInTransit: false, broadcast: false })
+  })
+
+  it('times a grouped "Bridging" row from the group\'s first stamp, and marks the USDC as in transit', () => {
+    const r = {
+      ...rec('unshield-xchain', 'iris-attestation-pending', 'waiting', { sourceTxHash: '0xabc' }),
+      stageEnteredAt: { 'hub-burn-confirmed': 7_000, 'iris-attestation-pending': 7_500 },
+    } as unknown as TxRecord
+    expect(buildProcessingView(r).timing).toEqual({ startedAt: 7_000, usualMs: 30_000, slowMs: 75_000, safeInTransit: true, broadcast: true })
+  })
+
+  it('has no timing once completed, without a stamp, or on a row with no estimate', () => {
+    const stamped = { 'build-proof': 0, 'submit-relayer': 1_000, 'hub-pending': 2_000 }
+    expect(buildProcessingView({ ...rec('unshield-local', 'hub-confirmed', 'completed'), stageEnteredAt: stamped } as unknown as TxRecord).timing).toBeNull()
+    expect(buildProcessingView(rec('unshield-local', 'hub-pending', 'waiting')).timing).toBeNull()
+    expect(buildProcessingView({ ...rec('unshield-local', 'submit-relayer', 'active'), stageEnteredAt: stamped } as unknown as TxRecord).timing).toBeNull()
+  })
+
+  it('exposes the proof\'s progress while a spend builds its proof — not for a shield (its build-proof is wallet prompts)', () => {
+    const proving = { ...rec('transfer-shielded', 'build-proof', 'active', { proofProgress: 0.5 }), updatedAt: 9_000 } as unknown as TxRecord
+    expect(buildProcessingView(proving).proof).toEqual({ real: 0.5, proofs: 1, since: 9_000 })
+    expect(buildProcessingView(rec('shield', 'build-proof', 'active')).proof).toBeNull()
+    expect(buildProcessingView(rec('transfer-shielded', 'submit-relayer', 'active')).proof).toBeNull()
+  })
 })
+

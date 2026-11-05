@@ -4,6 +4,10 @@
 import type { TxRecord } from '@/lib/tx/types'
 import { TxProcessingLayout } from '@/components/tx/processing/TxProcessingLayout'
 import { buildProcessingView, type SendVariant } from '@/components/tx/processing/processingView'
+import { stageTimingNote } from '@/lib/tx/eta'
+import { easedProofProgress } from '@/lib/tx/proofProgress'
+import { useNow } from '@/hooks/useNow'
+import { TxCancelButton } from '@/components/tx/TxCancelButton'
 import styles from './ProgressStep.module.css'
 
 export interface ProgressStepProps {
@@ -18,7 +22,13 @@ export interface ProgressStepProps {
 }
 
 export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
-  if (!record) {
+  const view = record ? buildProcessingView(record, { sendVariant }) : null
+  // Re-read the clock while it matters: ~10×/s while a proof's ring is filling (smooth), else once a second while the
+  // active stage has a timing estimate (so the note can turn "slow").
+  const proof = view?.proof ?? null
+  const now = useNow(proof ? 100 : 1_000, Boolean(proof ?? view?.timing))
+
+  if (!view) {
     return (
       <div className={styles.root}>
         <div className={styles.headline}>Preparing transaction</div>
@@ -26,7 +36,6 @@ export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
       </div>
     )
   }
-  const view = buildProcessingView(record, { sendVariant })
 
   return (
     <div className={styles.root}>
@@ -36,7 +45,11 @@ export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
         stages={view.stages}
         activeStageIndex={view.activeStageIndex}
         completed={view.completed}
+        timingNote={view.timing ? stageTimingNote(view.timing, now) : null}
+        {...(proof ? { proofProgress: easedProofProgress({ real: proof.real, proofs: proof.proofs, sinceMs: now - proof.since }) } : {})}
       />
+      {/* While the proof is still building nothing has been sent, so the user can call it off. */}
+      {record ? <TxCancelButton record={record} /> : null}
     </div>
   )
 }

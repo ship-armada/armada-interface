@@ -8,6 +8,8 @@ import {
 } from '../TransactionProgressDisclosure'
 import { TxProgressCard, type TxProgressCardVariant } from '../TxProgressCard'
 import { progressAnnouncement, type TxProgressCardCopy, type TxProgressStage } from '../processingCopy'
+import { TxTimingNote } from '../TxTimingNote'
+import type { StageTimingNote } from '@/lib/tx/eta'
 import styles from './TxProcessingLayout.module.css'
 
 export type TxProcessingLayoutVariant = 'default' | 'immersive'
@@ -20,6 +22,10 @@ export interface TxProcessingLayoutProps {
   progressVariant?: TransactionProgressVariant
   /** Mobile keypad: full-bleed gradient shell, details docked at bottom. */
   layout?: TxProcessingLayoutVariant
+  /** The active stage's timing note: its usual time as a chip on the timeline's active row, or the slow callout under it. */
+  timingNote?: StageTimingNote | null
+  /** 0..1 while a proof is being built — fills the card's ring instead of the sweep. */
+  proofProgress?: number
   className?: string
 }
 
@@ -30,6 +36,8 @@ export function TxProcessingLayout({
   completed = false,
   progressVariant = 'timeline',
   layout = 'default',
+  timingNote = null,
+  proofProgress,
   className,
 }: TxProcessingLayoutProps) {
   const immersive = layout === 'immersive'
@@ -40,7 +48,9 @@ export function TxProcessingLayout({
     : [modalStepBodyEnter, styles.body].filter(Boolean).join(' ')
   const statusAnnouncement = progressAnnouncement(stages, activeStageIndex, completed)
 
-  const progressCard = <TxProgressCard copy={cardCopy} variant={cardVariant} />
+  const progressCard = (
+    <TxProgressCard copy={cardCopy} variant={cardVariant} {...(proofProgress !== undefined ? { progress: proofProgress } : {})} />
+  )
 
   return (
     <div className={cls}>
@@ -60,7 +70,9 @@ export function TxProcessingLayout({
             stages={stages}
             activeStageIndex={activeStageIndex}
             completed={completed}
+            activeChip={timingNote?.kind === 'usual' ? timingNote.chip : null}
           />
+          <TxTimingNote note={timingNote} />
         </div>
       </div>
     </div>

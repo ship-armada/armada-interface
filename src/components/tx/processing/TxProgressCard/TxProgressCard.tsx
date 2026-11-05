@@ -1,4 +1,4 @@
-// ABOUTME: In-progress hero card — rotating 60-tick ring around a USDC badge + title/subtitle.
+// ABOUTME: In-progress hero card — a 60-tick ring (sweeping, or filled to a real `progress`) around a USDC badge + title/subtitle.
 // ABOUTME: Ported from the armada-app design mockup.
 import { useMemo, type CSSProperties } from 'react'
 import { TokenBadge } from '@/components/dashboard/TokenBadge'
@@ -15,6 +15,10 @@ export interface TxProgressCardProps {
   copy: TxProgressCardCopy
   /** `immersive` = no inset card chrome; used when the shell owns the gradient. */
   variant?: TxProgressCardVariant
+  /**
+   * 0..1 — fills the ring to it (the proof being built) instead of the indeterminate sweep. Omitted = sweep.
+   */
+  progress?: number
   className?: string
 }
 
@@ -70,18 +74,37 @@ function ProgressSubtitle({ copy }: { copy: TxProgressCardCopy }) {
   return <p className={styles.subtitle}>{copy.subtitle}</p>
 }
 
-export function TxProgressCard({ copy, variant = 'card', className }: TxProgressCardProps) {
+export function TxProgressCard({ copy, variant = 'card', progress, className }: TxProgressCardProps) {
   const ticks = useMemo(() => Array.from({ length: TICK_COUNT }, (_, index) => index), [])
   const immersive = variant === 'immersive'
+  const determinate = progress !== undefined
+  const fill = Math.min(1, Math.max(0, progress ?? 0))
+  const filledTicks = Math.round(fill * TICK_COUNT)
 
   const cls = [styles.card, immersive && styles.cardImmersive, className].filter(Boolean).join(' ')
 
   return (
     <section className={cls} aria-label={copy.title}>
       <div className={styles.content}>
-        <div className={styles.tickRing} aria-hidden>
+        <div
+          className={[styles.tickRing, determinate && styles.tickRingDeterminate].filter(Boolean).join(' ')}
+          {...(determinate
+            ? {
+                role: 'progressbar',
+                'aria-label': 'Building proof',
+                'aria-valuemin': 0,
+                'aria-valuemax': 100,
+                'aria-valuenow': Math.round(fill * 100),
+              }
+            : { 'aria-hidden': true })}
+        >
           {ticks.map((index) => (
-            <span key={index} className={styles.tick} style={{ '--i': index } as CSSProperties} />
+            <span
+              key={index}
+              className={styles.tick}
+              style={{ '--i': index } as CSSProperties}
+              {...(determinate ? { 'data-filled': index < filledTicks } : {})}
+            />
           ))}
           <TokenBadge size={USDC_BADGE_PX} className={styles.token} />
         </div>

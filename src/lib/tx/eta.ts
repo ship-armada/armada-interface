@@ -1,5 +1,5 @@
-// ABOUTME: Pure ETA-display logic for the lifecycle stepper (T-L4) — elapsed timer + "taking longer
-// ABOUTME: than usual" once elapsed passes the kind's p90, so a stalled tx doesn't show a stale p50 forever.
+// ABOUTME: Pure ETA-display logic — the lifecycle stepper's elapsed timer + "taking longer than usual" past p90 (T-L4), and
+// ABOUTME: the progress view's per-stage timing note (a "Usually takes ~N" chip → a "Taking longer than usual" callout).
 
 import { isTerminalState } from './types'
 import type { TxExecutionState } from './types'
@@ -54,4 +54,34 @@ export function stepperEta(
     return { label: `Usually takes ${formatDurationHint(p50)} · ${formatElapsed(elapsedMs)} elapsed`, overdue: false }
   }
   return { label: `${formatElapsed(elapsedMs)} elapsed`, overdue: false }
+}
+
+/** The active row's timing, from `buildProcessingView`: when it started, its estimate, and what's safe to say about it. */
+export interface StageTiming {
+  startedAt: number
+  usualMs?: number
+  slowMs: number
+  /** The row is a cross-chain transfer in flight (broadcast) — the USDC is safe even though it's slow to arrive. */
+  safeInTransit: boolean
+  /** The tx has broadcast — closing the tab is safe (it resumes on the next sign-in); before that it would stop it. */
+  broadcast: boolean
+}
+
+/**
+ * The progress view's note for its active row: normally a quiet chip on the stepper ("Usually takes ~15 sec"); once past the slow
+ * threshold, a warning callout under it — with a body that says what's safe (closing the tab only once broadcast).
+ */
+export type StageTimingNote = { kind: 'usual'; chip: string } | { kind: 'slow'; title: string; body: string }
+
+/** The note for the active row at `nowMs`; null while normal on a stage with no usual time. */
+export function stageTimingNote(timing: StageTiming, nowMs: number): StageTimingNote | null {
+  if (nowMs - timing.startedAt > timing.slowMs) {
+    const body = timing.safeInTransit
+      ? 'Your USDC is safe in transit. You can close this tab \u2014 we\u2019ll keep checking.'
+      : timing.broadcast
+        ? 'The network may be busy. You can close this tab \u2014 we\u2019ll keep checking.'
+        : 'This can take longer on some devices. Keep this tab open until it\u2019s submitted.'
+    return { kind: 'slow', title: 'Taking longer than usual', body }
+  }
+  return timing.usualMs !== undefined ? { kind: 'usual', chip: `Usually takes ${formatDurationHint(timing.usualMs)}` } : null
 }

@@ -19,6 +19,7 @@ export function advance<K extends TxKind>(
 
   const newCompleted = [...new Set([...record.stagesCompleted, ...stages.slice(0, toIndex)])] as StageFor<K>[]
   const isTerminal = toStage === lifecycle.terminalSuccess
+  const now = Date.now()
 
   return {
     ...record,
@@ -26,8 +27,10 @@ export function advance<K extends TxKind>(
     stagesCompleted: newCompleted,
     executionState: isTerminal ? 'completed' : 'active',
     updatedSeq: record.updatedSeq + 1,
-    updatedAt: Date.now(),
+    updatedAt: now,
     artifacts: { ...record.artifacts, ...artifactPatch },
+    // A re-entered stage (a retry) keeps its first stamp, so its time counts from the first attempt.
+    stageEnteredAt: { [toStage]: now, ...record.stageEnteredAt } as Partial<Record<StageFor<K>, number>>,
   }
 }
 

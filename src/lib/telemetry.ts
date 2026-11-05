@@ -45,6 +45,12 @@ export type EventRegistry = {
   // means it resumed from the IndexedDB checkpoint. `scanned` false = head hadn't advanced (no work).
   'sdk.sync':                 { fromBlock: number; syncedThrough: number; scanned: boolean }
 
+  // Proving timings (package 7) — durations, a circuit shape and booleans only. `sdk.proof` is one Groth16 proof in the
+  // worker; `firstOfSession` marks the page's first, which also pays the worker start-up (snarkjs load, curve init).
+  // `sdk.artifact.resolve` is getting a circuit's files for a proof; `cached` = already in memory (no download).
+  'sdk.proof':                { durationMs: number; firstOfSession: boolean }
+  'sdk.artifact.resolve':     { shape: string; durationMs: number; cached: boolean }
+
   // @armada/sdk quick-sync outcome — emitted once per sync WHEN an indexer (watcher) is configured,
   // so an operator can confirm it's actually serving vs silently degrading to RPC. Forwarded from the
   // SDK's `sync.quicksync` telemetry via `sdk-telemetry.ts`. Block numbers + booleans only.
@@ -58,7 +64,8 @@ export type EventRegistry = {
   'sdk.quicksync':            { outcome: 'served' | 'root-mismatch-fallback'; fromBlock: number; head: number; tailCovered: boolean; reason?: 'indexer-http-error' | 'schema-mismatch' | 'root-mismatch' | 'position-gap' | 'unknown'; status?: number }
 
   'tx.submitted':             { id: string; kind: TxKind }
-  'tx.transition':            { id: string; kind: TxKind; from: TxStage; to: TxStage; executionState: TxRecord['executionState'] }
+  // `durationMs` = time spent in `from` (its stageEnteredAt stamp → now); absent when `from` has no stamp.
+  'tx.transition':            { id: string; kind: TxKind; from: TxStage; to: TxStage; executionState: TxRecord['executionState']; durationMs?: number }
   'tx.failed':                { id: string; kind: TxKind; errorCode?: string }
   'tx.expired':               { id: string; kind: TxKind }
   'tx.cancelled':             { id: string; kind: TxKind }
@@ -76,6 +83,8 @@ export type EventRegistry = {
   // (FEE_EXPIRED / FEE_TOO_LOW / etc.) so dashboards can split out fee-staleness from genuine
   // submission errors. NO tx hashes here — those are emitted via `tx.transition` once the relayer
   // returns a hash + the poller confirms inclusion.
+  // Completion → the next shielded balance change (3D). `timedOut` = no change within the probe window.
+  'tx.balance.latency':       { id: string; kind: TxKind; durationMs: number; timedOut: boolean }
   'tx.relayer.submitted':     { id: string; kind: TxKind }
   'tx.relayer.confirmed':     { id: string; kind: TxKind }
   'tx.relayer.rejected':      { id: string; kind: TxKind; errorCode?: string }
@@ -143,11 +152,12 @@ export function track<E extends EventName>(event: E, props: EventRegistry[E]): v
   emit('info', event, props as Record<string, unknown>)
 }
 
-/** Tx state-machine transition — thin wrapper that emits a `tx.transition`. */
+/** Tx state-machine transition — thin wrapper that emits a `tx.transition` (with the previous stage's duration). */
 export function trackTxTransition(
   record: TxRecord,
   fromStage: TxStage,
   toStage: TxStage,
+  durationMs?: number,
 ): void {
   track('tx.transition', {
     id: record.id,
@@ -155,6 +165,7 @@ export function trackTxTransition(
     from: fromStage,
     to: toStage,
     executionState: record.executionState,
+    ...(durationMs !== undefined ? { durationMs } : {}),
   })
 }
 

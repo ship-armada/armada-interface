@@ -1,4 +1,4 @@
-/* ABOUTME: Styles for the in-progress hero card — brand-gradient surface + tick-ring sweep. */
+/* ABOUTME: Styles for the in-progress hero card — brand-gradient surface + tick-ring sweep, or a determinate fill. */
 /* ABOUTME: Ported from the armada-app design mockup. */
 .card {
   position: relative;
@@ -175,10 +175,29 @@
   color: var(--semantic-color-text-secondary);
 }
 
+/* Determinate (a proof being built): no sweep — the filled share of ticks is bright and wide, the rest a faint track. */
+.tickRingDeterminate .tick {
+  animation: none;
+  opacity: 0.3;
+  width: 1.5px;
+  transition:
+    opacity 0.2s ease,
+    width 0.2s ease;
+}
+
+.tickRingDeterminate .tick[data-filled='true'] {
+  opacity: 1;
+  width: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tick {
     animation: none;
     opacity: 0.55;
     width: 1.5px;
+  }
+
+  .tickRingDeterminate .tick {
+    transition: none;
   }
 }
