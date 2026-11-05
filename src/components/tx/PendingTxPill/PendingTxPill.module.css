@@ -1,69 +1,57 @@
-/* ABOUTME: PendingTxPill styling — a 40px pill on the header controls' surface-main fill (like the settings gear and
-   ABOUTME: wallet pill), a small lavender spinner, and the wider announcing state; motion stops under reduced motion. */
+/* ABOUTME: PendingTxPill styling — a 40px pill on the header controls' surface-main fill that unfolds from (and folds back
+   ABOUTME: to) the icon circle, eases its width between contents and crossfades them; motion stops under reduced motion. */
 
+/* The shell: clips its content and carries the width. Its right edge sits against the wallet pill, so a change of width
+   grows / shrinks it leftward and the header controls to its left slide along. */
 .pill {
+  --pill-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--primitives-spacing-2);
   flex-shrink: 0;
   height: var(--primitives-spacing-10);
-  padding: 0 var(--primitives-spacing-4);
-  border: none;
+  overflow: hidden;
   border-radius: calc(var(--primitives-borderRadius-full) * 1px);
   background: var(--semantic-color-surface-main);
   color: var(--semantic-color-text-primary);
-  font: inherit;
   white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  transition:
+    width 280ms var(--pill-ease),
+    background 0.15s ease;
 }
 
 .pill:hover {
   background: var(--semantic-color-surface-raised-hover);
 }
 
-.pill:focus-visible {
+/* The shell clips, so the keyboard focus ring goes on it rather than on the button inside. */
+.pill:has(:focus-visible) {
   outline: 2px solid var(--semantic-color-text-lavender);
   outline-offset: 2px;
 }
 
-.spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 9999px;
-  border: 2px solid var(--semantic-color-border-lavender);
-  border-top-color: var(--semantic-color-brand-lavender);
-  animation: pendingTxPillSpin 700ms linear infinite;
+/* Appearing: the icon circle pops in, then (open) widens to the content. */
+.pill[data-phase='circle'] {
+  width: var(--primitives-spacing-10);
+  animation: pendingTxPillPopIn 140ms var(--pill-ease);
 }
 
-@keyframes pendingTxPillSpin {
-  to {
-    transform: rotate(360deg);
-  }
+/* Disappearing: narrow back to the circle (quicker, easing in)… */
+.pill[data-phase='closing'] {
+  width: var(--primitives-spacing-10);
+  transition: width 140ms ease-in;
 }
 
-/* The one in-flight tx by name — capped like an announcement, so a long label truncates. */
-.pendingLabel {
-  max-width: min(360px, 50vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* …then the circle scales and fades out. */
+.pill[data-phase='vanishing'] {
+  width: var(--primitives-spacing-10);
+  animation: pendingTxPillPopOut 100ms ease-in forwards;
 }
 
-/* Announcing a tx notice: the pill widens to hold it, fading the content in. */
-.announcing {
-  max-width: min(420px, 60vw);
-  cursor: default;
-  animation: pendingTxPillAnnounce 260ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.announcing:hover {
-  background: var(--semantic-color-surface-main);
-}
-
-@keyframes pendingTxPillAnnounce {
+@keyframes pendingTxPillPopIn {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.96);
+    transform: scale(0.6);
   }
   to {
     opacity: 1;
@@ -71,32 +59,94 @@
   }
 }
 
-.announcementButton,
+@keyframes pendingTxPillPopOut {
+  to {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+/* One state's content. Left-anchored, so the icon leads as the pill unfolds and the text slides out behind it. A fresh
+   content layer fades in (its icon pops) while the previous one fades out on top of it. */
+.content {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 100%;
+  animation: pendingTxPillContentIn 220ms var(--pill-ease);
+}
+
+.leaving {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  animation: pendingTxPillContentOut 200ms ease forwards;
+}
+
+@keyframes pendingTxPillContentIn {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pendingTxPillContentOut {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The text hides while the pill is only the circle (appearing / closing) and fades in once it opens. */
+.text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+  transition: opacity 180ms ease 80ms;
+}
+
+.pill:not([data-phase='open']) .text {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+/* The icon sits centred in the 40px circle (13px in from the left edge). */
+.button,
 .dismissButton {
   appearance: none;
   border: none;
   background: none;
-  padding: 0;
   font: inherit;
   color: inherit;
   cursor: pointer;
-  border-radius: var(--primitives-borderRadius-sm);
+  height: 100%;
 }
 
-.announcementButton {
+.button {
   display: inline-flex;
   align-items: center;
   gap: var(--primitives-spacing-2);
-  min-width: 0;
+  padding: 0 var(--primitives-spacing-4) 0 13px;
 }
 
-.announcementButton:focus-visible,
+.buttonBeforeDismiss {
+  padding-right: var(--primitives-spacing-1);
+}
+
+.button:focus-visible,
 .dismissButton:focus-visible {
-  outline: 2px solid var(--semantic-color-text-lavender);
-  outline-offset: 2px;
+  outline: none;
 }
 
+/* A long label (a vault withdrawal with a big amount) truncates instead of crowding the header. */
+.pendingLabel,
 .announcementTitle {
+  display: block;
+  max-width: min(320px, 45vw);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -107,6 +157,8 @@
 
 .dismissButton {
   display: inline-flex;
+  align-items: center;
+  padding: 0 var(--primitives-spacing-3) 0 var(--primitives-spacing-1);
   color: var(--semantic-color-text-muted);
 }
 
@@ -116,8 +168,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner,
-  .announcing {
+  .pill,
+  .pill[data-phase='closing'],
+  .text,
+  .pill:not([data-phase='open']) .text {
+    transition: none;
+  }
+
+  .pill[data-phase='circle'],
+  .pill[data-phase='vanishing'],
+  .content,
+  .leaving {
     animation: none;
   }
 }
