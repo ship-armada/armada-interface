@@ -1,0 +1,36 @@
+/* ABOUTME: TxTimings styling — a dense dev-tool table (right-aligned numbers) above its Copy button.
+   ABOUTME: Plain tokens; the Debug page is a developer panel, not a user surface. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-3);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: var(--primitives-spacing-1) var(--primitives-spacing-2);
+  border-bottom: 1px solid var(--semantic-color-border-default);
+  text-align: left;
+  color: var(--semantic-color-text-primary);
+}
+
+.table th {
+  color: var(--semantic-color-text-secondary);
+}
+
+.table td:nth-child(n + 3),
+.table th:nth-child(n + 3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  margin: 0;
+  color: var(--semantic-color-text-secondary);
+}

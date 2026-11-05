@@ -18,6 +18,10 @@ import { isIndexerConfigured } from '@/lib/indexer'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { formatUsdcAmount, truncateAddress } from '@/lib/format'
 import { TxNoticePreview } from '@/components/debug/TxNoticePreview'
+import { TxTimings } from '@/components/debug/TxTimings'
+import { latencyTimings, stageTimings } from '@/lib/tx/timings'
+import { activeTxListAtom } from '@/state/tx'
+import { balanceLatencySamplesAtom } from '@/state/txTimings'
 import styles from './Debug.module.css'
 
 /**
@@ -172,6 +176,8 @@ async function queryChainBalance(
 export function Debug() {
   // Read-only consumer — surface the synced shielded balance for inspection.
   const shielded = useAtomValue(shieldedUsdcAtom)
+  const txList = useAtomValue(activeTxListAtom)
+  const balanceLatencySamples = useAtomValue(balanceLatencySamplesAtom)
   const { address: evmAddress } = useWallet()
   const { state: shieldedState } = useShieldedWallet()
   const { chainId: connectedChainId } = useAccount()
@@ -273,6 +279,8 @@ export function Debug() {
   )
 
   const localMode = isLocalMode()
+  // Per-kind stage durations from this wallet's completed records, plus this session's balance-lag samples.
+  const timingRows = [...stageTimings(txList), ...latencyTimings(balanceLatencySamples)]
 
   return (
     <div className={styles.page}>
@@ -295,6 +303,11 @@ export function Debug() {
             {isIndexerConfigured() ? <IndexerHealthPill state={indexerHealth} /> : null}
           </dd>
         </dl>
+      </Card>
+
+      <Card className={styles.section}>
+        <h3 className={styles.sectionTitle}>Tx timings</h3>
+        <TxTimings rows={timingRows} />
       </Card>
 
       <Card className={styles.section}>
