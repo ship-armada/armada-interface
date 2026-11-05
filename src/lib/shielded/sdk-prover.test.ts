@@ -1,5 +1,5 @@
-// ABOUTME: Unit test for the write-capable SDK wiring — the ArtifactSource resolves loaded circuits from
-// ABOUTME: the registry (fast path) and lazy-loads any other shape via circuitFetch on a miss (#6).
+// ABOUTME: Unit test for the write-capable SDK wiring — the ArtifactSource resolves loaded circuits from the registry (fast
+// ABOUTME: path) or lazy-loads them (#6), and both it and the prover report their timings (package 7).
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -14,7 +14,11 @@ vi.mock('@armada/sdk', () => ({ createWorkerProver: createWorkerProverMock, webW
 const ensureCircuitLoadedMock = vi.hoisted(() => vi.fn())
 vi.mock('./circuitFetch', () => ({ ensureCircuitLoaded: ensureCircuitLoadedMock }))
 
-import { createInterfaceArtifactSource, createInterfaceProver } from './sdk-prover'
+// Timing telemetry: assert what's reported (the console sink is tested in telemetry.test).
+const trackMock = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/telemetry', () => ({ track: trackMock }))
+
+import { createInterfaceArtifactSource, createInterfaceProver, __resetProofSessionForTests } from './sdk-prover'
 import { setArmadaArtifact, clearArmadaArtifacts, type ArmadaArtifact } from './artifactGetter'
 
 const artifact = (wasm: Uint8Array): ArmadaArtifact =>
@@ -69,3 +73,36 @@ describe('createInterfaceProver', () => {
     expect(typeof prover.close).toBe('function')
   })
 })
+
+describe('timing telemetry', () => {
+  beforeEach(() => {
+    clearArmadaArtifacts()
+    trackMock.mockReset()
+    ensureCircuitLoadedMock.mockReset()
+    __resetProofSessionForTests()
+  })
+
+  it('reports each circuit resolve: its shape, duration, and whether it was already loaded', async () => {
+    setArmadaArtifact('01x02', artifact(new Uint8Array([1])))
+    ensureCircuitLoadedMock.mockResolvedValue(undefined)
+    await createInterfaceArtifactSource().resolve({ nullifiers: 1, commitments: 2 })
+    ensureCircuitLoadedMock.mockImplementation(async (key: string) => setArmadaArtifact(key, artifact(new Uint8Array([2]))))
+    await createInterfaceArtifactSource().resolve({ nullifiers: 2, commitments: 3 })
+    expect(trackMock.mock.calls).toEqual([
+      ['sdk.artifact.resolve', { shape: '01x02', cached: true, durationMs: expect.any(Number) }],
+      ['sdk.artifact.resolve', { shape: '02x03', cached: false, durationMs: expect.any(Number) }],
+    ])
+  })
+
+  it('reports each proof\'s duration, flagging the first of the session (it also pays the worker start-up)', async () => {
+    const prover = createInterfaceProver()
+    const artifacts = { wasm: new Uint8Array(), zkey: new Uint8Array(), vkey: {} }
+    await prover.prove({}, artifacts)
+    await prover.prove({}, artifacts)
+    expect(trackMock.mock.calls).toEqual([
+      ['sdk.proof', { durationMs: expect.any(Number), firstOfSession: true }],
+      ['sdk.proof', { durationMs: expect.any(Number), firstOfSession: false }],
+    ])
+  })
+})
+

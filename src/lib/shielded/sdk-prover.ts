@@ -1,5 +1,5 @@
-// ABOUTME: Write-capable @armada/sdk wiring — a Web Worker snarkjs ProverAdapter + an ArtifactSource
-// ABOUTME: that resolves circuits from the interface's in-memory artifact registry (artifactGetter).
+// ABOUTME: Write-capable @armada/sdk wiring — a Web Worker snarkjs ProverAdapter + an ArtifactSource that resolves circuits
+// ABOUTME: from the interface's in-memory artifact registry (artifactGetter). Both report their timings (sdk.proof / sdk.artifact.resolve).
 
 import {
   createWorkerProver,
@@ -13,6 +13,15 @@ import {
 } from '@armada/sdk'
 import { armadaVariantKey, getArmadaArtifact } from './artifactGetter'
 import { ensureCircuitLoaded } from './circuitFetch'
+import { track } from '@/lib/telemetry'
+
+/** Whether this page has finished a proof yet — the first also pays the worker's start-up. */
+let provedThisSession = false
+
+/** Test hook: start a fresh "session" so the first-proof flag can be exercised. */
+export function __resetProofSessionForTests(): void {
+  provedThisSession = false
+}
 
 /**
  * A `WorkerChannel` over a browser Web Worker running the SDK's prebuilt prover entry.
@@ -37,7 +46,19 @@ function createProverWorkerChannel(): WorkerChannel {
  * after a crash or a cancelled proof, and `close()` terminates it.
  */
 export function createInterfaceProver(): ProverAdapter {
-  return createWorkerProver(createProverWorkerChannel)
+  const prover = createWorkerProver(createProverWorkerChannel)
+  return {
+    // Timed per proof (package 7): how long proving takes, and whether the first proof pays a start-up penalty.
+    async prove(formattedInputs, artifacts, options) {
+      const startedAt = performance.now()
+      const proof = await prover.prove(formattedInputs, artifacts, options)
+      track('sdk.proof', { durationMs: Math.round(performance.now() - startedAt), firstOfSession: !provedThisSession })
+      provedThisSession = true
+      return proof
+    },
+    verify: (proof, publicSignals, vkey) => prover.verify(proof, publicSignals, vkey),
+    close: () => prover.close(),
+  }
 }
 
 /**
@@ -51,7 +72,10 @@ export function createInterfaceArtifactSource(): ArtifactSource {
   return {
     async resolve(shape: CircuitShape): Promise<ArtifactSet> {
       const key = armadaVariantKey(shape.nullifiers, shape.commitments)
+      const cached = getArmadaArtifact(key) !== undefined
+      const startedAt = performance.now()
       await ensureCircuitLoaded(key)
+      track('sdk.artifact.resolve', { shape: key, durationMs: Math.round(performance.now() - startedAt), cached })
       const artifact = getArmadaArtifact(key)
       if (!artifact || artifact.wasm === undefined || artifact.zkey === undefined || artifact.vkey === undefined) {
         // ensureCircuitLoaded resolves or throws; a populated-but-incomplete registry entry here is a bug.

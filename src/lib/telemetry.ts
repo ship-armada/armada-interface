@@ -45,6 +45,12 @@ export type EventRegistry = {
   // means it resumed from the IndexedDB checkpoint. `scanned` false = head hadn't advanced (no work).
   'sdk.sync':                 { fromBlock: number; syncedThrough: number; scanned: boolean }
 
+  // Proving timings (package 7) — durations, a circuit shape and booleans only. `sdk.proof` is one Groth16 proof in the
+  // worker; `firstOfSession` marks the page's first, which also pays the worker start-up (snarkjs load, curve init).
+  // `sdk.artifact.resolve` is getting a circuit's files for a proof; `cached` = already in memory (no download).
+  'sdk.proof':                { durationMs: number; firstOfSession: boolean }
+  'sdk.artifact.resolve':     { shape: string; durationMs: number; cached: boolean }
+
   // @armada/sdk quick-sync outcome — emitted once per sync WHEN an indexer (watcher) is configured,
   // so an operator can confirm it's actually serving vs silently degrading to RPC. Forwarded from the
   // SDK's `sync.quicksync` telemetry via `sdk-telemetry.ts`. Block numbers + booleans only.
