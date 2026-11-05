@@ -1,6 +1,7 @@
 // ABOUTME: Adapter from a live TxRecord to the processing UI's view model (hero card copy + timeline stages).
 // ABOUTME: Drives TxProcessingLayout from our REAL lifecycle stages (lifecycleFor + record state), styled like the mockup.
 
+import { getChainById, getNetworkConfig } from '@/config/network'
 import { lifecycleFor } from '@/lib/tx/lifecycles'
 import type { StageEstimate, TxExecutionState, TxKind, TxRecord } from '@/lib/tx/types'
 import type { StageTiming } from '@/lib/tx/eta'
@@ -26,9 +27,32 @@ interface StageCopyEntry {
  * single timeline row: `label` is that row's heading; `subtitle` shows while the row is upcoming or
  * done, and is replaced by the LIVE sub-stage's own subtitle while the record sits inside the group
  * (so a single "Bridging" step advances its subheading through the underlying CCTP stages).
+ * `{source}` / `{destination}` name a cross-chain tx's chains (see `fillChains`).
  */
 const GROUP_COPY: Record<string, { label: string; subtitle: string }> = {
-  bridging: { label: 'Bridging', subtitle: 'Moving funds across chains' },
+  bridging: { label: 'Bridging to {destination}', subtitle: 'Moving your USDC from {source} to {destination}' },
+}
+
+/** A cross-chain record's source and destination chain names, for the `{source}` / `{destination}` copy placeholders. */
+function chainNames(record: TxRecord): { source: string; destination: string } | null {
+  const hubName = getNetworkConfig().hub.name
+  if (record.kind === 'shield-xchain') {
+    const { fromChainId } = record.meta as { fromChainId?: number }
+    const source = (fromChainId !== undefined ? getChainById(fromChainId)?.name : undefined) ?? 'the source chain'
+    return { source, destination: hubName }
+  }
+  if (record.kind === 'unshield-xchain') {
+    const { toChainId } = record.meta as { toChainId?: number }
+    const destination = (toChainId !== undefined ? getChainById(toChainId)?.name : undefined) ?? 'the destination chain'
+    return { source: hubName, destination }
+  }
+  return null
+}
+
+/** Fill a copy string's `{source}` / `{destination}` with the record's chain names (no-op for same-chain kinds). */
+function fillChains(text: string, names: { source: string; destination: string } | null): string {
+  if (!names) return text
+  return text.replaceAll('{source}', names.source).replaceAll('{destination}', names.destination)
 }
 
 /** Resolve a stage's subtitle. The `waiting` variant applies only to the CURRENT stage while the
@@ -45,7 +69,8 @@ function resolveSubtitle(
 /**
  * Per-(kind, stage) processing copy. Labels are active-tense ("Shielding") with a `completedLabel`
  * for the final row ("Shielded"); subtitles echo the mockup's supporting line. Stage ids MUST match
- * `lifecycleFor(kind).stages` — every id a kind can reach needs an entry here.
+ * `lifecycleFor(kind).stages` — every id a kind can reach needs an entry here. A cross-chain kind's copy names its chains
+ * through `{source}` / `{destination}` ("Bridging to Base", "Moving your USDC from Ethereum to Base").
  */
 const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   shield: {
@@ -62,10 +87,10 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   },
   'shield-xchain': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
-    'submit-relayer': { label: 'Submitting on source chain', subtitle: 'Confirm in your wallet' },
-    'client-burn-confirmed': { label: 'Bridging', subtitle: 'Confirmed on source chain', group: 'bridging' },
-    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Waiting for cross-chain confirmation', group: 'bridging' },
-    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Cross-chain confirmation ready', group: 'bridging' },
+    'submit-relayer': { label: 'Submitting on {source}', subtitle: 'Confirm in your wallet' },
+    'client-burn-confirmed': { label: 'Bridging', subtitle: 'Sent from {source}', group: 'bridging' },
+    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Moving your USDC from {source} to {destination}', group: 'bridging' },
+    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Arriving on {destination}', group: 'bridging' },
     'hub-mint-pending': { label: 'Shielding', subtitle: 'Delivering to your private balance' },
     'hub-mint-confirmed': { label: 'Shielding', subtitle: 'Confirming on chain', completedLabel: 'Shielded' },
   },
@@ -81,10 +106,10 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
   'unshield-xchain': {
     'build-proof': { label: 'Preparing transaction', subtitle: 'Building zero-knowledge proof' },
     'submit-relayer': { label: 'Submitting transaction', subtitle: 'Relaying to public chain' },
-    'hub-burn-confirmed': { label: 'Bridging', subtitle: 'Confirmed on hub', group: 'bridging' },
-    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Waiting for cross-chain confirmation', group: 'bridging' },
-    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Cross-chain confirmation ready', group: 'bridging' },
-    'client-mint-pending': { label: 'Delivering', subtitle: 'Delivering on the destination chain' },
+    'hub-burn-confirmed': { label: 'Bridging', subtitle: 'Sent from {source}', group: 'bridging' },
+    'iris-attestation-pending': { label: 'Bridging', subtitle: 'Moving your USDC from {source} to {destination}', group: 'bridging' },
+    'iris-attestation-ready': { label: 'Bridging', subtitle: 'Arriving on {destination}', group: 'bridging' },
+    'client-mint-pending': { label: 'Delivering', subtitle: 'Delivering on {destination}' },
     'client-mint-confirmed': { label: 'Delivering', subtitle: 'Confirming on chain', completedLabel: 'Funds delivered' },
   },
   'transfer-shielded': {
@@ -239,6 +264,7 @@ export function buildProcessingView(
     }
   }
 
+  const names = chainNames(record)
   const stages: TxProgressStage[] = rows.map((row, index) => {
     // The last rendered row carries the folded terminal `completedLabel` so it flips to the done
     // state on completion; earlier rows keep their own (usually none).
@@ -251,13 +277,18 @@ export function buildProcessingView(
       const subtitle = activeSubId
         ? resolveSubtitle(copyMap[activeSubId]?.subtitle ?? '', true, record.executionState)
         : groupCopy?.subtitle ?? ''
-      return { id: row.id, label: groupCopy?.label ?? row.id, subtitle, completedLabel: foldedLabel }
+      return {
+        id: row.id,
+        label: fillChains(groupCopy?.label ?? row.id, names),
+        subtitle: fillChains(subtitle, names),
+        completedLabel: foldedLabel,
+      }
     }
     const entry = copyMap[row.id]
     return {
       id: row.id,
-      label: entry?.label ?? row.id,
-      subtitle: entry ? resolveSubtitle(entry.subtitle, row.id === record.stage, record.executionState) : '',
+      label: fillChains(entry?.label ?? row.id, names),
+      subtitle: fillChains(entry ? resolveSubtitle(entry.subtitle, row.id === record.stage, record.executionState) : '', names),
       completedLabel: foldedLabel ?? entry?.completedLabel,
     }
   })
