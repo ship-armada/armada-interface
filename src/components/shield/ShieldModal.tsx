@@ -160,6 +160,7 @@ export function ShieldModal() {
             feeUnavailable={!isShield && unshieldFlow.feeUnavailable}
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
+            requiredGasWei={isShield ? (shieldFlow.displayFees.nativeGas?.wei ?? null) : null}
             inputRef={amountInputRef}
             shaking={shaking}
             onShakeAnimationEnd={onShakeAnimationEnd}
@@ -206,7 +207,7 @@ export function ShieldModal() {
               shieldFlow.relayerResolving ? RELAYER_CHECKING_REASON
               : shieldFlow.quotePending ? QUOTE_PENDING_REASON
               : shieldFlow.protocolFeePending ? SHIELD_FEE_PENDING_REASON
-              : null
+              : shieldFlow.gasShortReason
             }
             onBack={shieldFlow.onBackToInput}
             onConfirm={shieldFlow.submit}

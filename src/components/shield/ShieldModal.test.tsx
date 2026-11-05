@@ -134,11 +134,14 @@ vi.mock('wagmi', async (importOriginal) => ({
 
 // useGasBalanceWarning calls wagmi's useAccount/useBalance — same provider requirement.
 // "No warning" keeps the GasBalanceNotice hidden; the amount-step gating is covered in ShieldAmountStep.test.tsx.
+// A test can make the wallet short of ETH for the direct shield's gas (4F); the default has enough.
+const hoistedGas = vi.hoisted(() => ({ short: false }))
 vi.mock('@/hooks/useGasBalanceWarning', () => ({
   useGasBalanceWarning: () => ({
-    show: false,
+    show: hoistedGas.short,
     nativeSymbol: 'ETH',
-    formattedBalance: null,
+    formattedBalance: hoistedGas.short ? '0.0001' : null,
+    formattedNeeded: hoistedGas.short ? '0.001' : null,
   }),
 }))
 
@@ -259,6 +262,19 @@ describe('<ShieldModal>', () => {
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
     expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+  })
+
+  it('holds Confirm on the direct path when the wallet can\'t cover the estimated gas (4F)', () => {
+    hoistedGas.short = true
+    try {
+      renderModal({ open: true, max: 10_000_000n })
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(screen.getByRole('button', { name: /^Confirm$/ })).toBeDisabled()
+      expect(screen.getByText('Not enough ETH in your wallet for network gas.')).toBeInTheDocument()
+    } finally {
+      hoistedGas.short = false
+    }
   })
 
   it('Back from review returns to the input step', () => {

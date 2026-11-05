@@ -1,6 +1,7 @@
 // ABOUTME: useShieldFlow — the shield (deposit) flow controller. Owns form + fee + submit + step orchestration.
 // ABOUTME: Extracted from ShieldModal so the modal is a dumb renderer; no ethers/execution here — that lives in features/shield*.
 
+import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
 import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
@@ -98,6 +99,8 @@ export interface ShieldFlow {
   onBackToInput: () => void
   /** The last shield was declined in the wallet — Review shows a quiet note instead of the error screen (4D). */
   walletDeclined: boolean
+  /** Direct path: the wallet can't cover the estimated gas — holds Review's Confirm with this reason (4F); else null. */
+  gasShortReason: string | null
   submit: () => Promise<void>
   errorPrimaryLabel: string
   onErrorPrimary: () => void
@@ -220,6 +223,9 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     shieldFeeIntegrator(computedKind, useGasless, getIntegratorAddress()),
   )
   const protocolFee = displayFees.protocolFee
+  // Direct path only (the relayer pays gas on the gasless one): hold Confirm when ETH can't cover the estimated gas (4F).
+  const gasBalance = useGasBalanceWarning(fromChainId, displayFees.nativeGas?.wei ?? null)
+  const gasShortReason = !useGasless && gasBalance.show ? `Not enough ${gasBalance.nativeSymbol} in your wallet for network gas.` : null
   // Per-kind fee math (recipient receives / user is debited / how much they can type) lives in
   // the shared `computeFeeBreakdown` helper. Both gasless paths use `fee-from-recipient` so
   // the entered `amount` IS what's deducted from the user's USDC balance, and the shielded
@@ -514,6 +520,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
       setStep('input')
     },
     walletDeclined,
+    gasShortReason,
     submit,
     errorPrimaryLabel,
     onErrorPrimary,
