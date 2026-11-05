@@ -7,7 +7,7 @@ import {
   type TransactionProgressVariant,
 } from '../TransactionProgressDisclosure'
 import { TxProgressCard, type TxProgressCardVariant } from '../TxProgressCard'
-import { resolveStageLabel, type TxProgressCardCopy, type TxProgressStage } from '../processingCopy'
+import { progressAnnouncement, type TxProgressCardCopy, type TxProgressStage } from '../processingCopy'
 import styles from './TxProcessingLayout.module.css'
 
 export type TxProcessingLayoutVariant = 'default' | 'immersive'
@@ -38,12 +38,7 @@ export function TxProcessingLayout({
   const bodyClassName = immersive
     ? [styles.body, styles.bodyImmersive].filter(Boolean).join(' ')
     : [modalStepBodyEnter, styles.body].filter(Boolean).join(' ')
-  const activeStage = stages[activeStageIndex]
-  const statusAnnouncement = activeStage
-    ? completed && activeStageIndex === stages.length - 1
-      ? resolveStageLabel(activeStage, activeStageIndex, stages.length, true)
-      : `${resolveStageLabel(activeStage, activeStageIndex, stages.length, completed)}. ${activeStage.subtitle}`
-    : ''
+  const statusAnnouncement = progressAnnouncement(stages, activeStageIndex, completed)
 
   const progressCard = <TxProgressCard copy={cardCopy} variant={cardVariant} />
 

@@ -33,6 +33,22 @@ export function resolveStageLabel(
   return stage.label
 }
 
+/**
+ * The screen-reader line for the current step ("Submitting transaction. Building zero-knowledge proof"); just the
+ * completed label once the last step is done. Empty when there's no such step. Announced politely by the progress
+ * layout and the Activity receipt's stepper.
+ */
+export function progressAnnouncement(
+  stages: ReadonlyArray<TxProgressStage>,
+  activeStageIndex: number,
+  completed: boolean,
+): string {
+  const activeStage = stages[activeStageIndex]
+  if (!activeStage) return ''
+  const label = resolveStageLabel(activeStage, activeStageIndex, stages.length, completed)
+  return completed && activeStageIndex === stages.length - 1 ? label : `${label}. ${activeStage.subtitle}`
+}
+
 export type RowKind = 'done' | 'currentActive' | 'pending' | 'completedFinal'
 
 export function rowKindFor(index: number, activeIndex: number, completed = false): RowKind {
