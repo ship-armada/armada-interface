@@ -5,10 +5,7 @@ import { type ReactNode } from 'react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { FlowShell } from '@/components/flow/FlowShell'
 import { useFlowExit } from '@/components/flow/useFlowExit'
-import { buildProcessingView } from '@/components/tx/processing/processingView'
-import { TransactionProgressDisclosure } from '@/components/tx/processing/TransactionProgressDisclosure'
-import { progressAnnouncement } from '@/components/tx/processing/processingCopy'
-import a11y from '@/design/styles/formA11y.module.css'
+import { ReceiptProgress } from './ReceiptProgress'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
@@ -226,8 +223,6 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
 
 export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: ActivityReceiptProps) {
   const view = record ? buildReceiptView(record, ownWalletAddress) : null
-  // The live stepper's data, while the tx is still in flight.
-  const progress = record && view?.status === 'pending' ? buildProcessingView(record) : null
 
   // Play the slide-down exit before the parent unmounts us (mockup parity with the flow modals).
   const { exiting, requestClose } = useFlowExit(onClose)
@@ -286,19 +281,8 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: Act
           ) : null}
 
           {/* A tx still in flight shows the flow's live stepper (collapsed to the current step) where a failed one shows its
-              banner; once it settles the record updates and the stepper goes. */}
-          {progress ? (
-            <>
-              <p className={a11y.srOnly} aria-live="polite" aria-atomic="true">
-                {progressAnnouncement(progress.stages, progress.activeStageIndex, progress.completed)}
-              </p>
-              <TransactionProgressDisclosure
-                stages={progress.stages}
-                activeStageIndex={progress.activeStageIndex}
-                completed={progress.completed}
-              />
-            </>
-          ) : null}
+              banner; when it settles the stepper shows its finished step, then collapses away. */}
+          {record ? <ReceiptProgress record={record} status={view.status} /> : null}
 
           {view.summary}
           {/* A cross-chain tx's second half: the CCTP mint on the destination chain ("View on explorer" is the source tx). */}

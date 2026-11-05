@@ -111,6 +111,65 @@
   padding: var(--primitives-spacing-3) var(--primitives-spacing-4);
   border-radius: calc(var(--semantic-borderRadius-item) * 1px);
   box-sizing: border-box;
+  /* Fades in, so a tx failing while its receipt is open swaps the collapsing stepper for the banner in one movement. */
+  animation: receiptFadeIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* A pending tx's live stepper (ReceiptProgress). The grid row animates its height to/from 0 without measuring; the
+   negative margin takes back the root's gap as it closes, so the summary below slides up smoothly instead of jumping. */
+.progress {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows 220ms ease-in,
+    opacity 160ms ease-in,
+    margin-bottom 220ms ease-in;
+  /* Just after the receipt body's own slide-in, so the two read as one entrance. */
+  animation: receiptProgressIn 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+.progress[data-phase='leaving'] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  margin-bottom: calc(var(--primitives-spacing-8) * -1);
+}
+
+.progressInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes receiptProgressIn {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-4px);
+    margin-bottom: calc(var(--primitives-spacing-8) * -1);
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: none;
+    margin-bottom: 0;
+  }
+}
+
+@keyframes receiptFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusBanner,
+  .progress {
+    animation: none;
+    transition: none;
+  }
 }
 
 .statusBannerError {

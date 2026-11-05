@@ -2,6 +2,7 @@
 // ABOUTME: between contents, fold back and fade out on disappear — each one continuous movement. Instant under reduced motion.
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { prefersReducedMotion } from '@/utils/motion'
 
 /** Phase timings (ms) — the CSS in PendingTxPill.module.css runs the matching transitions / keyframes. */
 export const PILL_MOTION_MS = {
@@ -28,11 +29,6 @@ export interface PillMotion<T> {
   /** The previous content, fading out over `shown` during a crossfade. */
   leaving: T | null
   phase: PillPhase
-}
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
 /**
