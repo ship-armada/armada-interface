@@ -190,6 +190,7 @@ export function ShieldModal() {
             feeUpdated={shieldFlow.feeChanged}
             estimated={shieldFlow.reviewFigures?.estimated ?? false}
             gasless={shieldFlow.useGasless}
+            estimatedTime={shieldFlow.estimatedTime}
             // Direct path only: the user pays ETH gas from their wallet. Suppressed on the gasless
             // path (relayer covers gas) and while the relayer state is still resolving.
             nativeGas={
@@ -211,6 +212,7 @@ export function ShieldModal() {
           />
         ) : (
           <SendReviewStep
+            estimatedTime={unshieldFlow.estimatedTime}
             variant="withdraw"
             recipient={unshieldFlow.recipient}
             armadaAddress={unshieldFlow.shieldedAddress}

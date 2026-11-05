@@ -1,6 +1,7 @@
 // ABOUTME: EarnModal — vault deposit + withdrawal. Add Funds tab uses yield-deposit; Withdraw tab uses yield-withdraw.
 // ABOUTME: Matches either openModalAtom === 'yield-deposit' or === 'yield-withdraw'; the entry point picks the initial tab.
 
+import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { openModalAtom, type ModalKind } from '@/state/ui'
@@ -457,6 +458,7 @@ export function EarnModal() {
       )}
       {step === 'review' && (
         <EarnReviewStep
+          estimatedTime={estimatedTimeLabel(yieldKind, 1)}
           tab={tab}
           amount={amount}
           rate={yieldRate}

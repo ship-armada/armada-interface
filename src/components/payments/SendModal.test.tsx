@@ -305,6 +305,20 @@ describe('<SendModal>', () => {
     expect(screen.queryByText('Network')).toBeNull()
   })
 
+  it('Review says how long the send usually takes; cross-chain adds the fast CCTP transfer (5C, 14E)', () => {
+    renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_0ZK)
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+    cleanup()
+    renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_EVM, '31338')
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~40 sec \u00b7 fast CCTP transfer')
+  })
+
   it('0x recipient to hub → unshield-local: review shows the "Public" privacy row + hub network', () => {
     renderModal({ open: 'payment', shielded: 10_000_000n })
     completeRecipientStep(VALID_EVM, '31337')

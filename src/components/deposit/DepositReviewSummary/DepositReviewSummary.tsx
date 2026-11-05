@@ -35,6 +35,8 @@ export interface DepositReviewSummaryProps {
    * the "Fees" ⓘ lists. Omitted (unknown) → no ⓘ on "Fees".
    */
   gasless?: boolean
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
   /** When true, the "You'll receive" total is an estimate (a cross-chain shield's final amount depends
    *  on the CCTP fee set at delivery) — renders with a `≈` and a caption. */
   estimated?: boolean
@@ -51,6 +53,7 @@ export function DepositReviewSummary({
   estimated,
   nativeGas,
   gasless,
+  estimatedTime,
 }: DepositReviewSummaryProps) {
   const fromChain = getChainById(fromChainId)
   const feeValue = fee ?? 0n
@@ -89,6 +92,12 @@ export function DepositReviewSummary({
                 <CopyableAddress address={shieldedAddress} label="Copy Armada address" copiedLabel="Armada address copied" />
               </span>
             </span>
+          </div>
+        ) : null}
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
           </div>
         ) : null}
         <div className={styles.summaryRow}>

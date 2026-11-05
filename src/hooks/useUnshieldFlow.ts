@@ -1,6 +1,7 @@
 // ABOUTME: useUnshieldFlow — the unshield (private → your own EVM wallet) flow controller.
 // ABOUTME: Recipient is pinned to the connected wallet; a to-chain picker drives unshield-local (hub) vs unshield-xchain (client). No ethers/execution here — that lives in features/unshield*.
 
+import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
@@ -84,6 +85,8 @@ export interface UnshieldFlow {
   submit: () => Promise<void>
   errorPrimaryLabel: string
   onErrorPrimary: () => void
+  /** Review's "Est. time" — how long this kind usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime: string
 }
 
 export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
@@ -351,6 +354,7 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
   }
 
   return {
+    estimatedTime: estimatedTimeLabel(computedKind, 1),
     toChainId,
     setToChainId,
     amountStr,

@@ -2,7 +2,7 @@
 // ABOUTME: the progress view's per-stage "usually ~N" / "taking longer than usual" + safe-in-transit note.
 
 import { describe, it, expect } from 'vitest'
-import { stepperEta, formatElapsed, stageTimingNote } from './eta'
+import { stepperEta, formatElapsed, stageTimingNote, estimatedTimeLabel } from './eta'
 
 const EST = { p50: 30_000, p90: 120_000 }
 
@@ -78,3 +78,20 @@ describe('stageTimingNote', () => {
     })
   })
 })
+
+describe('estimatedTimeLabel — Review\'s "Est. time" from the stage estimates (+ ~2s per proof), to the nearest 5s', () => {
+  it.each([
+    ['shield', 1, 'Usually takes ~15 sec'],
+    ['shield-xchain', 1, 'Usually takes ~20 sec \u00b7 fast CCTP transfer'],
+    ['transfer-shielded', 1, 'Usually takes ~15 sec'],
+    ['transfer-shielded', 3, 'Usually takes ~20 sec'],
+    ['unshield-local', 1, 'Usually takes ~15 sec'],
+    ['unshield-xchain', 1, 'Usually takes ~40 sec \u00b7 fast CCTP transfer'],
+    ['yield-deposit', 1, 'Usually takes ~15 sec'],
+    ['yield-withdraw', 1, 'Usually takes ~15 sec'],
+    ['consolidate', 2, 'Usually takes ~20 sec'],
+  ] as const)('%s, %s proof(s) → %s', (kind, proofs, label) => {
+    expect(estimatedTimeLabel(kind, proofs)).toBe(label)
+  })
+})
+

@@ -44,6 +44,8 @@ export interface SendReviewStepProps {
   onMergeNotes?: () => void
   onBack: () => void
   onConfirm: () => void
+  /** Review's "Est. time" row — how long the tx usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime?: string
 }
 
 export function SendReviewStep({
@@ -64,6 +66,7 @@ export function SendReviewStep({
   onMergeNotes,
   onBack,
   onConfirm,
+  estimatedTime,
 }: SendReviewStepProps) {
   const title =
     variant === 'withdraw'
@@ -87,6 +90,7 @@ export function SendReviewStep({
         {feeUpdated ? <FeeUpdatedBanner /> : null}
 
         <TransferReviewSummary
+          {...(estimatedTime !== undefined ? { estimatedTime } : {})}
           recipient={recipient}
           armadaAddress={armadaAddress}
           fee={fee}

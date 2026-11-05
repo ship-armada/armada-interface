@@ -46,6 +46,8 @@ export interface TransferReviewSummaryProps {
   /** The user's history with a known recipient (e.g. "Sent 3 times before") — a "History" row under the recipient.
    *  The review step passes it; a first-time recipient gets a warning callout outside the table instead. */
   recipientHistory?: string
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
 }
 
 // `variant` is accepted for API symmetry with the review/complete steps; the summary copy no longer
@@ -60,6 +62,7 @@ export function TransferReviewSummary({
   recipientWalletProvider,
   confirmedAt,
   recipientHistory,
+  estimatedTime,
 }: TransferReviewSummaryProps) {
   // Whether the full recipient address is open (its own full-width block under the To row).
   const [showFullRecipient, setShowFullRecipient] = useState(false)
@@ -124,6 +127,12 @@ export function TransferReviewSummary({
           <div className={styles.summaryRow}>
             <span className={styles.summaryLabel}>History</span>
             <span className={styles.summaryValue}>{recipientHistory}</span>
+          </div>
+        ) : null}
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
           </div>
         ) : null}
         <div className={styles.summaryRow}>

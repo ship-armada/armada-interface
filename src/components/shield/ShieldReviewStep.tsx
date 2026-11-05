@@ -39,6 +39,8 @@ export interface ShieldReviewStepProps {
   submitBlockedReason?: string | null
   onBack: () => void
   onConfirm: () => void
+  /** Review's "Est. time" row — how long the tx usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime?: string
 }
 
 export function ShieldReviewStep({
@@ -58,6 +60,7 @@ export function ShieldReviewStep({
   submitBlockedReason,
   onBack,
   onConfirm,
+  estimatedTime,
 }: ShieldReviewStepProps) {
   return (
     <div className={styles.root}>
@@ -72,6 +75,7 @@ export function ShieldReviewStep({
         {feeUpdated ? <FeeUpdatedBanner /> : null}
 
         <DepositReviewSummary
+          {...(estimatedTime !== undefined ? { estimatedTime } : {})}
           fromChainId={fromChainId}
           amount={amount}
           fee={fee}

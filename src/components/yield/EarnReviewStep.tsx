@@ -37,6 +37,8 @@ export interface EarnReviewStepProps {
   feeUpdated?: boolean
   onBack: () => void
   onConfirm: () => void
+  /** Review's "Est. time" row — how long the tx usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime?: string
 }
 
 export function EarnReviewStep({
@@ -53,6 +55,7 @@ export function EarnReviewStep({
   feeUpdated,
   onBack,
   onConfirm,
+  estimatedTime,
 }: EarnReviewStepProps) {
   const title =
     tab === 'add' ? 'Review USDC shielded transfer to the vault' : 'Review USDC withdraw from shielded vault'
@@ -71,6 +74,7 @@ export function EarnReviewStep({
         {feeUpdated ? <FeeUpdatedBanner /> : null}
 
         <EarnReviewSummary
+          {...(estimatedTime !== undefined ? { estimatedTime } : {})}
           tab={tab}
           amount={amount}
           rate={rate}

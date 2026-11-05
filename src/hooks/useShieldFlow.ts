@@ -1,6 +1,7 @@
 // ABOUTME: useShieldFlow — the shield (deposit) flow controller. Owns form + fee + submit + step orchestration.
 // ABOUTME: Extracted from ShieldModal so the modal is a dumb renderer; no ethers/execution here — that lives in features/shield*.
 
+import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
@@ -98,6 +99,8 @@ export interface ShieldFlow {
   submit: () => Promise<void>
   errorPrimaryLabel: string
   onErrorPrimary: () => void
+  /** Review's "Est. time" — how long this kind usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime: string
 }
 
 export function useShieldFlow(isOpen: boolean): ShieldFlow {
@@ -462,6 +465,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   }
 
   return {
+    estimatedTime: estimatedTimeLabel(computedKind, 1),
     fromChainId,
     setFromChainId,
     amountStr,

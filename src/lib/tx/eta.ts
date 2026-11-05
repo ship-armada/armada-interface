@@ -1,8 +1,10 @@
 // ABOUTME: Pure ETA-display logic — the lifecycle stepper's elapsed timer + "taking longer than usual" past p90 (T-L4), and
-// ABOUTME: the progress view's per-stage timing note (a "Usually takes ~N" chip → a "Taking longer than usual" callout).
+// ABOUTME: the progress view's per-stage timing note (chip → "Taking longer" callout), and Review's "Est. time" label.
 
 import { isTerminalState } from './types'
-import type { TxExecutionState } from './types'
+import type { StageEstimate, TxExecutionState, TxKind } from './types'
+import { lifecycleFor } from './lifecycles'
+import { PROOF_MS } from './proofProgress'
 
 export interface StepperEta {
   /** Header label, e.g. "Usually takes ~30 sec · 12s elapsed" or "Taking longer than usual · 4m elapsed". Empty for terminal records. */
@@ -85,3 +87,23 @@ export function stageTimingNote(timing: StageTiming, nowMs: number): StageTiming
   }
   return timing.usualMs !== undefined ? { kind: 'usual', chip: `Usually takes ${formatDurationHint(timing.usualMs)}` } : null
 }
+
+/** Kinds that build no proof: a shield's first stage is its wallet prompts; a received payment is history only. */
+const NO_PROOF_KINDS: ReadonlySet<TxKind> = new Set(['shield', 'shield-xchain', 'transfer-shielded-received'])
+
+/** Cross-chain kinds — Circle's fast CCTP transfer carries the USDC between chains. */
+const CROSS_CHAIN_KINDS: ReadonlySet<TxKind> = new Set(['shield-xchain', 'unshield-xchain'])
+
+/**
+ * Review's "Est. time": the kind's usual stage waits (`stageEstimates`) plus ~PROOF_MS per proof, to the nearest 5s —
+ * "Usually takes ~15 sec"; cross-chain adds "· fast CCTP transfer". A shield's own wallet prompts aren't counted.
+ */
+export function estimatedTimeLabel(kind: TxKind, proofs: number): string {
+  const estimates = Object.values(lifecycleFor(kind).stageEstimates ?? {}) as StageEstimate[]
+  const waits = estimates.reduce((sum, estimate) => sum + (estimate.usualMs ?? 0), 0)
+  const proving = NO_PROOF_KINDS.has(kind) ? 0 : PROOF_MS * Math.max(1, proofs)
+  const roundedMs = Math.max(5_000, Math.round((waits + proving) / 5_000) * 5_000)
+  const label = `Usually takes ${formatDurationHint(roundedMs)}`
+  return CROSS_CHAIN_KINDS.has(kind) ? `${label} \u00b7 fast CCTP transfer` : label
+}
+

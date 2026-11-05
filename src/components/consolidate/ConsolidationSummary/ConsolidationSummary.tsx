@@ -17,9 +17,18 @@ export interface ConsolidationSummaryProps {
   fee: bigint | null
   /** Completion timestamp (ms) — adds a leading "Date and time" row. */
   confirmedAt?: number
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
 }
 
-export function ConsolidationSummary({ tokenLabel, notesMerged, notesCreated, fee, confirmedAt }: ConsolidationSummaryProps) {
+export function ConsolidationSummary({
+  tokenLabel,
+  notesMerged,
+  notesCreated,
+  fee,
+  confirmedAt,
+  estimatedTime,
+}: ConsolidationSummaryProps) {
   const feeText = fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`
   return (
     <div className={styles.summary}>
@@ -40,6 +49,12 @@ export function ConsolidationSummary({ tokenLabel, notesMerged, notesCreated, fe
           <div className={styles.summaryRow}>
             <span className={styles.summaryLabel}>Notes</span>
             <span className={styles.summaryValue}>{`${notesMerged} → ${notesCreated}`}</span>
+          </div>
+        ) : null}
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
           </div>
         ) : null}
         <div className={styles.summaryRow}>

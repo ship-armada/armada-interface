@@ -247,6 +247,18 @@ describe('<ShieldModal>', () => {
     expect(screen.getAllByText(/5\.00/).length).toBeGreaterThanOrEqual(1)
   })
 
+  it('Review says how long the shield, and an unshield, usually take (5C)', () => {
+    renderModal({ open: true, max: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+    cleanup()
+    renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: '0x1234567890abcdef1234567890abcdef12345678' })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+  })
+
   it('Back from review returns to the input step', () => {
     renderModal({ open: true, max: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })

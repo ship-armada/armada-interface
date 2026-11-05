@@ -40,6 +40,8 @@ export interface EarnReviewSummaryProps {
    * the net APY frozen on the record at submit, and set false when none was captured (unknown, not 0%).
    */
   showApy?: boolean
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
 }
 
 function formatApy(rate: YieldRate | null): string {
@@ -59,6 +61,7 @@ export function EarnReviewSummary({
   confirmedAt,
   showApy = true,
   estimated,
+  estimatedTime,
 }: EarnReviewSummaryProps) {
   const modeLabel = tab === 'add' ? 'Add to vault' : 'Withdraw from shielded vault'
   const amountLabel = tab === 'add' ? 'Your deposit' : 'Your withdrawal'
@@ -92,6 +95,12 @@ export function EarnReviewSummary({
             {formatUsdcAmount(amount)} USDC
           </span>
         </div>
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
+          </div>
+        ) : null}
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>
             Fees

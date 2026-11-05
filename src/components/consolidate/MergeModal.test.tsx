@@ -92,6 +92,11 @@ describe('<MergeModal>', () => {
     expect(screen.getAllByText('11 → 2').length).toBeGreaterThan(0)
   })
 
+  it('Review says how long the merge usually takes, counting its proofs (5C)', () => {
+    renderModal({ token: 'usdc' })
+    expect(summaryRow('Est. time')).toBe('Usually takes ~20 sec')
+  })
+
   it('tells the user whether their blocked action will go through', () => {
     hoistedPlan.plan = { ...hoistedPlan.plan, preview: { ...PREVIEW, blockedWillWork: true } }
     renderModal({ token: 'usdc', blocked: { kind: 'yield-deposit', amount: 5n, perProofFee: 1n } })
