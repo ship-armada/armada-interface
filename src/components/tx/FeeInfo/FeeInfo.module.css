@@ -1,0 +1,31 @@
+/* ABOUTME: FeeInfo styling — the small muted ⓘ beside a fee label (turns lavender on hover), as the amount card's
+   ABOUTME: fee-breakdown icon; sits inline with the label text without changing the row's height. */
+
+.trigger {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: var(--primitives-spacing-1);
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  cursor: pointer;
+  color: var(--semantic-color-text-muted);
+}
+
+.trigger:hover {
+  color: var(--semantic-color-brand-lavender);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+  border-radius: var(--primitives-borderRadius-sm);
+}
+
+.icon {
+  width: var(--primitives-spacing-4);
+  height: var(--primitives-spacing-4);
+  transition: color 150ms ease;
+}

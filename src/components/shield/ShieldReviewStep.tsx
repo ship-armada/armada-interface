@@ -28,6 +28,8 @@ export interface ShieldReviewStepProps {
   feeUpdated?: boolean
   /** Cross-chain shield — the received total is an estimate (final depends on the CCTP fee at delivery). */
   estimated?: boolean
+  /** Gasless (the relayer submits) vs direct — what the "Fees" ⓘ lists. */
+  gasless?: boolean
   /** Direct-path network-gas estimate (ETH) — adds a "Network gas" row to the summary. Null on the
    *  gasless path (relayer covers gas). */
   nativeGas?: NativeGasEstimate | null
@@ -52,6 +54,7 @@ export function ShieldReviewStep({
   feeUpdated,
   estimated,
   nativeGas,
+  gasless,
   submitBlockedReason,
   onBack,
   onConfirm,
@@ -77,6 +80,7 @@ export function ShieldReviewStep({
           walletProvider={walletProvider}
           shieldedAddress={shieldedAddress}
           estimated={estimated}
+          {...(gasless !== undefined ? { gasless } : {})}
           nativeGas={nativeGas}
         />
 

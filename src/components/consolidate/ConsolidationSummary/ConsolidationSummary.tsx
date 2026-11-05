@@ -4,6 +4,7 @@
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 // The deposit summary's styles, so the merge table stays in visual sync with the other flows' summaries.
+import { FeeInfo } from '@/components/tx/FeeInfo'
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
 export interface ConsolidationSummaryProps {
@@ -42,7 +43,10 @@ export function ConsolidationSummary({ tokenLabel, notesMerged, notesCreated, fe
           </div>
         ) : null}
         <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>Fees</span>
+          <span className={styles.summaryLabel}>
+            Fees
+            <FeeInfo parts={['relayer']} />
+          </span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>{feeText}</span>
         </div>
       </div>

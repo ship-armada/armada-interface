@@ -2,7 +2,7 @@
 // ABOUTME: Total that is just the fee (a merge moves no value out); optional rows hide when their data is absent.
 
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ConsolidationSummary } from './ConsolidationSummary'
 
 describe('<ConsolidationSummary>', () => {
@@ -29,5 +29,11 @@ describe('<ConsolidationSummary>', () => {
   it('adds the date row on a confirmed merge', () => {
     render(<ConsolidationSummary fee={20_000n} confirmedAt={Date.UTC(2026, 8, 24, 12, 0)} />)
     expect(screen.getByText('Date and time')).toBeInTheDocument()
+  })
+
+  it('explains the fee: the relayer\'s (5A)', () => {
+    render(<ConsolidationSummary tokenLabel="USDC" notesMerged={11} notesCreated={2} fee={40_000n} />)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Relayer fee')
   })
 })

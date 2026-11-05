@@ -10,6 +10,7 @@ import { AddressReveal } from '@/components/ui/AddressReveal'
 import { FullAddress } from '@/components/ui/FullAddress'
 import { CopyableAddress } from '@/components/ui/CopyableAddress'
 import { isShieldedAddress } from '@/lib/address'
+import { FeeInfo } from '@/components/tx/FeeInfo'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
 import type { CctpFeeFigure } from '@/lib/fees/txFigures'
@@ -126,7 +127,10 @@ export function TransferReviewSummary({
           </div>
         ) : null}
         <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>{cctpFee ? 'Relayer fee' : 'Fees'}</span>
+          <span className={styles.summaryLabel}>
+            {cctpFee ? 'Relayer fee' : 'Fees'}
+            <FeeInfo parts={['relayer']} />
+          </span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
             {fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`}
           </span>
@@ -135,7 +139,10 @@ export function TransferReviewSummary({
             sits on its own row, outside "Total deducted" — which stays amount + the fee charged on top. */}
         {cctpFee ? (
           <div className={styles.summaryRow}>
-            <span className={styles.summaryLabel}>CCTP fee (from amount)</span>
+            <span className={styles.summaryLabel}>
+              CCTP fee (from amount)
+              <FeeInfo parts={['cctp']} />
+            </span>
             <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
               {`${cctpFee.estimated ? '≈ ' : ''}${formatUsdcAmount(cctpFee.amount)} USDC`}
             </span>

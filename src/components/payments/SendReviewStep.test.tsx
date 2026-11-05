@@ -15,6 +15,7 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     armadaAddress: extras?.armadaAddress,
     amount: extras?.amount ?? 5_000_000n,
     fee: extras?.fee ?? null,
+    cctpFee: extras?.cctpFee,
     totalDeducted: extras?.totalDeducted ?? 5_000_000n,
     networkName: extras?.networkName,
     submitBlockedReason: extras?.submitBlockedReason,
@@ -140,5 +141,15 @@ describe('<SendReviewStep>', () => {
   it('disables Confirm while a submit is in flight', () => {
     renderReview({ isSubmitting: true })
     expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+  })
+
+  it('explains each fee: the relayer\'s, and a cross-chain send\'s CCTP fee (5A)', () => {
+    renderReview({ recipient: VALID_EVM, networkName: 'Anvil Client A', fee: 1_000_000n, cctpFee: { amount: 300_000n, estimated: true } })
+    expect(screen.getAllByRole('button', { name: 'What is this fee?' })).toHaveLength(2)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Includes the network gas.')
+    fireEvent.mouseLeave(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[1]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Taken from the amount in transit.')
   })
 })

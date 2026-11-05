@@ -76,4 +76,16 @@ describe('<ShieldReviewStep>', () => {
     expect(screen.getByText('Network gas')).toBeInTheDocument()
     expect(screen.getByText('~0.0012 ETH')).toBeInTheDocument()
   })
+
+  it('explains a gasless shield\'s fees as relayer + protocol, and offers no ⓘ when the path isn\'t known (5A)', () => {
+    const { unmount } = render(
+      <ShieldReviewStep fromChainId={31337} amount={10_000_000n} fee={1_020_014n} netAmount={8_979_986n} gasless onBack={vi.fn()} onConfirm={vi.fn()} />,
+    )
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'What is this fee?' }).parentElement as HTMLElement)
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent?.split(':')[0])).toEqual(['Relayer fee', 'Protocol fee'])
+    unmount()
+    setup()
+    expect(screen.queryByRole('button', { name: 'What is this fee?' })).toBeNull()
+  })
 })
+

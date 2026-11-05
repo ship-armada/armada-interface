@@ -7,6 +7,7 @@ import { formatApyPercent, rateToApy } from '@/lib/yield'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { EarnTab } from '../EarnInputStep'
+import { FeeInfo } from '@/components/tx/FeeInfo'
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
 export interface EarnReviewSummaryProps {
@@ -92,7 +93,10 @@ export function EarnReviewSummary({
           </span>
         </div>
         <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>Fees</span>
+          <span className={styles.summaryLabel}>
+            Fees
+            <FeeInfo parts={['relayer']} />
+          </span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
             {fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`}
           </span>

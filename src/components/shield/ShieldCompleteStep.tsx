@@ -15,6 +15,8 @@ export interface ShieldCompleteStepProps {
   netAmount: bigint
   /** True while the fee and net are estimates (a cross-chain shield whose actual CCTP fee couldn't be read). */
   estimated?: boolean
+  /** Gasless (the relayer submitted) vs direct — what the "Fees" ⓘ lists. */
+  gasless?: boolean
   walletAddress?: string
   walletProvider?: string
   shieldedAddress?: string
@@ -34,6 +36,7 @@ export function ShieldCompleteStep({
   fee,
   netAmount,
   estimated,
+  gasless,
   walletAddress,
   walletProvider,
   shieldedAddress,
@@ -56,6 +59,7 @@ export function ShieldCompleteStep({
         amount={amount}
         fee={fee}
         netAmount={netAmount}
+        {...(gasless !== undefined ? { gasless } : {})}
         estimated={estimated}
         walletAddress={walletAddress}
         walletProvider={walletProvider}
