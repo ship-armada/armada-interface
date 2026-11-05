@@ -141,5 +141,12 @@ describe('buildProcessingView', () => {
     expect(buildProcessingView(rec('unshield-local', 'hub-pending', 'waiting')).timing).toBeNull()
     expect(buildProcessingView({ ...rec('unshield-local', 'submit-relayer', 'active'), stageEnteredAt: stamped } as unknown as TxRecord).timing).toBeNull()
   })
+
+  it('exposes the proof\'s progress while a spend builds its proof — not for a shield (its build-proof is wallet prompts)', () => {
+    const proving = { ...rec('transfer-shielded', 'build-proof', 'active', { proofProgress: 0.5 }), updatedAt: 9_000 } as unknown as TxRecord
+    expect(buildProcessingView(proving).proof).toEqual({ real: 0.5, proofs: 1, since: 9_000 })
+    expect(buildProcessingView(rec('shield', 'build-proof', 'active')).proof).toBeNull()
+    expect(buildProcessingView(rec('transfer-shielded', 'submit-relayer', 'active')).proof).toBeNull()
+  })
 })
 

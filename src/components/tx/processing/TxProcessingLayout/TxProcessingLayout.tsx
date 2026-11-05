@@ -24,6 +24,8 @@ export interface TxProcessingLayoutProps {
   layout?: TxProcessingLayoutVariant
   /** The active stage's timing note ("Usually takes ~N" / "Taking longer than usual"), shown under the timeline. */
   timingNote?: StageTimingNote | null
+  /** 0..1 while a proof is being built — fills the card's ring instead of the sweep. */
+  proofProgress?: number
   className?: string
 }
 
@@ -35,6 +37,7 @@ export function TxProcessingLayout({
   progressVariant = 'timeline',
   layout = 'default',
   timingNote = null,
+  proofProgress,
   className,
 }: TxProcessingLayoutProps) {
   const immersive = layout === 'immersive'
@@ -45,7 +48,9 @@ export function TxProcessingLayout({
     : [modalStepBodyEnter, styles.body].filter(Boolean).join(' ')
   const statusAnnouncement = progressAnnouncement(stages, activeStageIndex, completed)
 
-  const progressCard = <TxProgressCard copy={cardCopy} variant={cardVariant} />
+  const progressCard = (
+    <TxProgressCard copy={cardCopy} variant={cardVariant} {...(proofProgress !== undefined ? { progress: proofProgress } : {})} />
+  )
 
   return (
     <div className={cls}>

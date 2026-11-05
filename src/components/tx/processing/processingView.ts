@@ -4,6 +4,8 @@
 import { lifecycleFor } from '@/lib/tx/lifecycles'
 import type { StageEstimate, TxExecutionState, TxKind, TxRecord } from '@/lib/tx/types'
 import type { StageTiming } from '@/lib/tx/eta'
+import { proofCount } from '@/lib/tx/proofProgress'
+import { isTerminalState } from '@/lib/tx/types'
 import type { TxProgressCardCopy, TxProgressStage } from './processingCopy'
 
 /** Subtitle for a stage — either static, or split by executionState (`waiting` = a wallet prompt is
@@ -194,6 +196,11 @@ export interface ProcessingView {
   completed: boolean
   /** The active row's timing (for the "usually ~N / taking longer" note); null when done, unstamped, or no estimate. */
   timing: StageTiming | null
+  /**
+   * While a spend builds its proof: the last reported fraction, how many proofs, and when it was reported (the record's
+   * `updatedAt` — every progress write bumps it). Drives the card's ring (`lib/tx/proofProgress`). Null otherwise.
+   */
+  proof: { real: number; proofs: number; since: number } | null
 }
 
 /**
@@ -270,7 +277,14 @@ export function buildProcessingView(
   const lines = broadcast ? CLOSE_SUBTITLE_LINES : PRE_BROADCAST_SUBTITLE_LINES
   const cardCopy: TxProgressCardCopy = { ...base, subtitle: lines.join(' '), subtitleLines: lines }
 
-  return { cardCopy, stages, activeStageIndex, completed, timing: activeRowTiming(record, rows[currentRowIndex], broadcast) }
+  return {
+    cardCopy,
+    stages,
+    activeStageIndex,
+    completed,
+    timing: activeRowTiming(record, rows[currentRowIndex], broadcast),
+    proof: proofState(record),
+  }
 }
 
 /**
@@ -295,5 +309,14 @@ function activeRowTiming(
     slowMs: estimate.slowMs,
     safeInTransit: row.group !== undefined && broadcast,
   }
+}
+
+/** Kinds whose `build-proof` is not a proof: a shield's is its wallet prompts; a received payment never builds one. */
+const NO_PROOF_KINDS: ReadonlySet<TxKind> = new Set(['shield', 'shield-xchain', 'transfer-shielded-received'])
+
+function proofState(record: TxRecord): ProcessingView['proof'] {
+  if (record.stage !== 'build-proof' || NO_PROOF_KINDS.has(record.kind) || isTerminalState(record.executionState)) return null
+  const real = (record.artifacts as { proofProgress?: number }).proofProgress ?? 0
+  return { real, proofs: proofCount(record), since: record.updatedAt }
 }
 

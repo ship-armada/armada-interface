@@ -39,6 +39,23 @@ describe('<ProgressStep>', () => {
     expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
   })
 
+  it('fills the ring from the real proof progress while a spend builds its proof', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(10_000)
+    const proving = {
+      ...sampleRecord,
+      kind: 'transfer-shielded',
+      stage: 'build-proof',
+      updatedAt: 10_000,
+      artifacts: { proofProgress: 0.5 },
+      meta: { amount: 1n },
+    } as unknown as TxRecord
+    render(<ProgressStep record={proving} />)
+    expect(screen.getByRole('progressbar', { name: 'Building proof' })).toHaveAttribute('aria-valuenow', '50')
+    act(() => vi.advanceTimersByTime(500))
+    expect(Number(screen.getByRole('progressbar').getAttribute('aria-valuenow'))).toBeGreaterThan(50)
+  })
+
   it('shows the active stage\'s usual time, turning to "taking longer than usual" once slow', () => {
     vi.useFakeTimers()
     vi.setSystemTime(100_000)

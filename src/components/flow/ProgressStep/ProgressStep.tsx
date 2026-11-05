@@ -5,6 +5,7 @@ import type { TxRecord } from '@/lib/tx/types'
 import { TxProcessingLayout } from '@/components/tx/processing/TxProcessingLayout'
 import { buildProcessingView, type SendVariant } from '@/components/tx/processing/processingView'
 import { stageTimingNote } from '@/lib/tx/eta'
+import { easedProofProgress } from '@/lib/tx/proofProgress'
 import { useNow } from '@/hooks/useNow'
 import styles from './ProgressStep.module.css'
 
@@ -21,8 +22,10 @@ export interface ProgressStepProps {
 
 export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
   const view = record ? buildProcessingView(record, { sendVariant }) : null
-  // Re-read the clock once a second while the active stage has a timing estimate, so the note can turn "slow".
-  const now = useNow(1_000, Boolean(view?.timing))
+  // Re-read the clock while it matters: ~10×/s while a proof's ring is filling (smooth), else once a second while the
+  // active stage has a timing estimate (so the note can turn "slow").
+  const proof = view?.proof ?? null
+  const now = useNow(proof ? 100 : 1_000, Boolean(proof ?? view?.timing))
 
   if (!view) {
     return (
@@ -42,6 +45,7 @@ export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
         activeStageIndex={view.activeStageIndex}
         completed={view.completed}
         timingNote={view.timing ? stageTimingNote(view.timing, now) : null}
+        {...(proof ? { proofProgress: easedProofProgress({ real: proof.real, proofs: proof.proofs, sinceMs: now - proof.since }) } : {})}
       />
     </div>
   )
