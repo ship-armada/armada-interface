@@ -83,6 +83,8 @@ export type EventRegistry = {
   // (FEE_EXPIRED / FEE_TOO_LOW / etc.) so dashboards can split out fee-staleness from genuine
   // submission errors. NO tx hashes here — those are emitted via `tx.transition` once the relayer
   // returns a hash + the poller confirms inclusion.
+  // Completion → the next shielded balance change (3D). `timedOut` = no change within the probe window.
+  'tx.balance.latency':       { id: string; kind: TxKind; durationMs: number; timedOut: boolean }
   'tx.relayer.submitted':     { id: string; kind: TxKind }
   'tx.relayer.confirmed':     { id: string; kind: TxKind }
   'tx.relayer.rejected':      { id: string; kind: TxKind; errorCode?: string }
