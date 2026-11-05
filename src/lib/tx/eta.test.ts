@@ -46,7 +46,7 @@ describe('stageTimingNote', () => {
   const CONFIRMING = { startedAt: 1_000, usualMs: 15_000, slowMs: 45_000, safeInTransit: false, broadcast: true }
 
   it('is a quiet "usually" chip while the stage runs normally', () => {
-    expect(stageTimingNote(CONFIRMING, 11_000)).toEqual({ kind: 'usual', chip: '~15 sec' })
+    expect(stageTimingNote(CONFIRMING, 11_000)).toEqual({ kind: 'usual', chip: 'Usually takes ~15 sec' })
   })
 
   it('is nothing for a stage with only a slow threshold, until it is slow', () => {

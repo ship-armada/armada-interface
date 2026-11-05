@@ -150,7 +150,7 @@
   gap: var(--primitives-spacing-2);
 }
 
-/* "~15 sec": a small lavender-tinted pill, the same type size as the counter. */
+/* "Usually takes ~15 sec": a small lavender-tinted pill, the same type size as the counter. */
 .chip {
   font-family: var(--primitives-fontFamily-ui), sans-serif;
   font-weight: var(--primitives-fontWeight-medium);

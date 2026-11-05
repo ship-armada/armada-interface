@@ -1,5 +1,5 @@
 // ABOUTME: Pure ETA-display logic — the lifecycle stepper's elapsed timer + "taking longer than usual" past p90 (T-L4), and
-// ABOUTME: the progress view's per-stage timing note (a "~N" chip → a "Taking longer than usual" callout).
+// ABOUTME: the progress view's per-stage timing note (a "Usually takes ~N" chip → a "Taking longer than usual" callout).
 
 import { isTerminalState } from './types'
 import type { TxExecutionState } from './types'
@@ -68,7 +68,7 @@ export interface StageTiming {
 }
 
 /**
- * The progress view's note for its active row: normally a quiet chip on the stepper ("~15 sec"); once past the slow
+ * The progress view's note for its active row: normally a quiet chip on the stepper ("Usually takes ~15 sec"); once past the slow
  * threshold, a warning callout under it — with a body that says what's safe (closing the tab only once broadcast).
  */
 export type StageTimingNote = { kind: 'usual'; chip: string } | { kind: 'slow'; title: string; body: string }
@@ -83,5 +83,5 @@ export function stageTimingNote(timing: StageTiming, nowMs: number): StageTiming
         : 'This can take longer on some devices. Keep this tab open until it\u2019s submitted.'
     return { kind: 'slow', title: 'Taking longer than usual', body }
   }
-  return timing.usualMs !== undefined ? { kind: 'usual', chip: formatDurationHint(timing.usualMs) } : null
+  return timing.usualMs !== undefined ? { kind: 'usual', chip: `Usually takes ${formatDurationHint(timing.usualMs)}` } : null
 }

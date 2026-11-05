@@ -15,7 +15,7 @@ describe('<TxTimingNote>', () => {
   })
 
   it('renders nothing for the normal "usually" state (the stepper shows that as a chip) or no note', () => {
-    const { container, rerender } = render(<TxTimingNote note={{ kind: 'usual', chip: '~15 sec' }} />)
+    const { container, rerender } = render(<TxTimingNote note={{ kind: 'usual', chip: 'Usually takes ~15 sec' }} />)
     expect(container).toBeEmptyDOMElement()
     rerender(<TxTimingNote note={null} />)
     expect(container).toBeEmptyDOMElement()

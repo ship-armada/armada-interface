@@ -10,7 +10,7 @@ export interface TransactionProgressVariantProps {
   stages: ReadonlyArray<TxProgressStage>
   activeStageIndex?: number
   completed?: boolean
-  /** A chip on the active row's counter line — how long the stage usually takes ("~15 sec"). */
+  /** A chip on the active row's counter line — how long the stage usually takes ("Usually takes ~15 sec"). */
   activeChip?: string | null
   className?: string
 }
@@ -26,7 +26,7 @@ interface TimelineStepProps {
   counter: string
   label: string
   subtitle: string
-  /** A small pill beside the counter (the active row's usual time, "~15 sec"); on the same line, so the height is unchanged. */
+  /** A small pill beside the counter (the active row's usual time, "Usually takes ~15 sec"); on the same line, so the height is unchanged. */
   chip?: string | null
 }
 

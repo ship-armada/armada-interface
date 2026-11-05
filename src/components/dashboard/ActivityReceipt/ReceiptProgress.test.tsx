@@ -52,7 +52,7 @@ describe('<ReceiptProgress>', () => {
       stageEnteredAt: { 'hub-pending': 50_000 },
     } as Partial<TxRecord>)
     render(<ReceiptProgress record={confirming} status="pending" />)
-    expect(screen.getByText('~15 sec')).toBeInTheDocument()
+    expect(screen.getByText('Usually takes ~15 sec')).toBeInTheDocument()
   })
 
   it('offers Cancel while a spend is still building its proof', () => {

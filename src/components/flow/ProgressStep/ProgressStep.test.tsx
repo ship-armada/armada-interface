@@ -68,11 +68,11 @@ describe('<ProgressStep>', () => {
     } as unknown as TxRecord
     render(<ProgressStep record={confirming} />)
     // Normally: a quiet chip on the stepper's current row.
-    expect(screen.getByText('~15 sec')).toBeInTheDocument()
+    expect(screen.getByText('Usually takes ~15 sec')).toBeInTheDocument()
     expect(screen.queryByRole('status')).toBeNull()
     // Slow: the chip gives way to the warning callout.
     act(() => vi.advanceTimersByTime(46_000))
-    expect(screen.queryByText('~15 sec')).toBeNull()
+    expect(screen.queryByText('Usually takes ~15 sec')).toBeNull()
     expect(screen.getByRole('status')).toHaveTextContent('Taking longer than usual')
   })
 })
