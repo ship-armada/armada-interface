@@ -1,6 +1,8 @@
 // ABOUTME: Earn review step — frost card with left-aligned UI title + big mono amount, shared EarnReviewSummary table, Confirm/Back CTAs.
 // ABOUTME: Delegates the summary rows (mode, APY, amount, fees, total) to EarnReviewSummary; keeps the sync-gate + slippage notices.
 
+import { HighFeeNotice } from '@/components/flow/HighFeeNotice'
+import { useHighFeeAck } from '@/hooks/useHighFeeAck'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { EarnReviewSummary } from './EarnReviewSummary'
 import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedBanner'
@@ -37,6 +39,8 @@ export interface EarnReviewStepProps {
   feeUpdated?: boolean
   onBack: () => void
   onConfirm: () => void
+  /** Review's "Est. time" row — how long the tx usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime?: string
 }
 
 export function EarnReviewStep({
@@ -53,10 +57,13 @@ export function EarnReviewStep({
   feeUpdated,
   onBack,
   onConfirm,
+  estimatedTime,
 }: EarnReviewStepProps) {
   const title =
     tab === 'add' ? 'Review USDC shielded transfer to the vault' : 'Review USDC withdraw from shielded vault'
   const confirmLabel = tab === 'add' ? 'Confirm deposit' : 'Confirm withdrawal'
+  // The relayer fee: on top of a deposit, skimmed from a withdrawal's proceeds — either way, lost to the user.
+  const highFee = useHighFeeAck(fee, amount)
 
   return (
     <div className={styles.root}>
@@ -71,6 +78,7 @@ export function EarnReviewStep({
         {feeUpdated ? <FeeUpdatedBanner /> : null}
 
         <EarnReviewSummary
+          {...(estimatedTime !== undefined ? { estimatedTime } : {})}
           tab={tab}
           amount={amount}
           rate={rate}
@@ -87,6 +95,12 @@ export function EarnReviewStep({
           </p>
         ) : null}
 
+        <HighFeeNotice
+          level={highFee.level}
+          percent={highFee.percent}
+          acknowledged={highFee.acknowledged}
+          onAcknowledge={highFee.setAcknowledged}
+        />
         {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
 
         {submitBlockedReason ? (
@@ -112,7 +126,7 @@ export function EarnReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={Boolean(submitBlockedReason) || Boolean(onMergeNotes) || isSubmitting}
+          disabled={Boolean(submitBlockedReason) || Boolean(onMergeNotes) || isSubmitting || highFee.blocksConfirm}
         />
       </div>
     </div>

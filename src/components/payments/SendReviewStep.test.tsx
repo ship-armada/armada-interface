@@ -15,6 +15,7 @@ function renderReview(extras?: Partial<SendReviewStepProps>) {
     armadaAddress: extras?.armadaAddress,
     amount: extras?.amount ?? 5_000_000n,
     fee: extras?.fee ?? null,
+    cctpFee: extras?.cctpFee,
     totalDeducted: extras?.totalDeducted ?? 5_000_000n,
     networkName: extras?.networkName,
     submitBlockedReason: extras?.submitBlockedReason,
@@ -140,5 +141,33 @@ describe('<SendReviewStep>', () => {
   it('disables Confirm while a submit is in flight', () => {
     renderReview({ isSubmitting: true })
     expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
+  })
+
+  it('explains each fee: the relayer\'s, and a cross-chain send\'s CCTP fee (5A)', () => {
+    renderReview({ recipient: VALID_EVM, networkName: 'Anvil Client A', fee: 1_000_000n, cctpFee: { amount: 300_000n, estimated: true } })
+    expect(screen.getAllByRole('button', { name: 'What is this fee?' })).toHaveLength(2)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('network gas included')
+    fireEvent.mouseLeave(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[1]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('taken from the amount sent')
+  })
+
+  it('warns when fees are over 10% of the amount, counting a cross-chain CCTP fee (5D)', () => {
+    renderReview({ recipient: VALID_EVM, networkName: 'Anvil Client A', amount: 5_000_000n, fee: 500_000n, cctpFee: { amount: 300_000n, estimated: true } })
+    expect(screen.getByRole('note', { name: 'High fees for this amount' })).toHaveTextContent('Fees are 16% of this amount.')
+    expect(screen.getByRole('button', { name: 'Confirm send' })).toBeEnabled()
+  })
+
+  it('over 25%, holds Confirm until the user ticks "I understand" (5D)', () => {
+    renderReview({ recipient: VALID_0ZK, amount: 1_000_000n, fee: 300_000n })
+    expect(screen.getByRole('button', { name: 'Confirm send' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'I understand the fees are more than a quarter of this amount' }))
+    expect(screen.getByRole('button', { name: 'Confirm send' })).toBeEnabled()
+  })
+
+  it('says nothing about fees at or under 10% (5D)', () => {
+    renderReview({ recipient: VALID_0ZK, amount: 10_000_000n, fee: 1_000_000n })
+    expect(screen.queryByRole('note', { name: 'High fees for this amount' })).toBeNull()
   })
 })

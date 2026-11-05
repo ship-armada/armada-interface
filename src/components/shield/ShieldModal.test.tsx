@@ -14,12 +14,14 @@ import {
   usdcBalancesAtom,
 } from '@/state/wallet'
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
-import { txListAtom } from '@/state/tx'
+import { txListAtom, upsertTxAtom } from '@/state/tx'
+import { markFailed } from '@/lib/tx/reducer'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { TxRecord } from '@/lib/tx/types'
 import { C, C_ACTUAL, F, P } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 /** A POLL_TIMEOUT'd shield of `amount` (6dp) for the active test wallet — may still be on-chain. */
@@ -132,11 +134,14 @@ vi.mock('wagmi', async (importOriginal) => ({
 
 // useGasBalanceWarning calls wagmi's useAccount/useBalance — same provider requirement.
 // "No warning" keeps the GasBalanceNotice hidden; the amount-step gating is covered in ShieldAmountStep.test.tsx.
+// A test can make the wallet short of ETH for the direct shield's gas (4F); the default has enough.
+const hoistedGas = vi.hoisted(() => ({ short: false }))
 vi.mock('@/hooks/useGasBalanceWarning', () => ({
   useGasBalanceWarning: () => ({
-    show: false,
+    show: hoistedGas.short,
     nativeSymbol: 'ETH',
-    formattedBalance: null,
+    formattedBalance: hoistedGas.short ? '0.0001' : null,
+    formattedNeeded: hoistedGas.short ? '0.001' : null,
   }),
 }))
 
@@ -245,6 +250,31 @@ describe('<ShieldModal>', () => {
     // Amount renders full-precision ("5") in the big amount block and 2dp in the summary total
     // ("5.00 USDC"); match the summary total.
     expect(screen.getAllByText(/5\.00/).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('Review says how long the shield, and an unshield, usually take (5C)', () => {
+    renderModal({ open: true, max: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+    cleanup()
+    renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: '0x1234567890abcdef1234567890abcdef12345678' })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+  })
+
+  it('holds Confirm on the direct path when the wallet can\'t cover the estimated gas (4F)', () => {
+    hoistedGas.short = true
+    try {
+      renderModal({ open: true, max: 10_000_000n })
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      expect(screen.getByRole('button', { name: /^Confirm$/ })).toBeDisabled()
+      expect(screen.getByText('Not enough ETH in your wallet for network gas.')).toBeInTheDocument()
+    } finally {
+      hoistedGas.short = false
+    }
   })
 
   it('Back from review returns to the input step', () => {
@@ -393,6 +423,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
     })
@@ -410,6 +441,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     fireEvent.click(screen.getByRole('option', { name: /Anvil Client A/ }))
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
     })
@@ -432,6 +464,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
     })
@@ -593,10 +626,10 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       const store = await submitUnshield()
       await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
       settle(store, 'unshield-local', 'hub-confirmed', { broadcasterFeeAmount: F })
-      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Total deducted')).toBeInTheDocument())
       expect(headlineAmount()).toBe('10')
       expect(summaryRow('Fees')).toBe('1.000003 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
     })
 
     it('unshield cross-chain: the amount step\'s fee caption is the relayer fee — the CCTP fee comes out of the amount (UN-2x)', () => {
@@ -612,10 +645,10 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       const store = await submitUnshield(/Anvil Client A/)
       await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
       settle(store, 'unshield-xchain', 'client-mint-confirmed', { broadcasterFeeAmount: F, cctpFee: C })
-      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Total deducted')).toBeInTheDocument())
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
     })
   })
 
@@ -661,7 +694,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       }
       fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '10' } })
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-      const rows: Record<string, string> = chainName ? { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total' } : { fees: 'Fees', total: 'Total' }
+      const rows: Record<string, string> = chainName ? { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total deducted' } : { fees: 'Fees', total: 'Total deducted' }
       const review = readFigures(rows)
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
@@ -682,6 +715,38 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       expect(review).toEqual({ headline: '10', fees: '0.022011 USDC', net: '9.977989 USDC' })
       expect(confirm).toEqual(review)
       expect(receipt).toEqual(review)
+    })
+
+    it('a shield declined in the wallet goes quietly back to Review with a note — not the error screen (4D)', async () => {
+      hoistedDisplay.protocolFee = P
+      const store = renderModal({ open: true, max: 20_000_000n })
+      act(() => store.set(usdcBalancesAtom, { 31337: 20_000_000n, 31338: 20_000_000n }))
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'shield') as TxRecord
+      act(() => store.set(upsertTxAtom, markFailed(record, { code: 'USER_REJECTED', message: 'You declined the action in your wallet.' })))
+      await waitFor(() => expect(screen.getByRole('heading', { name: 'Review your USDC shield' })).toBeInTheDocument())
+      expect(screen.getByText('You cancelled in your wallet, so nothing was shielded. Confirm to try again.')).toBeInTheDocument()
+    })
+
+    it('a shield that fails for another reason still shows the error screen (4D)', async () => {
+      hoistedDisplay.protocolFee = P
+      const store = renderModal({ open: true, max: 20_000_000n })
+      act(() => store.set(usdcBalancesAtom, { 31337: 20_000_000n, 31338: 20_000_000n }))
+      fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'shield') as TxRecord
+      act(() => store.set(upsertTxAtom, markFailed(record, { code: 'TX_REVERTED', message: 'reverted' })))
+      await waitFor(() => expect(screen.queryByRole('heading', { name: 'Review your USDC shield' })).toBeNull())
+      expect(screen.queryByText(/You cancelled in your wallet/)).toBeNull()
     })
 
     it('unshield on the hub', async () => {
@@ -736,7 +801,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
     expect(summaryRow('Fees')).toBe('—')
-    expect(summaryRow('Total')).toBe('—')
+    expect(summaryRow('Total deducted')).toBe('—')
     expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
   })

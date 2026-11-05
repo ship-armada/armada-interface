@@ -97,6 +97,8 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             fee={ifCharged(fee)}
             netAmount={ifCharged(netAmount)}
             estimated={estimated}
+            // A relayer fee means the relayer submitted it — also on a record recovered from chain, which lacks useGasless.
+            gasless={meta.useGasless === true || (meta.feeAmount ?? 0n) > 0n}
             confirmedAt={confirmedAt}
           />
         ),

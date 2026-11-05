@@ -2,7 +2,7 @@
 // ABOUTME: The total row echoes the caller's netLabel/netAmount (deposit debit vs withdraw net gain), never a blind amount + fee.
 
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { EarnReviewSummary } from './EarnReviewSummary'
 import type { YieldRate } from '@/hooks/useYieldRate'
 
@@ -124,5 +124,11 @@ describe('<EarnReviewSummary>', () => {
     expect(screen.getByText('Date and time')).toBeInTheDocument()
     // The confirmation view carries the date row instead of the privacy notice.
     expect(screen.queryByText('Private transfer.')).not.toBeInTheDocument()
+  })
+
+  it('explains the fee: the relayer\'s, which includes the network gas (5A)', () => {
+    render(<EarnReviewSummary tab="add" amount={100_000_000n} rate={RATE} fee={1_000_000n} netAmount={101_000_000n} netLabel="Total deducted from balance" />)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('network gas included')
   })
 })

@@ -4,11 +4,8 @@
 import { encodeFunctionData } from 'viem'
 import {
   getPublicClient,
-  readContract,
   sendTransaction,
-  writeContract,
 } from 'wagmi/actions'
-import { erc20Abi, maxUint256 } from 'viem'
 import { ethers } from 'ethers'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
@@ -39,6 +36,7 @@ import {
 import { ensureChain } from '@/lib/network-switch'
 import { advance, markFailed, markWaiting, patchArtifacts, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
+import { ensureExactAllowance } from '../shield/approve'
 import { poll, pollBudgetMs } from '@/lib/tx/poller'
 import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
 import { simulateOrThrow } from '@/lib/tx/simulate'
@@ -210,11 +208,15 @@ async function runBuildProof(
   // on the hub at full value), then sign an EIP-2612 USDC permit on the CLIENT chain AND an EIP-712
   // CrossChainShieldIntent binding both notes + the CCTP maxFee/finality. All wallet prompts surface
   // here back-to-back; the submit stage is network-only. Permit value = the entered `amount`.
-  const gaslessArtifacts = record.meta.useGasless
+  const gasless = record.meta.useGasless
     ? await buildGaslessXchainArtifacts(record, ctx, request, clientUsdcAddress, hubUsdcAddress)
     : undefined
+  const gaslessArtifacts = gasless?.artifacts
+  // buildGaslessXchainArtifacts wrote an intermediate `permitSigned` record (bumping updatedSeq) between the two
+  // signatures — advance from THAT record, not the original, or OCC drops this transition.
+  const baseRecord = gasless?.record ?? record
 
-  await ctx.upsert(advance(record, 'submit-relayer', {
+  await ctx.upsert(advance(baseRecord, 'submit-relayer', {
     shieldRequest: {
       npk: request.npk,
       value: request.value.toString(),
@@ -242,15 +244,20 @@ async function buildGaslessXchainArtifacts(
   clientUsdcAddress: string,
   hubUsdcAddress: string,
 ): Promise<{
-  permitV: number
-  permitR: `0x${string}`
-  permitS: `0x${string}`
-  feeNote: { npk: `0x${string}`; value: string; encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]; shieldKey: `0x${string}` }
-  feeShieldRandom: string
-  intentSig: `0x${string}`
-  intentNonce: string
-  intentMaxFee: string
-  intentMinFinality: number
+  /** The record after the intermediate `permitSigned` upsert — advance from THIS (bumped seq). */
+  record: TxRecord<'shield-xchain'>
+  artifacts: {
+    permitV: number
+    permitR: `0x${string}`
+    permitS: `0x${string}`
+    feeNote: { npk: `0x${string}`; value: string; encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]; shieldKey: `0x${string}` }
+    feeShieldRandom: string
+    intentSig: `0x${string}`
+    intentNonce: string
+    intentMaxFee: string
+    intentMinFinality: number
+    permitSigned: true
+  }
 }> {
   if (
     record.meta.feeAmount === undefined ||
@@ -292,6 +299,18 @@ async function buildGaslessXchainArtifacts(
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
 
+  // Intermediate write BETWEEN the two prompts (as the hub shield does): mark the permit signed so the wallet checklist
+  // flips the "Authorize" row to done while the intent prompt is still pending — otherwise both rows flip together only
+  // at build-proof completion. Bump updatedSeq so OCC accepts it; the caller must advance from THIS record.
+  const afterPermit: TxRecord<'shield-xchain'> = {
+    ...record,
+    artifacts: { ...record.artifacts, permitSigned: true },
+    updatedSeq: record.updatedSeq + 1,
+    updatedAt: Date.now(),
+  }
+  await ctx.upsert(afterPermit)
+  if (ctx.signal.aborted) throw new Error('cancelled')
+
   // 2. EIP-712 CrossChainShieldIntent binding both note hashes + CCTP params + deadline + nonce.
   const intentSig = await signCrossChainShieldIntent({
     wrapperAddress: wrapper,
@@ -307,20 +326,24 @@ async function buildGaslessXchainArtifacts(
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   return {
-    permitV: permitSig.v,
-    permitR: permitSig.r,
-    permitS: permitSig.s,
-    feeNote: {
-      npk: feeNote.npk,
-      value: feeNote.value.toString(),
-      encryptedBundle: feeNote.encryptedBundle,
-      shieldKey: feeNote.shieldKey,
+    record: afterPermit,
+    artifacts: {
+      permitV: permitSig.v,
+      permitR: permitSig.r,
+      permitS: permitSig.s,
+      feeNote: {
+        npk: feeNote.npk,
+        value: feeNote.value.toString(),
+        encryptedBundle: feeNote.encryptedBundle,
+        shieldKey: feeNote.shieldKey,
+      },
+      feeShieldRandom: feeNote.random,
+      intentSig,
+      intentNonce: intentNonce.toString(),
+      intentMaxFee: maxFee.toString(),
+      intentMinFinality: minFinalityThreshold,
+      permitSigned: true,
     },
-    feeShieldRandom: feeNote.random,
-    intentSig,
-    intentNonce: intentNonce.toString(),
-    intentMaxFee: maxFee.toString(),
-    intentMinFinality: minFinalityThreshold,
   }
 }
 
@@ -379,39 +402,17 @@ async function runDirectSubmit(
   if (ctx.signal.aborted) throw new Error('cancelled')
 
   // 1. Ensure USDC allowance from the user to the PrivacyPoolClient. The client contract
-  //    `safeTransferFrom`s the user's tokens; we need the allowance set first. Max-approve to
-  //    avoid prompting again on subsequent cross-chain shields from the same chain.
-  const allowance = await readContract(wagmiConfig, {
-    address: clientUsdcAddress as `0x${string}`,
-    abi: erc20Abi,
-    functionName: 'allowance',
-    args: [owner, privacyPoolClientAddress as `0x${string}`],
+  //    `safeTransferFrom`s the user's tokens, so it must be approved first — for exactly the amount, re-checked once
+  //    confirmed (ensureExactAllowance). S-M4: the `working` record is `waiting` while each prompt is open, and the
+  //    approve leg is recorded in artifacts (approveTxHash / approveSkipped) for the WalletConfirmList checklist.
+  let working: TxRecord<'shield-xchain'> = await ensureExactAllowance({
+    record,
+    ctx,
+    token: clientUsdcAddress as `0x${string}`,
+    spender: privacyPoolClientAddress as `0x${string}`,
+    owner,
     chainId: record.meta.fromChainId,
   })
-  if (ctx.signal.aborted) throw new Error('cancelled')
-
-  // S-M4: thread a `working` record through the wallet prompts so the stepper shows "Confirm in
-  // your wallet" (markWaiting) while each prompt is open, and record the approve leg in artifacts
-  // (approveTxHash / approveSkipped) for the WalletConfirmList checklist.
-  let working: TxRecord<'shield-xchain'> = record
-  if (allowance < record.meta.amount) {
-    working = markWaiting(working)
-    await ctx.upsert(working)
-    const approveHash = await writeContract(wagmiConfig, {
-      address: clientUsdcAddress as `0x${string}`,
-      abi: erc20Abi,
-      functionName: 'approve',
-      args: [privacyPoolClientAddress as `0x${string}`, maxUint256],
-      chainId: record.meta.fromChainId,
-    })
-    await waitForReceiptOrFail({ hash: approveHash, signal: ctx.signal, chainId: record.meta.fromChainId })
-    if (ctx.signal.aborted) throw new Error('cancelled')
-    working = advance(working, 'submit-relayer', { approveTxHash: approveHash })
-    await ctx.upsert(working)
-  } else {
-    working = patchArtifacts(working, { approveSkipped: true })
-    await ctx.upsert(working)
-  }
 
   const { maxFee, minFinalityThreshold } = await resolveCctpSubmitParams(record)
 

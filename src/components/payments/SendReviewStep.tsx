@@ -1,6 +1,8 @@
 // ABOUTME: Send/Withdraw review step — frost card with left-aligned UI title + big mono amount, shared TransferReviewSummary table, Confirm/Back CTAs.
 // ABOUTME: Delegates the summary rows (date, private account, recipient, fees, total + privacy notice) to TransferReviewSummary; keeps the sync-gate notice + submit disabling.
 
+import { HighFeeNotice } from '@/components/flow/HighFeeNotice'
+import { useHighFeeAck } from '@/hooks/useHighFeeAck'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import type { CctpFeeFigure } from '@/lib/fees/txFigures'
 import { TransferReviewSummary } from './TransferReviewSummary'
@@ -44,6 +46,8 @@ export interface SendReviewStepProps {
   onMergeNotes?: () => void
   onBack: () => void
   onConfirm: () => void
+  /** Review's "Est. time" row — how long the tx usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime?: string
 }
 
 export function SendReviewStep({
@@ -64,6 +68,7 @@ export function SendReviewStep({
   onMergeNotes,
   onBack,
   onConfirm,
+  estimatedTime,
 }: SendReviewStepProps) {
   const title =
     variant === 'withdraw'
@@ -73,6 +78,8 @@ export function SendReviewStep({
         : 'Review your USDC transfer'
   const confirmLabel = variant === 'withdraw' ? 'Confirm' : 'Confirm send'
   const history = recipientHistory(previousSendCount, recipientIsOwnWallet)
+  // Every fee the user loses: the relayer fee and, cross-chain, Circle's CCTP fee taken from the amount in transit.
+  const highFee = useHighFeeAck(fee === null ? null : fee + (cctpFee?.amount ?? 0n), amount)
 
   return (
     <div className={styles.root}>
@@ -87,6 +94,7 @@ export function SendReviewStep({
         {feeUpdated ? <FeeUpdatedBanner /> : null}
 
         <TransferReviewSummary
+          {...(estimatedTime !== undefined ? { estimatedTime } : {})}
           recipient={recipient}
           armadaAddress={armadaAddress}
           fee={fee}
@@ -99,6 +107,12 @@ export function SendReviewStep({
         />
 
         {history?.kind === 'first' ? <FirstSendNotice /> : null}
+        <HighFeeNotice
+          level={highFee.level}
+          percent={highFee.percent}
+          acknowledged={highFee.acknowledged}
+          onAcknowledge={highFee.setAcknowledged}
+        />
         {onMergeNotes ? <MergeNotesNotice onAction={onMergeNotes} /> : null}
 
         {submitBlockedReason ? (
@@ -124,7 +138,7 @@ export function SendReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={Boolean(submitBlockedReason) || Boolean(onMergeNotes) || isSubmitting}
+          disabled={Boolean(submitBlockedReason) || Boolean(onMergeNotes) || isSubmitting || highFee.blocksConfirm}
         />
       </div>
     </div>

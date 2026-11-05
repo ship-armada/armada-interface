@@ -160,6 +160,7 @@ export function ShieldModal() {
             feeUnavailable={!isShield && unshieldFlow.feeUnavailable}
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
+            requiredGasWei={isShield ? (shieldFlow.displayFees.nativeGas?.wei ?? null) : null}
             inputRef={amountInputRef}
             shaking={shaking}
             onShakeAnimationEnd={onShakeAnimationEnd}
@@ -189,6 +190,9 @@ export function ShieldModal() {
             duplicateWarning={shieldFlow.duplicateWarning}
             feeUpdated={shieldFlow.feeChanged}
             estimated={shieldFlow.reviewFigures?.estimated ?? false}
+            gasless={shieldFlow.useGasless}
+            estimatedTime={shieldFlow.estimatedTime}
+            walletDeclined={shieldFlow.walletDeclined}
             // Direct path only: the user pays ETH gas from their wallet. Suppressed on the gasless
             // path (relayer covers gas) and while the relayer state is still resolving.
             nativeGas={
@@ -203,13 +207,14 @@ export function ShieldModal() {
               shieldFlow.relayerResolving ? RELAYER_CHECKING_REASON
               : shieldFlow.quotePending ? QUOTE_PENDING_REASON
               : shieldFlow.protocolFeePending ? SHIELD_FEE_PENDING_REASON
-              : null
+              : shieldFlow.gasShortReason
             }
             onBack={shieldFlow.onBackToInput}
             onConfirm={shieldFlow.submit}
           />
         ) : (
           <SendReviewStep
+            estimatedTime={unshieldFlow.estimatedTime}
             variant="withdraw"
             recipient={unshieldFlow.recipient}
             armadaAddress={unshieldFlow.shieldedAddress}
@@ -244,6 +249,7 @@ export function ShieldModal() {
           fee={shieldFlow.completeReceipt.fee}
           netAmount={shieldFlow.completeReceipt.netAmount}
           estimated={shieldFlow.completeReceipt.estimated}
+          gasless={(shieldFlow.record?.meta as { useGasless?: boolean } | undefined)?.useGasless === true}
           walletAddress={shieldFlow.evmAddress}
           walletProvider={shieldFlow.walletProvider}
           shieldedAddress={shieldFlow.shieldedAddress}

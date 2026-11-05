@@ -7,6 +7,7 @@ import { formatApyPercent, rateToApy } from '@/lib/yield'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { EarnTab } from '../EarnInputStep'
+import { FeeInfo } from '@/components/tx/FeeInfo'
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
 export interface EarnReviewSummaryProps {
@@ -39,6 +40,8 @@ export interface EarnReviewSummaryProps {
    * the net APY frozen on the record at submit, and set false when none was captured (unknown, not 0%).
    */
   showApy?: boolean
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
 }
 
 function formatApy(rate: YieldRate | null): string {
@@ -58,6 +61,7 @@ export function EarnReviewSummary({
   confirmedAt,
   showApy = true,
   estimated,
+  estimatedTime,
 }: EarnReviewSummaryProps) {
   const modeLabel = tab === 'add' ? 'Add to vault' : 'Withdraw from shielded vault'
   const amountLabel = tab === 'add' ? 'Your deposit' : 'Your withdrawal'
@@ -91,8 +95,17 @@ export function EarnReviewSummary({
             {formatUsdcAmount(amount)} USDC
           </span>
         </div>
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
+          </div>
+        ) : null}
         <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>Fees</span>
+          <span className={styles.summaryLabel}>
+            Fees
+            <FeeInfo parts={['relayer']} />
+          </span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
             {fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`}
           </span>

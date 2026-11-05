@@ -1,6 +1,7 @@
 // ABOUTME: MergeModal — the "Merge notes" flow (note consolidation, armada-sdk #98): review the priced merge, confirm
 // ABOUTME: (re-priced at submit), then progress → complete / error. Opened from a blocked flow's error or Settings.
 
+import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { mergeIntentAtom, openModalAtom } from '@/state/ui'
@@ -187,6 +188,7 @@ export function MergeModal() {
       <RelayerStatusBanner isOpen={isOpen} crossChain={false} />
       {step === 'review' && (
         <MergeReviewStep
+          estimatedTime={estimatedTimeLabel('consolidate', plan.preview?.proofs ?? 1)}
           tokenLabel={tokenLabel}
           preview={plan.preview}
           fee={reviewFigures?.fee ?? null}

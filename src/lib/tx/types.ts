@@ -572,6 +572,8 @@ export interface ArtifactsShield extends ArtifactsCommon {
    */
   approveTxHash?: `0x${string}`
   approveSkipped?: boolean
+  /** The approve tx, once the wallet sent it and before it confirms — the checklist's "Confirming on chain". */
+  approveSubmittedHash?: `0x${string}`
   /**
    * Gasless-path intermediate flag (S-M4b). Set by an in-`build-proof` upsert right after the
    * EIP-2612 USDC permit is signed but BEFORE the EIP-712 ShieldIntent — lets the wallet checklist
@@ -661,6 +663,9 @@ export interface ArtifactsShieldXchain extends ArtifactsXchain {
   /** Direct-path approve leg (S-M4) — see ArtifactsShield. Absent on the gasless path. */
   approveTxHash?: `0x${string}`
   approveSkipped?: boolean
+  approveSubmittedHash?: `0x${string}`
+  /** Gasless: the permit is signed while the intent prompt is still open — see ArtifactsShield. */
+  permitSigned?: boolean
 }
 
 export interface ArtifactsTransfer extends ArtifactsCommon {

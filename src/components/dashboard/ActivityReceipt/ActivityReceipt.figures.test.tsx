@@ -82,7 +82,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       showReceipt('transfer-shielded', spendMeta(fee, { recipient: RECIPIENT_0ZK }))
       expect(headlineAmount()).toBe('10')
       expect(summaryRow('Fees')).toBe(fees)
-      expect(summaryRow('Total')).toBe(total)
+      expect(summaryRow('Total deducted')).toBe(total)
     })
   })
 
@@ -115,7 +115,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       showReceipt('unshield-local', spendMeta(F, { recipient: RECIPIENT_EVM }))
       expect(headlineAmount()).toBe('10')
       expect(summaryRow('Fees')).toBe('1.000003 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
     })
 
     it('cross-chain: the relayer fee, the CCTP fee taken from the amount (est.), Total = amount + relayer fee (UN-2x, D2)', () => {
@@ -124,7 +124,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       } as Partial<TxRecord>)
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
       expect(screen.queryByText('Fees')).toBeNull()
     })
 
@@ -133,7 +133,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
         stage: 'client-mint-confirmed',
       } as Partial<TxRecord>)
       expect(summaryRow('Fees')).toBe('1.000003 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
     })
   })
 
@@ -182,7 +182,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
     it('a failed send moved nothing: no Fees or Total', () => {
       showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), reverted)
       expect(summaryRow('Fees')).toBe('—')
-      expect(summaryRow('Total')).toBe('—')
+      expect(summaryRow('Total deducted')).toBe('—')
     })
 
     it('a cancelled shield moved nothing: no Fees or "You\'ll receive"', () => {
@@ -213,7 +213,7 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
         ...reverted, stagesCompleted: ['build-proof', 'submit-relayer', 'hub-burn-confirmed'],
       } as Partial<TxRecord>)
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
     })
 
     it('an expired send may still have settled: its figures stay', () => {

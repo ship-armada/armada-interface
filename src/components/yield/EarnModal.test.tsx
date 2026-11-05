@@ -13,6 +13,7 @@ import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { F, FOLD, G } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
@@ -195,6 +196,13 @@ describe('<EarnModal>', () => {
     expect(screen.getByRole('heading', { name: 'Review USDC shielded transfer to the vault' })).toBeInTheDocument()
   })
 
+  it('Review says how long the vault deposit usually takes (5C)', () => {
+    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+  })
+
   it('Confirm submits the tx and advances to the progress step', async () => {
     renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
@@ -241,6 +249,7 @@ describe('<EarnModal>', () => {
     const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
     })
@@ -256,6 +265,7 @@ describe('<EarnModal>', () => {
     const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
     })

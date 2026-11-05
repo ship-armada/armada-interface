@@ -5,12 +5,14 @@ import styles from './GasBalanceNotice.module.css'
 export interface GasBalanceNoticeProps {
   nativeSymbol: string
   formattedBalance: string | null
+  /** The estimated gas the wallet needs (formatted); adds "about N needed" when known. */
+  formattedNeeded?: string | null
 }
 
-export function GasBalanceNotice({ nativeSymbol, formattedBalance }: GasBalanceNoticeProps) {
+export function GasBalanceNotice({ nativeSymbol, formattedBalance, formattedNeeded = null }: GasBalanceNoticeProps) {
   const balanceHint =
     formattedBalance != null
-      ? ` You have ${formattedBalance} ${nativeSymbol}.`
+      ? ` You have ${formattedBalance} ${nativeSymbol}${formattedNeeded != null ? `; about ${formattedNeeded} is needed` : ''}.`
       : ''
   return (
     <div className={styles.notice} role="status">

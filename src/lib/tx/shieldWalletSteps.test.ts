@@ -26,16 +26,15 @@ describe('shieldWalletSteps', () => {
     // pre-record snapshot starts with Approve pending, not an "Authorize" placeholder.
     const steps = shieldWalletSteps(null, 5_000_000n)
     expect(steps.map(s => s.label)).toEqual([
-      'Approve unlimited USDC',
+      'Approve 5.00 USDC',
       'Submit 5.00 USDC shield',
     ])
   })
 
-  it('labels the approval as unlimited — the handler approves maxUint256, not the amount (F26, #83)', () => {
-    // WHY: the wallet prompt asks for an unlimited allowance (one approval, all future shields free); a checklist
-    // row saying "Approve 5.00 USDC" would misdescribe what the user signs.
+  it('labels the approval with the amount — the handler approves exactly it, never unlimited (4E; was F26, #83)', () => {
+    // WHY: the row has to describe what the wallet prompt asks for, which is now exactly the shield amount.
     const steps = shieldWalletSteps(null, 5_000_000n)
-    expect(steps[0]!.label).toBe('Approve unlimited USDC')
+    expect(steps[0]!.label).toBe('Approve 5.00 USDC')
   })
 
   it('omits approve row when allowance was sufficient', () => {
@@ -114,4 +113,39 @@ describe('shieldWalletSteps', () => {
     }
     expect(shieldWalletInteractionsComplete(signed)).toBe(true)
   })
+
+  it('tells "in your wallet" from "confirming on chain" for the approval (4B)', () => {
+    const prompting = { ...base, stage: 'submit-relayer', executionState: 'waiting', stagesCompleted: ['build-proof'] } as TxRecord<'shield'>
+    expect(shieldWalletSteps(prompting, 5_000_000n)[0]).toMatchObject({ status: 'loading', detail: 'In your wallet' })
+
+    const sent = { ...prompting, executionState: 'active', artifacts: { approveSubmittedHash: '0xa' } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(sent, 5_000_000n)[0]).toMatchObject({ status: 'confirming', detail: 'Confirming on chain' })
+    // The shield prompt hasn't opened yet while the approval confirms.
+    expect(shieldWalletSteps(sent, 5_000_000n)[1]).toMatchObject({ status: 'pending' })
+
+    const confirmed = { ...sent, artifacts: { approveSubmittedHash: '0xa', approveTxHash: '0xa' } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(confirmed, 5_000_000n)[0]).toMatchObject({ status: 'done' })
+  })
+
+  it('a gasless prompt reads "In your wallet" while open (4B)', () => {
+    const gasless = { ...base, meta: { ...base.meta, useGasless: true } } as TxRecord<'shield'>
+    expect(shieldWalletSteps(gasless, 5_000_000n)[0]).toMatchObject({ status: 'loading', detail: 'In your wallet' })
+  })
+
+  it('the active row says why the wallet is asking — exactly what each prompt does (4C)', () => {
+    const gasless = { ...base, meta: { ...base.meta, useGasless: true } } as TxRecord<'shield'>
+    expect(shieldWalletSteps(gasless, 5_000_000n)[0]?.why).toBe('Lets Armada\u2019s shield contract take exactly 5.00 USDC for this shield. No gas.')
+    const permitted = { ...gasless, artifacts: { permitSigned: true } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(permitted, 5_000_000n)[1]?.why).toBe('Locks in where your USDC goes, so the relayer can submit it but not change it. No gas.')
+    // Only the active row explains itself.
+    expect(shieldWalletSteps(permitted, 5_000_000n)[0]?.why).toBeUndefined()
+
+    const prompting = { ...base, stage: 'submit-relayer', executionState: 'waiting', stagesCompleted: ['build-proof'] } as TxRecord<'shield'>
+    expect(shieldWalletSteps(prompting, 5_000_000n)[0]?.why).toBe('Lets Armada\u2019s contract take exactly 5.00 USDC from your wallet.')
+    const shieldPrompt = { ...prompting, artifacts: { approveSkipped: true } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(shieldPrompt, 5_000_000n)[0]?.why).toBe('Sends 5.00 USDC to the privacy pool. You pay the network gas.')
+    const xchainPrompt = { ...shieldPrompt, kind: 'shield-xchain' } as unknown as TxRecord<'shield-xchain'>
+    expect(shieldWalletSteps(xchainPrompt, 5_000_000n)[0]?.why).toBe('Sends 5.00 USDC across chains to the privacy pool. You pay the network gas.')
+  })
 })
+

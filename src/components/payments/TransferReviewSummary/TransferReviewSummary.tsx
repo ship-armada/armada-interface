@@ -1,4 +1,4 @@
-// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / history / fees) with a fee-on-top "Total" row + a trailing privacy notice.
+// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / history / fees) with a fee-on-top "Total deducted" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
 import { useState } from 'react'
@@ -10,6 +10,7 @@ import { AddressReveal } from '@/components/ui/AddressReveal'
 import { FullAddress } from '@/components/ui/FullAddress'
 import { CopyableAddress } from '@/components/ui/CopyableAddress'
 import { isShieldedAddress } from '@/lib/address'
+import { FeeInfo } from '@/components/tx/FeeInfo'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { SendFlowVariant } from '../SendRecipientStep'
 import type { CctpFeeFigure } from '@/lib/fees/txFigures'
@@ -45,6 +46,8 @@ export interface TransferReviewSummaryProps {
   /** The user's history with a known recipient (e.g. "Sent 3 times before") — a "History" row under the recipient.
    *  The review step passes it; a first-time recipient gets a warning callout outside the table instead. */
   recipientHistory?: string
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
 }
 
 // `variant` is accepted for API symmetry with the review/complete steps; the summary copy no longer
@@ -59,6 +62,7 @@ export function TransferReviewSummary({
   recipientWalletProvider,
   confirmedAt,
   recipientHistory,
+  estimatedTime,
 }: TransferReviewSummaryProps) {
   // Whether the full recipient address is open (its own full-width block under the To row).
   const [showFullRecipient, setShowFullRecipient] = useState(false)
@@ -125,17 +129,29 @@ export function TransferReviewSummary({
             <span className={styles.summaryValue}>{recipientHistory}</span>
           </div>
         ) : null}
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
+          </div>
+        ) : null}
         <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>{cctpFee ? 'Relayer fee' : 'Fees'}</span>
+          <span className={styles.summaryLabel}>
+            {cctpFee ? 'Relayer fee' : 'Fees'}
+            <FeeInfo parts={['relayer']} />
+          </span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
             {fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`}
           </span>
         </div>
         {/* A cross-chain exit's CCTP fee comes out of the amount in transit (the recipient gets amount − it), so it
-            sits on its own row, outside the Total — which stays amount + the fee charged on top. */}
+            sits on its own row, outside "Total deducted" — which stays amount + the fee charged on top. */}
         {cctpFee ? (
           <div className={styles.summaryRow}>
-            <span className={styles.summaryLabel}>CCTP fee (from amount)</span>
+            <span className={styles.summaryLabel}>
+              CCTP fee (from amount)
+              <FeeInfo parts={['cctp']} />
+            </span>
             <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
               {`${cctpFee.estimated ? '≈ ' : ''}${formatUsdcAmount(cctpFee.amount)} USDC`}
             </span>
@@ -145,7 +161,7 @@ export function TransferReviewSummary({
       {/* Send/withdraw fees are fee-on-top: the shielded balance is charged `amount + fee`, so the
           total is the full deduction (not a net "you'll receive" figure like the deposit flow). */}
       <div className={styles.summaryTotalRow}>
-        <span className={styles.summaryTotalLabel}>Total</span>
+        <span className={styles.summaryTotalLabel}>Total deducted</span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
           {totalDeducted === null ? '—' : `${formatUsdcAmount(totalDeducted)} USDC`}
         </span>

@@ -1,6 +1,9 @@
 // ABOUTME: Shield review step — frost card with left-aligned UI title + big mono amount, shared DepositReviewSummary table, Confirm/Back CTAs.
 // ABOUTME: Delegates the summary rows (network, wallet/Armada addresses, fees, total) to DepositReviewSummary; duplicate caution preserved.
 
+import { WalletDeclinedNotice } from './WalletDeclinedNotice'
+import { HighFeeNotice } from '@/components/flow/HighFeeNotice'
+import { useHighFeeAck } from '@/hooks/useHighFeeAck'
 import { AlertTriangle } from 'lucide-react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
@@ -28,6 +31,10 @@ export interface ShieldReviewStepProps {
   feeUpdated?: boolean
   /** Cross-chain shield — the received total is an estimate (final depends on the CCTP fee at delivery). */
   estimated?: boolean
+  /** Gasless (the relayer submits) vs direct — what the "Fees" ⓘ lists. */
+  gasless?: boolean
+  /** The last attempt was declined in the wallet — a quiet note at the top (4D). */
+  walletDeclined?: boolean
   /** Direct-path network-gas estimate (ETH) — adds a "Network gas" row to the summary. Null on the
    *  gasless path (relayer covers gas). */
   nativeGas?: NativeGasEstimate | null
@@ -37,6 +44,16 @@ export interface ShieldReviewStepProps {
   submitBlockedReason?: string | null
   onBack: () => void
   onConfirm: () => void
+  /** Review's "Est. time" row — how long the tx usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime?: string
+}
+
+/**
+ * What the wallet will ask at the Wallet step (spec SH-7): gasless — the USDC permit, then the shield intent, both free
+ * signatures; direct — an approval when the allowance is too low (not known at Review, hence "up to"), then the shield.
+ */
+function walletPromptsFor(gasless: boolean): string {
+  return gasless ? '2 signatures, no gas' : 'Up to 2 transactions: approve, then shield'
 }
 
 export function ShieldReviewStep({
@@ -52,10 +69,15 @@ export function ShieldReviewStep({
   feeUpdated,
   estimated,
   nativeGas,
+  gasless,
+  walletDeclined = false,
   submitBlockedReason,
   onBack,
   onConfirm,
+  estimatedTime,
 }: ShieldReviewStepProps) {
+  // "Fees" here is every fee the user loses: the relayer's (gasless), the protocol fee and, cross-chain, the CCTP fee.
+  const highFee = useHighFeeAck(fee, amount)
   return (
     <div className={styles.root}>
       <div className={`${styles.body} ${modalStepBodyEnter}`}>
@@ -66,9 +88,11 @@ export function ShieldReviewStep({
           </div>
         </div>
 
+        {walletDeclined ? <WalletDeclinedNotice /> : null}
         {feeUpdated ? <FeeUpdatedBanner /> : null}
 
         <DepositReviewSummary
+          {...(estimatedTime !== undefined ? { estimatedTime } : {})}
           fromChainId={fromChainId}
           amount={amount}
           fee={fee}
@@ -77,7 +101,16 @@ export function ShieldReviewStep({
           walletProvider={walletProvider}
           shieldedAddress={shieldedAddress}
           estimated={estimated}
+          {...(gasless !== undefined ? { gasless } : {})}
+          {...(gasless !== undefined ? { walletPrompts: walletPromptsFor(gasless) } : {})}
           nativeGas={nativeGas}
+        />
+
+        <HighFeeNotice
+          level={highFee.level}
+          percent={highFee.percent}
+          acknowledged={highFee.acknowledged}
+          onAcknowledge={highFee.setAcknowledged}
         />
 
         {duplicateWarning ? (
@@ -113,7 +146,7 @@ export function ShieldReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={Boolean(submitBlockedReason) || isSubmitting}
+          disabled={Boolean(submitBlockedReason) || isSubmitting || highFee.blocksConfirm}
         />
       </div>
     </div>

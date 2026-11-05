@@ -49,6 +49,8 @@ interface ShieldAmountStepContentProps {
   gaslessMode?: boolean
   /** Chain whose native balance is checked for the direct-submit gas notice. */
   gasChainId: number
+  /** The direct shield's estimated gas (wei) — the notice compares the balance to it; null until known (fixed floor). */
+  requiredGasWei?: bigint | null
   /** Ref onto the amount input so the footer's incomplete-CTA nudge can focus the field. */
   inputRef?: Ref<HTMLInputElement>
   /** One-shot shake on the amount card — the incomplete-CTA nudge (owned by the modal). */
@@ -75,11 +77,12 @@ export function ShieldAmountStepContent({
   feeUnavailable = false,
   gaslessMode = true,
   gasChainId,
+  requiredGasWei = null,
   inputRef,
   shaking = false,
   onShakeAnimationEnd,
 }: ShieldAmountStepContentProps) {
-  const gasWarning = useGasBalanceWarning(gasChainId)
+  const gasWarning = useGasBalanceWarning(gasChainId, requiredGasWei)
   const showGasNotice = !gaslessMode && gasWarning.show
 
   const isShield = tab === 'shield'
@@ -138,6 +141,7 @@ export function ShieldAmountStepContent({
         <GasBalanceNotice
           nativeSymbol={gasWarning.nativeSymbol}
           formattedBalance={gasWarning.formattedBalance}
+          formattedNeeded={gasWarning.formattedNeeded}
         />
       ) : null}
     </div>

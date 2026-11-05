@@ -93,4 +93,19 @@ describe('<DepositReviewSummary>', () => {
     })
     expect(writeText).toHaveBeenLastCalledWith(shielded)
   })
+
+  it('explains a gasless cross-chain shield\'s fees as their parts: relayer, protocol, CCTP (5A)', () => {
+    render(<DepositReviewSummary fromChainId={84532} amount={3_000_000n} fee={25_651n} netAmount={2_974_349n} gasless estimated />)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent?.split(':')[0])).toEqual(['Relayer fee', 'Protocol fee', 'CCTP fee'])
+  })
+
+  it('explains a direct shield\'s fee (protocol only) and its network gas (5A)', () => {
+    render(<DepositReviewSummary fromChainId={31337} amount={3_000_000n} fee={15_000n} netAmount={2_985_000n} gasless={false} nativeGas={nativeGas} />)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('~0.5% shield fee')
+    fireEvent.mouseLeave(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
+    fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[1]!.parentElement as HTMLElement)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Paid in ETH from your wallet.')
+  })
 })

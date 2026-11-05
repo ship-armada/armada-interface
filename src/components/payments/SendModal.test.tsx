@@ -21,6 +21,7 @@ import type { TxRecord } from '@/lib/tx/types'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { C, F } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
@@ -305,6 +306,20 @@ describe('<SendModal>', () => {
     expect(screen.queryByText('Network')).toBeNull()
   })
 
+  it('Review says how long the send usually takes; cross-chain adds the fast CCTP transfer (5C, 14E)', () => {
+    renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_0ZK)
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
+    cleanup()
+    renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_EVM, '31338')
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    expect(summaryRow('Est. time')).toBe('Usually takes ~40 sec \u00b7 fast CCTP transfer')
+  })
+
   it('0x recipient to hub → unshield-local: review shows the "Public" privacy row + hub network', () => {
     renderModal({ open: 'payment', shielded: 10_000_000n })
     completeRecipientStep(VALID_EVM, '31337')
@@ -464,6 +479,7 @@ describe('<SendModal>', () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n, priceAt: vi.fn(async () => 2_118_648n) }
       const store = enterPublicAmount('5')
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      acknowledgeHighFee()
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
       })
@@ -478,6 +494,7 @@ describe('<SendModal>', () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_527_000n, priceAt: vi.fn(async () => 1_527_000n) }
       const store = enterPublicAmount('3', '31338')
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      acknowledgeHighFee()
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
       })
@@ -500,6 +517,7 @@ describe('<SendModal>', () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_286_550n, priceAt: vi.fn(async () => 2_118_648n) }
       const store = enterPublicAmount('5')
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      acknowledgeHighFee()
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
       })
@@ -685,7 +703,7 @@ describe('<SendModal>', () => {
           r.kind === kind ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed', meta: { ...r.meta, ...meta } } as TxRecord) : r,
         ))
       })
-      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Total deducted')).toBeInTheDocument())
     }
 
     it('private send, charged as a 2-proof split: Fees 2F, Total amount + 2F (PS-2, PS-3)', async () => {
@@ -693,7 +711,7 @@ describe('<SendModal>', () => {
       await sendAndSettle(VALID_0ZK, undefined, 'transfer-shielded', { broadcasterFeeAmount: 2n * F })
       expect(headlineAmount()).toBe('10')
       expect(summaryRow('Fees')).toBe('2.000006 USDC')
-      expect(summaryRow('Total')).toBe('12.000006 USDC')
+      expect(summaryRow('Total deducted')).toBe('12.000006 USDC')
     })
 
     it('public send on the hub: Fees F, Total amount + F (UN-2, UN-3)', async () => {
@@ -701,7 +719,7 @@ describe('<SendModal>', () => {
       await sendAndSettle(VALID_EVM, '31337', 'unshield-local', { broadcasterFeeAmount: F })
       expect(headlineAmount()).toBe('10')
       expect(summaryRow('Fees')).toBe('1.000003 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
     })
 
     it('public send cross-chain: the amount step\'s fee caption is the relayer fee — the CCTP fee comes out of the amount (UN-2x)', () => {
@@ -717,7 +735,7 @@ describe('<SendModal>', () => {
       await sendAndSettle(VALID_EVM, '31338', 'unshield-xchain', { broadcasterFeeAmount: F, cctpFee: C })
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
-      expect(summaryRow('Total')).toBe('11.000003 USDC')
+      expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
     })
   })
 
@@ -761,7 +779,7 @@ describe('<SendModal>', () => {
       expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
       expect(summaryRow('Fees')).toBe('—')
-      expect(summaryRow('Total')).toBe('—')
+      expect(summaryRow('Total deducted')).toBe('—')
       expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
     }))
@@ -774,7 +792,7 @@ describe('<SendModal>', () => {
       expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
       expect(summaryRow('Fees')).toBe('—')
-      expect(summaryRow('Total')).toBe('—')
+      expect(summaryRow('Total deducted')).toBe('—')
       expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Confirm send/ })).toBeDisabled()
     }))
@@ -796,7 +814,7 @@ describe('<SendModal>', () => {
           r.kind === 'unshield-local' ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
         ))
       })
-      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Total deducted')).toBeInTheDocument())
     }
 
     it('to your own connected wallet: an unshield, as its Activity row and receipt say', async () => {
@@ -811,7 +829,7 @@ describe('<SendModal>', () => {
   })
 
   describe('Review, the confirmation screen and the Activity receipt show the same figures (G-1, G-2)', () => {
-    const ROWS = { fees: 'Fees', total: 'Total' }
+    const ROWS = { fees: 'Fees', total: 'Total deducted' }
     /** Review a 10 USDC send, confirm it, settle its record as submitted, and read each surface's figures. */
     async function figuresOnEverySurface(recipient: string, chain: string | undefined, kind: TxRecord['kind'], rows: Record<string, string> = ROWS) {
       const store = renderModal({ open: 'payment', shielded: 20_000_000n })
@@ -828,7 +846,7 @@ describe('<SendModal>', () => {
           r.kind === kind ? ({ ...r, executionState: 'completed', stage: 'hub-confirmed' } as TxRecord) : r,
         ))
       })
-      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Total deducted')).toBeInTheDocument())
       const confirm = readFigures(rows)
       const record = store.get(txListAtom).find((r) => r.kind === kind)!
       cleanup()
@@ -855,7 +873,7 @@ describe('<SendModal>', () => {
 
     it('public send cross-chain', async () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
-      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31338', 'unshield-xchain', { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total' })
+      const { review, confirm, receipt } = await figuresOnEverySurface(VALID_EVM, '31338', 'unshield-xchain', { fees: 'Relayer fee', cctp: 'CCTP fee (from amount)', total: 'Total deducted' })
       // The relayer fee; the CCTP estimate (2 bps of 10 = 0.002) on its own row; the total deducted is amount + relayer fee.
       expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', cctp: '0.002 USDC', total: '11.000003 USDC' })
       expect(confirm).toEqual(review)

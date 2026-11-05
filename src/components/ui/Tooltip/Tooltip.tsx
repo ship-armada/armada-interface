@@ -12,7 +12,8 @@ interface TooltipSimpleProps {
 
 interface TooltipRichProps {
   variant: 'rich'
-  title: string
+  /** Optional heading — omit when the trigger's own label already says what it's about. */
+  title?: string
   description?: string
   bullets?: string[]
   children: ReactNode
@@ -64,7 +65,7 @@ export function Tooltip(props: TooltipProps) {
 
           {props.variant === 'rich' && (
             <>
-              <p className={styles.title}>{props.title}</p>
+              {props.title ? <p className={styles.title}>{props.title}</p> : null}
               {props.description && (
                 <p className={styles.description}>{props.description}</p>
               )}

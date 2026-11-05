@@ -29,6 +29,8 @@ export interface MergeReviewStepProps {
   feeUpdated?: boolean
   onCancel: () => void
   onConfirm: () => void
+  /** Review's "Est. time" row — how long the tx usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime?: string
 }
 
 export function MergeReviewStep({
@@ -41,6 +43,7 @@ export function MergeReviewStep({
   feeUpdated,
   onCancel,
   onConfirm,
+  estimatedTime,
 }: MergeReviewStepProps) {
   const outcome =
     blockedAction === undefined || preview?.blockedWillWork === undefined
@@ -64,6 +67,7 @@ export function MergeReviewStep({
         {feeUpdated ? <FeeUpdatedBanner /> : null}
 
         <ConsolidationSummary
+          {...(estimatedTime !== undefined ? { estimatedTime } : {})}
           tokenLabel={tokenLabel}
           {...(preview ? { notesMerged: preview.notesMerged, notesCreated: preview.notesCreated } : {})}
           fee={fee}

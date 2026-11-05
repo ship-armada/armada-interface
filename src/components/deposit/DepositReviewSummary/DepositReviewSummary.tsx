@@ -5,7 +5,8 @@ import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
 import { CopyableAddress } from '@/components/ui/CopyableAddress'
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
-import { getChainById } from '@/config/network'
+import { getChainById, getNetworkConfig } from '@/config/network'
+import { FeeInfo, shieldFeeParts } from '@/components/tx/FeeInfo'
 import { formatNativeGasAmount, type NativeGasEstimate } from '@/lib/fees/displayFees'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import styles from './DepositReviewSummary.module.css'
@@ -29,6 +30,15 @@ export interface DepositReviewSummaryProps {
    *  row under Fees on the REVIEW step only. Omitted on gasless (relayer-covered) shields and on the
    *  confirmation/receipt view (guarded by `confirmedAt`). */
   nativeGas?: NativeGasEstimate | null
+  /**
+   * Gasless (the relayer submits, its fee inside "Fees") vs direct (the user's wallet submits and pays gas) — says what
+   * the "Fees" ⓘ lists. Omitted (unknown) → no ⓘ on "Fees".
+   */
+  gasless?: boolean
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
+  /** Review's "Wallet prompts" row — what the user's wallet will ask for ("2 signatures, no gas"); omitted elsewhere. */
+  walletPrompts?: string
   /** When true, the "You'll receive" total is an estimate (a cross-chain shield's final amount depends
    *  on the CCTP fee set at delivery) — renders with a `≈` and a caption. */
   estimated?: boolean
@@ -44,6 +54,9 @@ export function DepositReviewSummary({
   confirmedAt,
   estimated,
   nativeGas,
+  gasless,
+  estimatedTime,
+  walletPrompts,
 }: DepositReviewSummaryProps) {
   const fromChain = getChainById(fromChainId)
   const feeValue = fee ?? 0n
@@ -84,8 +97,25 @@ export function DepositReviewSummary({
             </span>
           </div>
         ) : null}
+        {walletPrompts ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Wallet prompts</span>
+            <span className={styles.summaryValue}>{walletPrompts}</span>
+          </div>
+        ) : null}
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
+          </div>
+        ) : null}
         <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>Fees</span>
+          <span className={styles.summaryLabel}>
+            Fees
+            {gasless !== undefined ? (
+              <FeeInfo parts={shieldFeeParts({ gasless, crossChain: fromChainId !== getNetworkConfig().hub.chainId })} />
+            ) : null}
+          </span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
             {fee === null ? '—' : `${estimated ? '≈ ' : ''}${formatUsdcAmount(feeValue)} USDC`}
           </span>
@@ -94,7 +124,10 @@ export function DepositReviewSummary({
             their own wallet, separate from the inclusive USDC fee above. Hidden on the receipt. */}
         {nativeGas && confirmedAt === undefined ? (
           <div className={styles.summaryRow}>
-            <span className={styles.summaryLabel}>Network gas</span>
+            <span className={styles.summaryLabel}>
+              Network gas
+              <FeeInfo parts={['gas']} />
+            </span>
             <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
               {formatNativeGasAmount(nativeGas)}
             </span>

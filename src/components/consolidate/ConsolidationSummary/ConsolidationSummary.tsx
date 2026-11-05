@@ -4,6 +4,7 @@
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 // The deposit summary's styles, so the merge table stays in visual sync with the other flows' summaries.
+import { FeeInfo } from '@/components/tx/FeeInfo'
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
 export interface ConsolidationSummaryProps {
@@ -16,9 +17,18 @@ export interface ConsolidationSummaryProps {
   fee: bigint | null
   /** Completion timestamp (ms) — adds a leading "Date and time" row. */
   confirmedAt?: number
+  /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
+  estimatedTime?: string
 }
 
-export function ConsolidationSummary({ tokenLabel, notesMerged, notesCreated, fee, confirmedAt }: ConsolidationSummaryProps) {
+export function ConsolidationSummary({
+  tokenLabel,
+  notesMerged,
+  notesCreated,
+  fee,
+  confirmedAt,
+  estimatedTime,
+}: ConsolidationSummaryProps) {
   const feeText = fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`
   return (
     <div className={styles.summary}>
@@ -41,8 +51,17 @@ export function ConsolidationSummary({ tokenLabel, notesMerged, notesCreated, fe
             <span className={styles.summaryValue}>{`${notesMerged} → ${notesCreated}`}</span>
           </div>
         ) : null}
+        {estimatedTime ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Est. time</span>
+            <span className={styles.summaryValue}>{estimatedTime}</span>
+          </div>
+        ) : null}
         <div className={styles.summaryRow}>
-          <span className={styles.summaryLabel}>Fees</span>
+          <span className={styles.summaryLabel}>
+            Fees
+            <FeeInfo parts={['relayer']} />
+          </span>
           <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>{feeText}</span>
         </div>
       </div>

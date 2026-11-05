@@ -1,6 +1,7 @@
 // ABOUTME: SendModal — the shared Send/Withdraw flow. Pays USDC privately (0zk → 0zk) or to a public wallet (0x); the recipient address drives which of three kinds runs.
 // ABOUTME: One variant-driven modal (send | withdraw). Mounts three useTx hooks (transfer-shielded / unshield-local / unshield-xchain); submitted-kind state locks the subscription for the rest of the flow.
 
+import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useAtom, useAtomValue } from 'jotai'
@@ -570,6 +571,8 @@ export function SendModal() {
       )}
       {step === 'review' && (
         <SendReviewStep
+          // A private send may split into several proofs; the fee plan knows how many once priced.
+          estimatedTime={estimatedTimeLabel(computedKind, computedKind === 'transfer-shielded' ? (transferPlan.proofs ?? 1) : 1)}
           variant={variant}
           recipient={recipient}
           armadaAddress={shieldedWallet.shieldedAddress}

@@ -1,6 +1,8 @@
 // ABOUTME: useShieldFlow — the shield (deposit) flow controller. Owns form + fee + submit + step orchestration.
 // ABOUTME: Extracted from ShieldModal so the modal is a dumb renderer; no ethers/execution here — that lives in features/shield*.
 
+import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
+import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtomValue } from 'jotai'
 import { useAccount } from 'wagmi'
@@ -95,9 +97,15 @@ export interface ShieldFlow {
   // Actions
   onContinueToReview: () => void
   onBackToInput: () => void
+  /** The last shield was declined in the wallet — Review shows a quiet note instead of the error screen (4D). */
+  walletDeclined: boolean
+  /** Direct path: the wallet can't cover the estimated gas — holds Review's Confirm with this reason (4F); else null. */
+  gasShortReason: string | null
   submit: () => Promise<void>
   errorPrimaryLabel: string
   onErrorPrimary: () => void
+  /** Review's "Est. time" — how long this kind usually takes (`lib/tx/eta::estimatedTimeLabel`). */
+  estimatedTime: string
 }
 
 export function useShieldFlow(isOpen: boolean): ShieldFlow {
@@ -116,6 +124,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   const [step, setStep] = useState<ShieldStep>('input')
   const [errorAtStep, setErrorAtStep] = useState<FlowVisibleStep | undefined>(undefined)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [walletDeclined, setWalletDeclined] = useState(false)
   const [submittedKind, setSubmittedKind] = useState<SubmittedKind | null>(null)
   // Set when a submit-time fee refetch changed the fee — keeps the flow on Review with the banner.
   const [feeChanged, setFeeChanged] = useState(false)
@@ -214,6 +223,9 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     shieldFeeIntegrator(computedKind, useGasless, getIntegratorAddress()),
   )
   const protocolFee = displayFees.protocolFee
+  // Direct path only (the relayer pays gas on the gasless one): hold Confirm when ETH can't cover the estimated gas (4F).
+  const gasBalance = useGasBalanceWarning(fromChainId, displayFees.nativeGas?.wei ?? null)
+  const gasShortReason = !useGasless && gasBalance.show ? `Not enough ${gasBalance.nativeSymbol} in your wallet for network gas.` : null
   // Per-kind fee math (recipient receives / user is debited / how much they can type) lives in
   // the shared `computeFeeBreakdown` helper. Both gasless paths use `fee-from-recipient` so
   // the entered `amount` IS what's deducted from the user's USDC balance, and the shielded
@@ -288,6 +300,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
       setErrorAtStep(undefined)
       setAmountStr('')
       setSubmittedKind(null)
+      setWalletDeclined(false)
     }
   }, [isOpen])
 
@@ -298,6 +311,11 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   useEffect(() => {
     if (!record) return
     if (record.executionState === 'completed') setStep('complete')
+    // Declined in the wallet: nothing was shielded and nothing went wrong — back to Review with a quiet note (4D).
+    else if (record.executionState === 'failed' && record.artifacts.error?.code === 'USER_REJECTED') {
+      setWalletDeclined(true)
+      setStep('review')
+    }
     else if (record.executionState === 'failed' || record.executionState === 'expired') {
       setStep('error')
       setErrorAtStep('progress')
@@ -319,6 +337,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     submittingRef.current = true
     setIsSubmitting(true)
     setSubmitError(null)
+    setWalletDeclined(false)
     try {
       // null ⇒ submit was refused on a follower tab (useTx.submit toasts + persists nothing); we
       // keep the user on the review step rather than advancing to a never-driven progress spinner.
@@ -462,6 +481,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   }
 
   return {
+    estimatedTime: estimatedTimeLabel(computedKind, 1),
     fromChainId,
     setFromChainId,
     amountStr,
@@ -495,7 +515,12 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     submitError,
     walletSteps,
     onContinueToReview: () => setStep('review'),
-    onBackToInput: () => setStep('input'),
+    onBackToInput: () => {
+      setWalletDeclined(false)
+      setStep('input')
+    },
+    walletDeclined,
+    gasShortReason,
     submit,
     errorPrimaryLabel,
     onErrorPrimary,
