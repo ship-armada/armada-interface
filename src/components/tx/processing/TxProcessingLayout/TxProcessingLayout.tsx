@@ -8,6 +8,8 @@ import {
 } from '../TransactionProgressDisclosure'
 import { TxProgressCard, type TxProgressCardVariant } from '../TxProgressCard'
 import { progressAnnouncement, type TxProgressCardCopy, type TxProgressStage } from '../processingCopy'
+import { TxTimingNote } from '../TxTimingNote'
+import type { StageTimingNote } from '@/lib/tx/eta'
 import styles from './TxProcessingLayout.module.css'
 
 export type TxProcessingLayoutVariant = 'default' | 'immersive'
@@ -20,6 +22,8 @@ export interface TxProcessingLayoutProps {
   progressVariant?: TransactionProgressVariant
   /** Mobile keypad: full-bleed gradient shell, details docked at bottom. */
   layout?: TxProcessingLayoutVariant
+  /** The active stage's timing note ("Usually takes ~N" / "Taking longer than usual"), shown under the timeline. */
+  timingNote?: StageTimingNote | null
   className?: string
 }
 
@@ -30,6 +34,7 @@ export function TxProcessingLayout({
   completed = false,
   progressVariant = 'timeline',
   layout = 'default',
+  timingNote = null,
   className,
 }: TxProcessingLayoutProps) {
   const immersive = layout === 'immersive'
@@ -61,6 +66,7 @@ export function TxProcessingLayout({
             activeStageIndex={activeStageIndex}
             completed={completed}
           />
+          <TxTimingNote note={timingNote} />
         </div>
       </div>
     </div>

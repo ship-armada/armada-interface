@@ -8,6 +8,9 @@ import { buildProcessingView } from '@/components/tx/processing/processingView'
 import { TransactionProgressDisclosure } from '@/components/tx/processing/TransactionProgressDisclosure'
 import { progressAnnouncement } from '@/components/tx/processing/processingCopy'
 import { prefersReducedMotion } from '@/utils/motion'
+import { TxTimingNote } from '@/components/tx/processing/TxTimingNote'
+import { stageTimingNote } from '@/lib/tx/eta'
+import { useNow } from '@/hooks/useNow'
 import a11y from '@/design/styles/formA11y.module.css'
 import styles from './ActivityReceipt.module.css'
 
@@ -53,9 +56,11 @@ export function ReceiptProgress({ record, status }: ReceiptProgressProps) {
   }, [exitPhase])
 
   const shown = pending ? record : exit?.record
-  if (!shown) return null
+  const progress = shown ? buildProcessingView(shown) : null
+  // Re-read the clock once a second while the active stage has a timing estimate, so the note can turn "slow".
+  const now = useNow(1_000, Boolean(progress?.timing))
+  if (!shown || !progress) return null
   const phase = pending ? 'shown' : (exit?.phase ?? 'leaving')
-  const progress = buildProcessingView(shown)
 
   return (
     <div className={styles.progress} data-phase={phase}>
@@ -68,6 +73,7 @@ export function ReceiptProgress({ record, status }: ReceiptProgressProps) {
           activeStageIndex={progress.activeStageIndex}
           completed={progress.completed}
         />
+        <TxTimingNote note={progress.timing ? stageTimingNote(progress.timing, now) : null} />
       </div>
     </div>
   )

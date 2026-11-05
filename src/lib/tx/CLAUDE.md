@@ -7,7 +7,8 @@ Transaction lifecycle model. The most important architectural surface in this ap
 | File | Purpose |
 |---|---|
 | `types.ts` | `TxKind` discriminated union; per-kind stage unions; `TxRecord<K>` with `executionState` + `stage` + `updatedSeq` + `walletContext`; `TxLifecycle<K>` with `maxDurationMs` + `retryableStages` (no auto-retry policy). |
-| `lifecycles.ts` | One `TxLifecycle` per `TxKind` — stage sequence, terminal-success stage, retryable stages (for the user-driven "Try Again"), per-kind expiry cap. |
+| `lifecycles.ts` | One `TxLifecycle` per `TxKind` — stage sequence, terminal-success stage, retryable stages (for the user-driven "Try Again"), per-kind expiry cap, and `stageEstimates` (per-stage `usualMs` / `slowMs` for the long waits — proof, chain confirmation, cross-chain submit, CCTP attestation — measured on Sepolia via Debug → Tx timings, with headroom; a shield's wallet prompts and sub-second stages get none). |
+| `eta.ts` | `stageTimingNote(timing, now)` — the progress view's note for its active row: "Usually takes ~N" (when the stage has a `usualMs`), "Taking longer than usual" past `slowMs`, and "Your USDC is safe in transit." on a broadcast cross-chain "Bridging" row; null when there's nothing to say. Also `stepperEta` for the (unrendered) `TxLifecycleStepper`. |
 | `reducer.ts` | Pure transitions: `advance`, `markWaiting`, `markRetrying`, `markFailed`, `markExpired`, `markCancelled`, `shouldResume`. Every transition increments `updatedSeq`. `advance` also stamps `stageEnteredAt[toStage]` (first entry only, so a retried stage keeps its first stamp); `useTx.submit` stamps the first stage. |
 | `storage.ts` | IDB persistence: `putTxIfFresh` (OCC enforced via `updatedSeq`), `putTx` (unconditional, hydration only), `loadAllTx`, `deleteTx`. |
 | `executor.ts` | **Module-scope** execution engine. Runs stage handlers outside React, owns AbortControllers, leader-elected via `navigator.locks`. |
@@ -36,7 +37,7 @@ Transaction lifecycle model. The most important architectural surface in this ap
 2. Add a `Stage<NewKind>` union + extend `StageFor<K>`.
 3. Add a `Meta<NewKind>` interface + extend `MetaFor<K>`.
 4. (If cross-chain) extend `ArtifactsFor<K>` or reuse `ArtifactsXchain`.
-5. Add a `TxLifecycle<NewKind>` entry in `lifecycles.ts` with `maxDurationMs` + `retryableStages`.
+5. Add a `TxLifecycle<NewKind>` entry in `lifecycles.ts` with `maxDurationMs` + `retryableStages` (and `stageEstimates` for any long wait, measured on the Debug page's Tx timings).
 6. Register a `StageHandler<NewKind>` somewhere that gets imported on app load (typically a `features/<area>/handler.ts` module that side-effects `registerHandler(...)`).
 7. Add the kind's copy to `components/tx/stageCopy.ts` (`COPY`, `KIND_TITLES`), `components/tx/processing/processingView.ts` (`STAGE_COPY`, `resolveCardBase`) and `components/tx/noticeCopy.ts` (`COPY`). These are exhaustive over `TxKind`, so the compiler flags a missing entry.
 

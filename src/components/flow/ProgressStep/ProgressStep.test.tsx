@@ -1,8 +1,8 @@
 // ABOUTME: Tests for ProgressStep — pre-record placeholder vs. delegating to TxLifecycleStepper once a record exists.
-// ABOUTME: We assert via well-known stage copy ("Preparing transaction") that TxLifecycleStepper rendered.
+// ABOUTME: We assert via well-known stage copy ("Preparing transaction") that it rendered, and its live timing note.
 
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, act } from '@testing-library/react'
 import { ProgressStep } from './ProgressStep'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -38,4 +38,25 @@ describe('<ProgressStep>', () => {
     expect(screen.getByText('being shielded')).toBeInTheDocument()
     expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
   })
+
+  it('shows the active stage\'s usual time, turning to "taking longer than usual" once slow', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(100_000)
+    const confirming = {
+      ...sampleRecord,
+      stage: 'hub-pending',
+      executionState: 'waiting',
+      artifacts: { sourceTxHash: '0xabc' },
+      stageEnteredAt: { 'build-proof': 90_000, 'hub-pending': 100_000 },
+    } as unknown as TxRecord
+    render(<ProgressStep record={confirming} />)
+    expect(screen.getByText('Usually takes ~15 sec')).toBeInTheDocument()
+    act(() => vi.advanceTimersByTime(46_000))
+    expect(screen.getByText('Taking longer than usual')).toBeInTheDocument()
+  })
 })
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+

@@ -2,7 +2,8 @@
 // ABOUTME: Drives TxProcessingLayout from our REAL lifecycle stages (lifecycleFor + record state), styled like the mockup.
 
 import { lifecycleFor } from '@/lib/tx/lifecycles'
-import type { TxExecutionState, TxKind, TxRecord } from '@/lib/tx/types'
+import type { StageEstimate, TxExecutionState, TxKind, TxRecord } from '@/lib/tx/types'
+import type { StageTiming } from '@/lib/tx/eta'
 import type { TxProgressCardCopy, TxProgressStage } from './processingCopy'
 
 /** Subtitle for a stage — either static, or split by executionState (`waiting` = a wallet prompt is
@@ -191,6 +192,8 @@ export interface ProcessingView {
   stages: TxProgressStage[]
   activeStageIndex: number
   completed: boolean
+  /** The active row's timing (for the "usually ~N / taking longer" note); null when done, unstamped, or no estimate. */
+  timing: StageTiming | null
 }
 
 /**
@@ -267,5 +270,30 @@ export function buildProcessingView(
   const lines = broadcast ? CLOSE_SUBTITLE_LINES : PRE_BROADCAST_SUBTITLE_LINES
   const cardCopy: TxProgressCardCopy = { ...base, subtitle: lines.join(' '), subtitleLines: lines }
 
-  return { cardCopy, stages, activeStageIndex, completed }
+  return { cardCopy, stages, activeStageIndex, completed, timing: activeRowTiming(record, rows[currentRowIndex], broadcast) }
 }
+
+/**
+ * The active row's timing: from the first stamp among its stages (a grouped "Bridging" row counts from its first stage),
+ * with the first estimate among them. Null once completed, or when the row has no stamp or no estimate. A grouped row on
+ * a broadcast tx is a cross-chain transfer in flight, so it's marked safe in transit.
+ */
+function activeRowTiming(
+  record: TxRecord,
+  row: { group?: string; stageIds: string[] } | undefined,
+  broadcast: boolean,
+): StageTiming | null {
+  if (!row || record.executionState === 'completed') return null
+  const stamps = record.stageEnteredAt as Partial<Record<string, number>> | undefined
+  const estimates = lifecycleFor(record.kind).stageEstimates as Partial<Record<string, StageEstimate>> | undefined
+  const startedAt = Math.min(...row.stageIds.map((id) => stamps?.[id] ?? Infinity))
+  const estimate = row.stageIds.map((id) => estimates?.[id]).find((e) => e !== undefined)
+  if (!Number.isFinite(startedAt) || !estimate) return null
+  return {
+    startedAt,
+    ...(estimate.usualMs !== undefined ? { usualMs: estimate.usualMs } : {}),
+    slowMs: estimate.slowMs,
+    safeInTransit: row.group !== undefined && broadcast,
+  }
+}
+

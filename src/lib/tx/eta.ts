@@ -1,5 +1,5 @@
-// ABOUTME: Pure ETA-display logic for the lifecycle stepper (T-L4) — elapsed timer + "taking longer
-// ABOUTME: than usual" once elapsed passes the kind's p90, so a stalled tx doesn't show a stale p50 forever.
+// ABOUTME: Pure ETA-display logic — the lifecycle stepper's elapsed timer + "taking longer than usual" past p90 (T-L4), and
+// ABOUTME: the progress view's per-stage timing note ("Usually takes ~N" → "Taking longer than usual", safe-in-transit).
 
 import { isTerminalState } from './types'
 import type { TxExecutionState } from './types'
@@ -55,3 +55,34 @@ export function stepperEta(
   }
   return { label: `${formatElapsed(elapsedMs)} elapsed`, overdue: false }
 }
+
+/** The active row's timing, from `buildProcessingView`: when it started, its estimate, and whether USDC is between chains. */
+export interface StageTiming {
+  startedAt: number
+  usualMs?: number
+  slowMs: number
+  /** The row is a cross-chain transfer in flight (broadcast) — the USDC is safe even though it's slow to arrive. */
+  safeInTransit: boolean
+}
+
+export interface StageTimingNote {
+  /** "Usually takes ~30 sec", or "Taking longer than usual" once slow; null when there's nothing to say yet. */
+  hint: string | null
+  /** Past the stage's slow threshold — styled amber (not a failure). */
+  slow: boolean
+  reassurance: string | null
+}
+
+/** The progress view's note for its active row at `nowMs`; null when it has neither a hint nor a reassurance. */
+export function stageTimingNote(timing: StageTiming, nowMs: number): StageTimingNote | null {
+  const slow = nowMs - timing.startedAt > timing.slowMs
+  const hint = slow
+    ? 'Taking longer than usual'
+    : timing.usualMs !== undefined
+      ? `Usually takes ${formatDurationHint(timing.usualMs)}`
+      : null
+  const reassurance = timing.safeInTransit ? 'Your USDC is safe in transit.' : null
+  if (hint === null && reassurance === null) return null
+  return { hint, slow, reassurance }
+}
+

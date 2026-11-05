@@ -762,6 +762,15 @@ export interface TxRecord<K extends TxKind = TxKind> {
  */
 export type TxDraft<K extends TxKind = TxKind> = { [P in K]: { kind: P; meta: MetaFor<P> } }[K]
 
+/**
+ * How long a stage usually waits. `usualMs` drives "Usually takes ~N" (omitted for a stage too quick to be worth a hint);
+ * past `slowMs` it reads "Taking longer than usual".
+ */
+export interface StageEstimate {
+  usualMs?: number
+  slowMs: number
+}
+
 /* Lifecycle metadata — drives steppers, retry buttons, expiry rules. */
 
 export interface TxLifecycle<K extends TxKind = TxKind> {
@@ -777,6 +786,11 @@ export interface TxLifecycle<K extends TxKind = TxKind> {
   retryableStages: ReadonlyArray<StageFor<K>>
   /** Heuristic durations for ETA UI (milliseconds). */
   estDuration: { p50: number; p90: number }
+  /**
+   * Per-stage wait estimates for the progress view's timing note — only on stages long enough to be worth one (a
+   * proof, a chain confirmation, a cross-chain attestation). Measured on Sepolia (Debug → Tx timings), with headroom.
+   */
+  stageEstimates?: Partial<Record<StageFor<K>, StageEstimate>>
   /** Hard cap on total lifecycle duration. After this, executionState → expired. */
   maxDurationMs: number
 }

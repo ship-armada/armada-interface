@@ -1,7 +1,8 @@
-// ABOUTME: Tests for stepperEta (T-L4) — elapsed timer + overdue ("taking longer than usual") past p90.
+// ABOUTME: Tests for stepperEta (T-L4) — elapsed timer + overdue ("taking longer than usual") past p90 — and stageTimingNote,
+// ABOUTME: the progress view's per-stage "usually ~N" / "taking longer than usual" + safe-in-transit note.
 
 import { describe, it, expect } from 'vitest'
-import { stepperEta, formatElapsed } from './eta'
+import { stepperEta, formatElapsed, stageTimingNote } from './eta'
 
 const EST = { p50: 30_000, p90: 120_000 }
 
@@ -40,3 +41,26 @@ describe('stepperEta (T-L4)', () => {
     expect(formatElapsed(3_900_000)).toBe('1h 5m')
   })
 })
+
+describe('stageTimingNote', () => {
+  const T = { startedAt: 1_000, usualMs: 30_000, slowMs: 75_000, safeInTransit: false }
+
+  it('says how long the stage usually takes while it runs normally', () => {
+    expect(stageTimingNote(T, 11_000)).toEqual({ hint: 'Usually takes ~30 sec', slow: false, reassurance: null })
+  })
+
+  it('turns into "taking longer than usual" once past the slow threshold', () => {
+    expect(stageTimingNote(T, 1_000 + 75_001)).toEqual({ hint: 'Taking longer than usual', slow: true, reassurance: null })
+  })
+
+  it('has no hint for a stage with only a slow threshold, until it is slow', () => {
+    const proof = { startedAt: 0, slowMs: 20_000, safeInTransit: false }
+    expect(stageTimingNote(proof, 5_000)).toBeNull()
+    expect(stageTimingNote(proof, 20_001)).toEqual({ hint: 'Taking longer than usual', slow: true, reassurance: null })
+  })
+
+  it('reassures while the USDC is in transit between chains', () => {
+    expect(stageTimingNote({ ...T, safeInTransit: true }, 2_000)?.reassurance).toBe('Your USDC is safe in transit.')
+  })
+})
+

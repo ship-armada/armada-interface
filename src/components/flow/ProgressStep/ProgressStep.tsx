@@ -4,6 +4,8 @@
 import type { TxRecord } from '@/lib/tx/types'
 import { TxProcessingLayout } from '@/components/tx/processing/TxProcessingLayout'
 import { buildProcessingView, type SendVariant } from '@/components/tx/processing/processingView'
+import { stageTimingNote } from '@/lib/tx/eta'
+import { useNow } from '@/hooks/useNow'
 import styles from './ProgressStep.module.css'
 
 export interface ProgressStepProps {
@@ -18,7 +20,11 @@ export interface ProgressStepProps {
 }
 
 export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
-  if (!record) {
+  const view = record ? buildProcessingView(record, { sendVariant }) : null
+  // Re-read the clock once a second while the active stage has a timing estimate, so the note can turn "slow".
+  const now = useNow(1_000, Boolean(view?.timing))
+
+  if (!view) {
     return (
       <div className={styles.root}>
         <div className={styles.headline}>Preparing transaction</div>
@@ -26,7 +32,6 @@ export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
       </div>
     )
   }
-  const view = buildProcessingView(record, { sendVariant })
 
   return (
     <div className={styles.root}>
@@ -36,6 +41,7 @@ export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
         stages={view.stages}
         activeStageIndex={view.activeStageIndex}
         completed={view.completed}
+        timingNote={view.timing ? stageTimingNote(view.timing, now) : null}
       />
     </div>
   )
