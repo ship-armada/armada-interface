@@ -43,6 +43,6 @@ export function useTxNotices(): void {
         })
       }
     }
-    lastRef.current = { walletId, snapshot: snapshotTxs(records, inView) }
+    lastRef.current = { walletId, snapshot: snapshotTxs(records) }
   }, [records, inView, walletId, hydratedFor, setFeed])
 }

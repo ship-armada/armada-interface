@@ -46,7 +46,7 @@ describe('useTxNotices', () => {
     expect(feed[0]?.seq).toBe(1)
   })
 
-  it('stays quiet for a tx on screen, and says "pending" once the user leaves it mid-flight', () => {
+  it('stays quiet for a tx on screen and when the user leaves it mid-flight, then announces its outcome', () => {
     const store = setup()
     act(() => {
       store.set(txHistoryHydratedAtom, 'w')
@@ -56,7 +56,9 @@ describe('useTxNotices', () => {
     act(() => store.set(txListAtom, [send('waiting')]))
     expect(store.get(txNoticeFeedAtom)).toEqual([])
     act(() => store.set(txInViewIdsAtom, new Set()))
-    expect(store.get(txNoticeFeedAtom).map((n) => n.tone)).toEqual(['pending'])
+    expect(store.get(txNoticeFeedAtom)).toEqual([])
+    act(() => store.set(txListAtom, [send('completed')]))
+    expect(store.get(txNoticeFeedAtom).map((n) => n.tone)).toEqual(['success'])
   })
 
   it('clears the feed and goes quiet when the wallet locks', () => {

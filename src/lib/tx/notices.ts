@@ -1,13 +1,13 @@
 // ABOUTME: Which tx record changes are worth telling the user about outside the flow modal — settled / failed / uncertain
-// ABOUTME: outcomes, leaving a modal mid-flight, and freshly received payments. Pure: compares two snapshots of the list.
+// ABOUTME: outcomes and freshly received payments (a tx in flight is the header pill's). Pure: compares two list snapshots.
 
 import type { TxExecutionState, TxRecord } from './types'
 import { isTerminalState } from './types'
 import { txOutcome } from './outcome'
 
 /**
- * What a notice says about its tx:
- *   pending   — the user left the flow while it's still in flight (it carries on in the background).
+ * The tone of a tx's notice copy and icon:
+ *   pending   — still in flight (the header pill's label; never raised as a notice).
  *   success   — it settled.
  *   failure   — it definitively failed.
  *   uncertain — we stopped watching without knowing (timeout / expiry); it may still have landed.
@@ -15,16 +15,17 @@ import { txOutcome } from './outcome'
  */
 export type TxNoticeTone = 'pending' | 'success' | 'failure' | 'uncertain' | 'received'
 
+/** The tones raised as notices — outcomes. A tx in flight is shown by the header pill instead. */
+export type TxNoticeOutcome = Exclude<TxNoticeTone, 'pending'>
+
 export interface TxNoticeEvent {
   record: TxRecord
-  tone: TxNoticeTone
+  tone: TxNoticeOutcome
 }
 
 /** The part of the tx list the detector compares between updates. */
 export interface TxWatchSnapshot {
   states: ReadonlyMap<string, TxExecutionState>
-  /** Records currently on screen — in their flow modal or the Activity receipt. */
-  inView: ReadonlySet<string>
 }
 
 /**
@@ -33,8 +34,8 @@ export interface TxWatchSnapshot {
  */
 export const RECEIVED_NOTICE_MAX_AGE_MS = 10 * 60_000
 
-export function snapshotTxs(records: readonly TxRecord[], inView: ReadonlySet<string>): TxWatchSnapshot {
-  return { states: new Map(records.map((record) => [record.id, record.executionState])), inView }
+export function snapshotTxs(records: readonly TxRecord[]): TxWatchSnapshot {
+  return { states: new Map(records.map((record) => [record.id, record.executionState])) }
 }
 
 /**
@@ -65,16 +66,12 @@ export function detectTxNotices(
     if (!isTerminalState(before) && isTerminalState(record.executionState)) {
       const tone = outcomeTone(record)
       if (tone) events.push({ record, tone })
-      continue
-    }
-    if (!isTerminalState(record.executionState) && prev.inView.has(record.id)) {
-      events.push({ record, tone: 'pending' })
     }
   }
   return events
 }
 
-function outcomeTone(record: TxRecord): TxNoticeTone | null {
+function outcomeTone(record: TxRecord): TxNoticeOutcome | null {
   switch (txOutcome(record)) {
     case 'settled':
       return 'success'

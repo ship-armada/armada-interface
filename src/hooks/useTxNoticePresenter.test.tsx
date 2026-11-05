@@ -7,7 +7,7 @@ import { createStore, Provider } from 'jotai'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import type { TxRecord } from '@/lib/tx/types'
-import type { TxNoticeTone } from '@/lib/tx/notices'
+import type { TxNoticeOutcome } from '@/lib/tx/notices'
 import { txNoticeAnnouncementAtom, txNoticeFeedAtom, txNoticeStyleAtom } from '@/state/txNotices'
 import { balanceHiddenAtom } from '@/state/ui'
 import { txRecord } from '@/test/fixtures/txValues'
@@ -28,7 +28,7 @@ function setup(style: 'toast' | 'pill') {
     </Provider>
   )
   renderHook(() => useTxNoticePresenter(), { wrapper })
-  const push = (tone: TxNoticeTone, seq: number) =>
+  const push = (tone: TxNoticeOutcome, seq: number) =>
     act(() => store.set(txNoticeFeedAtom, (feed) => [...feed, { seq, tone, record: send }]))
   return { store, push }
 }
@@ -45,7 +45,7 @@ afterEach(() => {
 describe('useTxNoticePresenter — toast style', () => {
   it('shows each new notice once, as a toast keyed by the record (so a later notice replaces it)', () => {
     const { push } = setup('toast')
-    push('pending', 1)
+    push('failure', 1)
     push('success', 2)
     expect(sonner.custom).toHaveBeenCalledTimes(2)
     expect(sonner.custom.mock.calls.map((call) => (call[1] as { id: string }).id)).toEqual(['send-1', 'send-1'])
@@ -61,13 +61,6 @@ describe('useTxNoticePresenter — pill style', () => {
     expect(store.get(txNoticeAnnouncementAtom)).toMatchObject({ tone: 'success', title: 'Sent 5.00 USDC', recordId: 'send-1' })
     act(() => vi.advanceTimersByTime(PILL_ANNOUNCE_MS))
     expect(store.get(txNoticeAnnouncementAtom)).toBeNull()
-  })
-
-  it('raises no announcement for "pending" — the pill already shows the in-flight tx by name', () => {
-    const { store, push } = setup('pill')
-    push('pending', 1)
-    expect(store.get(txNoticeAnnouncementAtom)).toBeNull()
-    expect(sonner.custom).not.toHaveBeenCalled()
   })
 
   it('keeps a failure up until the user acts on it', () => {

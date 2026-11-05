@@ -4,7 +4,7 @@
 import { useAtom, useSetAtom } from 'jotai'
 import { Button } from '@/design'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
-import type { TxNoticeTone } from '@/lib/tx/notices'
+import type { TxNoticeOutcome } from '@/lib/tx/notices'
 import { txNoticeFeedAtom, txNoticeStyleAtom, type TxNoticeStyle } from '@/state/txNotices'
 import { getNetworkConfig } from '@/config/network'
 import styles from './TxNoticeTrial.module.css'
@@ -14,11 +14,12 @@ const STYLES: ReadonlyArray<{ value: TxNoticeStyle; label: string }> = [
   { value: 'pill', label: 'Header pill' },
 ]
 
-const SAMPLES: ReadonlyArray<{ label: string; tone: TxNoticeTone; kind: TxKind }> = [
+// Outcomes only: a tx in flight is the header pill's job (from real pending txs), not a notice.
+const SAMPLES: ReadonlyArray<{ label: string; tone: TxNoticeOutcome; kind: TxKind }> = [
   { label: 'Sent', tone: 'success', kind: 'transfer-shielded' },
   { label: 'Failed', tone: 'failure', kind: 'transfer-shielded' },
   { label: 'Received', tone: 'received', kind: 'transfer-shielded-received' },
-  { label: 'Pending', tone: 'pending', kind: 'shield' },
+  { label: 'Unknown', tone: 'uncertain', kind: 'shield' },
 ]
 
 /**
@@ -46,7 +47,7 @@ export function TxNoticeTrial() {
   const [style, setStyle] = useAtom(txNoticeStyleAtom)
   const setFeed = useSetAtom(txNoticeFeedAtom)
 
-  function fireSample(tone: TxNoticeTone, kind: TxKind) {
+  function fireSample(tone: TxNoticeOutcome, kind: TxKind) {
     setFeed((feed) => {
       const seq = (feed[feed.length - 1]?.seq ?? 0) + 1
       return [...feed, { seq, tone, record: sampleRecord(kind, seq) }]

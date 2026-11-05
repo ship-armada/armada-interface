@@ -4,7 +4,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { TxRecord } from '@/lib/tx/types'
-import type { TxNoticeTone } from '@/lib/tx/notices'
+import type { TxNoticeOutcome } from '@/lib/tx/notices'
 
 /**
  * Records currently on screen — a flow modal showing its progress / outcome (registered by `useTx` with `inView`) or
@@ -15,7 +15,7 @@ export const txInViewIdsAtom = atom<ReadonlySet<string>>(new Set<string>())
 export interface TxNoticeItem {
   /** Monotonic per session — presenters show each item once, by seq. */
   seq: number
-  tone: TxNoticeTone
+  tone: TxNoticeOutcome
   /** The record as it was when the notice was raised. */
   record: TxRecord
 }
@@ -34,7 +34,7 @@ export const txNoticeStyleAtom = atomWithStorage<TxNoticeStyle>('armada-interfac
 /** What the header pill is announcing right now (pill style only); null = it shows the pending count. */
 export interface TxNoticeAnnouncement {
   seq: number
-  tone: TxNoticeTone
+  tone: TxNoticeOutcome
   title: string
   recordId: string
 }

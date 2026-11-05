@@ -4,7 +4,7 @@
 import { useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { toast } from 'sonner'
-import type { TxNoticeTone } from '@/lib/tx/notices'
+import type { TxNoticeOutcome } from '@/lib/tx/notices'
 import { selfSendAsMerge } from '@/lib/tx/selfSend'
 import { txNoticeTitle } from '@/components/tx/noticeCopy'
 import { TxNoticeToast, noticeNeedsAttention } from '@/components/tx/TxNoticeToast'
@@ -17,8 +17,7 @@ import { useOpenTxActivity } from './useOpenTxActivity'
 export const PILL_ANNOUNCE_MS = 5_000
 
 /** How long each toast stays; a problem stays longer so it isn't missed. */
-const TOAST_MS: Record<TxNoticeTone, number> = {
-  pending: 4_000,
+const TOAST_MS: Record<TxNoticeOutcome, number> = {
   success: 6_000,
   received: 6_000,
   failure: 10_000,
@@ -69,8 +68,6 @@ export function useTxNoticePresenter(): void {
         )
         continue
       }
-      // Pill style: an in-flight tx is already named by the pill itself (usePendingTxLabel), so only outcomes announce.
-      if (item.tone === 'pending') continue
       setAnnouncement({ seq: item.seq, tone: item.tone, title, recordId: record.id })
       if (foldTimerRef.current) clearTimeout(foldTimerRef.current)
       foldTimerRef.current = null

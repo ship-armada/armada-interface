@@ -31,12 +31,14 @@ describe('<TxNoticeTrial>', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sent' }))
     fireEvent.click(screen.getByRole('button', { name: 'Failed' }))
     fireEvent.click(screen.getByRole('button', { name: 'Received' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Pending' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Unknown' }))
     expect(store.get(txNoticeFeedAtom).map((n) => [n.seq, n.tone])).toEqual([
       [1, 'success'],
       [2, 'failure'],
       [3, 'received'],
-      [4, 'pending'],
+      [4, 'uncertain'],
     ])
+    // A tx in flight is the header pill's job, not a notice — there's no pending sample.
+    expect(screen.queryByRole('button', { name: 'Pending' })).toBeNull()
   })
 })
