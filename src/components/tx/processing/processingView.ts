@@ -114,17 +114,15 @@ const STAGE_COPY: Record<TxKind, Record<string, StageCopyEntry>> = {
 }
 
 /**
- * Reassurance subtitle — shown ONLY once the tx has broadcast on chain (`sourceTxHash` present).
- * Before broadcast, closing the browser tab would abort the tx (useTxResume fails pre-broadcast
- * interruptions), so we don't promise background processing until it's genuinely safe to leave.
+ * Leave-safety subtitles. Closing the modal is always safe (the executor runs at module scope); leaving the browser tab
+ * is only safe once the tx has broadcast (`sourceTxHash` present) — before that it would abort the tx (useTxResume fails
+ * pre-broadcast interruptions), so the pre-broadcast copy asks to keep the tab open. Names "this tab" explicitly:
+ * "this window" read as the modal.
  */
-const CLOSE_SUBTITLE_LINES = [
-  'You can now close this window.',
-  "We'll keep processing in the background.",
-] as const
+const CLOSE_SUBTITLE_LINES = ['You can close this tab.', "We'll finish in the background."] as const
 
 /** Generic pre-broadcast subtitle (shown for every kind until the tx is on chain). */
-const PREPARING_SUBTITLE = 'Preparing your transaction…'
+const PRE_BROADCAST_SUBTITLE_LINES = ['You can close this.', 'Keep this tab open until it\u2019s submitted.'] as const
 
 /** Which Send/Withdraw flow the user is in — needed to disambiguate the shared `unshield-*` kinds. */
 export type SendVariant = 'send' | 'withdraw'
@@ -262,13 +260,12 @@ export function buildProcessingView(
     ? Math.max(0, stages.length - 1)
     : Math.max(0, currentRowIndex)
 
-  // Only promise "safe to close" once the tx has broadcast on chain — before that, leaving the tab
-  // would abort it (nothing was submitted yet). Pre-broadcast keeps the neutral per-kind subtitle.
+  // Only say the tab can go once the tx has broadcast on chain — before that, leaving the tab would abort it (nothing
+  // was submitted yet), so the pre-broadcast copy says the modal can close but the tab must stay open.
   const broadcast = Boolean(record.artifacts.sourceTxHash)
   const base = resolveCardBase(record, opts?.sendVariant)
-  const cardCopy: TxProgressCardCopy = broadcast
-    ? { ...base, subtitle: CLOSE_SUBTITLE_LINES.join(' '), subtitleLines: CLOSE_SUBTITLE_LINES }
-    : { ...base, subtitle: PREPARING_SUBTITLE }
+  const lines = broadcast ? CLOSE_SUBTITLE_LINES : PRE_BROADCAST_SUBTITLE_LINES
+  const cardCopy: TxProgressCardCopy = { ...base, subtitle: lines.join(' '), subtitleLines: lines }
 
   return { cardCopy, stages, activeStageIndex, completed }
 }
