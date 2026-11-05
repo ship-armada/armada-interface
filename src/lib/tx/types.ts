@@ -741,6 +741,12 @@ export interface TxRecord<K extends TxKind = TxKind> {
   stage: StageFor<K>
   /** Stages completed so far, in order. Useful for stepper rendering. */
   stagesCompleted: StageFor<K>[]
+  /**
+   * When each stage was first entered (ms) — stamped by `reducer.advance` and at submit, so a stage's duration is the
+   * next stage's stamp minus its own (the Debug page's timings; `tx.transition`'s `durationMs`). Optional: records
+   * written before it existed, and records recovered from chain, have none.
+   */
+  stageEnteredAt?: Partial<Record<StageFor<K>, number>>
   /** Monotonic transition counter. Reducer increments; storage rejects stale writes (OCC). */
   updatedSeq: number
   createdAt: number

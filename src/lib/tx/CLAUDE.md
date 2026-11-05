@@ -8,7 +8,7 @@ Transaction lifecycle model. The most important architectural surface in this ap
 |---|---|
 | `types.ts` | `TxKind` discriminated union; per-kind stage unions; `TxRecord<K>` with `executionState` + `stage` + `updatedSeq` + `walletContext`; `TxLifecycle<K>` with `maxDurationMs` + `retryableStages` (no auto-retry policy). |
 | `lifecycles.ts` | One `TxLifecycle` per `TxKind` — stage sequence, terminal-success stage, retryable stages (for the user-driven "Try Again"), per-kind expiry cap. |
-| `reducer.ts` | Pure transitions: `advance`, `markWaiting`, `markRetrying`, `markFailed`, `markExpired`, `markCancelled`, `shouldResume`. Every transition increments `updatedSeq`. |
+| `reducer.ts` | Pure transitions: `advance`, `markWaiting`, `markRetrying`, `markFailed`, `markExpired`, `markCancelled`, `shouldResume`. Every transition increments `updatedSeq`. `advance` also stamps `stageEnteredAt[toStage]` (first entry only, so a retried stage keeps its first stamp); `useTx.submit` stamps the first stage. |
 | `storage.ts` | IDB persistence: `putTxIfFresh` (OCC enforced via `updatedSeq`), `putTx` (unconditional, hydration only), `loadAllTx`, `deleteTx`. |
 | `executor.ts` | **Module-scope** execution engine. Runs stage handlers outside React, owns AbortControllers, leader-elected via `navigator.locks`. |
 | `poller.ts` | Generic abortable / jittered / backoff-aware poll loop. Stage-specific adapters (Iris, RPC, relayer) plug in here. |

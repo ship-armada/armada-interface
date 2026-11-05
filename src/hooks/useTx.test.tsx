@@ -67,6 +67,9 @@ describe('useTx.submit follower-tab guard (P1-26)', () => {
     expect(executor.executeTx).toHaveBeenCalledWith(id)
     expect(storage.putTxIfFresh).toHaveBeenCalledOnce()
     expect(store.get(txListAtom)).toHaveLength(1)
+    // The first stage's entry is stamped at submit, so its duration can be measured.
+    const [record] = store.get(txListAtom)
+    expect(record?.stageEnteredAt).toEqual({ 'build-proof': record?.createdAt })
   })
 })
 

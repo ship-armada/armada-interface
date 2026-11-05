@@ -90,6 +90,7 @@ export function useTx<K extends TxKind>(opts: UseTxOptions<K>): UseTxResult<K> {
       executionState: 'pending',
       stage: initialStage,
       stagesCompleted: [],
+      stageEnteredAt: { [initialStage]: now } as Partial<Record<StageFor<K>, number>>,
       updatedSeq: 0,
       createdAt: now,
       updatedAt: now,

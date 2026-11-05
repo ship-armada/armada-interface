@@ -1,6 +1,7 @@
-// ABOUTME: Reducer tests — patchArtifacts cursor pattern + typed-error mark transitions (markFailed string|TxError, markCancelled, markDismissed).
+// ABOUTME: Reducer tests — patchArtifacts cursor pattern + typed-error mark transitions (markFailed string|TxError, markCancelled,
+// ABOUTME: markDismissed) + advance's stage-entry timestamps.
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { adoptRecoveredAmount, adoptRecoveredDelivery, awaitsDelivery, advance, markCancelled, markDismissed, markFailed, markRecoveredComplete, markWaiting, patchArtifacts, patchMeta, sourceHashProvesComplete } from './reducer'
 import { lifecycleFor } from './lifecycles'
 import type { TxRecord } from './types'
@@ -347,5 +348,32 @@ describe('awaitsDelivery / adoptRecoveredDelivery (#77)', () => {
       meta: { amount: 1_000_000n, cctpFee: 100n, cctpFeeIsEstimate: false, protocolFee: 49n, feeAmount: 10n },
     })
     expect(upgraded.artifacts).not.toHaveProperty('error')
+  })
+})
+
+describe('advance — stage-entry timestamps', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('stamps when each stage is entered, keeping the earlier stamps', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(2_000_000)
+    const start = { ...baseXchainRecord(), stage: 'hub-burn-confirmed', stageEnteredAt: { 'build-proof': 1_000_000 } } as TxRecord<'unshield-xchain'>
+    const next = advance(start, 'iris-attestation-pending')
+    expect(next.stageEnteredAt).toEqual({ 'build-proof': 1_000_000, 'iris-attestation-pending': 2_000_000 })
+  })
+
+  it('keeps the first stamp when a stage is re-entered (a retry), so its time counts from the first attempt', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(3_000_000)
+    const start = { ...baseXchainRecord(), stageEnteredAt: { 'iris-attestation-pending': 2_000_000 } } as TxRecord<'unshield-xchain'>
+    expect(advance(start, 'iris-attestation-pending').stageEnteredAt).toEqual({ 'iris-attestation-pending': 2_000_000 })
+  })
+
+  it('starts the stamps on a record that has none (written before they existed)', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(4_000_000)
+    expect(advance(baseXchainRecord(), 'iris-attestation-ready').stageEnteredAt).toEqual({ 'iris-attestation-ready': 4_000_000 })
   })
 })
