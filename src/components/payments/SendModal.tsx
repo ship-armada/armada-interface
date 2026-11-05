@@ -365,6 +365,8 @@ export function SendModal() {
       setStep('error')
       setErrorAtStep('progress')
     }
+    // Cancelled while its proof was building (nothing sent): back to Review to adjust or confirm again.
+    else if (record.executionState === 'cancelled') setStep('review')
   }, [record?.executionState])
 
   // Route the close through useFlowExit so FlowShell plays its slide-down before unmounting. The

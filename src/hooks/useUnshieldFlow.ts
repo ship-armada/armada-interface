@@ -253,6 +253,8 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
       setStep('error')
       setErrorAtStep('progress')
     }
+    // Cancelled while its proof was building (nothing sent): back to Review to adjust or confirm again.
+    else if (record.executionState === 'cancelled') setStep('review')
   }, [record?.executionState])
 
   async function submit() {

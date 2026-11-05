@@ -91,6 +91,8 @@ export function MergeModal() {
     if (!record) return
     if (record.executionState === 'completed') setStep('complete')
     else if (record.executionState === 'failed' || record.executionState === 'expired') setStep('error')
+    // Cancelled while its proofs were building (nothing sent): back to Review to confirm again.
+    else if (record.executionState === 'cancelled') setStep('review')
   }, [record?.executionState])
 
   // Reset local state on close, and drop the intent so the next open starts fresh.

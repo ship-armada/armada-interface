@@ -9,6 +9,7 @@ import { TransactionProgressDisclosure } from '@/components/tx/processing/Transa
 import { progressAnnouncement } from '@/components/tx/processing/processingCopy'
 import { prefersReducedMotion } from '@/utils/motion'
 import { TxTimingNote } from '@/components/tx/processing/TxTimingNote'
+import { TxCancelButton } from '@/components/tx/TxCancelButton'
 import { stageTimingNote } from '@/lib/tx/eta'
 import { useNow } from '@/hooks/useNow'
 import a11y from '@/design/styles/formA11y.module.css'
@@ -74,6 +75,7 @@ export function ReceiptProgress({ record, status }: ReceiptProgressProps) {
           completed={progress.completed}
         />
         <TxTimingNote note={progress.timing ? stageTimingNote(progress.timing, now) : null} />
+        {pending ? <TxCancelButton record={record} /> : null}
       </div>
     </div>
   )

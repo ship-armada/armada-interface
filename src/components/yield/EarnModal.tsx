@@ -282,6 +282,8 @@ export function EarnModal() {
       setStep('error')
       setErrorAtStep('progress')
     }
+    // Cancelled while its proof was building (nothing sent): back to Review to adjust or confirm again.
+    else if (record.executionState === 'cancelled') setStep('review')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [record?.executionState])
 

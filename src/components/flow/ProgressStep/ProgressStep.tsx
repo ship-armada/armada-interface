@@ -7,6 +7,7 @@ import { buildProcessingView, type SendVariant } from '@/components/tx/processin
 import { stageTimingNote } from '@/lib/tx/eta'
 import { easedProofProgress } from '@/lib/tx/proofProgress'
 import { useNow } from '@/hooks/useNow'
+import { TxCancelButton } from '@/components/tx/TxCancelButton'
 import styles from './ProgressStep.module.css'
 
 export interface ProgressStepProps {
@@ -47,6 +48,8 @@ export function ProgressStep({ record, sendVariant }: ProgressStepProps) {
         timingNote={view.timing ? stageTimingNote(view.timing, now) : null}
         {...(proof ? { proofProgress: easedProofProgress({ real: proof.real, proofs: proof.proofs, sinceMs: now - proof.since }) } : {})}
       />
+      {/* While the proof is still building nothing has been sent, so the user can call it off. */}
+      {record ? <TxCancelButton record={record} /> : null}
     </div>
   )
 }

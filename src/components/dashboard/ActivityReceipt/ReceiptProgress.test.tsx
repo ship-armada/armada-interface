@@ -5,6 +5,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import type { TxRecord } from '@/lib/tx/types'
 import { txRecord } from '@/test/fixtures/txValues'
+// The Cancel under the stepper shows only on the tab that runs txs.
+vi.mock('@/lib/tx/executor', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/tx/executor')>()),
+  getIsLeader: () => true,
+}))
+
 import { ReceiptProgress, RECEIPT_PROGRESS_MS } from './ReceiptProgress'
 
 function shield(overrides: Partial<TxRecord>): TxRecord {
@@ -47,6 +53,12 @@ describe('<ReceiptProgress>', () => {
     } as Partial<TxRecord>)
     render(<ReceiptProgress record={confirming} status="pending" />)
     expect(screen.getByText('Usually takes ~15 sec')).toBeInTheDocument()
+  })
+
+  it('offers Cancel while a spend is still building its proof', () => {
+    const proving = txRecord('transfer-shielded', { amount: 1n }, { stage: 'build-proof', executionState: 'active' } as Partial<TxRecord>)
+    render(<ReceiptProgress record={proving} status="pending" />)
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
   })
 
   it('renders nothing for a tx that was never pending here', () => {

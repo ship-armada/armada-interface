@@ -1,0 +1,7 @@
+/* ABOUTME: TxCancelButton styling — the small secondary Cancel, centred under the progress view.
+   ABOUTME: Layout only; the button is the design system's. */
+
+.row {
+  display: flex;
+  justify-content: center;
+}

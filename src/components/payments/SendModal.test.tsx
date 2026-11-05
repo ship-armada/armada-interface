@@ -15,7 +15,8 @@ import {
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
 import { getChainById } from '@/config/network'
 import { withTestQueryClient } from '@/test-utils/queryClient'
-import { txListAtom } from '@/state/tx'
+import { txListAtom, upsertTxAtom } from '@/state/tx'
+import { markCancelled } from '@/lib/tx/reducer'
 import type { TxRecord } from '@/lib/tx/types'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { C, F } from '@/test/fixtures/txValues'
@@ -332,6 +333,22 @@ describe('<SendModal>', () => {
     await waitFor(() => {
       expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
     })
+  })
+
+  it('a tx cancelled while its proof is building returns the flow to Review — nothing was sent', async () => {
+    const store = renderModal({ open: 'payment', shielded: 10_000_000n })
+    completeRecipientStep(VALID_0ZK)
+    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+    })
+    await waitFor(() => expect(screen.getByText('Preparing transaction')).toBeInTheDocument())
+    // The executor's cancelTx settles the record as cancelled (TxCancelButton's own test covers the click → cancelTx).
+    const record = store.get(txListAtom).find((r) => r.kind === 'transfer-shielded')
+    expect(record).toBeDefined()
+    act(() => store.set(upsertTxAtom, markCancelled(record as TxRecord)))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Confirm send/ })).toBeInTheDocument())
   })
 
   it('unshield-local Confirm advances to the progress step', async () => {
