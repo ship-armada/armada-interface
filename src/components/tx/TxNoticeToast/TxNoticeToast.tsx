@@ -1,4 +1,4 @@
-// ABOUTME: TxNoticeToast — a tx notice as a floating toast (rendered through sonner's toast.custom): tone icon, the title,
+// ABOUTME: TxNoticeToast — a tx notice's content inside the AppToaster's toast card (via sonner's toast.custom): tone icon, title,
 // ABOUTME: and "View" (or "View details" when something went wrong) to open the tx's receipt.
 
 import type { TxNoticeTone } from '@/lib/tx/notices'
@@ -18,7 +18,7 @@ export function noticeNeedsAttention(tone: TxNoticeTone): boolean {
 
 export function TxNoticeToast({ tone, title, onView }: TxNoticeToastProps) {
   return (
-    <div className={styles.toast} role="status">
+    <div className={styles.notice} role="status">
       <TxNoticeIcon tone={tone} />
       <span className={styles.title}>{title}</span>
       <button type="button" className={styles.action} onClick={onView}>

@@ -1,19 +1,12 @@
-/* ABOUTME: TxNoticeToast styling — the AppToaster card (default surface, border, radius, soft ink shadow) laid out as
-   ABOUTME: icon · title · action on one line. */
+/* ABOUTME: TxNoticeToast styling — layout only (icon · title · action on one line, filling the toast): the card itself
+   ABOUTME: (surface, border, radius, shadow, width) is the AppToaster's toast container, shared with every toast. */
 
-.toast {
+.notice {
   display: flex;
   align-items: center;
   gap: var(--primitives-spacing-3);
-  width: var(--width, 356px);
-  box-sizing: border-box;
-  padding: var(--primitives-spacing-3) var(--primitives-spacing-4);
-  border: 1px solid var(--semantic-color-border-default);
-  border-radius: calc(var(--semantic-borderRadius-item) * 1px);
-  background: var(--semantic-color-surface-default);
-  color: var(--semantic-color-text-primary);
-  box-shadow: 0 var(--primitives-spacing-2) var(--primitives-spacing-6)
-    color-mix(in srgb, var(--semantic-color-brand-ink) 12%, transparent);
+  width: 100%;
+  min-width: 0;
 }
 
 .title {
