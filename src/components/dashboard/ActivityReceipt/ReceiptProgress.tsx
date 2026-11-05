@@ -1,7 +1,7 @@
 // ABOUTME: ReceiptProgress — a pending tx's live stepper in the Activity receipt. Eases in; when the tx settles it holds the
 // ABOUTME: finished step for a moment, then collapses (a failure collapses at once). Instant under reduced motion.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { TxRecord } from '@/lib/tx/types'
 import type { DashboardActivityStatus } from '@/components/dashboard/txActivityAdapter'
 import { buildProcessingView } from '@/components/tx/processing/processingView'
@@ -31,43 +31,26 @@ export function ReceiptProgress({ record, status }: ReceiptProgressProps) {
   const pending = status === 'pending'
   // The record as it settled, kept on screen through the exit.
   const [exit, setExit] = useState<{ record: TxRecord; phase: ExitPhase } | null>(null)
-  const wasPendingRef = useRef(pending)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const latestRef = useRef({ record, status })
-  latestRef.current = { record, status }
+  const [wasPending, setWasPending] = useState(pending)
 
-  useLayoutEffect(() => {
-    const wasPending = wasPendingRef.current
-    wasPendingRef.current = pending
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = null
-    if (pending) {
-      setExit(null)
-      return
-    }
-    if (!wasPending || prefersReducedMotion()) return
-    const settled = latestRef.current
-    const leave = () => {
-      setExit({ record: settled.record, phase: 'leaving' })
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null
-        setExit(null)
-      }, RECEIPT_PROGRESS_MS.collapse)
-    }
-    if (settled.status === 'settled') {
-      setExit({ record: settled.record, phase: 'holding' })
-      timerRef.current = setTimeout(leave, RECEIPT_PROGRESS_MS.hold)
-    } else {
-      leave()
-    }
-  }, [pending])
+  // Leaving `pending` starts the exit in this same render (adjusting state while rendering), not in an effect after it:
+  // an effect would leave one render with nothing to show, unmounting the stepper and replaying its entrance.
+  if (pending !== wasPending) {
+    setWasPending(pending)
+    if (pending || prefersReducedMotion()) setExit(null)
+    else setExit({ record, phase: status === 'settled' ? 'holding' : 'leaving' })
+  }
 
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    },
-    [],
-  )
+  // Each exit phase runs for its time: a settled tx holds its finished step, then collapses, then goes.
+  const exitPhase = exit?.phase ?? null
+  useEffect(() => {
+    if (exitPhase === null) return
+    const timer = setTimeout(
+      () => setExit((current) => (current && exitPhase === 'holding' ? { ...current, phase: 'leaving' } : null)),
+      exitPhase === 'holding' ? RECEIPT_PROGRESS_MS.hold : RECEIPT_PROGRESS_MS.collapse,
+    )
+    return () => clearTimeout(timer)
+  }, [exitPhase])
 
   const shown = pending ? record : exit?.record
   if (!shown) return null

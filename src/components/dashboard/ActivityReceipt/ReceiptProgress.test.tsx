@@ -59,6 +59,18 @@ describe('<ReceiptProgress>', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('keeps the same element from in flight through the hold (no remount, so the entrance never replays)', () => {
+    const { container, rerender } = render(<ReceiptProgress record={PENDING} status="pending" />)
+    const before = wrapper(container)
+    const observer = new MutationObserver(() => {})
+    observer.observe(container, { childList: true })
+    rerender(<ReceiptProgress record={SETTLED} status="settled" />)
+    const childChanges = observer.takeRecords()
+    observer.disconnect()
+    expect(wrapper(container)).toBe(before)
+    expect(childChanges).toEqual([])
+  })
+
   it('collapses at once when the tx fails (no finished step to show)', () => {
     const { container, rerender } = render(<ReceiptProgress record={PENDING} status="pending" />)
     rerender(<ReceiptProgress record={FAILED} status="failed" />)
