@@ -202,9 +202,12 @@ describe('retryActionLabel', () => {
     expect(retryActionLabel({ code: 'POLL_TIMEOUT', message: 'x' })).toBe('Check again')
     expect(retryActionLabel({ code: 'STUCK', message: 'x' })).toBe('Check again')
     expect(retryActionLabel({ code: 'DISMISSED', message: 'x' })).toBe('Check again')
+    // A network error after broadcast (its hash known): the retry re-waits for that tx.
+    expect(retryActionLabel({ code: 'RPC_ERROR', message: 'x', txHash: '0x01' })).toBe('Check again')
   })
 
   it('reads "Try again" otherwise', () => {
+    // A network error with no hash: the retry sends again, so the copy says to check the balance first.
     expect(retryActionLabel({ code: 'RPC_ERROR', message: 'x' })).toBe('Try again')
     expect(retryActionLabel(null)).toBe('Try again')
   })

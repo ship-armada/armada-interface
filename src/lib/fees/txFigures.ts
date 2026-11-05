@@ -141,9 +141,9 @@ const SOURCE_BURN_STAGE: Partial<Record<TxKind, string>> = {
  * source burn did move the amount + fees, even if the delivery then failed. An indeterminate outcome (expired, timed
  * out, dismissed) may have settled, and a draft or in-flight record hasn't finished, so those count as moved.
  */
-export function moneyMoved(record: TxFiguresSource & Partial<Pick<TxRecord, 'executionState' | 'artifacts' | 'stagesCompleted'>>): boolean {
+export function moneyMoved(record: TxFiguresSource & Partial<Pick<TxRecord, 'executionState' | 'artifacts' | 'stagesCompleted' | 'stage'>>): boolean {
   if (record.executionState === undefined || record.artifacts === undefined) return true
-  const outcome = txOutcome({ executionState: record.executionState, artifacts: record.artifacts })
+  const outcome = txOutcome({ executionState: record.executionState, artifacts: record.artifacts, stage: record.stage })
   if (outcome !== 'failed' && outcome !== 'cancelled') return true
   const burnStage = SOURCE_BURN_STAGE[record.kind]
   return burnStage !== undefined && (record.stagesCompleted as readonly string[] | undefined)?.includes(burnStage) === true

@@ -34,11 +34,13 @@ function makeRecord(
     sourceTxHash?: `0x${string}`
     recipient?: string
     errorCode?: TxErrorCode
+    stage?: string
   } = {},
 ): TxRecord {
   return {
     id: opts.id ?? 'id-1',
     kind,
+    ...(opts.stage ? { stage: opts.stage } : {}),
     executionState: opts.executionState ?? 'completed',
     createdAt: opts.createdAt ?? 1000,
     updatedAt: opts.updatedAt ?? 1000,
@@ -185,11 +187,19 @@ describe('activity status derivation', () => {
   })
 
   it('definitive failures → failed', () => {
-    const codes = ['TX_REVERTED', 'PRE_FLIGHT_REVERT', 'INTERRUPTED', 'FEE_EXPIRED', 'RPC_ERROR'] as const
+    const codes = ['TX_REVERTED', 'PRE_FLIGHT_REVERT', 'INTERRUPTED', 'FEE_EXPIRED'] as const
     for (const code of codes) {
       const item = txRecordToActivityItem(makeRecord('unshield-local', { executionState: 'failed', errorCode: code }))
       expect(item.status).toBe('failed')
     }
+  })
+
+  it('a network error is a failure while the tx was being built, but unknown once it was being sent (it may have gone through)', () => {
+    const rpc = (stage: string, sourceTxHash?: `0x${string}`) =>
+      txRecordToActivityItem(makeRecord('unshield-local', { executionState: 'failed', errorCode: 'RPC_ERROR', stage, sourceTxHash })).status
+    expect(rpc('build-proof')).toBe('failed')
+    expect(rpc('submit-relayer')).toBe('unknown')
+    expect(rpc('hub-pending', '0x01')).toBe('unknown')
   })
 
   it('user aborts → cancelled (app Cancel button + declined wallet prompt), code is authoritative', () => {

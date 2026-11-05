@@ -3,7 +3,7 @@
 
 import { getChainById } from '@/config/network'
 import { moneyMoved } from '@/lib/fees/txFigures'
-import { txOutcome } from './outcome'
+import { failedBeforeSending, txOutcome } from './outcome'
 import type { TxError, TxErrorCode, TxKind, TxRecord } from './types'
 
 export interface TxErrorCopy {
@@ -90,14 +90,8 @@ export function userPaidNetworkFee(record: TxRecord | null | undefined): boolean
 /** RPC_ERROR body when the tx failed before anything was sent ({@link failedBeforeSending}). */
 const RPC_ERROR_BEFORE_SENDING_BODY = 'We hit an error talking to the chain before anything was sent. Try again.'
 
-/**
- * True when the tx failed while it was still being built (`build-proof`): every kind sends nothing until its
- * `submit-relayer` stage, which broadcasts (a wallet prompt or the relayer request).
- */
-export function failedBeforeSending(record: TxRecord | null | undefined): boolean {
-  if (!record) return false
-  return record.stage === 'build-proof' && !record.artifacts.sourceTxHash
-}
+// Re-exported so the error step's callers get every copy input from this module.
+export { failedBeforeSending }
 
 /**
  * Error codes that prove nothing went out, at any stage: the relayer or a pre-flight check refused it before
@@ -177,8 +171,11 @@ const RECHECK_CODES: ReadonlySet<TxErrorCode> = new Set<TxErrorCode>(['POLL_TIME
 /**
  * The error step's in-place retry label. For an outcome we lost track of, retrying never resends — it re-watches the
  * tx by its hash — so "Try again" (which reads as "send it again") would make the user fear paying twice: say
- * "Check again". Callers still use "Start over" when the record isn't retryable in place (`canRetryTx`).
+ * "Check again". A network error re-checks only when it carries the broadcast tx's hash; without one the retry sends
+ * again. Callers still use "Start over" when the record isn't retryable in place (`canRetryTx`).
  */
 export function retryActionLabel(error?: TxError | null): 'Check again' | 'Try again' {
-  return error && RECHECK_CODES.has(error.code) ? 'Check again' : 'Try again'
+  if (!error) return 'Try again'
+  const rechecks = RECHECK_CODES.has(error.code) || (error.code === 'RPC_ERROR' && error.txHash !== undefined)
+  return rechecks ? 'Check again' : 'Try again'
 }

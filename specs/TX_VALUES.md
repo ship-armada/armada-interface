@@ -74,7 +74,7 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
   "You'll receive" as "—". When the first transaction did confirm and a later leg failed (a cross-chain
   delivery — the lifecycle passed `hub-burn-confirmed` / `client-burn-confirmed`), the fee and amount did
   leave: the receipt shows them as charged, under the failure banner. An indeterminate outcome (expired, timed out,
-  dismissed) may have settled, so it keeps its figures. (`lib/fees/txFigures.ts::moneyMoved`.)
+  dismissed, or a network error while sending) may have settled, so it keeps its figures. (`lib/fees/txFigures.ts::moneyMoved`.)
 - **G-10 Every flow that builds the same kind renders the same figures** (Send-modal public path and the
   Unshield tab both build `unshield-*` records with one builder, `lib/tx/spendDraft.ts`).
 - **G-11 Balances are the real balance only.** The private balance shown anywhere is the SDK's scanned
