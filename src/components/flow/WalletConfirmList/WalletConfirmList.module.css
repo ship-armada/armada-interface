@@ -20,11 +20,25 @@
   gap: var(--primitives-spacing-3);
 }
 
+.labelBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-1);
+  min-width: 0;
+}
+
 .label {
   font-family: var(--primitives-fontFamily-ui), sans-serif;
   font-size: calc(var(--primitives-fontSize-base) * 1px);
   font-weight: var(--primitives-fontWeight-regular);
   color: var(--semantic-color-text-muted);
+}
+
+/* Where the active row is — "In your wallet" / "Confirming on chain" — under its label. */
+.detail {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-sm) * 1px);
+  color: var(--semantic-color-text-lavender);
 }
 
 .status {

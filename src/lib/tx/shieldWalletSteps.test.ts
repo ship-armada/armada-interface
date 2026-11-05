@@ -113,4 +113,23 @@ describe('shieldWalletSteps', () => {
     }
     expect(shieldWalletInteractionsComplete(signed)).toBe(true)
   })
+
+  it('tells "in your wallet" from "confirming on chain" for the approval (4B)', () => {
+    const prompting = { ...base, stage: 'submit-relayer', executionState: 'waiting', stagesCompleted: ['build-proof'] } as TxRecord<'shield'>
+    expect(shieldWalletSteps(prompting, 5_000_000n)[0]).toMatchObject({ status: 'loading', detail: 'In your wallet' })
+
+    const sent = { ...prompting, executionState: 'active', artifacts: { approveSubmittedHash: '0xa' } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(sent, 5_000_000n)[0]).toMatchObject({ status: 'confirming', detail: 'Confirming on chain' })
+    // The shield prompt hasn't opened yet while the approval confirms.
+    expect(shieldWalletSteps(sent, 5_000_000n)[1]).toMatchObject({ status: 'pending' })
+
+    const confirmed = { ...sent, artifacts: { approveSubmittedHash: '0xa', approveTxHash: '0xa' } } as unknown as TxRecord<'shield'>
+    expect(shieldWalletSteps(confirmed, 5_000_000n)[0]).toMatchObject({ status: 'done' })
+  })
+
+  it('a gasless prompt reads "In your wallet" while open (4B)', () => {
+    const gasless = { ...base, meta: { ...base.meta, useGasless: true } } as TxRecord<'shield'>
+    expect(shieldWalletSteps(gasless, 5_000_000n)[0]).toMatchObject({ status: 'loading', detail: 'In your wallet' })
+  })
 })
+

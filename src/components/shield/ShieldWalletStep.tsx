@@ -1,5 +1,5 @@
 // ABOUTME: Shield wallet-approve step — the mockup's dedicated "step 3" wallet page (centered title + approve/sign checklist + footer).
-// ABOUTME: Footer transitions "Preparing your shield…" (proof building, no prompt yet) → "Waiting for wallet confirmation" (a prompt is live).
+// ABOUTME: Footer: "Preparing your shield…" (no prompt yet) → "Step X of N · Confirm in your wallet" / "· Waiting for the network to confirm".
 
 import { modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { WalletConfirmList } from '@/components/flow/WalletConfirmList/WalletConfirmList'
@@ -11,11 +11,16 @@ export interface ShieldWalletStepProps {
 }
 
 export function ShieldWalletStep({ steps }: ShieldWalletStepProps) {
-  // A row is `loading` only while its wallet prompt is actually live. Before that (proof building)
-  // every row is `pending` — surface the honest "preparing" copy so the user isn't told to confirm
-  // a prompt that hasn't popped yet.
-  const prompting = steps.some((s) => s.status === 'loading')
-  const footer = prompting ? 'Waiting for wallet confirmation' : 'Preparing your shield…'
+  // A row is `loading` only while its wallet prompt is actually live, `confirming` once sent and the chain is confirming
+  // it (e.g. the approval, before the shield prompt opens). Before either (proof building) every row is `pending` —
+  // surface the honest "preparing" copy so the user isn't told to confirm a prompt that hasn't popped yet.
+  const current = steps.findIndex((s) => s.status !== 'done')
+  const position = `Step ${Math.max(0, current) + 1} of ${steps.length}`
+  const footer = steps.some((s) => s.status === 'loading')
+    ? `${position} \u00b7 Confirm in your wallet`
+    : steps.some((s) => s.status === 'confirming')
+      ? `${position} \u00b7 Waiting for the network to confirm`
+      : 'Preparing your shield…'
 
   return (
     <div className={styles.column}>

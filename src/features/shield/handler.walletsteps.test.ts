@@ -116,7 +116,7 @@ describe('shieldHandler direct submit wallet steps (S-M4)', () => {
 
     expect(upserts.some(u => (u.artifacts as { approveTxHash?: string }).approveTxHash === '0xapprovehash')).toBe(true)
     // Exactly the shield amount — never an unlimited allowance (4E).
-    expect(wagmi.writeContract.mock.calls[0]?.[1]).toMatchObject({ functionName: 'approve', args: ['0x1111111111111111111111111111111111111111', 1_000_000n] })
+    expect((wagmi.writeContract.mock.calls[0] as unknown[] | undefined)?.[1]).toMatchObject({ functionName: 'approve', args: ['0x1111111111111111111111111111111111111111', 1_000_000n] })
     // The first waiting state precedes the first (approve) write.
     expect(waitingOrder(upsert)!).toBeLessThan(wagmi.writeContract.mock.invocationCallOrder[0]!)
     // Two wallet prompts → at least two waiting states.

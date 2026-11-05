@@ -1,10 +1,12 @@
-// ABOUTME: Step-4-style wallet action list — spinner / pending circle / check per row inside a raised card.
+// ABOUTME: Step-4-style wallet action list — spinner / pending circle / check per row inside a raised card, with where the
+// ABOUTME: active row is ("In your wallet" / "Confirming on chain") under its label.
 
 import styles from './WalletConfirmList.module.css'
 import type { WalletStep, WalletStepStatus } from '@/lib/tx/shieldWalletSteps'
 
 const STATUS_LABEL: Record<WalletStepStatus, string> = {
   loading: 'Loading',
+  confirming: 'Confirming',
   pending: 'Pending',
   done: 'Complete',
 }
@@ -24,10 +26,13 @@ export function WalletConfirmList({ steps, className }: WalletConfirmListProps) 
     >
       {steps.map((step) => (
         <div key={step.label} className={styles.row} role="listitem">
-          <span className={styles.label}>{step.label}</span>
+          <span className={styles.labelBlock}>
+            <span className={styles.label}>{step.label}</span>
+            {step.detail ? <span className={styles.detail}>{step.detail}</span> : null}
+          </span>
           <div className={styles.status} aria-label={STATUS_LABEL[step.status]}>
-            {step.status === 'loading' ? (
-              <div className={styles.spinner} role="status" aria-label="Loading" />
+            {step.status === 'loading' || step.status === 'confirming' ? (
+              <div className={styles.spinner} role="status" aria-label={STATUS_LABEL[step.status]} />
             ) : null}
             {step.status === 'pending' ? (
               <div className={styles.circle} aria-hidden="true" />

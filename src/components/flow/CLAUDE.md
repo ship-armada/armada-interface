@@ -13,7 +13,7 @@
 | `FeeUpdatedBanner` | Warning-toned Review-step callout shown when a submit-time fee refetch changed the fee (`lib/tx/submitQuote.ts`). Each review step (`ShieldReviewStep` / `SendReviewStep` / `EarnReviewStep`) renders it when its flow reports `feeChanged`, so the user re-confirms the new amount instead of it silently swapping. |
 | `HighFeeNotice` | Review's high-fee warning (5D), in the warning-callout style: "High fees for this amount — Fees are N% of this amount" when every fee the user loses (relayer + protocol + CCTP) is over 10% of it (`lib/fees/highFee`), plus an "I understand the fees are more than a quarter of this amount" tick over 25% that the Review step holds Confirm for (`hooks/useHighFeeAck`; the tick resets when the fee or amount changes). On the Send / Unshield (`SendReviewStep`), Shield and Earn Reviews; not Merge (no amount). |
 | `FlowAmountHero` | Big-numeral amount hero used inside step bodies. |
-| `WalletConfirmList` | Per-step "confirm in your wallet" checklist (shield signing sub-state). |
+| `WalletConfirmList` | Per-step "confirm in your wallet" checklist (shield signing sub-state): spinner for a row whose prompt is open (`loading`) or that's confirming on chain (`confirming`), with that detail under its label. |
 | `overlayFlow.ts` | `overlayIndicatorStep` / `overlayIndicatorStatus` — map a step string → the ModalShell Steps indicator position + status (default/confirmed/error). Used by the feature modals. `showsSubmittedTx(step)` — true on progress / complete / error, the steps that show the submitted tx; every flow passes `isOpen && showsSubmittedTx(step)` as `useTx`'s `inView`. |
 
 ### Pre-redesign primitives

@@ -58,6 +58,9 @@ export async function ensureExactAllowance<K extends ShieldKind>({
     args: [spender, amount],
     chainId,
   })
+  // Sent: the prompt is closed and the chain is confirming it — the checklist's "Confirming on chain".
+  working = advance(working, record.stage, { approveSubmittedHash: approveHash } as Partial<TxRecord<K>['artifacts']>)
+  await ctx.upsert(working)
   await waitForReceiptOrFail({ hash: approveHash, signal: ctx.signal, chainId })
   if (ctx.signal.aborted) throw new Error('cancelled')
 

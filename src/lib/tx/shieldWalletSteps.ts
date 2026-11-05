@@ -3,18 +3,29 @@
 import { formatUsdcAmount } from '@/lib/format'
 import type { TxRecord } from '@/lib/tx/types'
 
-export type WalletStepStatus = 'pending' | 'loading' | 'done'
+/** `loading` — its prompt is open in the wallet; `confirming` — sent, the chain is confirming it. */
+export type WalletStepStatus = 'pending' | 'loading' | 'confirming' | 'done'
 
 export interface WalletStep {
   label: string
   status: WalletStepStatus
+  /** Where the active row is: "In your wallet" / "Confirming on chain". */
+  detail?: string
 }
 
-function stepStatus(
-  done: boolean,
-  active: boolean,
-): WalletStepStatus {
+const DETAIL: Partial<Record<WalletStepStatus, string>> = {
+  loading: 'In your wallet',
+  confirming: 'Confirming on chain',
+}
+
+function step(label: string, status: WalletStepStatus): WalletStep {
+  const detail = DETAIL[status]
+  return detail ? { label, status, detail } : { label, status }
+}
+
+function stepStatus(done: boolean, confirming: boolean, active: boolean): WalletStepStatus {
   if (done) return 'done'
+  if (confirming) return 'confirming'
   if (active) return 'loading'
   return 'pending'
 }
@@ -25,6 +36,7 @@ function shieldArtifacts(record: ShieldRecord) {
   return record.artifacts as {
     approveSkipped?: boolean
     approveTxHash?: `0x${string}`
+    approveSubmittedHash?: `0x${string}`
     sourceTxHash?: `0x${string}`
     permitSigned?: boolean
   }
@@ -57,17 +69,15 @@ export function shieldWalletSteps(
     const authorized = Boolean(record?.stagesCompleted.includes('build-proof'))
     const permitDone = authorized || Boolean(record && shieldArtifacts(record).permitSigned)
     return [
-      { label: `Authorize ${amountLabel} USDC`, status: permitDone ? 'done' : 'loading' },
-      {
-        label: 'Sign shield transaction',
-        status: authorized ? 'done' : permitDone ? 'loading' : 'pending',
-      },
+      step(`Authorize ${amountLabel} USDC`, permitDone ? 'done' : 'loading'),
+      step('Sign shield transaction', authorized ? 'done' : permitDone ? 'loading' : 'pending'),
     ]
   }
 
   const artifacts = record ? shieldArtifacts(record) : {}
   const approveSkipped = artifacts.approveSkipped === true
   const approveDone = approveSkipped || Boolean(artifacts.approveTxHash)
+  const approveSent = Boolean(artifacts.approveSubmittedHash)
   const depositBroadcast = Boolean(artifacts.sourceTxHash)
   const terminalSuccess = record?.executionState === 'completed'
 
@@ -79,13 +89,7 @@ export function shieldWalletSteps(
   const steps: WalletStep[] = []
 
   if (!approveSkipped) {
-    steps.push({
-      label: `Approve ${amountLabel} USDC`,
-      status: stepStatus(
-        approveDone,
-        onSubmitWallet && !approveDone,
-      ),
-    })
+    steps.push(step(`Approve ${amountLabel} USDC`, stepStatus(approveDone, approveSent, onSubmitWallet)))
   }
 
   const depositLabel =
@@ -93,13 +97,9 @@ export function shieldWalletSteps(
       ? `Submit ${amountLabel} USDC cross-chain shield`
       : `Submit ${amountLabel} USDC shield`
 
-  steps.push({
-    label: depositLabel,
-    status: stepStatus(
-      terminalSuccess,
-      approveDone && (onSubmitWallet || (depositBroadcast && !terminalSuccess)),
-    ),
-  })
+  steps.push(
+    step(depositLabel, stepStatus(terminalSuccess, depositBroadcast, approveDone && onSubmitWallet)),
+  )
 
   return steps
 }

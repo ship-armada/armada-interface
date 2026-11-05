@@ -55,6 +55,18 @@ describe('ensureExactAllowance', () => {
     expect((working.artifacts as { approveTxHash?: string }).approveTxHash).toBe('0xapprove')
   })
 
+  it('records the approval as sent (confirming on chain) before waiting for it, so the row can say so (4B)', async () => {
+    wagmi.readContract.mockResolvedValueOnce(0n).mockResolvedValueOnce(5_000_000n)
+    const { upserts, run } = setup()
+    await run()
+    const sentIndex = upserts.findIndex(
+      (r) => (r.artifacts as { approveSubmittedHash?: string }).approveSubmittedHash === '0xapprove' && r.executionState === 'active'
+        && (r.artifacts as { approveTxHash?: string }).approveTxHash === undefined,
+    )
+    expect(sentIndex).toBeGreaterThan(0)
+    expect(waitForReceiptMock.mock.invocationCallOrder[0]).toBeGreaterThan(0)
+  })
+
   it('stops before the shield when the confirmed allowance is still short (a spend cap lowered in the wallet)', async () => {
     wagmi.readContract.mockResolvedValueOnce(0n).mockResolvedValueOnce(1_000_000n)
     const { run } = setup()
