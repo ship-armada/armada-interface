@@ -112,7 +112,7 @@
   border-radius: calc(var(--semantic-borderRadius-item) * 1px);
   box-sizing: border-box;
   /* Fades in, so a tx failing while its receipt is open swaps the collapsing stepper for the banner in one movement. */
-  animation: receiptFadeIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: receiptFadeIn 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* A pending tx's live stepper (ReceiptProgress). The grid row animates its height to/from 0 without measuring; the
@@ -125,8 +125,10 @@
     grid-template-rows 220ms ease-in,
     opacity 160ms ease-in,
     margin-bottom 220ms ease-in;
-  /* Just after the receipt body's own slide-in, so the two read as one entrance. */
-  animation: receiptProgressIn 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+  /* Just after the receipt body's own slide-in, so the two read as one entrance. Fill `backwards` only: it holds the
+     first frame through the delay, but must not hold its last frame afterwards — that would override the leaving
+     styles once the collapse transition ends, snapping the stepper back to full size before it unmounts. */
+  animation: receiptProgressIn 220ms cubic-bezier(0.22, 1, 0.36, 1) 120ms backwards;
 }
 
 .progress[data-phase='leaving'] {
