@@ -193,6 +193,20 @@
   color: var(--semantic-color-text-muted);
 }
 
+.statusBannerLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--primitives-spacing-1);
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+}
+
+.statusBannerLink:hover,
+.statusBannerLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
 @media (max-width: 479px) {
   .root {
     padding: var(--primitives-spacing-5);

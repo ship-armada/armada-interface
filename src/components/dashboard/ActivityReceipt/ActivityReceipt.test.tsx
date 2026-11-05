@@ -1,10 +1,12 @@
 // ABOUTME: Tests for ActivityReceipt — reconstructs a past tx's confirm-step summary from its record.
-// ABOUTME: Covers the title/amount + a summary row for a deposit, that null record renders nothing, and a pending record's live stepper.
+// ABOUTME: Covers the title/amount + a summary row for a deposit, that null record renders nothing, a pending record's live stepper,
+// ABOUTME: and a failed record's banner: where the USDC is (when certain) and a "Get help" link (not for a cancelled tx).
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ActivityReceipt } from './ActivityReceipt'
-import type { TxRecord } from '@/lib/tx/types'
+import type { TxError, TxRecord } from '@/lib/tx/types'
+import { SUPPORT_URL } from '@/config/support'
 
 function shieldRecord(): TxRecord {
   return {
@@ -31,6 +33,40 @@ function mergeRecord(): TxRecord {
     },
   } as unknown as TxRecord
 }
+
+/** The shield record ended with `error` in `executionState`, optionally after broadcasting. */
+function endedShield(error: TxError, executionState: TxRecord['executionState'], sourceTxHash?: `0x${string}`): TxRecord {
+  return {
+    ...shieldRecord(),
+    stage: 'submit-relayer',
+    stagesCompleted: ['build-proof'],
+    executionState,
+    artifacts: { error, ...(sourceTxHash ? { sourceTxHash } : {}) },
+  } as unknown as TxRecord
+}
+
+describe('<ActivityReceipt> failure banner (package 11)', () => {
+  it('a failed tx that moved nothing says where the USDC is, and links to Discord for help', () => {
+    render(<ActivityReceipt record={endedShield({ code: 'PRE_FLIGHT_REVERT', message: 'Insufficient allowance' }, 'failed')} open onClose={vi.fn()} />)
+    expect(screen.getByText('Insufficient allowance Your USDC is still in your wallet on Anvil Hub (local).')).toBeInTheDocument()
+    const help = screen.getByRole('link', { name: /Get help on Discord/ })
+    expect(help).toHaveAttribute('href', SUPPORT_URL)
+    expect(help).toHaveAttribute('target', '_blank')
+  })
+
+  it('an unknown outcome says nothing about where the USDC is, but still offers help', () => {
+    render(<ActivityReceipt record={endedShield({ code: 'POLL_TIMEOUT', message: 't' }, 'failed', '0xfeed')} open onClose={vi.fn()} />)
+    expect(screen.getByText('Lost track of your transaction')).toBeInTheDocument()
+    expect(screen.queryByText(/still in your wallet/)).toBeNull()
+    expect(screen.getByRole('link', { name: /Get help on Discord/ })).toBeInTheDocument()
+  })
+
+  it('a cancelled tx says where the USDC is, with no help link — nothing went wrong', () => {
+    render(<ActivityReceipt record={endedShield({ code: 'CANCELLED', message: '' }, 'cancelled')} open onClose={vi.fn()} />)
+    expect(screen.getByText('No transaction was sent. Your USDC is still in your wallet on Anvil Hub (local).')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Get help on Discord/ })).toBeNull()
+  })
+})
 
 describe('<ActivityReceipt>', () => {
   it('shows a pending tx\'s live stepper inside the usual receipt (no progress card), until it settles', () => {
