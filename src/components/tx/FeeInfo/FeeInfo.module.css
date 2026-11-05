@@ -3,8 +3,12 @@
 
 /* The icon's box, centred on the label text. The tooltip's own wrapper is an inline-flex box with no text, which the
    browser would sit on the text baseline by its bottom edge — riding high. `vertical-align: middle` centres it on the
-   text's x-height instead; the fixed height keeps it from adding to the line. */
+   text's x-height instead, which for a 16px icon on this text sits it a touch low — the 2px lift centres it on the
+   line. Positioned rather than transformed, so the icon stays pixel-crisp. The fixed height keeps it from adding to
+   the line. */
 .anchor {
+  position: relative;
+  top: -2px;
   display: inline-flex;
   align-items: center;
   height: 1em;
