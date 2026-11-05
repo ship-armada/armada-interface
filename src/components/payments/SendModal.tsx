@@ -36,7 +36,7 @@ import { spendDraft } from '@/lib/tx/spendDraft'
 import { isShieldedAddress, validateShieldedAddressStrict } from '@/lib/address'
 import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { canRetryTx } from '@/lib/tx/executor'
-import { fundsNote, retryActionLabel } from '@/lib/tx/errorCopy'
+import { failedBeforeSending, fundsNote, retryActionLabel } from '@/lib/tx/errorCopy'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
@@ -626,6 +626,7 @@ export function SendModal() {
         <ErrorStep
           remedy={remedyFor(record)}
           error={record?.artifacts.error ?? null}
+          failedBeforeSending={failedBeforeSending(record)}
           fundsNote={fundsNote(record)}
           message={submitError ?? undefined}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

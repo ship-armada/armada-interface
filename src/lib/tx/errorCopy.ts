@@ -33,7 +33,9 @@ export const TX_ERROR_COPY: Record<TxErrorCode, TxErrorCopy> = {
   },
   RPC_ERROR: {
     title: 'Network error',
-    body: 'We hit an error talking to the chain. Try again — your transaction may not have been submitted yet.',
+    // Said when the error came while sending (or we can't tell): the relayer may have broadcast it. A record that failed
+    // before sending gets RPC_ERROR_BEFORE_SENDING_BODY instead.
+    body: 'We hit an error talking to the chain while sending your transaction, so it may or may not have gone through. Check your balance before trying again.',
   },
   USER_REJECTED: {
     title: 'Action declined',
@@ -85,6 +87,31 @@ export function userPaidNetworkFee(record: TxRecord | null | undefined): boolean
   return (record.meta as { useGasless?: boolean }).useGasless !== true
 }
 
+/** RPC_ERROR body when the tx failed before anything was sent ({@link failedBeforeSending}). */
+const RPC_ERROR_BEFORE_SENDING_BODY = 'We hit an error talking to the chain before anything was sent. Try again.'
+
+/**
+ * True when the tx failed while it was still being built (`build-proof`): every kind sends nothing until its
+ * `submit-relayer` stage, which broadcasts (a wallet prompt or the relayer request).
+ */
+export function failedBeforeSending(record: TxRecord | null | undefined): boolean {
+  if (!record) return false
+  return record.stage === 'build-proof' && !record.artifacts.sourceTxHash
+}
+
+/**
+ * Error codes that prove nothing went out, at any stage: the relayer or a pre-flight check refused it before
+ * broadcasting, the user declined in their wallet or cancelled (only offered before broadcast), or it was mined and
+ * reverted. Any other failure while sending may have broadcast — a relayer request can time out after the relayer sent it.
+ */
+const NOTHING_SENT_CODES: ReadonlySet<TxErrorCode> = new Set<TxErrorCode>([
+  'PRE_FLIGHT_REVERT',
+  'FEE_EXPIRED',
+  'USER_REJECTED',
+  'CANCELLED',
+  'TX_REVERTED',
+])
+
 /** Where the money is, per kind, when a failed tx moved none of it. A shield's USDC never left the user's wallet. */
 const FUNDS_NOTE: Record<Exclude<TxKind, 'shield' | 'shield-xchain'>, string | null> = {
   'transfer-shielded': 'Your USDC is still in your private balance.',
@@ -100,15 +127,18 @@ const FUNDS_NOTE: Record<Exclude<TxKind, 'shield' | 'shield-xchain'>, string | n
 /**
  * A line saying where the user's USDC is after a failed or cancelled tx ("Your USDC is still in your private balance."),
  * or null when we can't be sure. Said only from evidence that nothing moved: the tx failed or was cancelled (not an
- * unknown outcome — {@link txOutcome}), a cross-chain tx hadn't burned on its source chain (`moneyMoved`), and either
- * nothing was broadcast or what was broadcast reverted on chain. A broadcast tx that failed some other way may have landed.
+ * unknown outcome — {@link txOutcome}), a cross-chain tx hadn't burned on its source chain (`moneyMoved`), and either it
+ * failed before sending ({@link failedBeforeSending}) or its error proves nothing went out (`NOTHING_SENT_CODES`). A
+ * recorded hash rules it out unless the tx reverted; no recorded hash is not proof on its own.
  */
 export function fundsNote(record: TxRecord | null | undefined): string | null {
   if (!record) return null
   const outcome = txOutcome(record)
   if (outcome !== 'failed' && outcome !== 'cancelled') return null
   if (moneyMoved(record)) return null
-  if (record.artifacts.sourceTxHash && record.artifacts.error?.code !== 'TX_REVERTED') return null
+  const code = record.artifacts.error?.code
+  if (record.artifacts.sourceTxHash && code !== 'TX_REVERTED') return null
+  if (!failedBeforeSending(record) && !(code !== undefined && NOTHING_SENT_CODES.has(code))) return null
   if (record.kind === 'shield' || record.kind === 'shield-xchain') {
     const chainName = getChainById((record.meta as { fromChainId: number }).fromChainId)?.name
     return chainName ? `Your USDC is still in your wallet on ${chainName}.` : 'Your USDC is still in your wallet.'
@@ -120,20 +150,23 @@ export function fundsNote(record: TxRecord | null | undefined): string | null {
  * Resolve title + body for an error. Prefers the category's stock body over the raw `error.message`
  * (which is often technical), falling back to the message when a code has no stock body, then to a
  * bare fallback message (submit-time throws before a record exists). Pass `userPaidNetworkFee` (see
- * {@link userPaidNetworkFee}) so a reverted tx the user paid gas for says the fee was spent, and `fundsNote` (see
- * {@link fundsNote}) to end the body with where the user's USDC is.
+ * {@link userPaidNetworkFee}) so a reverted tx the user paid gas for says the fee was spent, `failedBeforeSending` (see
+ * {@link failedBeforeSending}) so a network error says nothing was sent, and `fundsNote` (see {@link fundsNote}) to end
+ * the body with where the user's USDC is.
  */
 export function resolveTxErrorCopy(
   error?: TxError | null,
   fallbackMessage?: string,
-  options?: { userPaidNetworkFee?: boolean; fundsNote?: string | null },
+  options?: { userPaidNetworkFee?: boolean; failedBeforeSending?: boolean; fundsNote?: string | null },
 ): TxErrorCopy {
   const copy = error ? TX_ERROR_COPY[error.code] : undefined
   const title = copy?.title ?? 'Something went wrong'
   const body =
     error?.code === 'TX_REVERTED' && options?.userPaidNetworkFee
       ? TX_REVERTED_USER_PAID_BODY
-      : (copy?.body ?? error?.message ?? fallbackMessage)
+      : error?.code === 'RPC_ERROR' && options?.failedBeforeSending
+        ? RPC_ERROR_BEFORE_SENDING_BODY
+        : (copy?.body ?? error?.message ?? fallbackMessage)
   const withNote = [body, options?.fundsNote].filter(Boolean).join(' ')
   return { title, body: withNote || undefined }
 }

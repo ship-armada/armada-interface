@@ -83,6 +83,14 @@ describe('<ErrorStep>', () => {
     expect(screen.getByText(/start a new transaction to get a fresh quote\. Your USDC is still in your private balance\.$/)).toBeInTheDocument()
   })
 
+  it('a network error says nothing was sent when it failed before sending, and may have gone through otherwise', () => {
+    const { unmount } = render(<ErrorStep error={{ code: 'RPC_ERROR', message: '' }} failedBeforeSending />)
+    expect(screen.getByText('We hit an error talking to the chain before anything was sent. Try again.')).toBeInTheDocument()
+    unmount()
+    render(<ErrorStep error={{ code: 'RPC_ERROR', message: '' }} />)
+    expect(screen.getByText(/so it may or may not have gone through\. Check your balance before trying again\.$/)).toBeInTheDocument()
+  })
+
   it('links to the community Discord for help, opening in a new tab with nothing prefilled', () => {
     render(<ErrorStep error={{ code: 'OTHER', message: 'boom' }} />)
     const link = screen.getByRole('link', { name: /Get help on Discord/ })

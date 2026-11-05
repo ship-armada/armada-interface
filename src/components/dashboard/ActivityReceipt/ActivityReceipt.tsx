@@ -23,7 +23,7 @@ import {
   isWithdrawToSelf,
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
-import { fundsNote, resolveTxErrorCopy, userPaidNetworkFee, type TxErrorCopy } from '@/lib/tx/errorCopy'
+import { failedBeforeSending, fundsNote, resolveTxErrorCopy, userPaidNetworkFee, type TxErrorCopy } from '@/lib/tx/errorCopy'
 import { moneyMoved, txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
@@ -72,6 +72,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       ? null
       : resolveTxErrorCopy(record.artifacts.error, undefined, {
           userPaidNetworkFee: userPaidNetworkFee(record),
+          failedBeforeSending: failedBeforeSending(record),
           fundsNote: fundsNote(record),
         })
   const explorerUrl = txExplorerUrl(record.walletContext.sourceChainId, displayTxHash(record))

@@ -54,6 +54,20 @@ describe('<ActivityReceipt> failure banner (package 11)', () => {
     expect(help).toHaveAttribute('target', '_blank')
   })
 
+  it('a network error while sending says it may have gone through, and nothing about where the USDC is', () => {
+    render(<ActivityReceipt record={endedShield({ code: 'RPC_ERROR', message: 'x' }, 'failed')} open onClose={vi.fn()} />)
+    expect(screen.getByText(/may or may not have gone through\. Check your balance before trying again\.$/)).toBeInTheDocument()
+    expect(screen.queryByText(/still in your wallet/)).toBeNull()
+  })
+
+  it('a network error while building says nothing was sent, and where the USDC is', () => {
+    const building = { ...endedShield({ code: 'RPC_ERROR', message: 'x' }, 'failed'), stage: 'build-proof', stagesCompleted: [] } as unknown as TxRecord
+    render(<ActivityReceipt record={building} open onClose={vi.fn()} />)
+    expect(
+      screen.getByText('We hit an error talking to the chain before anything was sent. Try again. Your USDC is still in your wallet on Anvil Hub (local).'),
+    ).toBeInTheDocument()
+  })
+
   it('an unknown outcome says nothing about where the USDC is, but still offers help', () => {
     render(<ActivityReceipt record={endedShield({ code: 'POLL_TIMEOUT', message: 't' }, 'failed', '0xfeed')} open onClose={vi.fn()} />)
     expect(screen.getByText('Lost track of your transaction')).toBeInTheDocument()

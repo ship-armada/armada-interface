@@ -43,6 +43,9 @@ export interface ErrorStepProps {
   /** The user's own wallet sent (and paid gas for) the failed tx — a TX_REVERTED body then says the fee was spent
    *  (`lib/tx/errorCopy::userPaidNetworkFee`). Only the direct-path shield sets this; every spend is relayer-paid. */
   userPaidNetworkFee?: boolean
+  /** The tx failed while it was still being built, so nothing was sent — a network error then says so instead of "may
+   *  or may not have gone through" (`lib/tx/errorCopy::failedBeforeSending(record)`). */
+  failedBeforeSending?: boolean
   /** Where the user's USDC is after this failure ("Your USDC is still in your private balance."), appended to the body.
    *  Modals pass `lib/tx/errorCopy::fundsNote(record)`, which is null whenever that isn't certain. */
   fundsNote?: string | null
@@ -57,11 +60,12 @@ export function ErrorStep({
   onViewDetails,
   remedy,
   userPaidNetworkFee,
+  failedBeforeSending,
   fundsNote,
 }: ErrorStepProps) {
   // Category-aware copy (shared with the ActivityReceipt) — prefers the code's stock body over the
   // raw error.message (often technical), falling back to the bare message prop for submit-time throws.
-  const { title, body } = resolveTxErrorCopy(error, message, { userPaidNetworkFee, fundsNote })
+  const { title, body } = resolveTxErrorCopy(error, message, { userPaidNetworkFee, failedBeforeSending, fundsNote })
 
   return (
     <div className={styles.root}>
