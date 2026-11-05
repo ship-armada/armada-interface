@@ -1,4 +1,4 @@
-// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / history / fees) with a fee-on-top "Total" row + a trailing privacy notice.
+// ABOUTME: TransferReviewSummary — send/withdraw summary table (date / private account — copyable — / recipient — revealable in full + copyable — / history / fees) with a fee-on-top "Total deducted" row + a trailing privacy notice.
 // ABOUTME: Shares DepositReviewSummary's styling so the two flows stay visually in sync; an optional confirmedAt swaps the notice for a "Date and time" row.
 
 import { useState } from 'react'
@@ -132,7 +132,7 @@ export function TransferReviewSummary({
           </span>
         </div>
         {/* A cross-chain exit's CCTP fee comes out of the amount in transit (the recipient gets amount − it), so it
-            sits on its own row, outside the Total — which stays amount + the fee charged on top. */}
+            sits on its own row, outside "Total deducted" — which stays amount + the fee charged on top. */}
         {cctpFee ? (
           <div className={styles.summaryRow}>
             <span className={styles.summaryLabel}>CCTP fee (from amount)</span>
@@ -145,7 +145,7 @@ export function TransferReviewSummary({
       {/* Send/withdraw fees are fee-on-top: the shielded balance is charged `amount + fee`, so the
           total is the full deduction (not a net "you'll receive" figure like the deposit flow). */}
       <div className={styles.summaryTotalRow}>
-        <span className={styles.summaryTotalLabel}>Total</span>
+        <span className={styles.summaryTotalLabel}>Total deducted</span>
         <span className={[styles.summaryTotalValue, usdcAmount.font].join(' ')}>
           {totalDeducted === null ? '—' : `${formatUsdcAmount(totalDeducted)} USDC`}
         </span>
