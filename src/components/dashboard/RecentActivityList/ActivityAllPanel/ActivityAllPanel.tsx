@@ -1,14 +1,14 @@
 // ABOUTME: "All activity" panel — SidePanel (desktop) / BottomSheet (mobile) with search + kind-filter toolbar.
-// ABOUTME: Renders a full RecentActivityList filtered by tx-hash query and kind chip, with a no-matches empty state.
+// ABOUTME: Renders a full RecentActivityList filtered by the search (hash / address / amount) and kind chip; no matches offers "Clear filters".
 
 import { useEffect, useMemo, useState } from 'react'
 import { SidePanel, BottomSheet } from '@/design'
 import type { DashboardActivityItem } from '@/components/dashboard/txActivityAdapter'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
-import { matchesActivityKindFilter, matchesActivityTxHashSearch } from '@/components/dashboard/activityFilters'
+import { matchesActivityKindFilter, matchesActivitySearch } from '@/components/dashboard/activityFilters'
 import { ActivityKindFilters, type ActivityKindFilter } from '../ActivityKindFilters'
-import { ActivityTxHashSearch } from '../ActivityTxHashSearch'
-import searchStyles from '../ActivityTxHashSearch/ActivityTxHashSearch.module.css'
+import { ActivitySearch } from '../ActivitySearch'
+import searchStyles from '../ActivitySearch/ActivitySearch.module.css'
 import { RecentActivityList } from '../RecentActivityList'
 import panelStyles from './ActivityAllPanel.module.css'
 
@@ -31,25 +31,32 @@ export function ActivityAllPanel({
   onItemClick,
 }: ActivityAllPanelProps) {
   const isMobile = useMobileLayout()
-  const [hashQuery, setHashQuery] = useState('')
+  const [query, setQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<ActivityKindFilter>('all')
 
   useEffect(() => {
     if (!open) {
-      setHashQuery('')
+      setQuery('')
       setKindFilter('all')
     }
   }, [open])
 
+  function clearFilters() {
+    setQuery('')
+    setKindFilter('all')
+  }
+
   const filteredItems = useMemo(
     () =>
       items.filter(
-        (item) => matchesActivityTxHashSearch(item, hashQuery) && matchesActivityKindFilter(item, kindFilter),
+        (item) =>
+          // Hidden balances: a typed number never matches an amount, so searching can't reveal one.
+          matchesActivitySearch(item, query, { amounts: balanceRevealed }) && matchesActivityKindFilter(item, kindFilter),
       ),
-    [items, hashQuery, kindFilter],
+    [items, query, kindFilter, balanceRevealed],
   )
 
-  const hasActiveFilters = hashQuery.trim().length > 0 || kindFilter !== 'all'
+  const hasActiveFilters = query.trim().length > 0 || kindFilter !== 'all'
   const showFilterEmpty = hasActiveFilters && filteredItems.length === 0
 
   function handleItemClick(item: DashboardActivityItem) {
@@ -60,12 +67,17 @@ export function ActivityAllPanel({
   const list = (
     <>
       <div className={panelStyles.chrome}>
-        <ActivityTxHashSearch value={hashQuery} onChange={setHashQuery} />
+        <ActivitySearch value={query} onChange={setQuery} amountsSearchable={balanceRevealed} />
         <ActivityKindFilters value={kindFilter} onChange={setKindFilter} />
       </div>
       <div className={panelStyles.listRegion}>
         {showFilterEmpty ? (
-          <p className={searchStyles.searchEmpty}>No transactions match your filters.</p>
+          <div className={searchStyles.searchEmpty}>
+            <p>No transactions match your filters.</p>
+            <button type="button" className={searchStyles.clearFilters} onClick={clearFilters}>
+              Clear filters
+            </button>
+          </div>
         ) : (
           <RecentActivityList
             variant="full"

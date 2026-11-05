@@ -113,6 +113,15 @@ describe('txRecordToActivityItem', () => {
     expect(txRecordToActivityItem(makeRecord('shield', { executionState: 'failed' })).pending).toBe(false)
   })
 
+  it('carries the counterparty address for search: a send\'s recipient, a received payment\'s disclosed sender', () => {
+    expect(txRecordToActivityItem(makeRecord('transfer-shielded', { recipient: '0zk1qyalice' })).address).toBe('0zk1qyalice')
+    expect(txRecordToActivityItem(makeRecord('unshield-xchain', { recipient: '0xBob' })).address).toBe('0xBob')
+    const received = { ...makeRecord('transfer-shielded-received'), meta: { amount: 1n, senderShieldedAddress: '0zk1qycarol' } } as TxRecord
+    expect(txRecordToActivityItem(received).address).toBe('0zk1qycarol')
+    // A shield / vault op / merge has no counterparty.
+    expect(txRecordToActivityItem(makeRecord('shield')).address).toBeUndefined()
+  })
+
   it('carries through the source tx hash when present', () => {
     expect(txRecordToActivityItem(makeRecord('shield', { sourceTxHash: '0xabc' })).txHash).toBe('0xabc')
     expect(txRecordToActivityItem(makeRecord('shield')).txHash).toBeUndefined()
