@@ -99,5 +99,12 @@ describe('<ShieldReviewStep>', () => {
     )
     expect(screen.getByText('Wallet prompts').nextElementSibling).toHaveTextContent('Up to 2 transactions: approve, then shield')
   })
-})
 
+  it('over 25% in fees, holds Confirm until acknowledged (5D)', () => {
+    render(<ShieldReviewStep fromChainId={31337} amount={2_000_000n} fee={1_020_014n} netAmount={979_986n} gasless onBack={vi.fn()} onConfirm={vi.fn()} />)
+    expect(screen.getByRole('note', { name: 'High fees for this amount' })).toHaveTextContent('Fees are 51% of this amount.')
+    expect(screen.getByRole('button', { name: /^Confirm$/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(screen.getByRole('button', { name: /^Confirm$/ })).toBeEnabled()
+  })
+})

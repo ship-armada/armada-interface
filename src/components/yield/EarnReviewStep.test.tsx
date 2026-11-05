@@ -83,4 +83,11 @@ describe('<EarnReviewStep>', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Back/ }))
     expect(onBack).toHaveBeenCalledTimes(1)
   })
+
+  it('warns when the vault deposit\'s fee is over 10% of it (5D)', () => {
+    render(
+      <EarnReviewStep tab="add" amount={5_000_000n} rate={null} fee={1_000_000n} netAmount={6_000_000n} netLabel="Total deducted from balance" onBack={vi.fn()} onConfirm={vi.fn()} />,
+    )
+    expect(screen.getByRole('note', { name: 'High fees for this amount' })).toHaveTextContent('Fees are 20% of this amount.')
+  })
 })

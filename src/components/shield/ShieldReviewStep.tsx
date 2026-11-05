@@ -1,6 +1,8 @@
 // ABOUTME: Shield review step — frost card with left-aligned UI title + big mono amount, shared DepositReviewSummary table, Confirm/Back CTAs.
 // ABOUTME: Delegates the summary rows (network, wallet/Armada addresses, fees, total) to DepositReviewSummary; duplicate caution preserved.
 
+import { HighFeeNotice } from '@/components/flow/HighFeeNotice'
+import { useHighFeeAck } from '@/hooks/useHighFeeAck'
 import { AlertTriangle } from 'lucide-react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
@@ -70,6 +72,8 @@ export function ShieldReviewStep({
   onConfirm,
   estimatedTime,
 }: ShieldReviewStepProps) {
+  // "Fees" here is every fee the user loses: the relayer's (gasless), the protocol fee and, cross-chain, the CCTP fee.
+  const highFee = useHighFeeAck(fee, amount)
   return (
     <div className={styles.root}>
       <div className={`${styles.body} ${modalStepBodyEnter}`}>
@@ -95,6 +99,13 @@ export function ShieldReviewStep({
           {...(gasless !== undefined ? { gasless } : {})}
           {...(gasless !== undefined ? { walletPrompts: walletPromptsFor(gasless) } : {})}
           nativeGas={nativeGas}
+        />
+
+        <HighFeeNotice
+          level={highFee.level}
+          percent={highFee.percent}
+          acknowledged={highFee.acknowledged}
+          onAcknowledge={highFee.setAcknowledged}
         />
 
         {duplicateWarning ? (
@@ -130,7 +141,7 @@ export function ShieldReviewStep({
           showIcon={false}
           className={styles.confirmButton}
           onClick={onConfirm}
-          disabled={Boolean(submitBlockedReason) || isSubmitting}
+          disabled={Boolean(submitBlockedReason) || isSubmitting || highFee.blocksConfirm}
         />
       </div>
     </div>

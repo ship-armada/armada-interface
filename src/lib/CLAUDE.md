@@ -22,6 +22,7 @@ Pure logic — **no React imports allowed.** These modules are unit-testable wit
 | `shielded/network.ts` | Pure-ethers hub-chain RPC helper — `timeoutProvider` (nullifier cross-check, cross-chain recovery). No engine coupling. History timestamps come from the SDK (fetching them per wallet block leaked which transactions are the wallet's, armada-sdk#135). | Working |
 | `shielded/sync.ts` | Facade over the SDK-native `shielded/balance-bus.ts` (scan/balance/note fan-out + scan-status → `syncStateAtom`) + `refreshShieldedBalances` (`shielded/sdk-read.ts` `wallet.sync()`). Shielded reads come from `shielded/sdk-read.ts` (@armada/sdk). | Working |
 | `fees/txFigures.ts` | `txFigures(record)` — every money figure a tx shows after submit (Confirm, Activity row + receipt, recovered receipt), derived from the record alone; the single source of receipt math (`txFiguresAs` for a caller that knows its layout, `txHeadline` for the row magnitude). Spec: `specs/TX_VALUES.md`. | Working |
+| `fees/highFee.ts` | `highFeeLevel(fees, amount)` — Review's high-fee warning: `caution` when the fees are over 10% of the amount, `confirm` (an "I understand" tick before Confirm) over 25%, `none` otherwise or while unknown; integer basis-point comparison. `feePercent` for the copy. | Working |
 | `fees/displayFees.ts` | Review-time fee helpers — `computeDisplayFees`, `shieldProtocolFeeBase`, `withdrawBelowFee`, native-gas formatting. | Working |
 | `tx/` | Tx lifecycle model — see `tx/CLAUDE.md`. | Working (types) + Stub (poller integration) |
 

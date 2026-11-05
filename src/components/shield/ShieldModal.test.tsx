@@ -20,6 +20,7 @@ import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { TxRecord } from '@/lib/tx/types'
 import { C, C_ACTUAL, F, P } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 /** A POLL_TIMEOUT'd shield of `amount` (6dp) for the active test wallet — may still be on-chain. */
@@ -405,6 +406,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
     })
@@ -422,6 +424,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     fireEvent.click(screen.getByRole('option', { name: /Anvil Client A/ }))
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
     })
@@ -444,6 +447,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
     fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
     })

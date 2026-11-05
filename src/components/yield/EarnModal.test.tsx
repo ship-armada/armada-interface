@@ -13,6 +13,7 @@ import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { F, FOLD, G } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
@@ -248,6 +249,7 @@ describe('<EarnModal>', () => {
     const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
     })
@@ -263,6 +265,7 @@ describe('<EarnModal>', () => {
     const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
     })

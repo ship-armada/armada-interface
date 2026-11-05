@@ -21,6 +21,7 @@ import type { TxRecord } from '@/lib/tx/types'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
 import { C, F } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
@@ -478,6 +479,7 @@ describe('<SendModal>', () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n, priceAt: vi.fn(async () => 2_118_648n) }
       const store = enterPublicAmount('5')
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      acknowledgeHighFee()
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
       })
@@ -492,6 +494,7 @@ describe('<SendModal>', () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_527_000n, priceAt: vi.fn(async () => 1_527_000n) }
       const store = enterPublicAmount('3', '31338')
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      acknowledgeHighFee()
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
       })
@@ -514,6 +517,7 @@ describe('<SendModal>', () => {
       hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_286_550n, priceAt: vi.fn(async () => 2_118_648n) }
       const store = enterPublicAmount('5')
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      acknowledgeHighFee()
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
       })
