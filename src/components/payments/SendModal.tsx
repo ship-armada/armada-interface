@@ -620,6 +620,7 @@ export function SendModal() {
           amount={completeReceipt.headline}
           fee={completeReceipt.fee}
           cctpFee={completeReceipt.cctpFee}
+          received={completeReceipt.received}
           totalDeducted={completeReceipt.totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}

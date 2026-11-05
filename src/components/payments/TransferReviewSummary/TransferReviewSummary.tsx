@@ -29,6 +29,9 @@ export interface TransferReviewSummaryProps {
   /** A cross-chain unshield's CCTP fee — taken from the amount in transit, so not part of `fee` or the total — and
    *  whether it's still the estimate. Shown on its own row; the Fees row then reads "Relayer fee". */
   cctpFee?: CctpFeeFigure | null
+  /** A cross-chain exit's arrival (`lib/fees/txFigures` `received`: amount − protocol fee − Circle's actual fee), once the
+   *  actual fee is known — a "Recipient received" row ("You received" on an unshield to your own wallet). Omitted when null. */
+  received?: bigint | null
   /** USDC deducted from the user's shielded balance. Fee-on-top, so this is `amount + fee`. Rendered as "—" when null (fee not yet known). */
   totalDeducted: bigint | null
   variant: SendFlowVariant
@@ -50,14 +53,15 @@ export interface TransferReviewSummaryProps {
   estimatedTime?: string
 }
 
-// `variant` is accepted for API symmetry with the review/complete steps; the summary copy no longer
-// branches on it (the amount lives in the big block above), so it isn't destructured here.
+// `variant` only names the "received" row (the amount itself lives in the big block above).
 export function TransferReviewSummary({
   recipient,
   armadaAddress,
   fee,
   cctpFee = null,
+  received = null,
   totalDeducted,
+  variant,
   networkName,
   recipientWalletProvider,
   confirmedAt,
@@ -155,6 +159,12 @@ export function TransferReviewSummary({
             <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>
               {`${cctpFee.estimated ? '≈ ' : ''}${formatUsdcAmount(cctpFee.amount)} USDC`}
             </span>
+          </div>
+        ) : null}
+        {received !== null ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>{variant === 'withdraw' ? 'You received' : 'Recipient received'}</span>
+            <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>{`${formatUsdcAmount(received)} USDC`}</span>
           </div>
         ) : null}
       </div>

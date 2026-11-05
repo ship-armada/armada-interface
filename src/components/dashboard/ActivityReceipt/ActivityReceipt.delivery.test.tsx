@@ -1,5 +1,5 @@
-// ABOUTME: Tests that the ActivityReceipt shows a cross-chain tx's destination (CCTP mint) link from
-// ABOUTME: lib/explorer::deliveryExplorerLink (mocked here: the local test network has no explorer URLs).
+// ABOUTME: Tests a cross-chain unshield's receipt: its destination (CCTP mint) link from lib/explorer::deliveryExplorerLink (mocked:
+// ABOUTME: the local test network has no explorer URLs), and "Recipient received" once Circle's actual fee is known (UN-4).
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -15,7 +15,8 @@ vi.mock('@/lib/explorer', async (importOriginal) => {
 })
 
 import { ActivityReceipt } from './ActivityReceipt'
-import { A, C, F, txRecord } from '@/test/fixtures/txValues'
+import { A, C, C_ACTUAL, F, txRecord } from '@/test/fixtures/txValues'
+import { summaryRow } from '@/test/summaryRows'
 
 const RECIPIENT_EVM = '0x1234567890abcdef1234567890abcdef12345678'
 
@@ -31,5 +32,19 @@ describe('<ActivityReceipt> — cross-chain delivery link (14A)', () => {
       'href',
       'https://sepolia.basescan.org/tx/0xab',
     )
+  })
+})
+
+describe('<ActivityReceipt> — what a cross-chain unshield delivered (UN-4)', () => {
+  const meta = { amount: A, broadcasterFeeAmount: F, broadcasterFeePerProof: F, recipient: RECIPIENT_EVM, toChainId: 31338 }
+
+  it('shows "Recipient received" — the amount less Circle\'s actual fee — once it is known', () => {
+    render(<ActivityReceipt record={txRecord('unshield-xchain', { ...meta, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false })} open onClose={vi.fn()} />)
+    expect(summaryRow('Recipient received')).toBe('9.849999 USDC')
+  })
+
+  it('has no such row while the fee is still the estimate', () => {
+    render(<ActivityReceipt record={txRecord('unshield-xchain', { ...meta, cctpFee: C, cctpFeeIsEstimate: true })} open onClose={vi.fn()} />)
+    expect(() => summaryRow('Recipient received')).toThrow()
   })
 })

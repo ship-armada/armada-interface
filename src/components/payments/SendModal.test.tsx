@@ -19,7 +19,7 @@ import { txListAtom, upsertTxAtom } from '@/state/tx'
 import { markCancelled } from '@/lib/tx/reducer'
 import type { TxRecord } from '@/lib/tx/types'
 import { cctpFastFeeForAmount } from '@/lib/relayer'
-import { C, F } from '@/test/fixtures/txValues'
+import { C, C_ACTUAL, F } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
 import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
@@ -776,6 +776,13 @@ describe('<SendModal>', () => {
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
+      expect(screen.queryByText('Recipient received')).toBeNull()
+    })
+
+    it('public send cross-chain, delivered: "Recipient received" is the amount less Circle\'s actual fee (UN-4)', async () => {
+      hoistedCheck.result = { ...hoistedCheck.defaults(), fee: F, priceAt: vi.fn(async () => F) }
+      await sendAndSettle(VALID_EVM, '31338', 'unshield-xchain', { broadcasterFeeAmount: F, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false })
+      expect(summaryRow('Recipient received')).toBe('9.849999 USDC')
     })
   })
 

@@ -677,6 +677,17 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
+      // The fee is still the estimate, so there's no figure for what arrived yet.
+      expect(screen.queryByText('You received')).toBeNull()
+    })
+
+    it('unshield cross-chain, delivered: "You received" is the amount less Circle\'s actual fee (UN-4)', async () => {
+      const store = await submitUnshield(/Anvil Client A/)
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
+      settle(store, 'unshield-xchain', 'client-mint-confirmed', { broadcasterFeeAmount: F, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false })
+      await waitFor(() => expect(screen.getByText('You received')).toBeInTheDocument())
+      expect(summaryRow('CCTP fee (from amount)')).toBe('0.150001 USDC')
+      expect(summaryRow('You received')).toBe('9.849999 USDC')
     })
   })
 

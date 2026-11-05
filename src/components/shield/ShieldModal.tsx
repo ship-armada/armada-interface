@@ -289,6 +289,7 @@ export function ShieldModal() {
           amount={unshieldReceipt.headline}
           fee={unshieldReceipt.fee}
           cctpFee={unshieldReceipt.cctpFee}
+          received={unshieldReceipt.received}
           totalDeducted={unshieldReceipt.totalDeducted}
           networkName={unshieldFlow.networkName}
           recipientWalletProvider={unshieldFlow.recipientWalletProvider}
