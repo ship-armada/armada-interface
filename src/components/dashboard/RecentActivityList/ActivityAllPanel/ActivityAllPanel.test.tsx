@@ -31,8 +31,9 @@ const items: DashboardActivityItem[] = [
 ]
 
 describe('ActivityAllPanel', () => {
-  it('renders the filtered activity list when open', () => {
+  it('renders the filtered activity list when open, titled "All activity"', () => {
     render(<ActivityAllPanel open onClose={() => {}} items={items} />)
+    expect(screen.getByRole('dialog', { name: 'All activity' })).toBeInTheDocument()
     expect(screen.getByText('Shield from Base')).toBeInTheDocument()
     expect(screen.getByText('Private transfer')).toBeInTheDocument()
   })

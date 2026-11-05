@@ -1,4 +1,5 @@
-// ABOUTME: Render tests for the dashboard RecentActivityList — empty state, rows, pending subtitle, view-all + row clicks.
+// ABOUTME: Render tests for the dashboard RecentActivityList — empty state, rows, pending subtitle, view-all + row clicks,
+// ABOUTME: and the full list's date sections (Pending / Today / …) that the flat preview doesn't have.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -43,6 +44,14 @@ describe('RecentActivityList', () => {
     ]
     render(<RecentActivityList items={unknown} />)
     expect(screen.getByText(/^Unknown •/)).toBeInTheDocument()
+  })
+
+  it('the full list sections its rows by date under headings; the preview stays flat', () => {
+    const { rerender } = render(<RecentActivityList items={items} variant="full" />)
+    expect(screen.getByRole('heading', { name: 'Pending' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument()
+    rerender(<RecentActivityList items={items} variant="preview" />)
+    expect(screen.queryByRole('heading', { name: 'Today' })).toBeNull()
   })
 
   it('fires onViewAll when "View all" is clicked', () => {

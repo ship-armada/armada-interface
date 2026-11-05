@@ -100,7 +100,7 @@ export function ActivityAllPanel({
       <BottomSheet
         open={open}
         onClose={onClose}
-        title="Recent activity"
+        title="All activity"
         headerClassName={panelStyles.sheetHeader}
         sheetClassName={panelStyles.activitySheet}
         bodyClassName={panelStyles.activitySheetBody}
@@ -114,7 +114,7 @@ export function ActivityAllPanel({
     <SidePanel
       open={open}
       onClose={onClose}
-      title="Recent activity"
+      title="All activity"
       panelClassName={panelStyles.panel}
       headerClassName={panelStyles.panelHeader}
       bodyClassName={panelStyles.panelBody}
