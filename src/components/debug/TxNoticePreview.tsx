@@ -1,5 +1,5 @@
-// ABOUTME: Debug-page tx-notice trial controls — pick how notices are presented (floating toasts / the header pill) and
-// ABOUTME: fire sample notices (no real tx) to compare. Writes txNoticeStyleAtom and appends to txNoticeFeedAtom.
+// ABOUTME: Debug-page tx-notice preview — switch the notice style (the same preference as Settings) and fire sample
+// ABOUTME: outcome notices (no real tx) to see each one. Writes txNoticeStyleAtom and appends to txNoticeFeedAtom.
 
 import { useAtom, useSetAtom } from 'jotai'
 import { Button } from '@/design'
@@ -7,7 +7,7 @@ import type { TxKind, TxRecord } from '@/lib/tx/types'
 import type { TxNoticeOutcome } from '@/lib/tx/notices'
 import { txNoticeFeedAtom, txNoticeStyleAtom, type TxNoticeStyle } from '@/state/txNotices'
 import { getNetworkConfig } from '@/config/network'
-import styles from './TxNoticeTrial.module.css'
+import styles from './TxNoticePreview.module.css'
 
 const STYLES: ReadonlyArray<{ value: TxNoticeStyle; label: string }> = [
   { value: 'toast', label: 'Toasts' },
@@ -43,7 +43,7 @@ function sampleRecord(kind: TxKind, seq: number): TxRecord {
   } as unknown as TxRecord
 }
 
-export function TxNoticeTrial() {
+export function TxNoticePreview() {
   const [style, setStyle] = useAtom(txNoticeStyleAtom)
   const setFeed = useSetAtom(txNoticeFeedAtom)
 

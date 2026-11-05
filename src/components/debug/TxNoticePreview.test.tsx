@@ -1,23 +1,23 @@
-// ABOUTME: Tests for TxNoticeTrial — the Debug page's tx-notice trial controls: switch between the toast and header-pill
-// ABOUTME: styles, and fire sample notices (no real tx) to compare them.
+// ABOUTME: Tests for TxNoticePreview — the Debug page's tx-notice preview: switch between the toast and header-pill styles
+// ABOUTME: (the Settings preference), and fire sample outcome notices (no real tx).
 
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { createStore, Provider } from 'jotai'
 import { txNoticeFeedAtom, txNoticeStyleAtom } from '@/state/txNotices'
-import { TxNoticeTrial } from './TxNoticeTrial'
+import { TxNoticePreview } from './TxNoticePreview'
 
 function setup() {
   const store = createStore()
   render(
     <Provider store={store}>
-      <TxNoticeTrial />
+      <TxNoticePreview />
     </Provider>,
   )
   return store
 }
 
-describe('<TxNoticeTrial>', () => {
+describe('<TxNoticePreview>', () => {
   it('switches the notice style', () => {
     const store = setup()
     fireEvent.click(screen.getByRole('radio', { name: 'Header pill' }))

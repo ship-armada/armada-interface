@@ -17,7 +17,7 @@ import { getNetworkConfig, isLocalMode, isRelayerConfigured, type ChainIdentity 
 import { isIndexerConfigured } from '@/lib/indexer'
 import { shieldedUsdcAtom } from '@/state/wallet'
 import { formatUsdcAmount, truncateAddress } from '@/lib/format'
-import { TxNoticeTrial } from '@/components/debug/TxNoticeTrial'
+import { TxNoticePreview } from '@/components/debug/TxNoticePreview'
 import styles from './Debug.module.css'
 
 /**
@@ -298,8 +298,8 @@ export function Debug() {
       </Card>
 
       <Card className={styles.section}>
-        <h3 className={styles.sectionTitle}>Tx notices (trial)</h3>
-        <TxNoticeTrial />
+        <h3 className={styles.sectionTitle}>Tx notices</h3>
+        <TxNoticePreview />
       </Card>
 
       <Card className={styles.section}>

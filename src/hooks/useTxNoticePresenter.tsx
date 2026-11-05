@@ -1,5 +1,5 @@
-// ABOUTME: useTxNoticePresenter — shows each new notice from txNoticeFeedAtom once, in the trial style picked on the Debug
-// ABOUTME: page: a floating toast per tx (keyed by record id, so it updates in place) or the header pill announcing it.
+// ABOUTME: useTxNoticePresenter — shows each new notice from txNoticeFeedAtom once, in the user's chosen style (Settings):
+// ABOUTME: a floating toast per tx (keyed by record id, so it updates in place) or the header pill announcing it.
 
 import { useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'

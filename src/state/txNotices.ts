@@ -1,8 +1,8 @@
 // ABOUTME: Atoms for tx notices outside the flow modal — which records are on screen (so they stay quiet) and the feed of
-// ABOUTME: notices the watcher (hooks/useTxNotices) raised, how they're presented (toast / header pill), and the pill's announcement.
+// ABOUTME: notices the watcher (hooks/useTxNotices) raised, how they're presented (the Settings preference), and the pill's announcement.
 
 import { atom } from 'jotai'
-import { atomWithStorage } from 'jotai/utils'
+import { preferencesAtom, type TxNoticeStyle } from './preferences'
 import type { TxRecord } from '@/lib/tx/types'
 import type { TxNoticeOutcome } from '@/lib/tx/notices'
 
@@ -23,13 +23,16 @@ export interface TxNoticeItem {
 /** Most recent notices, oldest first (capped). Written only by `useTxNotices`; cleared when the wallet locks. */
 export const txNoticeFeedAtom = atom<readonly TxNoticeItem[]>([])
 
-/**
- * How tx notices are presented — `toast` (a floating toast per tx, bottom-right) or `pill` (the header's pending pill
- * widens to announce it). A trial setting, picked on the Debug page and persisted.
- */
-export type TxNoticeStyle = 'toast' | 'pill'
+export type { TxNoticeStyle } from './preferences'
 
-export const txNoticeStyleAtom = atomWithStorage<TxNoticeStyle>('armada-interface.txNoticeStyle', 'toast')
+/**
+ * How tx outcome notices are presented — the user's Settings preference (`preferencesAtom.txNoticeStyle`), toasts by
+ * default (also for preferences saved before the setting existed). Writing it updates the saved preferences.
+ */
+export const txNoticeStyleAtom = atom(
+  (get): TxNoticeStyle => get(preferencesAtom).txNoticeStyle ?? 'toast',
+  (get, set, style: TxNoticeStyle) => set(preferencesAtom, { ...get(preferencesAtom), txNoticeStyle: style }),
+)
 
 /** What the header pill is announcing right now (pill style only); null = it shows the pending count. */
 export interface TxNoticeAnnouncement {

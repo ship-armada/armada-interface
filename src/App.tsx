@@ -72,7 +72,7 @@ export function App() {
   useIncomingTransferDetector() // re-scan on balance events so received transfers surface live (Phase 9.4)
   useTxNotices() // tx changes the user isn't watching → the notice feed (header pill / toasts)
   usePendingTabTitle() // "(1) Armada App — …" in the tab while a tx is in flight
-  useTxNoticePresenter() // the feed → a toast, or the header pill announcing it (trial style, Debug page)
+  useTxNoticePresenter() // the feed → a toast, or the header pill announcing it (Settings → "Show transaction updates")
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
   usePayViaLinkIntent() // pick up a pending pay-via-link hand-off + open the prefilled Send on unlock
   // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (OnboardingFlow's
