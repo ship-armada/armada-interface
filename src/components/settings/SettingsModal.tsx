@@ -219,24 +219,6 @@ export function SettingsModal() {
                   </select>
                 </div>
               </li>
-              <li className={styles.row}>
-                <div className={styles.rowLabel}>Show technical details by default</div>
-                <div className={styles.rowAction}>
-                  <label className={styles.toggle}>
-                    <input
-                      type="checkbox"
-                      aria-label="Show technical details by default"
-                      checked={prefs.showTechnicalDetailsByDefault}
-                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                        setPrefs({ ...prefs, showTechnicalDetailsByDefault: e.target.checked })
-                      }
-                    />
-                    <span className={styles.toggleTrack} aria-hidden="true">
-                      <span className={styles.toggleThumb} />
-                    </span>
-                  </label>
-                </div>
-              </li>
             </ul>
           </Card>
 

@@ -16,12 +16,12 @@ describe('preferencesAtom', () => {
 
   it('persists writes to localStorage', () => {
     const store = createStore()
-    store.set(preferencesAtom, { autoLockMinutes: 30, showTechnicalDetailsByDefault: true })
+    store.set(preferencesAtom, { autoLockMinutes: 30, txNoticeStyle: 'pill' })
     const persisted = window.localStorage.getItem('armada-interface.preferences')
     expect(persisted).not.toBeNull()
-    const parsed = JSON.parse(persisted!) as { autoLockMinutes: number; showTechnicalDetailsByDefault: boolean }
+    const parsed = JSON.parse(persisted!) as { autoLockMinutes: number; txNoticeStyle: string }
     expect(parsed.autoLockMinutes).toBe(30)
-    expect(parsed.showTechnicalDetailsByDefault).toBe(true)
+    expect(parsed.txNoticeStyle).toBe('pill')
   })
 
   // Note: atomWithStorage hydrates asynchronously in jsdom — the initial sync read returns

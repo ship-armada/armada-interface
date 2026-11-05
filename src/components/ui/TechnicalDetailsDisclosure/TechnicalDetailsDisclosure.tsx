@@ -8,7 +8,7 @@ import styles from './TechnicalDetailsDisclosure.module.css'
 export interface TechnicalDetailsDisclosureProps {
   /** Label rendered next to the chevron when collapsed. Defaults to "Show technical details". */
   label?: string
-  /** Whether the disclosure starts open. Wired to the user's "show technical details by default" preference at the page level. */
+  /** Whether the disclosure starts open. */
   defaultOpen?: boolean
   children: ReactNode
   className?: string

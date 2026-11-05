@@ -1,4 +1,4 @@
-// ABOUTME: Tests for the Settings overlay — opens via openModalAtom, three sections render, gated buttons honor wallet state, preference selects/toggles wire to atom.
+// ABOUTME: Tests for the Settings overlay — opens via openModalAtom, three sections render, gated buttons honor wallet state, preference selects wire to atoms.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -98,11 +98,9 @@ describe('<SettingsModal>', () => {
     expect(store.get(txNoticeStyleAtom)).toBe('pill')
   })
 
-  it('persists the technical-details toggle to the preferences atom', () => {
-    const store = renderSettings({ walletUnlocked: true })
-    expect(store.get(preferencesAtom).showTechnicalDetailsByDefault).toBe(false)
-    fireEvent.click(screen.getByLabelText('Show technical details by default'))
-    expect(store.get(preferencesAtom).showTechnicalDetailsByDefault).toBe(true)
+  it('has no technical-details toggle — no screen shows technical details', () => {
+    renderSettings({ walletUnlocked: true })
+    expect(screen.queryByText('Show technical details by default')).toBeNull()
   })
 
   it('shows the network mode in Advanced', () => {

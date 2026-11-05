@@ -1,5 +1,5 @@
 /* ABOUTME: SettingsModal chrome + body — tx-flow shell (logo / centered title / close) modeled on ModalShell, over the FlowModalOverlay backdrop. */
-/* ABOUTME: Body styles (section cards, rows, toggle, select) carried over from the former Settings page. */
+/* ABOUTME: Body styles (section cards, rows, select) carried over from the former Settings page. */
 
 .shell {
   position: relative;
@@ -209,61 +209,4 @@
 .select:focus {
   border-color: var(--semantic-color-border-focus);
   box-shadow: 0 0 0 2px rgba(196, 145, 229, 0.18);
-}
-
-/* Toggle switch — a custom-styled checkbox. */
-.toggle {
-  position: relative;
-  display: inline-flex;
-  width: 36px;
-  height: 20px;
-  cursor: pointer;
-}
-
-.toggle input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-  position: absolute;
-}
-
-.toggleTrack {
-  position: absolute;
-  inset: 0;
-  background: var(--primitives-color-neutral-200);
-  border: 1px solid var(--semantic-color-border-default);
-  border-radius: 999px;
-  transition: background 140ms ease, border-color 140ms ease;
-}
-
-.toggleThumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--semantic-color-text-secondary);
-  transition: transform 140ms ease, background 140ms ease;
-}
-
-.toggle input:checked + .toggleTrack {
-  background: rgba(196, 145, 229, 0.32);
-  border-color: var(--semantic-color-brand-lavender);
-}
-
-.toggle input:checked + .toggleTrack .toggleThumb {
-  transform: translateX(16px);
-  background: var(--semantic-color-brand-lavender);
-}
-
-.toggle input:focus-visible + .toggleTrack {
-  outline: 2px solid var(--semantic-color-border-focus);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .toggleTrack, .toggleThumb {
-    transition: none;
-  }
 }
