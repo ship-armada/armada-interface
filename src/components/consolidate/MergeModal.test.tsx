@@ -129,6 +129,23 @@ describe('<MergeModal>', () => {
     })
   })
 
+  it('a merge that failed before it was sent says the private balance is unchanged, with a link to get help (7A)', async () => {
+    const store = renderModal()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm merge' }))
+    })
+    await waitFor(() => expect(screen.getByText('Preparing transaction')).toBeInTheDocument())
+    act(() => {
+      store.set(txListAtom, store.get(txListAtom).map((r) =>
+        r.kind === 'consolidate'
+          ? ({ ...r, executionState: 'failed', artifacts: { ...r.artifacts, error: { code: 'FEE_EXPIRED', message: 'x' } } } as TxRecord)
+          : r,
+      ))
+    })
+    expect(await screen.findByText(/Your private balance is unchanged\./)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Get help on Discord/ })).toBeInTheDocument()
+  })
+
   it('returns to review with the fee-updated banner when the re-priced fee differs', async () => {
     hoistedPlan.plan = { ...hoistedPlan.plan, priceAt: vi.fn(async () => ({ ...PREVIEW, totalFee: 60_000n })) }
     const store = renderModal()

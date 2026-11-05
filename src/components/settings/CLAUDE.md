@@ -10,7 +10,7 @@ Auxiliary dialogs for the Settings page — destructive actions are gated here s
 | `ResetWalletDialog` | Destructive — requires typing "reset" before the Reset CTA enables. Calls `useShieldedWallet().reset()`. |
 | `ClearHistoryDialog` | V1 Phase 9 — wipes the local `txHistory` IDB store + per-wallet checkpoint, then bumps `historyRecoveryTriggerAtom` (`silent: false` — a user-initiated rebuild surfaces the recovery banner) so the recovery hook rebuilds from chain. Single-confirm (no typed phrase) because the action is reversible via re-scan. |
 
-The **Preferences** card holds auto-lock, technical details by default, and **Show transaction updates** (`txNoticeStyleAtom` → `preferencesAtom.txNoticeStyle`): "Pop-up" (toasts, the default) or "In the header" (the pending pill announces the outcome). A tx in flight always shows in the header pill either way.
+The **Preferences** card holds auto-lock and **Show transaction updates** (`txNoticeStyleAtom` → `preferencesAtom.txNoticeStyle`): "Pop-up" (toasts, the default) or "In the header" (the pending pill announces the outcome). A tx in flight always shows in the header pill either way.
 
 The Settings modal also shows a **Notes** card when a shielded token is spread across `MERGE_SUGGEST_NOTE_COUNT` (5) or more notes (`useNoteCounts`) — each such token gets a "Merge" button that opens the `merge` modal (`components/consolidate/`). Hidden when nothing needs merging.
 

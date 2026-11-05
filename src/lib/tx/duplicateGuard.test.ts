@@ -1,18 +1,26 @@
-// ABOUTME: Tests for hasUnresolvedShield (S-L7) — flags same-amount deposits that may still be on-chain.
+// ABOUTME: Tests for hasUnresolvedShield (S-L7) — flags same-amount deposits that may still be on-chain: in flight, expired,
+// ABOUTME: timed out, or hit by a network error while sending (even with no hash heard back).
 
 import { describe, it, expect } from 'vitest'
 import { hasUnresolvedShield } from './duplicateGuard'
 import type { TxError, TxExecutionState, TxRecord } from './types'
 
 function shield(
-  overrides: { state?: TxExecutionState; amount?: bigint; hash?: boolean; error?: TxError; kind?: 'shield' | 'shield-xchain' } = {},
+  overrides: {
+    state?: TxExecutionState
+    amount?: bigint
+    hash?: boolean
+    error?: TxError
+    kind?: 'shield' | 'shield-xchain'
+    stage?: string
+  } = {},
 ): TxRecord {
-  const { state = 'failed', amount = 1_000_000n, hash = true, error, kind = 'shield' } = overrides
+  const { state = 'failed', amount = 1_000_000n, hash = true, error, kind = 'shield', stage = 'submit-relayer' } = overrides
   return {
     id: 'x',
     kind,
     executionState: state,
-    stage: 'submit-relayer',
+    stage,
     stagesCompleted: ['build-proof'],
     updatedSeq: 1,
     createdAt: 0,
@@ -37,6 +45,21 @@ describe('hasUnresolvedShield (S-L7)', () => {
 
   it('flags an expired-with-hash shield', () => {
     expect(hasUnresolvedShield([shield({ state: 'expired', error: undefined })], 1_000_000n)).toBe(true)
+  })
+
+  it('flags a shield hit by a network error after it broadcast (it may have landed)', () => {
+    const rpc: TxError = { code: 'RPC_ERROR', message: 'x', txHash: '0xfeed' }
+    expect(hasUnresolvedShield([shield({ state: 'failed', error: rpc, stage: 'hub-pending' })], 1_000_000n)).toBe(true)
+  })
+
+  it('flags a shield hit by a network error while sending, even with no hash heard back (the relayer may have broadcast)', () => {
+    const rpc: TxError = { code: 'RPC_ERROR', message: 'x' }
+    expect(hasUnresolvedShield([shield({ state: 'failed', error: rpc, hash: false })], 1_000_000n)).toBe(true)
+  })
+
+  it('does NOT flag a network error while the shield was still being built (nothing was sent)', () => {
+    const rpc: TxError = { code: 'RPC_ERROR', message: 'x' }
+    expect(hasUnresolvedShield([shield({ state: 'failed', error: rpc, hash: false, stage: 'build-proof' })], 1_000_000n)).toBe(false)
   })
 
   it('does NOT flag a TX_REVERTED shield (no deposit happened)', () => {

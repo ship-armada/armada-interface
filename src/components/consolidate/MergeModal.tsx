@@ -16,6 +16,7 @@ import { displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxDraft } from '@/lib/tx/types'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
+import { failedBeforeSending, fundsNote } from '@/lib/tx/errorCopy'
 import { blockedActionLabel, mergeTokenSymbol, type MergeIntent } from '@/lib/shielded/merge-intent'
 import { ProgressStep, ErrorStep, showsSubmittedTx } from '@/components/flow'
 import { FlowShell } from '@/components/flow/FlowShell'
@@ -220,6 +221,8 @@ export function MergeModal() {
       {step === 'error' && (
         <ErrorStep
           error={record?.artifacts.error ?? null}
+          failedBeforeSending={failedBeforeSending(record)}
+          fundsNote={fundsNote(record)}
           message={submitError ?? undefined}
           explorerUrl={explorerUrl}
           primaryLabel="Start over"

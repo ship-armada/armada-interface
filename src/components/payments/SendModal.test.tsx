@@ -631,9 +631,29 @@ describe('<SendModal>', () => {
             : r,
         ))
       })
+      // Failed before anything was sent: the error step says where the USDC is (7A).
+      expect(await screen.findByText(/Your USDC is still in your private balance\./)).toBeInTheDocument()
       fireEvent.click(await screen.findByRole('button', { name: 'Merge notes' }))
       expect(store.get(openModalAtom)).toBe('merge')
       expect(store.get(mergeIntentAtom)?.blocked?.kind).toBe('transfer-shielded')
+    })
+
+    it('a network error while the send was being built says nothing was sent, and where the USDC is', async () => {
+      const store = reviewPrivateSend()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(screen.getByText('Preparing transaction')).toBeInTheDocument())
+      act(() => {
+        store.set(txListAtom, store.get(txListAtom).map((r) =>
+          r.kind === 'transfer-shielded'
+            ? ({ ...r, stage: 'build-proof', executionState: 'failed', artifacts: { ...r.artifacts, error: { code: 'RPC_ERROR', message: 'x' } } } as TxRecord)
+            : r,
+        ))
+      })
+      expect(
+        await screen.findByText('We hit an error talking to the chain before anything was sent. Try again. Your USDC is still in your private balance.'),
+      ).toBeInTheDocument()
     })
 
     it('offers the fee-aware Max from the plan', () => {

@@ -2,6 +2,7 @@
 // ABOUTME: Reconstructs the summary props from the record's meta/artifacts (no stored snapshot — chunk 6b decision a); step-bar hidden, CTAs are View-on-explorer + Done.
 
 import { type ReactNode } from 'react'
+import { ExternalLink } from 'lucide-react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { FlowShell } from '@/components/flow/FlowShell'
 import { useFlowExit } from '@/components/flow/useFlowExit'
@@ -16,12 +17,13 @@ import { formatUsdcPlain } from '@/lib/format'
 import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { DeliveryTxLink } from '@/components/tx/DeliveryTxLink'
 import { getChainById, getNetworkConfig } from '@/config/network'
+import { SUPPORT_URL } from '@/config/support'
 import {
   deriveActivityStatus,
   isWithdrawToSelf,
   type DashboardActivityStatus,
 } from '@/components/dashboard/txActivityAdapter'
-import { resolveTxErrorCopy, userPaidNetworkFee, type TxErrorCopy } from '@/lib/tx/errorCopy'
+import { failedBeforeSending, fundsNote, resolveTxErrorCopy, userPaidNetworkFee, type TxErrorCopy } from '@/lib/tx/errorCopy'
 import { moneyMoved, txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxRecord } from '@/lib/tx/types'
 import styles from './ActivityReceipt.module.css'
@@ -68,7 +70,11 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
   const errorCopy =
     status === 'settled' || status === 'pending'
       ? null
-      : resolveTxErrorCopy(record.artifacts.error, undefined, { userPaidNetworkFee: userPaidNetworkFee(record) })
+      : resolveTxErrorCopy(record.artifacts.error, undefined, {
+          userPaidNetworkFee: userPaidNetworkFee(record),
+          failedBeforeSending: failedBeforeSending(record),
+          fundsNote: fundsNote(record),
+        })
   const explorerUrl = txExplorerUrl(record.walletContext.sourceChainId, displayTxHash(record))
   // A tx that failed or was cancelled before its first on-chain transaction confirmed moved no money: its fees and
   // totals read "—" (the headline stays, struck through). One that did move money shows what it was charged.
@@ -278,6 +284,12 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: Act
               <span className={styles.statusBannerTitle}>{view.errorCopy.title}</span>
               {view.errorCopy.body ? (
                 <span className={styles.statusBannerBody}>{view.errorCopy.body}</span>
+              ) : null}
+              {/* Help for a tx that went wrong — not one the user cancelled. A plain link: nothing prefilled. */}
+              {view.status !== 'cancelled' ? (
+                <a className={styles.statusBannerLink} href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+                  Get help on Discord <ExternalLink size={14} aria-hidden="true" />
+                </a>
               ) : null}
             </div>
           ) : null}

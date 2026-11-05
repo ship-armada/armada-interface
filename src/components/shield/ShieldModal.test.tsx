@@ -544,6 +544,8 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
           : r,
       ))
     })
+    // Failed before anything was sent: the error step says where the USDC is (7A).
+    expect(await screen.findByText(/Your USDC is still in your private balance\./)).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('button', { name: 'Merge notes' }))
     expect(store.get(openModalAtom)).toBe('merge')
     expect(store.get(mergeIntentAtom)).toMatchObject({ token: 'usdc', blocked: { kind: 'unshield-local', amount: 3_000_000n } })
@@ -747,6 +749,8 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       act(() => store.set(upsertTxAtom, markFailed(record, { code: 'TX_REVERTED', message: 'reverted' })))
       await waitFor(() => expect(screen.queryByRole('heading', { name: 'Review your USDC shield' })).toBeNull())
       expect(screen.queryByText(/You cancelled in your wallet/)).toBeNull()
+      // Reverted on chain, so the USDC never left the wallet it was shielding from (7A).
+      expect(screen.getByText(/Your USDC is still in your wallet on Anvil Hub \(local\)\./)).toBeInTheDocument()
     })
 
     it('unshield on the hub', async () => {

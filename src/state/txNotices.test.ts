@@ -17,15 +17,15 @@ describe('txNoticeStyleAtom', () => {
 
   it('reads toasts from preferences saved before the setting existed', () => {
     const store = createStore()
-    store.set(preferencesAtom, { autoLockMinutes: 5, showTechnicalDetailsByDefault: true })
+    store.set(preferencesAtom, { autoLockMinutes: 5 })
     expect(store.get(txNoticeStyleAtom)).toBe('toast')
   })
 
   it('writes the choice into the preferences, keeping the other settings', () => {
     const store = createStore()
-    store.set(preferencesAtom, { autoLockMinutes: 5, showTechnicalDetailsByDefault: true })
+    store.set(preferencesAtom, { autoLockMinutes: 30 })
     store.set(txNoticeStyleAtom, 'pill')
-    expect(store.get(preferencesAtom)).toEqual({ autoLockMinutes: 5, showTechnicalDetailsByDefault: true, txNoticeStyle: 'pill' })
+    expect(store.get(preferencesAtom)).toEqual({ autoLockMinutes: 30, txNoticeStyle: 'pill' })
     expect(JSON.parse(window.localStorage.getItem('armada-interface.preferences') ?? '{}').txNoticeStyle).toBe('pill')
   })
 })

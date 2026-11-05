@@ -44,6 +44,19 @@
   color: var(--semantic-color-text-primary);
 }
 
+.helpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+}
+
+.helpLink:hover,
+.helpLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
 .footer {
   /* Span the dialog edges; cancel the ActionFlowShell body's 24px padding. */
   align-self: stretch;
