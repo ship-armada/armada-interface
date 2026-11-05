@@ -8,7 +8,7 @@ The Earn flow — deposit private USDC into the vault to earn yield, or withdraw
 |---|---|
 | `EarnModal` | Orchestrator. Two `useTx` hooks (`yield-deposit` / `yield-withdraw`); tab switching changes both the max and the dispatched kind. |
 | `EarnInputStep` | Add/Withdraw `SegmentedControl` inside a chain-less `DepositAmountCard`, with a `DepositTooltip` APY intro banner above; fees route through the card's `flowBreakdown` tooltip. Split into `EarnInputStepContent` + `EarnInputStepFooter`. |
-| `EarnReviewStep` | Echo of amount, mode, APY value used for the quote. |
+| `EarnReviewStep` | Echo of amount, mode, APY value used for the quote, an "Est. time" row, the fee's ⓘ (`tx/FeeInfo`), and the high-fee warning (`flow/HighFeeNotice`: over 10% of the amount; a tick before Confirm over 25%). |
 | `EarnCompleteStep` | Frost-card confirmation titled "USDC shielded transfer to vault complete" (Add) or "USDC withdrawal complete" (Withdraw). |
 
 ## Kind selection
