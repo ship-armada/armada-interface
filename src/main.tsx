@@ -7,7 +7,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { WagmiProvider } from 'wagmi'
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Toaster } from 'sonner'
+import { AppToaster } from '@/components/ui/AppToaster'
 
 import { wagmiConfig } from '@/config/wagmi'
 import { installBisectingGetLogs } from '@/lib/rpc-bisecting'
@@ -97,7 +97,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="debug" element={<Debug />} />
               </Route>
             </Routes>
-            <Toaster theme="dark" position="bottom-right" />
+            <AppToaster />
           </BrowserRouter>
         </RainbowKitProvider>
       </QueryClientProvider>

@@ -109,19 +109,16 @@ describe('buildProcessingView', () => {
     expect(view.activeStageIndex).toBe(0)
   })
 
-  it('shows the safe-to-close reassurance only once the tx has broadcast', () => {
-    // Pre-broadcast: generic "Preparing…" subtitle, no "you can close" promise.
+  it('says what is safe to close: the modal always; the browser tab only once the tx has broadcast', () => {
+    // Pre-broadcast: closing the modal is fine, but leaving the tab would stop the tx (nothing sent yet).
     const pre = buildProcessingView(rec('shield', 'build-proof', 'active'))
-    expect(pre.cardCopy.subtitleLines).toBeUndefined()
-    expect(pre.cardCopy.subtitle).toBe('Preparing your transaction…')
+    expect(pre.cardCopy.subtitleLines).toEqual(['You can close this.', 'Keep this tab open until it\u2019s submitted.'])
+    expect(pre.cardCopy.subtitle).toBe('You can close this. Keep this tab open until it\u2019s submitted.')
 
-    // Broadcast (sourceTxHash present): the reassurance appears.
+    // Broadcast (sourceTxHash present): the tab can go too — it resumes on the next sign-in.
     const post = buildProcessingView(
       rec('shield', 'hub-confirmed', 'active', { sourceTxHash: '0xabc' }),
     )
-    expect(post.cardCopy.subtitleLines).toEqual([
-      'You can now close this window.',
-      "We'll keep processing in the background.",
-    ])
+    expect(post.cardCopy.subtitleLines).toEqual(['You can close this tab.', "We'll finish in the background."])
   })
 })

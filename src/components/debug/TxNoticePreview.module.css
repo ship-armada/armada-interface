@@ -1,0 +1,44 @@
+/* ABOUTME: TxNoticePreview styling — the style radios and the sample-notice buttons, stacked; plain dev-tool layout
+   ABOUTME: on the Debug page's card. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-3);
+}
+
+.styles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--primitives-spacing-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  color: var(--semantic-color-text-secondary);
+  padding: 0;
+  margin-right: var(--primitives-spacing-2);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+  color: var(--semantic-color-text-primary);
+  cursor: pointer;
+}
+
+.samples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+}
+
+.sampleButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--primitives-spacing-2);
+}

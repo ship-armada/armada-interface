@@ -1,0 +1,33 @@
+/* ABOUTME: TxNoticeToast styling — layout only (icon · title · action on one line, filling the toast): the card itself
+   ABOUTME: (surface, border, radius, shadow, width) is the AppToaster's toast container, shared with every toast. */
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+  width: 100%;
+  min-width: 0;
+}
+
+.title {
+  composes: bodySmSemibold from '../../../design/styles/typographyComposites.module.css';
+  flex: 1;
+  min-width: 0;
+}
+
+.action {
+  flex-shrink: 0;
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--semantic-color-text-lavender);
+  cursor: pointer;
+  border-radius: var(--primitives-borderRadius-sm);
+}
+
+.action:focus-visible {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+}

@@ -4,7 +4,7 @@
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useEffect } from 'react'
 import { activeShieldedWalletAtom } from '@/state/wallet'
-import { txListAtom, upsertTxAtom } from '@/state/tx'
+import { txHistoryHydratedAtom, txListAtom, upsertTxAtom } from '@/state/tx'
 import { loadAllTx } from '@/lib/tx/storage'
 import { track, trackError } from '@/lib/telemetry'
 
@@ -14,6 +14,7 @@ export function useTxHistory(): void {
   // progress writes land while snarkjs saturates the main thread). Components that DISPLAY the list
   // (History page, RecentActivityCard) subscribe to activeTxListAtom themselves.
   const setList = useSetAtom(txListAtom)
+  const setHydrated = useSetAtom(txHistoryHydratedAtom)
   const upsert = useSetAtom(upsertTxAtom)
   // Reading the full active-wallet object lets us re-run on lock-status flips, not just on
   // walletId changes. `loadAllTx` requires `keyManager.isUnlocked()` to decrypt the AES-GCM
@@ -32,6 +33,7 @@ export function useTxHistory(): void {
     // physical reset too — defense in depth, plus it lets a wallet-agnostic consumer of
     // `txListAtom` (executor cold-load probe) see clean state for the active wallet.
     setList([])
+    setHydrated(null)
 
     // Only hydrate when the wallet is unlocked. While locked, `loadAllTx` returns [] (no
     // historyEncryptionKey to AES-GCM-decrypt envelopes); running anyway is wasted work and
@@ -55,9 +57,11 @@ export function useTxHistory(): void {
       } catch (err) {
         trackError('useTxHistory.hydrate', err)
       }
+      // Marked even when loading failed, so the tx-notice watcher still gets a baseline for this session.
+      if (!cancelled) setHydrated(activeWalletId)
     })()
     return () => {
       cancelled = true
     }
-  }, [activeWalletId, activeStatus, setList, upsert])
+  }, [activeWalletId, activeStatus, setList, setHydrated, upsert])
 }

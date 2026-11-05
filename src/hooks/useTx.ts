@@ -13,9 +13,16 @@ import { txByIdAtom, upsertTxAtom } from '@/state/tx'
 import { activeShieldedWalletIdAtom, evmAddressAtom } from '@/state/wallet'
 import { getNetworkConfig } from '@/config/network'
 import { track } from '@/lib/telemetry'
+import { useTxInView } from './useTxInView'
 
 export interface UseTxOptions<K extends TxKind> {
   kind: K
+  /**
+   * The flow is showing this hook's record (its progress, complete or error step, with the modal open). While true
+   * the record is registered in `txInViewIdsAtom`, so it raises no toast / header notice — the screen already
+   * shows it. Once the user closes the modal mid-flight, the notices take over.
+   */
+  inView?: boolean
 }
 
 export interface UseTxResult<K extends TxKind> {
@@ -42,6 +49,7 @@ export function useTx<K extends TxKind>(opts: UseTxOptions<K>): UseTxResult<K> {
   const evmAddress = useAtomValue(evmAddressAtom)
   const activeWalletId = useAtomValue(activeShieldedWalletIdAtom)
   const record = useAtomValue(useMemo(() => txByIdAtom(id ?? ''), [id])) as TxRecord<K> | undefined
+  useTxInView(id, opts.inView === true)
 
   const submit = useCallback(async (meta: MetaFor<K>): Promise<string | null> => {
     // Hard guard: every tx record must be scoped to the active opaque walletId so

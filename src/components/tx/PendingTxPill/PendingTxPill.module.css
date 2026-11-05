@@ -1,0 +1,161 @@
+/* ABOUTME: PendingTxPill styling — a 40px pill on the header controls' surface-main fill that unfolds from (and folds back
+   ABOUTME: to) a 40px circle as it fades, eases its width between contents and crossfades them; no motion when reduced. */
+
+/* The shell: clips its content and carries the width. Its right edge sits against the wallet pill, so a change of width
+   grows / shrinks it leftward and the header controls to its left slide along. */
+.pill {
+  --pill-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: var(--primitives-spacing-10);
+  overflow: hidden;
+  border-radius: calc(var(--primitives-borderRadius-full) * 1px);
+  background: var(--semantic-color-surface-main);
+  color: var(--semantic-color-text-primary);
+  white-space: nowrap;
+  transition:
+    width 280ms var(--pill-ease),
+    background 0.15s ease;
+}
+
+.pill:hover {
+  background: var(--semantic-color-surface-raised-hover);
+}
+
+/* The shell clips, so the keyboard focus ring goes on it rather than on the button inside. */
+.pill:has(:focus-visible) {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+}
+
+/* Entering (rendered for one frame, before paint) and closing: the 40px circle, transparent. Width and opacity transition
+   together from / to it, so the icon and text arrive and leave as one unit and the clip reveals the text as it unfolds. */
+.pill[data-phase='entering'],
+.pill[data-phase='closing'] {
+  width: var(--primitives-spacing-10);
+  opacity: 0;
+}
+
+/* Opening: width eases out over the full duration, the fade-in lands early. */
+.pill[data-phase='open'] {
+  transition:
+    width 280ms var(--pill-ease),
+    opacity 160ms ease-out,
+    background 0.15s ease;
+}
+
+/* Closing: a little quicker, easing in; the fade is weighted toward the end so the pill doesn't vanish before it folds. */
+.pill[data-phase='closing'] {
+  transition:
+    width 220ms ease-in,
+    opacity 160ms ease-in 60ms;
+}
+
+/* One state's content. Left-anchored, so the icon leads as the pill unfolds and the text slides out behind it. A fresh
+   content layer fades in (its icon pops) while the previous one fades out on top of it. */
+.content {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 100%;
+  animation: pendingTxPillContentIn 220ms var(--pill-ease);
+}
+
+.leaving {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  animation: pendingTxPillContentOut 200ms ease forwards;
+}
+
+@keyframes pendingTxPillContentIn {
+  from {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pendingTxPillContentOut {
+  to {
+    opacity: 0;
+  }
+}
+
+.text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+}
+
+/* The icon sits centred in the 40px circle (13px in from the left edge). */
+.button,
+.dismissButton {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  height: 100%;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+  padding: 0 var(--primitives-spacing-4) 0 13px;
+}
+
+.buttonBeforeDismiss {
+  padding-right: var(--primitives-spacing-1);
+}
+
+.button:focus-visible,
+.dismissButton:focus-visible {
+  outline: none;
+}
+
+/* A long label (a vault withdrawal with a big amount) truncates instead of crowding the header. */
+.pendingLabel,
+.announcementTitle {
+  display: block;
+  max-width: min(320px, 45vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.announcementAction {
+  color: var(--semantic-color-text-lavender);
+}
+
+.dismissButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--primitives-spacing-3) 0 var(--primitives-spacing-1);
+  color: var(--semantic-color-text-muted);
+}
+
+.dismissIcon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill,
+  .pill[data-phase='open'],
+  .pill[data-phase='closing'] {
+    transition: none;
+  }
+
+  .content,
+  .leaving {
+    animation: none;
+  }
+}

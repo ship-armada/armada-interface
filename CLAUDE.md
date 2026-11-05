@@ -87,7 +87,7 @@ The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and 
 1. The `TxKind` union, stage union, and meta in `lib/tx/types.ts`.
 2. A lifecycle entry in `lib/tx/lifecycles.ts`.
 3. A `StageHandler` registered from a `features/<area>/index.ts` module.
-4. The kind's copy in `components/tx/stageCopy.ts` and `components/tx/processing/processingView.ts` (both are `Record<TxKind, …>` maps, so the compiler flags a missing entry).
+4. The kind's copy in `components/tx/stageCopy.ts`, `components/tx/processing/processingView.ts` and `components/tx/noticeCopy.ts` (all `Record<TxKind, …>` maps, so the compiler flags a missing entry).
 
 The full checklist is in `src/lib/tx/CLAUDE.md`.
 

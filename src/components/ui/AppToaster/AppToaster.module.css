@@ -1,0 +1,60 @@
+/* ABOUTME: AppToaster styling — toasts on the default surface with the app's border, radius and soft ink shadow; text
+   ABOUTME: in the primary/secondary tokens. Theme-aware through the semantic tokens (no sonner theme). */
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+  width: var(--width, 356px);
+  box-sizing: border-box;
+  padding: var(--primitives-spacing-3) var(--primitives-spacing-4);
+  border: 1px solid var(--semantic-color-border-default);
+  border-radius: calc(var(--semantic-borderRadius-item) * 1px);
+  background: var(--semantic-color-surface-default);
+  color: var(--semantic-color-text-primary);
+  box-shadow: 0 var(--primitives-spacing-2) var(--primitives-spacing-6)
+    color-mix(in srgb, var(--semantic-color-brand-ink) 12%, transparent);
+  text-align: left;
+}
+
+.title {
+  composes: bodySmSemibold from '../../../design/styles/typographyComposites.module.css';
+  margin: 0;
+}
+
+.description {
+  composes: bodySm from '../../../design/styles/typographyComposites.module.css';
+  margin: 0;
+  color: var(--semantic-color-text-secondary);
+}
+
+.icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.actionButton {
+  margin-left: auto;
+  flex-shrink: 0;
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--semantic-color-text-lavender);
+  cursor: pointer;
+}
+
+.actionButton:focus-visible,
+.closeButton:focus-visible {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+}
+
+.closeButton {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--semantic-color-text-muted);
+  cursor: pointer;
+}

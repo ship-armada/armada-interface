@@ -14,13 +14,13 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 
 | File / dir | Purpose |
 |---|---|
-| `AppLayout.tsx` | Fixed-inset header + nav + body wrap |
+| `AppLayout.tsx` | Fixed-inset header + nav + body wrap. The header's right group holds the network badge, theme toggle, settings gear, the pending-tx pill (`tx/PendingTxPill`: one pending tx opens its receipt, several the All activity panel) and the wallet pill |
 | `AppErrorBoundary.tsx` | Top-level error boundary (outside the providers) — a render error anywhere surfaces a recoverable card instead of a white screen; funnels to Sentry via telemetry |
 | `SingleTabGate/` | Full-screen "Armada is open in another tab" screen — shown when the SDK's per-origin scan-DB lock rejects a second tab (`anotherTabActiveAtom`, set in `sdk-read.ts::ensureInstance` on `StorageConflictError`). Rendered as App's first early-return; Reload CTA re-inits once the other tab is closed |
 | `WalletConnector.tsx` | Header wallet button — RainbowKit render-prop wired to the `@/design` `WalletButton` (all 4 states) |
 | `WalletMenu/` | Wallet side-panel (pill → slide-out) — address, hide toggle, actions, and USDC balances. Since a shield is per-chain (#8), the balance defaults to a combined **Total** row ("N networks") that **expands** to a per-chain breakdown (one row per chain holding USDC; `buildWalletChainBalances`); a single-chain wallet shows that one row with no toggle. Chain-agnostic "Shield your USDC" opens the modal whose Network picker handles selection |
 | `RelayerStatusBanner/` | Banner shown when the relayer is unreachable / degraded |
-| `ui/` | App-local primitives (AddressText, AddressReveal, FullAddress, CopyAddressButton, CopyableAddress, Card, Modal, AmountInput, ChainSelect, FeeSummary, RecipientInput, SectionHeader, StatusChip, Tabs, TechnicalDetailsDisclosure, EmptyState, SegmentedControl, Tooltip, FeeBreakdownTooltip, EstimatedFeeValue, GasBalanceNotice, WalletProviderIcon) — see `ui/CLAUDE.md` |
+| `ui/` | App-local primitives (AppToaster, AddressText, AddressReveal, FullAddress, CopyAddressButton, CopyableAddress, Card, Modal, AmountInput, ChainSelect, FeeSummary, RecipientInput, SectionHeader, StatusChip, Tabs, TechnicalDetailsDisclosure, EmptyState, SegmentedControl, Tooltip, FeeBreakdownTooltip, EstimatedFeeValue, GasBalanceNotice, WalletProviderIcon) — see `ui/CLAUDE.md` |
 | `flow/` | `FlowShell` (the live modal chrome, wrapping vendored `FlowModalOverlay + ModalShell + ModalStepSwitch`) + `useFlowExit` + `ErrorStep` + `ProgressStep`. Pre-redesign `ActionFlowShell` is unused; `FlowFooter` / `FlowHeader` / `FlowStepIndicator` are still used by `ErrorStep`, settings dialogs and onboarding — see `flow/CLAUDE.md` |
 | `deposit/` | Shared flow primitives — `DepositAmountCard` (amount + chain + fee caption + % pills), `DepositReviewSummary`, `DepositOverlayShell` — reused across shield/send/earn |
 | `tx/` | TxLifecycleStepper, TxRow, TxStatusChip, TxActions, stageCopy helpers, `processing/` (TxProgressCard + timeline) — see `tx/CLAUDE.md` |

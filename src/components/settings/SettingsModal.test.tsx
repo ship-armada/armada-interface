@@ -7,6 +7,7 @@ import { SettingsModal } from './SettingsModal'
 import { mergeIntentAtom, openModalAtom } from '@/state/ui'
 import { activeShieldedWalletIdAtom, shieldedWalletsAtom } from '@/state/wallet'
 import { preferencesAtom, DEFAULT_PREFERENCES } from '@/state/preferences'
+import { txNoticeStyleAtom } from '@/state/txNotices'
 
 // Note counts come from the SDK scan state; stub the hook so each test sets what the wallet holds.
 const hoistedNotes = vi.hoisted(() => ({ counts: null as { usdc: number; shares: number } | null }))
@@ -87,6 +88,14 @@ describe('<SettingsModal>', () => {
     expect(store.get(preferencesAtom)).toEqual(DEFAULT_PREFERENCES)
     fireEvent.change(screen.getByLabelText('Auto-lock timer'), { target: { value: '5' } })
     expect(store.get(preferencesAtom).autoLockMinutes).toBe(5)
+  })
+
+  it('lets the user choose how transaction updates are shown (toasts by default)', () => {
+    const store = renderSettings({ walletUnlocked: true })
+    const select = screen.getByLabelText('Transaction updates')
+    expect(select).toHaveValue('toast')
+    fireEvent.change(select, { target: { value: 'pill' } })
+    expect(store.get(txNoticeStyleAtom)).toBe('pill')
   })
 
   it('persists the technical-details toggle to the preferences atom', () => {

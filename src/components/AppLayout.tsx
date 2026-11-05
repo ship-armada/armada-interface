@@ -1,16 +1,21 @@
 // ABOUTME: App-wide layout — fixed @armada/ui-style header with our routes, body padding to clear the inset header.
-// ABOUTME: Header is local to this app (not the crowdfund-shared AppHeader) — different nav, a network badge, custom right-side chrome.
+// ABOUTME: Header is local to this app (not the crowdfund-shared AppHeader) — different nav, a network badge, custom right-side chrome (incl. the pending-tx pill).
 
 import { type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { Cog6ToothIcon } from '@heroicons/react/24/outline'
 import { ArmadaLogo } from '@/design'
 import { WalletConnector } from './WalletConnector'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { SyncBanner } from './sync'
 import { HistoryRecoveryBanner } from './history'
+import { PendingTxPill } from './tx/PendingTxPill'
 import { openModalAtom } from '@/state/ui'
+import { pendingTxsAtom } from '@/state/tx'
+import { txNoticeAnnouncementAtom } from '@/state/txNotices'
+import { useOpenTxActivity } from '@/hooks/useOpenTxActivity'
+import { usePendingTxLabel } from '@/hooks/usePendingTxLabel'
 import { getNetworkMode } from '@/config/network'
 import styles from './AppLayout.module.css'
 
@@ -22,6 +27,19 @@ const NETWORK_BADGE_LABEL = getNetworkMode() === 'sepolia' ? 'Testnet' : 'Local'
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const setOpenModal = useSetAtom(openModalAtom)
+  const pendingTxs = useAtomValue(pendingTxsAtom)
+  // The one in-flight tx by name ("Shielding 5.00 USDC…"), for as long as it's pending; null → "N Pending".
+  const pendingLabel = usePendingTxLabel()
+  const { openReceipt, openActivity } = useOpenTxActivity()
+  // One tx in flight → straight to its receipt (live progress); several → the All activity panel.
+  const onlyPending = pendingTxs.length === 1 ? pendingTxs[0] : undefined
+  const openPending = () => (onlyPending ? openReceipt(onlyPending.id) : openActivity())
+  // The "pill" notice style announces a tx notice in the pill for a moment (set by useTxNoticePresenter).
+  const [announcement, setAnnouncement] = useAtom(txNoticeAnnouncementAtom)
+  const openAnnounced = () => {
+    if (announcement) openReceipt(announcement.recordId)
+    setAnnouncement(null)
+  }
 
   return (
     <div className="flex min-h-screen flex-col text-foreground">
@@ -55,6 +73,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {/* V2 Phase 3a: merged pill — the 0zk shielded identity now lives inside
               `WalletConnector`'s `WalletPillMenu` dropdown (via the `extraSection` prop), so
               the separate `ShieldedAddressPill` previously sat here is gone. */}
+          {/* In-flight txs, beside the wallet pill; hidden when nothing is pending and nothing is being announced. */}
+          <PendingTxPill
+            count={pendingTxs.length}
+            pendingLabel={pendingLabel}
+            onOpen={openPending}
+            announcement={announcement}
+            onAnnouncementOpen={openAnnounced}
+            onAnnouncementDismiss={() => setAnnouncement(null)}
+          />
           <WalletConnector />
         </div>
       </header>

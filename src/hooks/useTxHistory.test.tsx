@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
-import { txListAtom } from '@/state/tx'
+import { txHistoryHydratedAtom, txListAtom } from '@/state/tx'
 import { activeShieldedWalletIdAtom, shieldedWalletsAtom } from '@/state/wallet'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -86,6 +86,14 @@ describe('useTxHistory', () => {
     await waitFor(() => {
       expect(store.get(txListAtom).map(r => r.id).sort()).toEqual(['a', 'b'])
     })
+  })
+
+  it('marks the wallet hydrated once its stored records are in the list (the notice watcher\'s baseline)', async () => {
+    hoisted.mockLoadAllTx.mockResolvedValueOnce([fixture('a', 'rg-1')])
+    const { store } = mount('rg-1')
+    expect(store.get(txHistoryHydratedAtom)).toBeNull()
+    await waitFor(() => expect(store.get(txHistoryHydratedAtom)).toBe('rg-1'))
+    expect(store.get(txListAtom).map(r => r.id)).toEqual(['a'])
   })
 
   it('does NOT hit IDB when no wallet is active (locked)', () => {

@@ -59,3 +59,15 @@ export const mergeIntentAtom = atom<MergeIntent | null>(null)
  * panel's hide-balance control stay in sync — hiding in one place hides everywhere.
  */
 export const balanceHiddenAtom = atom<boolean>(false)
+
+/**
+ * The Dashboard's "All activity" side panel. App-level so the header's pending pill (and a tx notice) can open it from
+ * anywhere.
+ */
+export const activityPanelOpenAtom = atom<boolean>(false)
+
+/**
+ * The tx record whose Activity receipt is open (null = closed). App-level so a tx notice or the pending pill can open
+ * a receipt directly.
+ */
+export const receiptTxIdAtom = atom<string | null>(null)

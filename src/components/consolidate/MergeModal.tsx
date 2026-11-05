@@ -16,7 +16,7 @@ import { txFiguresAs } from '@/lib/fees/txFigures'
 import type { TxDraft } from '@/lib/tx/types'
 import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { blockedActionLabel, mergeTokenSymbol, type MergeIntent } from '@/lib/shielded/merge-intent'
-import { ProgressStep, ErrorStep } from '@/components/flow'
+import { ProgressStep, ErrorStep, showsSubmittedTx } from '@/components/flow'
 import { FlowShell } from '@/components/flow/FlowShell'
 import { useFlowExit } from '@/components/flow/useFlowExit'
 import { RelayerStatusBanner } from '@/components/RelayerStatusBanner'
@@ -57,7 +57,7 @@ export function MergeModal() {
     quote,
     balanceKey: `${usdc ?? ''}:${shares ?? ''}`,
   })
-  const tx = useTx({ kind: 'consolidate' })
+  const tx = useTx({ kind: 'consolidate', inView: isOpen && showsSubmittedTx(step) })
   const record = tx.record ?? null
 
   // The record this merge will submit, built once from the priced plan: Review renders its fee (through txFigures,

@@ -21,6 +21,7 @@ import { QUOTE_PENDING_REASON, resolveFreshQuote } from '@/lib/tx/submitQuote'
 import { trackError } from '@/lib/telemetry'
 import { assertSpendableForFeeOnTop } from '@/lib/tx/spendable'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
+import { showsSubmittedTx } from '@/components/flow'
 import type { DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { TxRecord } from '@/lib/tx/types'
@@ -158,8 +159,9 @@ export function useUnshieldFlow(isOpen: boolean): UnshieldFlow {
     ? undefined
     : 'This destination chain has no deployment manifest. Pick another chain.'
 
-  const txUnshieldLocal = useTx({ kind: 'unshield-local' })
-  const txUnshieldXchain = useTx({ kind: 'unshield-xchain' })
+  const txInView = isOpen && showsSubmittedTx(step)
+  const txUnshieldLocal = useTx({ kind: 'unshield-local', inView: txInView })
+  const txUnshieldXchain = useTx({ kind: 'unshield-xchain', inView: txInView })
   const activeTx =
     submittedKind === 'unshield-local'
       ? txUnshieldLocal

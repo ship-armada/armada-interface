@@ -24,7 +24,8 @@ import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
-import { openModalAtom, balanceHiddenAtom } from '@/state/ui'
+import { openModalAtom, balanceHiddenAtom, activityPanelOpenAtom, receiptTxIdAtom } from '@/state/ui'
+import { useTxInView } from '@/hooks/useTxInView'
 import {
   shieldedUsdcAtom,
   shieldedUsdcHeadlineAtom,
@@ -74,8 +75,10 @@ export function Dashboard() {
   const setShareIntent = useSetAtom(requestShareIntentAtom)
 
   // "All activity" side-panel + the per-tx receipt overlay (replaces the retired /history page).
-  const [activityPanelOpen, setActivityPanelOpen] = useState(false)
-  const [receiptId, setReceiptId] = useState<string | null>(null)
+  const [activityPanelOpen, setActivityPanelOpen] = useAtom(activityPanelOpenAtom)
+  const [receiptId, setReceiptId] = useAtom(receiptTxIdAtom)
+  // The open receipt shows its tx (live, while pending), so that tx raises no toast / header notice meanwhile.
+  useTxInView(receiptId, receiptId !== null)
 
   // Click routing: a created-link row re-opens the Request flow at its Share step; every other row
   // opens the per-tx receipt.

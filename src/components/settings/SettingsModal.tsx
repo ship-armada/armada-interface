@@ -18,6 +18,7 @@ import { useMergeNotes } from '@/hooks/useMergeNotes'
 import { MERGE_SUGGEST_NOTE_COUNT, mergeTokenSymbol, type MergeToken } from '@/lib/shielded/merge-intent'
 import { openModalAtom } from '@/state/ui'
 import { preferencesAtom, type AutoLockMinutes } from '@/state/preferences'
+import { txNoticeStyleAtom, type TxNoticeStyle } from '@/state/txNotices'
 import {
   activeShieldedWalletIdAtom,
   autoLockDeadlineAtom,
@@ -32,6 +33,11 @@ import styles from './SettingsModal.module.css'
 const APP_VERSION = cleanEnv(import.meta.env.VITE_APP_VERSION as string | undefined)
 
 const AUTO_LOCK_OPTIONS: ReadonlyArray<AutoLockMinutes> = [5, 15, 30]
+// Where a tx's outcome is announced; a tx in flight always shows in the header pill.
+const TX_NOTICE_STYLE_OPTIONS: ReadonlyArray<{ value: TxNoticeStyle; label: string }> = [
+  { value: 'toast', label: 'Pop-up' },
+  { value: 'pill', label: 'In the header' },
+]
 
 export function SettingsModal() {
   const [openModal, setOpenModal] = useAtom(openModalAtom)
@@ -39,6 +45,7 @@ export function SettingsModal() {
 
   const { state, lock } = useShieldedWallet()
   const [prefs, setPrefs] = useAtom(preferencesAtom)
+  const [txNoticeStyle, setTxNoticeStyle] = useAtom(txNoticeStyleAtom)
   const [exportOpen, setExportOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
   const [clearHistoryOpen, setClearHistoryOpen] = useState(false)
@@ -193,6 +200,23 @@ export function SettingsModal() {
                 <div className={styles.rowLabel}>Time until auto-lock</div>
                 <div className={styles.rowValue}>
                   <AutoLockCountdown />
+                </div>
+              </li>
+              <li className={styles.row}>
+                <div className={styles.rowLabel}>Show transaction updates</div>
+                <div className={styles.rowAction}>
+                  <select
+                    aria-label="Transaction updates"
+                    className={styles.select}
+                    value={txNoticeStyle}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setTxNoticeStyle(e.target.value as TxNoticeStyle)}
+                  >
+                    {TX_NOTICE_STYLE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </li>
               <li className={styles.row}>

@@ -1,10 +1,11 @@
-// ABOUTME: Activity receipt — reopens a past tx's confirm-step view (same FlowShell chrome + frost card + review summary).
+// ABOUTME: Activity receipt — reopens a past tx's confirm-step view (same FlowShell chrome + frost card + review summary); a pending tx adds its live stepper.
 // ABOUTME: Reconstructs the summary props from the record's meta/artifacts (no stored snapshot — chunk 6b decision a); step-bar hidden, CTAs are View-on-explorer + Done.
 
 import { type ReactNode } from 'react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { FlowShell } from '@/components/flow/FlowShell'
 import { useFlowExit } from '@/components/flow/useFlowExit'
+import { ReceiptProgress } from './ReceiptProgress'
 import { DepositReviewSummary } from '@/components/deposit/DepositReviewSummary'
 import { TransferReviewSummary } from '@/components/payments/TransferReviewSummary'
 import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
@@ -278,6 +279,10 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: Act
               ) : null}
             </div>
           ) : null}
+
+          {/* A tx still in flight shows the flow's live stepper (collapsed to the current step) where a failed one shows its
+              banner; when it settles the stepper shows its finished step, then collapses away. */}
+          {record ? <ReceiptProgress record={record} status={view.status} /> : null}
 
           {view.summary}
           {/* A cross-chain tx's second half: the CCTP mint on the destination chain ("View on explorer" is the source tx). */}

@@ -1,0 +1,47 @@
+/* ABOUTME: TxNoticeIcon styling — 18px glyphs in the status tokens per tone, and a lavender spinner for pending that
+   ABOUTME: stops spinning under reduced motion. */
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.success {
+  color: var(--semantic-color-status-success);
+}
+
+.received {
+  color: var(--semantic-color-text-lavender);
+}
+
+.failure {
+  color: var(--semantic-color-status-error);
+}
+
+.uncertain {
+  color: var(--semantic-color-status-warning);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--semantic-color-border-lavender);
+  border-top-color: var(--semantic-color-brand-lavender);
+  animation: txNoticeSpin 700ms linear infinite;
+}
+
+@keyframes txNoticeSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

@@ -26,6 +26,7 @@ import {
   type WalletStep,
 } from '@/lib/tx/shieldWalletSteps'
 import type { FlowStep, FlowVisibleStep } from '@/components/flow'
+import { showsSubmittedTx } from '@/components/flow'
 import { shieldFeeIntegrator, shieldProtocolFeeBase, type DisplayFees } from '@/lib/fees/displayFees'
 import { txFiguresAs, type TxFigures } from '@/lib/fees/txFigures'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
@@ -272,8 +273,9 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
 
   // Two useTx hooks mounted; only one gets a record per flow. Pattern mirrors SendModal
   // where same-chain vs cross-chain are sibling kinds.
-  const txShield = useTx({ kind: 'shield' })
-  const txShieldXchain = useTx({ kind: 'shield-xchain' })
+  const txInView = isOpen && showsSubmittedTx(step)
+  const txShield = useTx({ kind: 'shield', inView: txInView })
+  const txShieldXchain = useTx({ kind: 'shield-xchain', inView: txInView })
   const activeTx =
     submittedKind === 'shield' ? txShield : submittedKind === 'shield-xchain' ? txShieldXchain : null
   const record = activeTx?.record ?? null

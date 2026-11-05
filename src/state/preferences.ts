@@ -1,20 +1,29 @@
-// ABOUTME: User preferences atom — auto-lock timer + technical-details default. Persisted to localStorage via jotai/utils.
+// ABOUTME: User preferences atom — auto-lock timer, technical-details default, tx-notice style. Persisted to localStorage.
 // ABOUTME: Small enough for localStorage; if we add device-scoped or sensitive prefs later, migrate to IDB via lib/cache.
 
 import { atomWithStorage } from 'jotai/utils'
 
 export type AutoLockMinutes = 5 | 15 | 30
 
+/**
+ * How tx outcome notices are shown — `toast` (a floating toast per tx, bottom-right) or `pill` (the header's pending
+ * pill announces it). A tx in flight is always shown by the pill.
+ */
+export type TxNoticeStyle = 'toast' | 'pill'
+
 export interface PreferencesValue {
   /** Idle minutes before the shielded wallet auto-locks. */
   autoLockMinutes: AutoLockMinutes
   /** When true, TxLifecycleStepper opens its technical-details disclosure by default. */
   showTechnicalDetailsByDefault: boolean
+  /** Tx outcome notice style. Optional: preferences saved before it existed lack it (read as `toast`). */
+  txNoticeStyle?: TxNoticeStyle
 }
 
 export const DEFAULT_PREFERENCES: PreferencesValue = {
   autoLockMinutes: 15,
   showTechnicalDetailsByDefault: false,
+  txNoticeStyle: 'toast',
 }
 
 /**
