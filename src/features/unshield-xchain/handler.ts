@@ -395,8 +395,8 @@ async function runWaitForDelivery(
   // sourceDomain is the hub's domain. Match on it to reject same-recipient transfers from elsewhere.
   const hubDomain = getNetworkConfig().hub.domain
 
-  // Park the record in 'waiting' so the stepper renders the "Waiting for cross-chain confirmation"
-  // copy. The handler doesn't return here — poll() continues; the 'waiting' state is purely a
+  // Park the record in 'waiting' while the delivery is awaited (the stepper's bridging row reads "Moving your USDC from
+  // {source} to {destination}"). The handler doesn't return here — poll() continues; the 'waiting' state is purely a
   // UI hint for the active row.
   let cursor = markWaiting(record)
   await ctx.upsert(cursor)
