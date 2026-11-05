@@ -111,7 +111,7 @@ A sweep grows the change note only — every figure is unchanged.
 | SH-4 | Row | `+A` | ROW | +10 / +10 |
 | SH-5 | Max | public USDC balance (fee-inclusive); minimum `> F` on gasless | AMT | – |
 | SH-6 | `P` base | the note that reaches the pool: gasless `A − F`, direct `A` (`shieldProtocolFeeBase`) | REV → `meta.protocolFee` | – |
-| SH-7 | Wallet steps | direct: "Approve unlimited USDC" (only when the allowance is below `A`; the handler approves `maxUint256`), then "Submit `A` USDC shield"; gasless: "Authorize `A` USDC" (the permit is for `A`, fee included), then "Sign shield transaction". The same for `shield-xchain` | CNF (progress) | – |
+| SH-7 | Wallet steps | direct: "Approve unlimited USDC" (only when the allowance is below `A`; the handler approves `maxUint256`), then "Submit `A` USDC shield"; gasless: "Authorize `A` USDC" (the permit is for `A`, fee included), then "Sign shield transaction". The same for `shield-xchain`. REV summarises them in a "Wallet prompts" row: gasless "2 signatures, no gas"; direct "Up to 2 transactions: approve, then shield" (the allowance isn't known at REV) | REV, CNF (progress) | – |
 
 - **Stored:** `amount = A`, `feeAmount = F` (gasless), `protocolFee = P`. CNF/RCPT via `txFigures` (`deposit`). REV
   reads `P` from the fee module with the integrator the shield will carry (the configured one only for a direct

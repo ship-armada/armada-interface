@@ -43,6 +43,14 @@ export interface ShieldReviewStepProps {
   estimatedTime?: string
 }
 
+/**
+ * What the wallet will ask at the Wallet step (spec SH-7): gasless — the USDC permit, then the shield intent, both free
+ * signatures; direct — an approval when the allowance is too low (not known at Review, hence "up to"), then the shield.
+ */
+function walletPromptsFor(gasless: boolean): string {
+  return gasless ? '2 signatures, no gas' : 'Up to 2 transactions: approve, then shield'
+}
+
 export function ShieldReviewStep({
   fromChainId,
   amount,
@@ -85,6 +93,7 @@ export function ShieldReviewStep({
           shieldedAddress={shieldedAddress}
           estimated={estimated}
           {...(gasless !== undefined ? { gasless } : {})}
+          {...(gasless !== undefined ? { walletPrompts: walletPromptsFor(gasless) } : {})}
           nativeGas={nativeGas}
         />
 

@@ -87,5 +87,17 @@ describe('<ShieldReviewStep>', () => {
     setup()
     expect(screen.queryByRole('button', { name: 'What is this fee?' })).toBeNull()
   })
+
+  it('says what the wallet will ask: two signatures and no gas when gasless; up to two transactions when direct (4A)', () => {
+    const { unmount } = render(
+      <ShieldReviewStep fromChainId={31337} amount={10_000_000n} fee={1_020_014n} netAmount={8_979_986n} gasless onBack={vi.fn()} onConfirm={vi.fn()} />,
+    )
+    expect(screen.getByText('Wallet prompts').nextElementSibling).toHaveTextContent('2 signatures, no gas')
+    unmount()
+    render(
+      <ShieldReviewStep fromChainId={31337} amount={10_000_000n} fee={20_011n} netAmount={9_979_989n} gasless={false} onBack={vi.fn()} onConfirm={vi.fn()} />,
+    )
+    expect(screen.getByText('Wallet prompts').nextElementSibling).toHaveTextContent('Up to 2 transactions: approve, then shield')
+  })
 })
 

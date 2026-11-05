@@ -37,6 +37,8 @@ export interface DepositReviewSummaryProps {
   gasless?: boolean
   /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
   estimatedTime?: string
+  /** Review's "Wallet prompts" row — what the user's wallet will ask for ("2 signatures, no gas"); omitted elsewhere. */
+  walletPrompts?: string
   /** When true, the "You'll receive" total is an estimate (a cross-chain shield's final amount depends
    *  on the CCTP fee set at delivery) — renders with a `≈` and a caption. */
   estimated?: boolean
@@ -54,6 +56,7 @@ export function DepositReviewSummary({
   nativeGas,
   gasless,
   estimatedTime,
+  walletPrompts,
 }: DepositReviewSummaryProps) {
   const fromChain = getChainById(fromChainId)
   const feeValue = fee ?? 0n
@@ -92,6 +95,12 @@ export function DepositReviewSummary({
                 <CopyableAddress address={shieldedAddress} label="Copy Armada address" copiedLabel="Armada address copied" />
               </span>
             </span>
+          </div>
+        ) : null}
+        {walletPrompts ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>Wallet prompts</span>
+            <span className={styles.summaryValue}>{walletPrompts}</span>
           </div>
         ) : null}
         {estimatedTime ? (
