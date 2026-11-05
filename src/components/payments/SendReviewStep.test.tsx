@@ -147,10 +147,10 @@ describe('<SendReviewStep>', () => {
     renderReview({ recipient: VALID_EVM, networkName: 'Anvil Client A', fee: 1_000_000n, cctpFee: { amount: 300_000n, estimated: true } })
     expect(screen.getAllByRole('button', { name: 'What is this fee?' })).toHaveLength(2)
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Includes the network gas.')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('network gas included')
     fireEvent.mouseLeave(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[1]!.parentElement as HTMLElement)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Taken from the amount in transit.')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('taken from the amount sent')
   })
 
   it('warns when fees are over 10% of the amount, counting a cross-chain CCTP fee (5D)', () => {

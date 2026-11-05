@@ -34,6 +34,6 @@ describe('<ConsolidationSummary>', () => {
   it('explains the fee: the relayer\'s (5A)', () => {
     render(<ConsolidationSummary tokenLabel="USDC" notesMerged={11} notesCreated={2} fee={40_000n} />)
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Relayer fee')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Pays the relayer')
   })
 })

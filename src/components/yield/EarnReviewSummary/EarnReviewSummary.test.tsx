@@ -129,6 +129,6 @@ describe('<EarnReviewSummary>', () => {
   it('explains the fee: the relayer\'s, which includes the network gas (5A)', () => {
     render(<EarnReviewSummary tab="add" amount={100_000_000n} rate={RATE} fee={1_000_000n} netAmount={101_000_000n} netLabel="Total deducted from balance" />)
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Includes the network gas.')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('network gas included')
   })
 })

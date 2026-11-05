@@ -103,9 +103,9 @@ describe('<DepositReviewSummary>', () => {
   it('explains a direct shield\'s fee (protocol only) and its network gas (5A)', () => {
     render(<DepositReviewSummary fromChainId={31337} amount={3_000_000n} fee={15_000n} netAmount={2_985_000n} gasless={false} nativeGas={nativeGas} />)
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Protocol fee')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('~0.5% shield fee')
     fireEvent.mouseLeave(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[1]!.parentElement as HTMLElement)
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Paid in ETH from your wallet to the network.')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Paid in ETH from your wallet.')
   })
 })

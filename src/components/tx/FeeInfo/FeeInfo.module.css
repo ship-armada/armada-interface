@@ -1,15 +1,24 @@
 /* ABOUTME: FeeInfo styling — the small muted ⓘ beside a fee label (turns lavender on hover), as the amount card's
-   ABOUTME: fee-breakdown icon; sits inline with the label text without changing the row's height. */
+   ABOUTME: fee-breakdown icon; centred on the label text without changing the row's height. */
+
+/* The icon's box, centred on the label text. The tooltip's own wrapper is an inline-flex box with no text, which the
+   browser would sit on the text baseline by its bottom edge — riding high. `vertical-align: middle` centres it on the
+   text's x-height instead; the fixed height keeps it from adding to the line. */
+.anchor {
+  display: inline-flex;
+  align-items: center;
+  height: 1em;
+  margin-left: var(--primitives-spacing-1);
+  vertical-align: middle;
+}
 
 .trigger {
   appearance: none;
   border: none;
   background: none;
   padding: 0;
-  margin-left: var(--primitives-spacing-1);
   display: inline-flex;
   align-items: center;
-  vertical-align: middle;
   cursor: pointer;
   color: var(--semantic-color-text-muted);
 }
