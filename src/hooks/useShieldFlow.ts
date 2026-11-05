@@ -141,8 +141,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   useEffect(() => { setFeeChanged(false) }, [amountStr])
 
   // S-L7: warn (non-blocking) at review when an unresolved same-amount deposit may still be on
-  // chain — between a POLL_TIMEOUT'd shield and history recovery confirming it, re-depositing the
-  // same amount would deposit twice. Reads the active wallet's tx list (scoped, wallet-switch safe).
+  // chain — between a POLL_TIMEOUT'd (or network-errored while sending) shield and history recovery
+  // confirming it, re-depositing the same amount would deposit twice. Reads the active wallet's tx list (scoped, wallet-switch safe).
   const recentTxs = useAtomValue(activeTxListAtom)
   const duplicateWarning = amount > 0n && hasUnresolvedShield(recentTxs, amount)
 
