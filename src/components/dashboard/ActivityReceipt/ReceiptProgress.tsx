@@ -62,6 +62,7 @@ export function ReceiptProgress({ record, status }: ReceiptProgressProps) {
   const now = useNow(1_000, Boolean(progress?.timing))
   if (!shown || !progress) return null
   const phase = pending ? 'shown' : (exit?.phase ?? 'leaving')
+  const timingNote = progress.timing ? stageTimingNote(progress.timing, now) : null
 
   return (
     <div className={styles.progress} data-phase={phase}>
@@ -73,8 +74,9 @@ export function ReceiptProgress({ record, status }: ReceiptProgressProps) {
           stages={progress.stages}
           activeStageIndex={progress.activeStageIndex}
           completed={progress.completed}
+          activeChip={timingNote?.kind === 'usual' ? timingNote.chip : null}
         />
-        <TxTimingNote note={progress.timing ? stageTimingNote(progress.timing, now) : null} />
+        <TxTimingNote note={timingNote} />
         {pending ? <TxCancelButton record={record} /> : null}
       </div>
     </div>

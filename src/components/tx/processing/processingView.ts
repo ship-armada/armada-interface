@@ -308,6 +308,7 @@ function activeRowTiming(
     ...(estimate.usualMs !== undefined ? { usualMs: estimate.usualMs } : {}),
     slowMs: estimate.slowMs,
     safeInTransit: row.group !== undefined && broadcast,
+    broadcast,
   }
 }
 

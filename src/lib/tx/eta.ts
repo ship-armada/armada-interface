@@ -1,5 +1,5 @@
 // ABOUTME: Pure ETA-display logic — the lifecycle stepper's elapsed timer + "taking longer than usual" past p90 (T-L4), and
-// ABOUTME: the progress view's per-stage timing note ("Usually takes ~N" → "Taking longer than usual", safe-in-transit).
+// ABOUTME: the progress view's per-stage timing note (a "~N" chip → a "Taking longer than usual" callout).
 
 import { isTerminalState } from './types'
 import type { TxExecutionState } from './types'
@@ -56,33 +56,32 @@ export function stepperEta(
   return { label: `${formatElapsed(elapsedMs)} elapsed`, overdue: false }
 }
 
-/** The active row's timing, from `buildProcessingView`: when it started, its estimate, and whether USDC is between chains. */
+/** The active row's timing, from `buildProcessingView`: when it started, its estimate, and what's safe to say about it. */
 export interface StageTiming {
   startedAt: number
   usualMs?: number
   slowMs: number
   /** The row is a cross-chain transfer in flight (broadcast) — the USDC is safe even though it's slow to arrive. */
   safeInTransit: boolean
+  /** The tx has broadcast — closing the tab is safe (it resumes on the next sign-in); before that it would stop it. */
+  broadcast: boolean
 }
 
-export interface StageTimingNote {
-  /** "Usually takes ~30 sec", or "Taking longer than usual" once slow; null when there's nothing to say yet. */
-  hint: string | null
-  /** Past the stage's slow threshold — styled amber (not a failure). */
-  slow: boolean
-  reassurance: string | null
-}
+/**
+ * The progress view's note for its active row: normally a quiet chip on the stepper ("~15 sec"); once past the slow
+ * threshold, a warning callout under it — with a body that says what's safe (closing the tab only once broadcast).
+ */
+export type StageTimingNote = { kind: 'usual'; chip: string } | { kind: 'slow'; title: string; body: string }
 
-/** The progress view's note for its active row at `nowMs`; null when it has neither a hint nor a reassurance. */
+/** The note for the active row at `nowMs`; null while normal on a stage with no usual time. */
 export function stageTimingNote(timing: StageTiming, nowMs: number): StageTimingNote | null {
-  const slow = nowMs - timing.startedAt > timing.slowMs
-  const hint = slow
-    ? 'Taking longer than usual'
-    : timing.usualMs !== undefined
-      ? `Usually takes ${formatDurationHint(timing.usualMs)}`
-      : null
-  const reassurance = timing.safeInTransit ? 'Your USDC is safe in transit.' : null
-  if (hint === null && reassurance === null) return null
-  return { hint, slow, reassurance }
+  if (nowMs - timing.startedAt > timing.slowMs) {
+    const body = timing.safeInTransit
+      ? 'Your USDC is safe in transit. You can close this tab \u2014 we\u2019ll keep checking.'
+      : timing.broadcast
+        ? 'The network may be busy. You can close this tab \u2014 we\u2019ll keep checking.'
+        : 'This can take longer on some devices. Keep this tab open until it\u2019s submitted.'
+    return { kind: 'slow', title: 'Taking longer than usual', body }
+  }
+  return timing.usualMs !== undefined ? { kind: 'usual', chip: formatDurationHint(timing.usualMs) } : null
 }
-

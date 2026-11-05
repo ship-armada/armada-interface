@@ -43,24 +43,38 @@ describe('stepperEta (T-L4)', () => {
 })
 
 describe('stageTimingNote', () => {
-  const T = { startedAt: 1_000, usualMs: 30_000, slowMs: 75_000, safeInTransit: false }
+  const CONFIRMING = { startedAt: 1_000, usualMs: 15_000, slowMs: 45_000, safeInTransit: false, broadcast: true }
 
-  it('says how long the stage usually takes while it runs normally', () => {
-    expect(stageTimingNote(T, 11_000)).toEqual({ hint: 'Usually takes ~30 sec', slow: false, reassurance: null })
+  it('is a quiet "usually" chip while the stage runs normally', () => {
+    expect(stageTimingNote(CONFIRMING, 11_000)).toEqual({ kind: 'usual', chip: '~15 sec' })
   })
 
-  it('turns into "taking longer than usual" once past the slow threshold', () => {
-    expect(stageTimingNote(T, 1_000 + 75_001)).toEqual({ hint: 'Taking longer than usual', slow: true, reassurance: null })
+  it('is nothing for a stage with only a slow threshold, until it is slow', () => {
+    expect(stageTimingNote({ startedAt: 0, slowMs: 20_000, safeInTransit: false, broadcast: false }, 5_000)).toBeNull()
   })
 
-  it('has no hint for a stage with only a slow threshold, until it is slow', () => {
-    const proof = { startedAt: 0, slowMs: 20_000, safeInTransit: false }
-    expect(stageTimingNote(proof, 5_000)).toBeNull()
-    expect(stageTimingNote(proof, 20_001)).toEqual({ hint: 'Taking longer than usual', slow: true, reassurance: null })
+  it('becomes a "taking longer" callout once past the slow threshold — broadcast, so the tab can close', () => {
+    expect(stageTimingNote(CONFIRMING, 1_000 + 45_001)).toEqual({
+      kind: 'slow',
+      title: 'Taking longer than usual',
+      body: 'The network may be busy. You can close this tab \u2014 we\u2019ll keep checking.',
+    })
   })
 
-  it('reassures while the USDC is in transit between chains', () => {
-    expect(stageTimingNote({ ...T, safeInTransit: true }, 2_000)?.reassurance).toBe('Your USDC is safe in transit.')
+  it('reassures that USDC in transit between chains is safe', () => {
+    const bridging = { startedAt: 0, usualMs: 30_000, slowMs: 75_000, safeInTransit: true, broadcast: true }
+    expect(stageTimingNote(bridging, 80_000)).toEqual({
+      kind: 'slow',
+      title: 'Taking longer than usual',
+      body: 'Your USDC is safe in transit. You can close this tab \u2014 we\u2019ll keep checking.',
+    })
+  })
+
+  it('asks to keep the tab open when slow before anything is sent (a proof)', () => {
+    expect(stageTimingNote({ startedAt: 0, slowMs: 20_000, safeInTransit: false, broadcast: false }, 20_001)).toEqual({
+      kind: 'slow',
+      title: 'Taking longer than usual',
+      body: 'This can take longer on some devices. Keep this tab open until it\u2019s submitted.',
+    })
   })
 })
-

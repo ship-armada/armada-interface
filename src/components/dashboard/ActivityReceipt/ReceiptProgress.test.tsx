@@ -43,7 +43,7 @@ describe('<ReceiptProgress>', () => {
     vi.useRealTimers()
   })
 
-  it('shows the active stage\'s timing note under the stepper', () => {
+  it('shows the active stage\'s usual time as a chip on the stepper', () => {
     vi.setSystemTime(50_000)
     const confirming = shield({
       stage: 'hub-pending',
@@ -52,7 +52,7 @@ describe('<ReceiptProgress>', () => {
       stageEnteredAt: { 'hub-pending': 50_000 },
     } as Partial<TxRecord>)
     render(<ReceiptProgress record={confirming} status="pending" />)
-    expect(screen.getByText('Usually takes ~15 sec')).toBeInTheDocument()
+    expect(screen.getByText('~15 sec')).toBeInTheDocument()
   })
 
   it('offers Cancel while a spend is still building its proof', () => {

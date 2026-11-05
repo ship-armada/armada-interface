@@ -1,4 +1,4 @@
-// ABOUTME: Collapsible transaction-progress disclosure — animated lavender timeline variant.
+// ABOUTME: Collapsible transaction-progress disclosure — animated lavender timeline variant (+ an optional chip on the active row).
 // ABOUTME: Ported from the armada-app design mockup (timeline variant only).
 import { ChevronDown } from 'lucide-react'
 import { useId, useLayoutEffect, useRef, useState } from 'react'
@@ -10,6 +10,8 @@ export interface TransactionProgressVariantProps {
   stages: ReadonlyArray<TxProgressStage>
   activeStageIndex?: number
   completed?: boolean
+  /** A chip on the active row's counter line — how long the stage usually takes ("~15 sec"). */
+  activeChip?: string | null
   className?: string
 }
 
@@ -24,6 +26,8 @@ interface TimelineStepProps {
   counter: string
   label: string
   subtitle: string
+  /** A small pill beside the counter (the active row's usual time, "~15 sec"); on the same line, so the height is unchanged. */
+  chip?: string | null
 }
 
 interface SlideMetrics {
@@ -47,13 +51,16 @@ function ProgressBar({ kind }: { kind: RowKind }) {
   )
 }
 
-function TimelineStep({ kind, counter, label, subtitle }: TimelineStepProps) {
+function TimelineStep({ kind, counter, label, subtitle, chip = null }: TimelineStepProps) {
   return (
     <div className={[styles.stepRow, styles[kind]].filter(Boolean).join(' ')}>
       <ProgressBar kind={kind} />
 
       <div className={styles.stepCopy}>
-        <span className={styles.counter}>{counter}</span>
+        <span className={styles.counterRow}>
+          <span className={styles.counter}>{counter}</span>
+          {chip ? <span className={styles.chip}>{chip}</span> : null}
+        </span>
         <span className={styles.stepTitle}>{label}</span>
         <span className={styles.stepSubtitle}>{subtitle}</span>
       </div>
@@ -89,6 +96,7 @@ function TimelineVariant({
   stages,
   activeStageIndex = 0,
   completed = false,
+  activeChip = null,
   className,
 }: TransactionProgressVariantProps) {
   const panelId = useId()
@@ -165,6 +173,7 @@ function TimelineVariant({
                     counter={`${index + 1} of ${stages.length}`}
                     label={stageLabelFor(stage, index, stages, completed)}
                     subtitle={stage.subtitle}
+                    chip={index === activeStageIndex && !completed ? activeChip : null}
                   />
                 </li>
               )

@@ -22,7 +22,7 @@ export interface TxProcessingLayoutProps {
   progressVariant?: TransactionProgressVariant
   /** Mobile keypad: full-bleed gradient shell, details docked at bottom. */
   layout?: TxProcessingLayoutVariant
-  /** The active stage's timing note ("Usually takes ~N" / "Taking longer than usual"), shown under the timeline. */
+  /** The active stage's timing note: its usual time as a chip on the timeline's active row, or the slow callout under it. */
   timingNote?: StageTimingNote | null
   /** 0..1 while a proof is being built — fills the card's ring instead of the sweep. */
   proofProgress?: number
@@ -70,6 +70,7 @@ export function TxProcessingLayout({
             stages={stages}
             activeStageIndex={activeStageIndex}
             completed={completed}
+            activeChip={timingNote?.kind === 'usual' ? timingNote.chip : null}
           />
           <TxTimingNote note={timingNote} />
         </div>

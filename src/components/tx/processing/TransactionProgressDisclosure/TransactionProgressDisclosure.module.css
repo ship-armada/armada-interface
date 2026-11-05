@@ -142,6 +142,27 @@
   color: var(--semantic-color-text-muted);
 }
 
+/* The counter line, with the active row's optional chip beside it — kept to the counter's own line height so the
+   collapsed stepper (sized to one row) doesn't change. */
+.counterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+}
+
+/* "~15 sec": a small lavender-tinted pill, the same type size as the counter. */
+.chip {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-weight: var(--primitives-fontWeight-medium);
+  font-size: calc(var(--primitives-fontSize-sm) * 1px);
+  line-height: 1.2;
+  padding: 0 var(--primitives-spacing-2);
+  border-radius: calc(var(--primitives-borderRadius-full) * 1px);
+  background: color-mix(in srgb, var(--semantic-color-brand-lavender) 14%, transparent);
+  color: var(--semantic-color-text-lavender);
+  white-space: nowrap;
+}
+
 .stepTitle {
   font-family: var(--primitives-fontFamily-ui), sans-serif;
   font-weight: var(--primitives-fontWeight-regular);

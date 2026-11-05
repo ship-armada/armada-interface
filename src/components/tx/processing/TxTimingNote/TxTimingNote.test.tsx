@@ -1,26 +1,23 @@
-// ABOUTME: Tests for TxTimingNote — the progress view's line under the stepper: "Usually takes ~N", an amber (not error)
-// ABOUTME: "Taking longer than usual", and the safe-in-transit reassurance; nothing when there's no note.
+// ABOUTME: Tests for TxTimingNote — the slow-stage callout under the stepper (warning style: amber edge + icon, not an
+// ABOUTME: error): "Taking longer than usual" + a one-line body; nothing while the stage runs normally (that's the chip).
 
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TxTimingNote } from './TxTimingNote'
 
 describe('<TxTimingNote>', () => {
-  it('shows the usual-time hint, politely announced', () => {
-    render(<TxTimingNote note={{ hint: 'Usually takes ~15 sec', slow: false, reassurance: null }} />)
-    const note = screen.getByText('Usually takes ~15 sec').closest('[aria-live]')
-    expect(note).toHaveAttribute('aria-live', 'polite')
-    expect(note).toHaveAttribute('data-slow', 'false')
+  it('shows the slow callout, politely announced', () => {
+    render(<TxTimingNote note={{ kind: 'slow', title: 'Taking longer than usual', body: 'Your USDC is safe in transit.' }} />)
+    const callout = screen.getByRole('status')
+    expect(callout).toHaveAttribute('aria-live', 'polite')
+    expect(callout).toHaveTextContent('Taking longer than usual')
+    expect(callout).toHaveTextContent('Your USDC is safe in transit.')
   })
 
-  it('marks a slow stage (amber styling hook) and shows the reassurance', () => {
-    render(<TxTimingNote note={{ hint: 'Taking longer than usual', slow: true, reassurance: 'Your USDC is safe in transit.' }} />)
-    expect(screen.getByText('Taking longer than usual').closest('[aria-live]')).toHaveAttribute('data-slow', 'true')
-    expect(screen.getByText('Your USDC is safe in transit.')).toBeInTheDocument()
-  })
-
-  it('renders nothing without a note', () => {
-    const { container } = render(<TxTimingNote note={null} />)
+  it('renders nothing for the normal "usually" state (the stepper shows that as a chip) or no note', () => {
+    const { container, rerender } = render(<TxTimingNote note={{ kind: 'usual', chip: '~15 sec' }} />)
+    expect(container).toBeEmptyDOMElement()
+    rerender(<TxTimingNote note={null} />)
     expect(container).toBeEmptyDOMElement()
   })
 })
