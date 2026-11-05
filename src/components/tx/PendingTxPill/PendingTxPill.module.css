@@ -42,6 +42,13 @@
   }
 }
 
+/* The one in-flight tx by name — capped like an announcement, so a long label truncates. */
+.pendingLabel {
+  max-width: min(360px, 50vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Announcing a tx notice: the pill widens to hold it, fading the content in. */
 .announcing {
   max-width: min(420px, 60vw);

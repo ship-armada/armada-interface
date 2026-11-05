@@ -63,6 +63,13 @@ describe('useTxNoticePresenter — pill style', () => {
     expect(store.get(txNoticeAnnouncementAtom)).toBeNull()
   })
 
+  it('raises no announcement for "pending" — the pill already shows the in-flight tx by name', () => {
+    const { store, push } = setup('pill')
+    push('pending', 1)
+    expect(store.get(txNoticeAnnouncementAtom)).toBeNull()
+    expect(sonner.custom).not.toHaveBeenCalled()
+  })
+
   it('keeps a failure up until the user acts on it', () => {
     vi.useFakeTimers()
     const { store, push } = setup('pill')

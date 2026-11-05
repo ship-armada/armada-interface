@@ -45,9 +45,9 @@ describe('<AppLayout> pending pill', () => {
     expect(screen.queryByRole('button', { name: /pending — view activity/ })).toBeNull()
   })
 
-  it('opens the receipt of the one pending tx', () => {
+  it('names the one pending tx and opens its receipt', () => {
     const store = renderLayout([rec('a', 'active'), rec('b', 'completed')])
-    fireEvent.click(screen.getByRole('button', { name: '1 transaction pending — view activity' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Shielding 0.000001 USDC… — view progress' }))
     expect(store.get(receiptTxIdAtom)).toBe('a')
   })
 

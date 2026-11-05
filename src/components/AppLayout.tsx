@@ -15,6 +15,7 @@ import { openModalAtom } from '@/state/ui'
 import { pendingTxsAtom } from '@/state/tx'
 import { txNoticeAnnouncementAtom } from '@/state/txNotices'
 import { useOpenTxActivity } from '@/hooks/useOpenTxActivity'
+import { usePendingTxLabel } from '@/hooks/usePendingTxLabel'
 import { getNetworkMode } from '@/config/network'
 import styles from './AppLayout.module.css'
 
@@ -27,6 +28,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const setOpenModal = useSetAtom(openModalAtom)
   const pendingTxs = useAtomValue(pendingTxsAtom)
+  // The one in-flight tx by name ("Shielding 5.00 USDC…"), for as long as it's pending; null → "N Pending".
+  const pendingLabel = usePendingTxLabel()
   const { openReceipt, openActivity } = useOpenTxActivity()
   // One tx in flight → straight to its receipt (live progress); several → the All activity panel.
   const onlyPending = pendingTxs.length === 1 ? pendingTxs[0] : undefined
@@ -73,6 +76,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {/* In-flight txs, beside the wallet pill; hidden when nothing is pending and nothing is being announced. */}
           <PendingTxPill
             count={pendingTxs.length}
+            pendingLabel={pendingLabel}
             onOpen={openPending}
             announcement={announcement}
             onAnnouncementOpen={openAnnounced}

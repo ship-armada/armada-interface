@@ -69,6 +69,8 @@ export function useTxNoticePresenter(): void {
         )
         continue
       }
+      // Pill style: an in-flight tx is already named by the pill itself (usePendingTxLabel), so only outcomes announce.
+      if (item.tone === 'pending') continue
       setAnnouncement({ seq: item.seq, tone: item.tone, title, recordId: record.id })
       if (foldTimerRef.current) clearTimeout(foldTimerRef.current)
       foldTimerRef.current = null

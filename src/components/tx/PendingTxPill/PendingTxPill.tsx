@@ -1,5 +1,5 @@
-// ABOUTME: PendingTxPill — the header's "N Pending" pill beside the wallet button while txs are in flight: a spinner and
-// ABOUTME: the count, on the same surface as the other header controls. Click opens the activity. Can announce a tx notice.
+// ABOUTME: PendingTxPill — the header's pending pill beside the wallet button while txs are in flight: a spinner and the
+// ABOUTME: one tx by name (else the count), on the header controls' surface. Click opens the activity. Can announce a tx notice.
 
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import type { TxNoticeTone } from '@/lib/tx/notices'
@@ -10,6 +10,8 @@ import styles from './PendingTxPill.module.css'
 export interface PendingTxPillProps {
   /** In-flight txs for the active wallet. */
   count: number
+  /** The one tx in flight, by name ("Shielding 5.00 USDC…") — shown instead of "1 Pending" when given. */
+  pendingLabel?: string | null
   onOpen: () => void
   /**
    * A tx notice to announce in place of the count (the "pill" notice style) — shown even when nothing is pending,
@@ -24,6 +26,7 @@ export interface PendingTxPillProps {
 
 export function PendingTxPill({
   count,
+  pendingLabel = null,
   onOpen,
   announcement = null,
   onAnnouncementOpen,
@@ -52,6 +55,14 @@ export function PendingTxPill({
     )
   }
   if (count <= 0) return null
+  if (count === 1 && pendingLabel) {
+    return (
+      <button type="button" className={styles.pill} onClick={onOpen} aria-label={`${pendingLabel} — view progress`}>
+        <span className={styles.spinner} aria-hidden />
+        <span className={styles.pendingLabel}>{pendingLabel}</span>
+      </button>
+    )
+  }
   const noun = count === 1 ? 'transaction' : 'transactions'
   return (
     <button
