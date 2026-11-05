@@ -58,7 +58,8 @@ export type EventRegistry = {
   'sdk.quicksync':            { outcome: 'served' | 'root-mismatch-fallback'; fromBlock: number; head: number; tailCovered: boolean; reason?: 'indexer-http-error' | 'schema-mismatch' | 'root-mismatch' | 'position-gap' | 'unknown'; status?: number }
 
   'tx.submitted':             { id: string; kind: TxKind }
-  'tx.transition':            { id: string; kind: TxKind; from: TxStage; to: TxStage; executionState: TxRecord['executionState'] }
+  // `durationMs` = time spent in `from` (its stageEnteredAt stamp → now); absent when `from` has no stamp.
+  'tx.transition':            { id: string; kind: TxKind; from: TxStage; to: TxStage; executionState: TxRecord['executionState']; durationMs?: number }
   'tx.failed':                { id: string; kind: TxKind; errorCode?: string }
   'tx.expired':               { id: string; kind: TxKind }
   'tx.cancelled':             { id: string; kind: TxKind }
@@ -143,11 +144,12 @@ export function track<E extends EventName>(event: E, props: EventRegistry[E]): v
   emit('info', event, props as Record<string, unknown>)
 }
 
-/** Tx state-machine transition — thin wrapper that emits a `tx.transition`. */
+/** Tx state-machine transition — thin wrapper that emits a `tx.transition` (with the previous stage's duration). */
 export function trackTxTransition(
   record: TxRecord,
   fromStage: TxStage,
   toStage: TxStage,
+  durationMs?: number,
 ): void {
   track('tx.transition', {
     id: record.id,
@@ -155,6 +157,7 @@ export function trackTxTransition(
     from: fromStage,
     to: toStage,
     executionState: record.executionState,
+    ...(durationMs !== undefined ? { durationMs } : {}),
   })
 }
 

@@ -2,7 +2,7 @@
 // ABOUTME: Hooks (useTx) only trigger execution; they never orchestrate. Plan §7a; reviewer rec #2 + #9.
 
 import { getDefaultStore } from 'jotai'
-import { track, trackError } from '../telemetry'
+import { track, trackError, trackTxTransition } from '../telemetry'
 import { lifecycleFor } from './lifecycles'
 import { markCancelled, markDismissed, markExpired, markFailed, markRetrying } from './reducer'
 import { beginHiddenCredit, endHiddenCredit, hiddenMsForRecord } from './hiddenClock'
@@ -406,6 +406,7 @@ async function runHandlerChain(
       const ctx: ExecutorCtx = {
         signal: controller.signal,
         upsert: async (rec) => {
+          reportStageChange(store.get(txListAtom).find(t => t.id === rec.id), rec)
           store.set(upsertTxAtom, rec)
           await putTxIfFresh(rec)
         },
@@ -498,3 +499,16 @@ function waitForVisibility(signal: AbortSignal): Promise<void> {
     }, { once: true })
   })
 }
+
+/**
+ * Emit `tx.transition` when a handler's write moves the record to a new stage, with how long it spent in the previous
+ * one (from the stage-entry stamps; absent when the previous stage has none, e.g. a record from before they existed).
+ */
+function reportStageChange(before: TxRecord | undefined, after: TxRecord): void {
+  if (!before || before.stage === after.stage) return
+  const stamps = after.stageEnteredAt as Partial<Record<string, number>> | undefined
+  const enteredFrom = stamps?.[before.stage]
+  const durationMs = enteredFrom !== undefined ? (stamps?.[after.stage] ?? Date.now()) - enteredFrom : undefined
+  trackTxTransition(after, before.stage, after.stage, durationMs)
+}
+

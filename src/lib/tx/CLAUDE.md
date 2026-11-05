@@ -134,6 +134,8 @@ stale writes only ever produce `active`/`waiting`, never `retrying`).
 
 The tx executor emits structured events via `lib/telemetry.ts`. The EventRegistry's `tx.*` keys are the only allowlist; adding a new event = editing the registry.
 
+**Stage changes:** every handler write through `ctx.upsert` that moves a record to a new stage emits `tx.transition` (`from` → `to`) with `durationMs`, the time spent in `from` (from the record's `stageEnteredAt` stamps; omitted when `from` has none).
+
 Never emit amounts, recipients, or anything tied to shielded identities. Use ids and kinds.
 
 **Failure reporting is single-chokepoint.** When a handler leaves a record `failed` — via its outer catch OR an inner post-broadcast failure (`POLL_TIMEOUT` / `TX_REVERTED`) that upserts-and-returns without re-throwing — the executor's chain loop calls `failureReport.ts::reportTerminalFailure(record)` exactly once. That emits the `tx.failed` info event for every failure and funnels the unexpected codes (and the SDK codes that mean a bug or a broken prover, via `TxError.sdkCode`) to Sentry, so handlers don't call `trackError` themselves and a new handler gets both for free. `STUCK` (executor no-progress → `tx.executor.no-progress`) and `INTERRUPTED` (resume → `tx.interrupted`) carry their own dedicated telemetry and are intentionally not routed through this chokepoint.

@@ -1,7 +1,9 @@
-// ABOUTME: Tests for lib/telemetry trackError — message reduced to first line, capped at 200 chars (P2 hygiene).
+// ABOUTME: Tests for lib/telemetry — trackError's message reduced to first line, capped at 200 chars (P2 hygiene),
+// ABOUTME: and trackTxTransition carrying the previous stage's duration.
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { trackError } from './telemetry'
+import { trackError, trackTxTransition } from './telemetry'
+import type { TxRecord } from './tx/types'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -45,3 +47,19 @@ describe('trackError — @armada/sdk INSTANCE_CLOSED', () => {
     expect(spy).not.toHaveBeenCalled()
   })
 })
+
+describe('trackTxTransition', () => {
+  it('emits the stage change with how long the previous stage took', () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    try {
+      const record = { id: 'tx-1', kind: 'shield', executionState: 'active' } as unknown as TxRecord
+      trackTxTransition(record, 'build-proof', 'submit-relayer', 12_345)
+      expect(info).toHaveBeenCalledWith('[armada]', expect.objectContaining({
+        event: 'tx.transition', id: 'tx-1', kind: 'shield', from: 'build-proof', to: 'submit-relayer', durationMs: 12_345,
+      }))
+    } finally {
+      info.mockRestore()
+    }
+  })
+})
+

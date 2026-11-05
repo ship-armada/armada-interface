@@ -16,6 +16,13 @@ import { isTerminalState, type TxError, type TxRecord } from './types'
 const failureReportMock = vi.hoisted(() => ({ reportTerminalFailure: vi.fn() }))
 vi.mock('./failureReport', () => ({ reportTerminalFailure: failureReportMock.reportTerminalFailure }))
 
+// Stage-transition telemetry: assert the executor reports each stage change (the event shape is tested in telemetry.test).
+const telemetryMock = vi.hoisted(() => ({ trackTxTransition: vi.fn() }))
+vi.mock('../telemetry', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../telemetry')>()),
+  trackTxTransition: telemetryMock.trackTxTransition,
+}))
+
 function makeRecord(overrides: Partial<TxRecord> = {}): TxRecord {
   return {
     id: 'ulid-test-1',
@@ -162,6 +169,37 @@ describe('expiry guard (P0-5)', () => {
     expect(after?.executionState).toBe('completed')
     // Exactly one transition (the handler's advance) — no clobbering expiry write on top.
     expect(after?.updatedSeq).toBe(2)
+  })
+
+  it('reports each stage change with how long the previous stage took', async () => {
+    const store = getDefaultStore()
+    telemetryMock.trackTxTransition.mockClear()
+    registerHandler({
+      kind: 'shield',
+      resumableFrom: ['submit-relayer'],
+      run: async (record, ctx) => {
+        await ctx.upsert(advance(record, 'hub-confirmed'))
+      },
+    } satisfies StageHandler<'shield'>)
+    const enteredAt = Date.now() - 4_000
+    const rec = makeRecord({
+      id: 'ulid-transition',
+      executionState: 'active',
+      stage: 'submit-relayer',
+      stagesCompleted: ['build-proof'],
+      updatedSeq: 1,
+      stageEnteredAt: { 'build-proof': enteredAt - 10_000, 'submit-relayer': enteredAt },
+    } as Partial<TxRecord>)
+    store.set(upsertTxAtom, rec)
+
+    executeTx(rec.id)
+
+    await waitTerminalThenSettle(rec.id, 'completed')
+    expect(telemetryMock.trackTxTransition).toHaveBeenCalledOnce()
+    const [record, from, to, durationMs] = telemetryMock.trackTxTransition.mock.calls[0] as [TxRecord, string, string, number]
+    expect([record.id, from, to]).toEqual(['ulid-transition', 'submit-relayer', 'hub-confirmed'])
+    expect(durationMs).toBeGreaterThanOrEqual(4_000)
+    expect(durationMs).toBeLessThan(60_000)
   })
 
   it('does not clobber a record the handler just failed, preserving the TxError', async () => {
