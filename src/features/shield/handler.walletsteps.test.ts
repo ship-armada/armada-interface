@@ -1,5 +1,5 @@
 // ABOUTME: S-M4 tests for the shield handler's direct submit path — markWaiting before each wallet
-// ABOUTME: prompt ("Confirm in your wallet" reachable) + approveTxHash/approveSkipped artifacts written.
+// ABOUTME: prompt ("Confirm in your wallet" reachable) + approveTxHash/approveSkipped artifacts written; exact approval.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -105,8 +105,9 @@ describe('shieldHandler direct submit wallet steps (S-M4)', () => {
     expect(upserts.at(-1)?.executionState).toBe('completed')
   })
 
-  it('allowance low: writes approveTxHash and marks waiting before the approve prompt', async () => {
-    wagmi.readContract.mockResolvedValue(0n) // approve needed
+  it('allowance low: approves exactly the amount, writes approveTxHash and marks waiting before the approve prompt', async () => {
+    // Approve needed; once it confirms, the re-read allowance covers the amount.
+    wagmi.readContract.mockResolvedValueOnce(0n).mockResolvedValueOnce(1_000_000n)
     wagmi.writeContract
       .mockResolvedValueOnce('0xapprovehash') // approve
       .mockResolvedValueOnce('0xshieldhash')  // shield
@@ -114,6 +115,8 @@ describe('shieldHandler direct submit wallet steps (S-M4)', () => {
     await shieldHandler.run(freshShieldRecord(), ctx)
 
     expect(upserts.some(u => (u.artifacts as { approveTxHash?: string }).approveTxHash === '0xapprovehash')).toBe(true)
+    // Exactly the shield amount — never an unlimited allowance (4E).
+    expect(wagmi.writeContract.mock.calls[0]?.[1]).toMatchObject({ functionName: 'approve', args: ['0x1111111111111111111111111111111111111111', 1_000_000n] })
     // The first waiting state precedes the first (approve) write.
     expect(waitingOrder(upsert)!).toBeLessThan(wagmi.writeContract.mock.invocationCallOrder[0]!)
     // Two wallet prompts → at least two waiting states.

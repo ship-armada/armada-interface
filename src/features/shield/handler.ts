@@ -2,13 +2,12 @@
 // ABOUTME: build-proof generates an ephemeral shieldPrivateKey (+ EIP-2612 permit when gasless); submit-relayer either writeContract or POST /relay.
 
 import {
-  readContract,
   writeContract,
 } from 'wagmi/actions'
 import { asTxError, waitForReceiptOrFail } from '@/lib/tx/receipt'
 import { simulateOrThrow } from '@/lib/tx/simulate'
 import { classifyHandlerError } from '@/lib/tx/errors'
-import { encodeFunctionData, erc20Abi, maxUint256, zeroAddress } from 'viem'
+import { encodeFunctionData, zeroAddress } from 'viem'
 import { wagmiConfig } from '@/config/wagmi'
 import { loadDeployments } from '@/config/deployments'
 import { getIntegratorAddress } from '@/config/network'
@@ -35,8 +34,9 @@ import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { ensureChain } from '@/lib/network-switch'
-import { advance, markFailed, markWaiting, patchArtifacts, patchMeta } from '@/lib/tx/reducer'
+import { advance, markFailed, markWaiting, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
+import { ensureExactAllowance } from './approve'
 import { track } from '@/lib/telemetry'
 import type { StageHandler } from '@/lib/tx/executor'
 import type { TxError, TxRecord } from '@/lib/tx/types'
@@ -380,40 +380,18 @@ async function runDirectSubmit(
       throw new Error('Shield requires a connected EVM wallet; none captured at submit time.')
     }
     const owner = ownerCaptured as `0x${string}`
-    const allowance = await readContract(wagmiConfig, {
-      address: usdcAddress as `0x${string}`,
-      abi: erc20Abi,
-      functionName: 'allowance',
-      args: [owner, privacyPoolAddress as `0x${string}`],
-      chainId: record.meta.fromChainId,
-    })
-    if (ctx.signal.aborted) throw new Error('cancelled')
-
     // S-M4: thread a `working` record through the wallet prompts so the stepper shows "Confirm in
     // your wallet" (markWaiting) while each MetaMask prompt is open, and so the approve leg is
     // recorded in artifacts (approveTxHash / approveSkipped) for the WalletConfirmList checklist.
-    let working: TxRecord<'shield'> = record
-    if (allowance < record.meta.amount) {
-      // Approve max — same UX trade-off as the legacy app (one approval, all future shields free).
-      working = markWaiting(working)
-      await ctx.upsert(working)
-      const approveHash = await writeContract(wagmiConfig, {
-        address: usdcAddress as `0x${string}`,
-        abi: erc20Abi,
-        functionName: 'approve',
-        args: [privacyPoolAddress as `0x${string}`, maxUint256],
-        chainId: record.meta.fromChainId,
-      })
-      await waitForReceiptOrFail({ hash: approveHash, signal: ctx.signal, chainId: record.meta.fromChainId })
-      if (ctx.signal.aborted) throw new Error('cancelled')
-      // Approve confirmed → back to active, record the leg.
-      working = advance(working, 'submit-relayer', { approveTxHash: approveHash })
-      await ctx.upsert(working)
-    } else {
-      // No approve prompt — record it as skipped so the wallet-step list omits the Approve row.
-      working = patchArtifacts(working, { approveSkipped: true })
-      await ctx.upsert(working)
-    }
+    // The approval is for exactly the amount, re-checked once confirmed (ensureExactAllowance).
+    let working: TxRecord<'shield'> = await ensureExactAllowance({
+      record,
+      ctx,
+      token: usdcAddress as `0x${string}`,
+      spender: privacyPoolAddress as `0x${string}`,
+      owner,
+      chainId: record.meta.fromChainId,
+    })
 
     // 2. Submit the shield tx. Compose the tuple from the stored artifacts.
     const shieldRequestTuple = {
