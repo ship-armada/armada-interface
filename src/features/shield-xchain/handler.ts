@@ -808,29 +808,14 @@ async function runWaitForDelivery(
   // Shared with the same-chain shield (`recordedShieldFees`); best-effort — a failed sync/read keeps the estimate.
   if (result.value) Object.assign(reconciledMeta, await recordedShieldFees(result.value))
 
-  // Walk through the three intermediate stages with brief gaps so the stepper renders each row
-  // as "current" rather than flashing through transitions in a single frame. Same pattern as the
-  // inverse-direction handler — see its docstring for the visual-delay rationale. The reconciled
-  // actuals are folded into the SAME write that reaches the terminal stage, so the Complete screen
-  // renders the real figures directly (no estimate-then-snap flash).
-  const STAGE_VISUAL_DELAY_MS = 350
-  const skipStages = ['iris-attestation-ready', 'hub-mint-pending', 'hub-mint-confirmed'] as const
-  for (let i = 0; i < skipStages.length; i++) {
-    // Abort check BEFORE the upsert — cancel/dismiss may have fired during the delay below or
-    // during the upsert latency, and we don't want to clobber the already-written terminal state.
-    if (ctx.signal.aborted) return
-    const next = skipStages[i]!
-    cursor = advance(cursor, next, next === 'hub-mint-confirmed' ? { destTxHash: result.value } : {})
-    if (next === 'hub-mint-confirmed' && Object.keys(reconciledMeta).length > 0) {
-      cursor = patchMeta(cursor, reconciledMeta)
-    }
-    await ctx.upsert(cursor)
-    if (i < skipStages.length - 1) {
-      await new Promise<void>(resolve => {
-        const t = setTimeout(resolve, STAGE_VISUAL_DELAY_MS)
-        ctx.signal.addEventListener('abort', () => { clearTimeout(t); resolve() }, { once: true })
-      })
-      if (ctx.signal.aborted) return
-    }
-  }
+  // ONE real signal after the client burn — the hub mint observed — so the stages between (attestation ready, mint
+  // pending) are never seen happening: go straight to delivered in one write, which marks them done too (advance()
+  // completes every earlier stage). The reconciled actuals are folded into the SAME write, so the Complete screen renders
+  // the real figures directly (no estimate-then-snap flash).
+  // Abort check BEFORE the upsert — cancel/dismiss may have fired during the poll or the fee read above, and we don't
+  // want to clobber the already-written terminal state.
+  if (ctx.signal.aborted) return
+  cursor = advance(cursor, 'hub-mint-confirmed', { destTxHash: result.value })
+  if (Object.keys(reconciledMeta).length > 0) cursor = patchMeta(cursor, reconciledMeta)
+  await ctx.upsert(cursor)
 }
