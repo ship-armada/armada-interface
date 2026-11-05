@@ -324,6 +324,8 @@ describe('<EarnModal>', () => {
           : r,
       ))
     })
+    // Failed before anything was sent: the error step says where the USDC is (7A).
+    expect(await screen.findByText(/Your USDC is still in your private balance\./)).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('button', { name: 'Merge notes' }))
     expect(store.get(openModalAtom)).toBe('merge')
     expect(store.get(mergeIntentAtom)).toMatchObject({ token: 'usdc', blocked: { kind: 'yield-deposit', amount: 3_000_000n } })

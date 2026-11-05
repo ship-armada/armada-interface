@@ -1,8 +1,10 @@
 // ABOUTME: Tests for ErrorStep — category-aware title/body from `error.code`, explorer link when txHash is supplied, Try Again gating, View Details optional, fallback to `message` when no typed error.
+// ABOUTME: Also the funds note that ends the body (where the user's USDC is) and the plain "Get help" link to Discord.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ErrorStep } from './ErrorStep'
+import { SUPPORT_URL } from '@/config/support'
 
 describe('<ErrorStep>', () => {
   it('renders the default fallback title when no error or message is supplied', () => {
@@ -71,6 +73,24 @@ describe('<ErrorStep>', () => {
     expect(screen.getByText('Relayer returned 502 Bad Gateway.')).toBeInTheDocument()
   })
 
+  it('ends the body with where the USDC is when given a funds note (7A)', () => {
+    render(
+      <ErrorStep
+        error={{ code: 'FEE_EXPIRED', message: '' }}
+        fundsNote="Your USDC is still in your private balance."
+      />,
+    )
+    expect(screen.getByText(/start a new transaction to get a fresh quote\. Your USDC is still in your private balance\.$/)).toBeInTheDocument()
+  })
+
+  it('links to the community Discord for help, opening in a new tab with nothing prefilled', () => {
+    render(<ErrorStep error={{ code: 'OTHER', message: 'boom' }} />)
+    const link = screen.getByRole('link', { name: /Get help on Discord/ })
+    expect(link).toHaveAttribute('href', SUPPORT_URL)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
   it('renders an explorer link when explorerUrl is supplied', () => {
     render(
       <ErrorStep
@@ -88,7 +108,7 @@ describe('<ErrorStep>', () => {
     // composed URL. Records without a known explorerUrl (e.g. local Anvil) should not show a
     // broken anchor.
     render(<ErrorStep error={{ code: 'POLL_TIMEOUT', message: '' }} />)
-    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.queryByRole('link', { name: /View on block explorer/i })).toBeNull()
   })
 
   it('disables Try Again when onRetry is omitted', () => {

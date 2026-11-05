@@ -1,10 +1,11 @@
-// ABOUTME: Shared error step — circular error icon + category-aware headline + message + optional explorer link + Try Again / View Details CTAs.
+// ABOUTME: Shared error step — circular error icon + category-aware headline + message (+ where the USDC is) + optional explorer link + "Get help" + Try Again / View Details CTAs.
 // ABOUTME: Picks honest copy based on `error.code`: POLL_TIMEOUT / DISMISSED surface "may still complete" + an explorer link; TX_REVERTED is unambiguous failure; USER_REJECTED is friendly.
 
 import { AlertCircle, ExternalLink } from 'lucide-react'
 import { FlowFooter } from '../FlowFooter'
 import type { TxError } from '@/lib/tx/types'
 import { resolveTxErrorCopy } from '@/lib/tx/errorCopy'
+import { SUPPORT_URL } from '@/config/support'
 import styles from './ErrorStep.module.css'
 
 export interface ErrorStepProps {
@@ -42,6 +43,9 @@ export interface ErrorStepProps {
   /** The user's own wallet sent (and paid gas for) the failed tx — a TX_REVERTED body then says the fee was spent
    *  (`lib/tx/errorCopy::userPaidNetworkFee`). Only the direct-path shield sets this; every spend is relayer-paid. */
   userPaidNetworkFee?: boolean
+  /** Where the user's USDC is after this failure ("Your USDC is still in your private balance."), appended to the body.
+   *  Modals pass `lib/tx/errorCopy::fundsNote(record)`, which is null whenever that isn't certain. */
+  fundsNote?: string | null
 }
 
 export function ErrorStep({
@@ -53,10 +57,11 @@ export function ErrorStep({
   onViewDetails,
   remedy,
   userPaidNetworkFee,
+  fundsNote,
 }: ErrorStepProps) {
   // Category-aware copy (shared with the ActivityReceipt) — prefers the code's stock body over the
   // raw error.message (often technical), falling back to the bare message prop for submit-time throws.
-  const { title, body } = resolveTxErrorCopy(error, message, { userPaidNetworkFee })
+  const { title, body } = resolveTxErrorCopy(error, message, { userPaidNetworkFee, fundsNote })
 
   return (
     <div className={styles.root}>
@@ -75,6 +80,10 @@ export function ErrorStep({
           View on block explorer <ExternalLink size={14} aria-hidden="true" />
         </a>
       ) : null}
+      {/* A plain link — nothing prefilled, so no tx details end up in a public channel. */}
+      <a className={styles.helpLink} href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+        Get help on Discord <ExternalLink size={14} aria-hidden="true" />
+      </a>
       {remedy ? (
         <FlowFooter
           className={styles.footer}

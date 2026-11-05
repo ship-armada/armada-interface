@@ -1,9 +1,10 @@
-// ABOUTME: Tests for lib/tx/errorCopy — category copy resolution, and the TX_REVERTED body that admits the network fee was
-// ABOUTME: spent when the user's own wallet sent the reverted tx (direct-path shield), via userPaidNetworkFee.
+// ABOUTME: Tests for lib/tx/errorCopy — category copy resolution, the TX_REVERTED body that admits the network fee was spent
+// ABOUTME: when the user's own wallet sent the reverted tx (userPaidNetworkFee), and the "where your USDC is" note (fundsNote).
 
 import { describe, it, expect } from 'vitest'
-import { resolveTxErrorCopy, retryActionLabel, userPaidNetworkFee } from './errorCopy'
-import type { TxRecord } from './types'
+import { fundsNote, resolveTxErrorCopy, retryActionLabel, userPaidNetworkFee } from './errorCopy'
+import type { TxErrorCode, TxRecord } from './types'
+import { getChainById, getNetworkConfig } from '@/config/network'
 
 const reverted = { code: 'TX_REVERTED' as const, message: 'execution reverted', txHash: '0x01' as `0x${string}` }
 
@@ -32,6 +33,98 @@ describe('resolveTxErrorCopy', () => {
   it('falls back to the message, then the fallback, when a code has no stock body', () => {
     expect(resolveTxErrorCopy({ code: 'OTHER', message: 'boom' }).body).toBe('boom')
     expect(resolveTxErrorCopy(null, 'fallback').body).toBe('fallback')
+  })
+
+  it('ends the body with the funds note when given one (7A)', () => {
+    const cancelled = { code: 'CANCELLED' as const, message: 'x' }
+    expect(resolveTxErrorCopy(cancelled, undefined, { fundsNote: 'Your USDC is still in your private balance.' }).body).toBe(
+      'No transaction was sent. Your USDC is still in your private balance.',
+    )
+    // A code with no stock body or message still gets the note.
+    expect(resolveTxErrorCopy(null, undefined, { fundsNote: 'Your USDC is still in your private balance.' }).body).toBe(
+      'Your USDC is still in your private balance.',
+    )
+  })
+})
+
+describe('fundsNote', () => {
+  const hub = getNetworkConfig().hub
+
+  function failed(
+    kind: TxRecord['kind'],
+    code: TxErrorCode,
+    opts: { meta?: object; sourceTxHash?: `0x${string}`; stagesCompleted?: string[]; state?: TxRecord['executionState'] } = {},
+  ): TxRecord {
+    return {
+      kind,
+      meta: opts.meta ?? {},
+      executionState: opts.state ?? 'failed',
+      stagesCompleted: opts.stagesCompleted ?? [],
+      artifacts: { error: { code, message: 'x' }, ...(opts.sourceTxHash ? { sourceTxHash: opts.sourceTxHash } : {}) },
+    } as unknown as TxRecord
+  }
+
+  it('a spend that failed before it was sent: the USDC is still in the private balance', () => {
+    for (const kind of ['transfer-shielded', 'unshield-local', 'unshield-xchain', 'yield-deposit'] as const) {
+      expect(fundsNote(failed(kind, 'FEE_EXPIRED'))).toBe('Your USDC is still in your private balance.')
+    }
+  })
+
+  it('a shield that failed: the USDC is still in the wallet on the chain it was shielding from', () => {
+    expect(fundsNote(failed('shield', 'PRE_FLIGHT_REVERT', { meta: { fromChainId: hub.chainId } }))).toBe(
+      `Your USDC is still in your wallet on ${hub.name}.`,
+    )
+    const client = getNetworkConfig().clients[0]
+    if (!client) throw new Error('expected a client chain')
+    expect(fundsNote(failed('shield-xchain', 'USER_REJECTED', { meta: { fromChainId: client.chainId } }))).toBe(
+      `Your USDC is still in your wallet on ${getChainById(client.chainId)?.name}.`,
+    )
+    // An unknown chain still says where — just not which network.
+    expect(fundsNote(failed('shield', 'PRE_FLIGHT_REVERT', { meta: { fromChainId: 999_999 } }))).toBe(
+      'Your USDC is still in your wallet.',
+    )
+  })
+
+  it('a vault withdrawal and a merge say what stayed put', () => {
+    expect(fundsNote(failed('yield-withdraw', 'FEE_EXPIRED'))).toBe('Your vault position is unchanged.')
+    expect(fundsNote(failed('consolidate', 'FEE_EXPIRED'))).toBe('Your private balance is unchanged.')
+  })
+
+  it('a cancelled tx counts as nothing sent', () => {
+    expect(fundsNote(failed('transfer-shielded', 'CANCELLED', { state: 'cancelled' }))).toBe(
+      'Your USDC is still in your private balance.',
+    )
+  })
+
+  it('a broadcast tx that reverted on chain moved nothing', () => {
+    expect(fundsNote(failed('unshield-local', 'TX_REVERTED', { sourceTxHash: '0x01' }))).toBe(
+      'Your USDC is still in your private balance.',
+    )
+  })
+
+  it('says nothing once a tx was broadcast and the failure is not a revert — it may have landed', () => {
+    expect(fundsNote(failed('transfer-shielded', 'RPC_ERROR', { sourceTxHash: '0x01' }))).toBeNull()
+    expect(fundsNote(failed('transfer-shielded', 'OTHER', { sourceTxHash: '0x01' }))).toBeNull()
+  })
+
+  it('says nothing when the outcome is unknown', () => {
+    for (const code of ['POLL_TIMEOUT', 'STUCK', 'DISMISSED', 'DUPLICATE_TX'] as const) {
+      expect(fundsNote(failed('transfer-shielded', code, { sourceTxHash: '0x01' }))).toBeNull()
+    }
+    expect(fundsNote(failed('transfer-shielded', 'OTHER', { state: 'expired' }))).toBeNull()
+  })
+
+  it('says nothing once a cross-chain tx burned its USDC on the source chain, even if delivery then failed', () => {
+    expect(fundsNote(failed('unshield-xchain', 'TX_REVERTED', { sourceTxHash: '0x01', stagesCompleted: ['hub-burn-confirmed'] }))).toBeNull()
+    expect(
+      fundsNote(failed('shield-xchain', 'TX_REVERTED', { meta: { fromChainId: hub.chainId }, sourceTxHash: '0x01', stagesCompleted: ['client-burn-confirmed'] })),
+    ).toBeNull()
+  })
+
+  it('says nothing for a settled or in-flight tx, or with no record', () => {
+    expect(fundsNote({ ...failed('transfer-shielded', 'OTHER'), executionState: 'completed' } as TxRecord)).toBeNull()
+    expect(fundsNote({ ...failed('transfer-shielded', 'OTHER'), executionState: 'active' } as TxRecord)).toBeNull()
+    expect(fundsNote(null)).toBeNull()
   })
 })
 
