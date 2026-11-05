@@ -48,6 +48,19 @@ export interface PaymentIntent {
 export const paymentIntentAtom = atom<PaymentIntent | null>(null)
 
 /**
+ * "Do it again" hand-off from an Activity receipt to the flow it repeats. When set, the receipt opens that flow's modal
+ * (`components/dashboard/repeatIntent::repeatModalFor`) and the modal seeds its amount step from it — the recipient /
+ * chain / vault direction and the amount, still editable — then clears it. Carries no funds/keys — just a prefill.
+ */
+export type RepeatIntent =
+  | { flow: 'send'; recipient: string; amount: string; destChainId: number }
+  | { flow: 'unshield'; amount: string; toChainId: number }
+  | { flow: 'shield'; amount: string; fromChainId: number }
+  | { flow: 'earn'; direction: 'add' | 'withdraw'; amount: string }
+
+export const repeatIntentAtom = atom<RepeatIntent | null>(null)
+
+/**
  * What the `merge` modal opens with: the token to merge and, when a spend was blocked by fragmentation,
  * that spend (so the preview can say whether one merge unblocks it). Set by whoever opens the modal —
  * a blocked flow's "Merge notes" button or Settings. Carries no funds/keys — just a prefill intent.

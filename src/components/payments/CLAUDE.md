@@ -26,6 +26,12 @@ which the Unshield tab and `ActivityReceipt` reuse to render unshield reviews/re
 step). The `FlowShell` Steps bar is a dedicated 4-segment indicator — `['Recipient', 'Amount',
 'Review', 'Confirm']` — with `currentStep` mapping `recipient→1, input→2, review→3, else→4`.
 
+## Prefilled entry
+
+- A pay-via-link `paymentIntentAtom` seeds the recipient (+ amount → straight to Review).
+- An Activity receipt's "Send again" (`repeatIntentAtom`, `flow: 'send'`) seeds the recipient, destination chain and
+  amount and opens on the amount step (still editable; Back shows the recipient step filled in). Both are consumed on open.
+
 ## Kind selection (address-driven, no tabs)
 
 ```

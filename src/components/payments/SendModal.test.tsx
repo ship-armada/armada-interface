@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { SendModal } from './SendModal'
-import { mergeIntentAtom, openModalAtom, paymentIntentAtom } from '@/state/ui'
+import { mergeIntentAtom, openModalAtom, paymentIntentAtom, repeatIntentAtom, type RepeatIntent } from '@/state/ui'
 import {
   activeShieldedWalletIdAtom,
   shieldedWalletsAtom,
@@ -13,7 +13,7 @@ import {
   shieldedUsdcSpendableAtom,
 } from '@/state/wallet'
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
-import { getChainById } from '@/config/network'
+import { getChainById, getNetworkConfig } from '@/config/network'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
 import { markCancelled } from '@/lib/tx/reducer'
@@ -169,10 +169,12 @@ function renderModal(opts?: {
   shielded?: bigint
   evm?: string
   intent?: { recipient: string; amount?: string }
+  repeat?: RepeatIntent
 }) {
   const store = createStore()
   if (opts?.open) store.set(openModalAtom, opts.open)
   if (opts?.intent) store.set(paymentIntentAtom, opts.intent)
+  if (opts?.repeat) store.set(repeatIntentAtom, opts.repeat)
   if (opts?.shielded !== undefined) {
     store.set(shieldedUsdcAtom, opts.shielded)
     store.set(shieldedUsdcSpendableAtom, opts.shielded) // no pending in tests → spendable == total
@@ -261,6 +263,24 @@ describe('<SendModal>', () => {
     expect(screen.queryByLabelText('Recipient address')).toBeNull()
     // The intent is consumed on open so it can't re-fire.
     expect(store.get(paymentIntentAtom)).toBeNull()
+  })
+
+  it('"Send again" from a receipt opens on the amount step with the recipient, chain and amount filled in, and consumes it (8C)', () => {
+    const client = getNetworkConfig().clients[0]
+    if (!client) throw new Error('expected a client chain')
+    const store = renderModal({
+      open: 'payment',
+      shielded: 10_000_000n,
+      repeat: { flow: 'send', recipient: VALID_EVM, amount: '2.5', destChainId: client.chainId },
+    })
+    expect(screen.getByLabelText('Send amount')).toHaveValue('2.5')
+    expect(screen.queryByLabelText('Recipient address')).toBeNull()
+    expect(store.get(repeatIntentAtom)).toBeNull()
+    // Back on the recipient step: the same address, on the same chain.
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }))
+    // (Shown shortened while the field isn't focused.)
+    expect((screen.getByLabelText('Recipient address') as HTMLInputElement).value).toMatch(/^0x1234.*5678$/)
+    expect(screen.getByLabelText('Destination chain')).toHaveTextContent(client.name)
   })
 
   it('lands on the amount step for an amount-less pay-via-link intent', () => {

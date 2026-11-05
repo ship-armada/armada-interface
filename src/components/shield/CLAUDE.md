@@ -17,6 +17,10 @@ EVM wallet), as two tabs on the amount step. Owned by `ShieldModal`, opened via 
 
 ## State machinery
 
+- An Activity receipt's "Shield again" / "Unshield again" (`repeatIntentAtom`) opens the matching tab with its chain
+  (source / destination) and amount filled in, on the amount step; `ShieldModal` seeds them through the flows' setters
+  once open and consumes the intent.
+
 - `openModalAtom === 'shield' \|\| 'unshield'` controls visibility; the value picks the initial tab.
 - **Shield tab** → `useShieldFlow`: `shield` / `shield-xchain` by from-chain; wallet-signs (or gasless permit).
 - **Unshield tab** → `useUnshieldFlow`: `unshield-local` / `unshield-xchain` by **to-chain picker**; recipient is pinned to the connected wallet; relayer-submitted.

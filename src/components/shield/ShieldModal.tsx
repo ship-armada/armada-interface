@@ -1,9 +1,9 @@
 // ABOUTME: ShieldModal — Shield/Unshield tabbed flow. Dumb renderer composing useShieldFlow + useUnshieldFlow.
 // ABOUTME: Shield = public → private; Unshield = private → your own EVM wallet (to-chain picker). The typed amount carries across the tab toggle.
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAtom } from 'jotai'
-import { openModalAtom } from '@/state/ui'
+import { openModalAtom, repeatIntentAtom } from '@/state/ui'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
 import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
@@ -59,6 +59,25 @@ export function ShieldModal() {
 
   const shieldFlow = useShieldFlow(isOpen)
   const unshieldFlow = useUnshieldFlow(isOpen)
+
+  // "Shield again" / "Unshield again" from a receipt: seed the tab's chain + amount (still editable), then consume it.
+  // The tab itself comes from the modal kind the receipt opened.
+  const [repeatIntent, setRepeatIntent] = useAtom(repeatIntentAtom)
+  const { setFromChainId, setAmountStr: setShieldAmount } = shieldFlow
+  const { setToChainId, setAmountStr: setUnshieldAmount } = unshieldFlow
+  useEffect(() => {
+    if (!isOpen || !repeatIntent) return
+    if (repeatIntent.flow === 'shield') {
+      setFromChainId(repeatIntent.fromChainId)
+      setShieldAmount(repeatIntent.amount)
+    } else if (repeatIntent.flow === 'unshield') {
+      setToChainId(repeatIntent.toChainId)
+      setUnshieldAmount(repeatIntent.amount)
+    } else {
+      return
+    }
+    setRepeatIntent(null)
+  }, [isOpen, repeatIntent, setRepeatIntent, setFromChainId, setShieldAmount, setToChainId, setUnshieldAmount])
   const { exiting, requestClose: close } = useFlowExit(() => setOpenModal(null))
   // Shared across the amount step's card + footer (siblings) so tapping the disabled "Input amount"
   // CTA can focus the amount field alongside the shake.

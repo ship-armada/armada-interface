@@ -1,8 +1,9 @@
 // ABOUTME: Activity receipt — reopens a past tx's confirm-step view (same FlowShell chrome + frost card + review summary); a pending tx adds its live stepper.
 // ABOUTME: Reconstructs the summary props from the record's meta/artifacts (no stored snapshot — chunk 6b decision a); step-bar hidden, CTAs are View-on-explorer + Done.
 
-import { type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { ExternalLink } from 'lucide-react'
+import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { FlowShell } from '@/components/flow/FlowShell'
 import { useFlowExit } from '@/components/flow/useFlowExit'
@@ -13,7 +14,10 @@ import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
 import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSummary'
 import { ReceivedSummary } from '@/components/dashboard/ReceivedSummary'
 import { frozenApyRate, type YieldRate } from '@/hooks/useYieldRate'
-import { formatUsdcPlain } from '@/lib/format'
+import { formatUsdcPlain, truncateAddressEnds } from '@/lib/format'
+import { CopyAddressButton } from '@/components/ui/CopyAddressButton'
+import { repeatIntentFor, repeatLabel } from '@/components/dashboard/repeatIntent'
+import type { RepeatIntent } from '@/state/ui'
 import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import { DeliveryTxLink } from '@/components/tx/DeliveryTxLink'
 import { getChainById, getNetworkConfig } from '@/config/network'
@@ -35,6 +39,9 @@ export interface ActivityReceiptProps {
   ownWalletAddress?: string
   open: boolean
   onClose: () => void
+  /** "Do it again" ("Send again", "Shield again", …): called with the record's prefill once the receipt has closed. The
+   *  action shows only when this is set and the record offers it (`repeatIntentFor`: settled, failed or cancelled). */
+  onRepeat?: (intent: RepeatIntent) => void
 }
 
 /** Step-bar labels per originating flow — shown all-confirmed on the receipt (matches the mockup). */
@@ -229,11 +236,20 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
   }
 }
 
-export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: ActivityReceiptProps) {
+export function ActivityReceipt({ record, ownWalletAddress, open, onClose, onRepeat }: ActivityReceiptProps) {
   const view = record ? buildReceiptView(record, ownWalletAddress) : null
+  const txHash = record ? displayTxHash(record) : undefined
+  const repeat = record && onRepeat ? repeatIntentFor(record, ownWalletAddress) : null
 
+  // "Do it again" waits for the receipt's exit, so the flow it opens doesn't slide in over it.
+  const pendingRepeatRef = useRef<RepeatIntent | null>(null)
   // Play the slide-down exit before the parent unmounts us (mockup parity with the flow modals).
-  const { exiting, requestClose } = useFlowExit(onClose)
+  const { exiting, requestClose } = useFlowExit(() => {
+    onClose()
+    const intent = pendingRepeatRef.current
+    pendingRepeatRef.current = null
+    if (intent) onRepeat?.(intent)
+  })
 
   // Settled → confirmed chrome; a definitive failure/cancel → error chrome; an indeterminate
   // (unknown) or pending outcome stays neutral.
@@ -301,6 +317,28 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose }: Act
           {view.summary}
           {/* A cross-chain tx's second half: the CCTP mint on the destination chain ("View on explorer" is the source tx). */}
           {record ? <DeliveryTxLink link={deliveryExplorerLink(record)} /> : null}
+
+          {txHash ? (
+            <div className={styles.txHashRow}>
+              <span className={styles.txHashLabel}>Transaction</span>
+              <span className={styles.txHash}>{truncateAddressEnds(txHash)}</span>
+              <CopyAddressButton address={txHash} label="Copy transaction hash" copiedLabel="Transaction hash copied" />
+            </div>
+          ) : null}
+
+          {repeat ? (
+            <button
+              type="button"
+              className={styles.repeatButton}
+              onClick={() => {
+                pendingRepeatRef.current = repeat
+                requestClose()
+              }}
+            >
+              <ArrowPathIcon className={styles.repeatIcon} strokeWidth={1.75} aria-hidden />
+              {repeatLabel(repeat)}
+            </button>
+          ) : null}
 
           <div className={`${modalActionRowEnter} ${styles.buttonRow}`}>
             <Button
