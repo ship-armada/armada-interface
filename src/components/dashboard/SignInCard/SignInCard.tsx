@@ -97,10 +97,13 @@ export function SignInCard({
             <p className={styles.connectedAs}>Connected as {shortAddress(address)}</p>
           ) : null}
         </div>
-        <p className={styles.intro}>
-          Your shielded wallet is derived from a signature your EVM wallet produces — no passphrase, no recovery phrase.
-          Sign in from any device with the same wallet.
-        </p>
+        <div className={styles.intro}>
+          <p>
+            Your shielded wallet is derived from a signature your EVM wallet produces — no passphrase, no recovery
+            phrase.
+          </p>
+          <p>Sign in from any device with the same wallet.</p>
+        </div>
         <button type="button" className={styles.textLink} onClick={onRestore}>
           Restore wallet from backup instead
         </button>

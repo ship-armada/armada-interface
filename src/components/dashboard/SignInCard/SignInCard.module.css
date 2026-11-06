@@ -3,7 +3,7 @@
 
 .card {
   /* Tighter than the balance card's own gap so the connected card (button, "Connected as", intro, link) fits its height. */
-  gap: var(--primitives-spacing-4);
+  gap: var(--primitives-spacing-3);
   /* At least the signed-in BalanceCard's height (no vault bar), so signing in doesn't make the balance spot jump; extra
      lines (lock reason / pay link, an error) grow it. Measured from the rendered BalanceCard — update both values if its
      layout changes. */
@@ -13,7 +13,7 @@
 @media (max-width: 479px) {
   .card {
     /* The intro wraps to more lines on a phone; a tighter gap keeps the connected card at the balance card's height. */
-    gap: var(--primitives-spacing-3);
+    gap: var(--primitives-spacing-2);
     min-height: 260px;
   }
 }
@@ -47,9 +47,15 @@
 }
 
 .intro {
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
   color: var(--semantic-color-text-muted);
   line-height: var(--primitives-lineHeight-normal);
+}
+
+.intro p {
+  margin: 0;
 }
 
 /* Quiet text link — "Restore wallet from backup instead". Keeps to the bottom when the card is taller than its content. */

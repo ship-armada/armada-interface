@@ -34,9 +34,10 @@ describe('<SignInCard>', () => {
     renderCard()
     expect(
       screen.getByText(
-        'Your shielded wallet is derived from a signature your EVM wallet produces — no passphrase, no recovery phrase. Sign in from any device with the same wallet.',
+        'Your shielded wallet is derived from a signature your EVM wallet produces — no passphrase, no recovery phrase.',
       ),
     ).toBeInTheDocument()
+    expect(screen.getByText('Sign in from any device with the same wallet.')).toBeInTheDocument()
     expect(screen.queryByText(/\d+\.\d{2}/)).toBeNull()
   })
 
