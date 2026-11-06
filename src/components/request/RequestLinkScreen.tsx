@@ -14,12 +14,6 @@ const COPY_FEEDBACK_MS = 2000
  *  history; the payer sees them on the landing page. */
 const SHARE_TEXT = 'Here\u2019s my Armada payment link:'
 
-function formatExpireInLabel(expiresAt: number): string {
-  const relative = formatPaymentLinkExpiry(expiresAt)
-  if (relative === 'Expired') return 'Expired'
-  return relative.replace(/^Expires /, 'Expire ')
-}
-
 /** Middle-truncates a long URL (head…tail) to fit its container, remeasuring on resize. */
 function LinkDisplay({ url }: { url: string }) {
   const containerRef = useRef<HTMLParagraphElement>(null)
@@ -103,7 +97,8 @@ export function RequestLinkScreen({
   const [linkCopied, setLinkCopied] = useState(false)
   const linkCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const amountLabel = amount ? formatUsdcAmount(parseUsdcInput(amount).value) : null
-  const expiryLabel = formatExpireInLabel(expiresAt)
+  // "Expires in 3 days" / "Expired" — the same wording as the payer's landing and the activity row.
+  const expiryLabel = formatPaymentLinkExpiry(expiresAt)
   // The device's share sheet (mostly phones); without one, Copy covers sharing.
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 

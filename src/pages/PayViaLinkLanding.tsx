@@ -100,7 +100,7 @@ export function PayViaLinkLanding() {
   const amountLabel = params.amount
     ? formatUsdcAmount(parseUsdcInput(params.amount).value)
     : null
-  const expiryLabel = formatPaymentLinkExpiry(params.expiresAt).replace(/^Expires /, 'Expire ')
+  const expiryLabel = formatPaymentLinkExpiry(params.expiresAt)
   const paymentUrl = window.location.href
 
   return (

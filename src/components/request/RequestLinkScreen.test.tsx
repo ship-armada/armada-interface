@@ -15,6 +15,13 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, 'share')
 })
 
+describe('<RequestLinkScreen> expiry', () => {
+  it('reads "Expires in N days"', () => {
+    render(<RequestLinkScreen paymentLink={LINK} expiresAt={Date.now() + 3 * 86_400_000 - 1_000} revoked={false} onDone={vi.fn()} />)
+    expect(screen.getByText('Expires in 3 days')).toBeInTheDocument()
+  })
+})
+
 describe('<RequestLinkScreen> amount', () => {
   it('a request without an amount reads "Any amount" (10G)', () => {
     render(<RequestLinkScreen paymentLink={LINK} expiresAt={Date.now() + 86_400_000} revoked={false} onDone={vi.fn()} />)
