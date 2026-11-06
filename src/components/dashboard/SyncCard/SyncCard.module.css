@@ -1,0 +1,86 @@
+/* ABOUTME: SyncCard styling — the balance card's surface and action row (BalanceCard.module.css) with the sync status in place
+   ABOUTME: of the balance: a small spinner + "Syncing… N%", the caption, and the inline failure with Try again / help. */
+
+.card {
+  gap: var(--primitives-spacing-6);
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--primitives-spacing-2);
+}
+
+.progress {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+}
+
+.spinner {
+  width: var(--primitives-spacing-6);
+  height: var(--primitives-spacing-6);
+  border-radius: 50%;
+  border: 2px solid var(--semantic-color-border-default);
+  border-top-color: var(--semantic-color-brand-lavender);
+  animation: syncCardSpin 900ms linear infinite;
+}
+
+.progressText {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-xl) * 1px);
+  font-weight: var(--primitives-fontWeight-semibold);
+  line-height: var(--primitives-lineHeight-tight);
+  color: var(--semantic-color-text-primary);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-xl) * 1px);
+  font-weight: var(--primitives-fontWeight-semibold);
+  line-height: var(--primitives-lineHeight-tight);
+  color: var(--semantic-color-text-primary);
+}
+
+.body {
+  margin: 0;
+  color: var(--semantic-color-text-secondary);
+}
+
+.note {
+  margin: 0;
+  color: var(--semantic-color-text-muted);
+}
+
+.helpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+}
+
+.helpLink:hover,
+.helpLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-3);
+}
+
+@keyframes syncCardSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

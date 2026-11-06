@@ -23,7 +23,10 @@ import { buildActivityItems, type DashboardActivityItem } from '@/components/das
 import { selfSendAsMerge } from '@/lib/tx/selfSend'
 import { formatUsdcAmount } from '@/components/dashboard/dashboardFormat'
 import type { BalanceRollMode } from '@/components/dashboard/RollingBalanceValue'
-import { SyncGate, isInitialSyncGated } from '@/components/sync'
+import { isInitialSyncGated } from '@/components/sync'
+import { SyncCard } from '@/components/dashboard/SyncCard'
+import { useSyncRetry } from '@/hooks/useSyncRetry'
+import { readHistoryCheckpoint } from '@/lib/shielded/history-checkpoint'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { apyExplanation, formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
@@ -48,6 +51,9 @@ import {
   shieldedWalletAtom,
   evmAddressAtom,
   usdcBalancesAtom,
+  activeShieldedWalletIdAtom,
+  syncStateAtom,
+  syncRetryEpochAtom,
 } from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
@@ -88,6 +94,11 @@ export function Dashboard() {
   const lockReason = useAtomValue(lockReasonAtom)
   const { autoLockMinutes } = useAtomValue(preferencesAtom)
   const paymentIntent = useAtomValue(paymentIntentAtom)
+  // While the first sync runs after sign-in: its progress / failure, and whether a retry was already made.
+  const syncState = useAtomValue(syncStateAtom)
+  const syncRetried = useAtomValue(syncRetryEpochAtom) > 0
+  const retrySync = useSyncRetry()
+  const activeWalletId = useAtomValue(activeShieldedWalletIdAtom)
 
   // Actions
   const openActionModal = useOpenActionModal()
@@ -256,6 +267,33 @@ export function Dashboard() {
     '--dashboard-tooltip-enter-delay': `${DASHBOARD_TOOLTIP_ENTER_DELAY_MS}ms`,
   } as CSSProperties
 
+  // The "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. Shared by the
+  // syncing view and the full dashboard.
+  const activityOverlays = (
+    <>
+    {/* Full "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. */}
+    <ActivityAllPanel
+      open={activityPanelOpen}
+      onClose={() => setActivityPanelOpen(false)}
+      items={panelActivityItems}
+      truncatedCount={activityTruncated ? ACTIVITY_PANEL_MAX : undefined}
+      balanceRevealed={!balanceHidden}
+      onItemClick={handleActivityItemClick}
+    />
+    <ActivityReceipt
+      record={activityTxList.find((record) => record.id === receiptId) ?? null}
+      ownWalletAddress={evmAddress ?? undefined}
+      open={receiptId !== null}
+      onClose={() => setReceiptId(null)}
+      // "Send again" / "Shield again" / …: hand the prefill to the flow it repeats, which seeds its amount step.
+      onRepeat={(intent) => {
+        setRepeatIntent(intent)
+        openActionModal(repeatModalFor(intent))
+      }}
+    />
+    </>
+  )
+
   // Before sign-in: the sign-in card in the balance spot, the earn banner from the public APY, and an activity placeholder
   // (history is encrypted until sign-in). Every action signs in first, then continues (useOpenActionModal).
   if (shieldedWallet.status !== 'unlocked') {
@@ -293,9 +331,35 @@ export function Dashboard() {
     )
   }
 
-  // Gate the dashboard behind the initial shielded-balance sync. The navbar (AppLayout) stays visible.
+  // Signed in but the first sync hasn't produced a balance yet (11A): the sync card holds the balance spot (no figure —
+  // G-11) while activity, Shield and Request already work. The full card mounts with its intro roll once the balance lands.
   if (gated) {
-    return <SyncGate />
+    const showSyncActivity = allActivityItems.length > 0
+    return (
+      <div className={styles.page}>
+        <DashboardScrollTopFade enabled={showSyncActivity} />
+        <div className={styles.cardStack}>
+          <SyncCard
+            progress={syncState.progress}
+            failed={syncState.status === 'failed'}
+            retried={syncRetried}
+            // No history checkpoint for this wallet here yet = its first sync on this device, scanning from the start.
+            firstSync={activeWalletId !== null && readHistoryCheckpoint(activeWalletId) === null}
+            onRetry={retrySync}
+            onAction={(kind) => openActionModal(kind)}
+          />
+          {showSyncActivity ? (
+            <RecentActivityList
+              items={previewActivityItems}
+              balanceRevealed={!balanceHidden}
+              onViewAll={() => setActivityPanelOpen(true)}
+              onItemClick={handleActivityItemClick}
+            />
+          ) : null}
+        </div>
+        {activityOverlays}
+      </div>
+    )
   }
 
   // Page-load cascade: activity enters last, after the hero → actions → banner beats. Captured on the
@@ -383,26 +447,7 @@ export function Dashboard() {
         ) : null}
       </div>
 
-      {/* Full "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. */}
-      <ActivityAllPanel
-        open={activityPanelOpen}
-        onClose={() => setActivityPanelOpen(false)}
-        items={panelActivityItems}
-        truncatedCount={activityTruncated ? ACTIVITY_PANEL_MAX : undefined}
-        balanceRevealed={!balanceHidden}
-        onItemClick={handleActivityItemClick}
-      />
-      <ActivityReceipt
-        record={activityTxList.find((record) => record.id === receiptId) ?? null}
-        ownWalletAddress={evmAddress ?? undefined}
-        open={receiptId !== null}
-        onClose={() => setReceiptId(null)}
-        // "Send again" / "Shield again" / …: hand the prefill to the flow it repeats, which seeds its amount step.
-        onRepeat={(intent) => {
-          setRepeatIntent(intent)
-          openActionModal(repeatModalFor(intent))
-        }}
-      />
+      {activityOverlays}
     </div>
   )
 }
