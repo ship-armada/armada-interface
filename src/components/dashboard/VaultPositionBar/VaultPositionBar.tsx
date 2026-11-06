@@ -1,5 +1,5 @@
-// ABOUTME: Compact vault position row showing shielded vault balance, APY, and accrued earnings.
-// ABOUTME: Ported from the armada-app design mockup.
+// ABOUTME: Compact vault position row showing shielded vault balance, APY and accrued earnings, each figure with an ⓘ saying what it is.
+// ABOUTME: Ported from the armada-app design mockup; the whole row opens the vault (a full-size button beneath the content and the ⓘs).
 import { useState } from 'react'
 import { ChartBarIcon } from '@heroicons/react/24/outline'
 import { ChevronRightIcon } from '@heroicons/react/24/outline'
@@ -11,7 +11,8 @@ import {
   formatEarnedSoFarAmount,
   formatVaultEarningLabel,
 } from '@/components/dashboard/vaultEarnings'
-import { formatApyPercent } from '@/lib/yield'
+import { EARNED_EXPLANATION, apyExplanation, formatApyPercent } from '@/lib/yield'
+import { InfoTip } from '@/components/ui/InfoTip'
 import { formatUsdcAmount } from '@/components/dashboard/dashboardFormat'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import styles from './VaultPositionBar.module.css'
@@ -20,6 +21,8 @@ export interface VaultPositionBarProps {
   balance: number
   /** Net vault APY as a percentage (4.2 = 4.2%). Undefined until the rate loads → rendered as "—". */
   apy?: number
+  /** The vault's fee on earnings (basis points) — named in the rate's ⓘ (`lib/yield::apyExplanation`). */
+  yieldFeeBps?: bigint
   earnedAmount?: number
   vaultRollActive?: boolean
   vaultRollFromValue?: string
@@ -39,6 +42,7 @@ export interface VaultPositionBarProps {
 export function VaultPositionBar({
   balance,
   apy,
+  yieldFeeBps,
   earnedAmount,
   vaultRollActive = false,
   vaultRollFromValue,
@@ -105,6 +109,7 @@ export function VaultPositionBar({
           </span>
           <span className={styles.apr} aria-label={apyLabel}>
             Earning <BalanceScrambleValue value={formattedApy} revealed={balanceRevealed} /> APY
+            <InfoTip text={apyExplanation(yieldFeeBps)} label="About this rate" className={styles.tip} />
           </span>
         </div>
       </div>
@@ -116,22 +121,20 @@ export function VaultPositionBar({
         >
           <BalanceScrambleValue value={formattedEarned} revealed={balanceRevealed} />
         </span>
+        <InfoTip text={EARNED_EXPLANATION} label="About earned" className={styles.tip} />
         <ChevronRightIcon className={styles.chevron} strokeWidth={2} aria-hidden />
       </div>
     </>
   )
 
   if (onOpen) {
+    // The ⓘs are buttons, which can't nest inside a button — so the row is a container whose full-size "open" button sits
+    // beneath the content (which lets clicks through to it), with only the ⓘs above it.
     return (
-      <button
-        type="button"
-        className={styles.root}
-        aria-label="Manage shielded vault"
-        onClick={onOpen}
-        {...peekHandlers}
-      >
+      <div className={[styles.root, styles.rootInteractive].join(' ')} {...peekHandlers}>
+        <button type="button" className={styles.cover} aria-label="Manage shielded vault" onClick={onOpen} />
         {content}
-      </button>
+      </div>
     )
   }
 

@@ -1,5 +1,5 @@
-// ABOUTME: Pure yield-math helpers — shares→USDC conversion, APY derivation from the vault rate.
-// ABOUTME: No React, no IO. formatApyPercent / formatEarnApyHeadline are the APY display formats shared by the dashboard and the Earn flow.
+// ABOUTME: Pure yield-math helpers (no React, no IO) — shares→USDC, APY from the vault rate, and the APY display formats shared by the dashboard and Earn flow.
+// ABOUTME: Also the yield explanations: apyExplanation (the rate, net of the vault fee), EARNED_EXPLANATION, and projectedYearlyYield for a deposit.
 
 /**
  * Convert raw 18-decimal yield shares to raw 6-decimal USDC, given a shares→USDC rate.
@@ -38,4 +38,35 @@ export function formatApyPercent(apy: number): string {
 /** The earn banner headline ("Earn ~4.20% APY") — shared by the dashboard banner and the Earn modal's intro banner. */
 export function formatEarnApyHeadline(apy: number): string {
   return `Earn ~${formatApyPercent(apy)} APY`
+}
+
+/** A basis-point fee as a short percentage: 1000 → "10%", 1250 → "12.5%". */
+export function formatFeePercent(feeBps: bigint): string {
+  const pct = Number(feeBps) / 100
+  return `${Number.isInteger(pct) ? pct : pct.toFixed(1).replace(/\.0$/, '')}%`
+}
+
+/**
+ * What the vault's rate is (12C) — the ⓘ on the Earn banner and the dashboard vault bar. The rate is the Aave market's
+ * current yearly yield less the vault's fee on earnings (`useYieldRate().rate.yieldFeeBps`); while the fee isn't known
+ * the sentence leaves its number out.
+ */
+export function apyExplanation(yieldFeeBps: bigint | undefined): string {
+  const fee = yieldFeeBps !== undefined ? `${formatFeePercent(yieldFeeBps)} ` : ''
+  return `Current yearly rate after the vault\u2019s ${fee}fee on earnings. It comes from the Aave market the vault lends to, and changes with demand.`
+}
+
+/** What the vault bar's earned figure is (12D) — matches `components/dashboard/vaultEarnings::accruedVaultYieldRaw`. */
+export const EARNED_EXPLANATION =
+  'How much your vault position has grown since your first deposit, not counting your deposits and withdrawals.'
+
+/** The ⓘ beside a projected yearly yield (12E): it's today's rate, which moves. */
+export const PROJECTED_YIELD_EXPLANATION = 'At today\u2019s rate; the rate changes, so this isn\u2019t guaranteed.'
+
+/**
+ * What a deposit of `amount` (raw 6-decimal USDC) would earn in a year at the net rate `apyBps` (12E) — simple interest,
+ * no compounding: a rough guide, shown as "≈" with PROJECTED_YIELD_EXPLANATION. Spec YD-7.
+ */
+export function projectedYearlyYield(amount: bigint, apyBps: bigint): bigint {
+  return (amount * apyBps) / 10_000n
 }

@@ -46,6 +46,8 @@ export interface BalanceCardProps {
   onWithdraw?: () => void
   vaultBalance?: number
   vaultApy?: number
+  /** The vault's fee on earnings (basis points), named in the vault bar's rate ⓘ. */
+  vaultYieldFeeBps?: bigint
   /** Accrued vault yield (USDC) for the green "earned" figure; undefined → the bar shows its placeholder. */
   vaultEarned?: number
   vaultRollFromValue?: string
@@ -87,6 +89,7 @@ export function BalanceCard({
   onEarn,
   vaultBalance = 0,
   vaultApy,
+  vaultYieldFeeBps,
   vaultEarned,
   vaultRollFromValue,
   onVaultOpen,
@@ -448,6 +451,7 @@ export function BalanceCard({
               <VaultPositionBar
                 balance={vaultBalance}
                 apy={vaultApy}
+                yieldFeeBps={vaultYieldFeeBps}
                 earnedAmount={vaultEarned}
                 vaultRollActive={vaultTransferRollActive && !vaultExiting}
                 vaultRollFromValue={vaultRollFromValue}
