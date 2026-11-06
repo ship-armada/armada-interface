@@ -20,12 +20,14 @@ describe('<SyncCard>', () => {
     const meter = screen.getByRole('progressbar', { name: 'Loading your private balance' })
     expect(meter).toHaveAttribute('aria-valuenow', '42')
     expect(screen.getByText('Syncing… 42%')).toBeInTheDocument()
-    expect(screen.getByText(/keep this tab open until it finishes/)).toBeInTheDocument()
+    expect(screen.getByText('Scanning the chain to load your private balance and history.')).toBeInTheDocument()
   })
 
   it("on a device's first sync, says it takes longer", () => {
     renderCard({ firstSync: true })
-    expect(screen.getByText('Scanning the chain from the start — this first sync takes longer.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Scanning the chain to load your private balance and history — this first sync takes longer.'),
+    ).toBeInTheDocument()
   })
 
   it('offers no flow buttons until the balance has loaded', () => {

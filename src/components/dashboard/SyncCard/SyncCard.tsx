@@ -56,14 +56,11 @@ export function SyncCard({ progress, failed, retried, firstSync, onRetry }: Sync
             <span className={styles.spinner} aria-hidden />
             <span className={styles.progressText}>{`Syncing… ${pct}%`}</span>
           </div>
-          <div className={styles.text}>
-            <p className={styles.body}>
-              Scanning the chain to load your private balance — keep this tab open until it finishes.
-            </p>
-            {firstSync ? (
-              <p className={styles.note}>Scanning the chain from the start — this first sync takes longer.</p>
-            ) : null}
-          </div>
+          <p className={styles.body}>
+            {firstSync
+              ? 'Scanning the chain to load your private balance and history — this first sync takes longer.'
+              : 'Scanning the chain to load your private balance and history.'}
+          </p>
         </div>
       )}
     </section>
