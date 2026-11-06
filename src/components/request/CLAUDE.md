@@ -8,7 +8,7 @@ The "Request USDC via link" flow — compose a payment request and share a link 
 |---|---|
 | `RequestModal` | Orchestrator on `FlowShell` (steps `Receive → Share link`). Owns amount/expiry/note state; builds the link on Create via `lib/payViaLink.buildPayViaLinkUrl` from the active wallet's 0zk address. |
 | `RequestReceiveScreen` | Compose step — amount + `Link expires` SegmentedControl + optional note. The amount field keeps forward-typing states ("0", ".", "0.") so sub-one amounts are typeable, and reads a typed comma as the decimal point (`utils/amountInput::sanitizeAmountEdit`); "Create link" is enabled only for a positive amount and advances to the link screen. |
-| `RequestLinkScreen` | Link step — the generated URL (middle-truncated) + Copy, plus the wired-ready **Link revoked** variant. |
+| `RequestLinkScreen` | Link step — a QR of the link (`payViaLink/PaymentLinkQrCode`, the landing's plate: frost / solid white in dark), the generated URL (middle-truncated) + Copy, and **Share** beside it where the device has a share sheet (`navigator.share`, mostly phones; desktop keeps Copy only) — the message is "Here’s my Armada payment link:" + the link, naming no amount or note (they'd sit readable in the chat history; the payer sees them on the landing). A dismissed sheet is ignored. No auto-copy on create. Plus the wired-ready **Link revoked** variant. |
 
 ## What's real vs. deferred
 
