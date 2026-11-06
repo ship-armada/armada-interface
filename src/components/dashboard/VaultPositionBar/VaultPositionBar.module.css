@@ -1,4 +1,4 @@
-/* ABOUTME: Styles for VaultPositionBar — row layout, icon badge, amount/earned typography, hover surface, and the full-size open button under the ⓘs. */
+/* ABOUTME: Styles for VaultPositionBar — row layout, icon badge, amount/earned typography, and hover surface. */
 /* ABOUTME: Ported from the armada-app design mockup. */
 .root {
   position: relative;
@@ -29,40 +29,21 @@
   z-index: -1;
 }
 
-/* The row's "open" button: full size, beneath the content. The content lets clicks through to it; the ⓘs (.tip) don't. */
-.cover {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  padding: 0;
-  border: none;
-  border-radius: inherit;
-  background: transparent;
+button.root {
   cursor: pointer;
 }
 
-.rootInteractive > .lead,
-.rootInteractive > .trail {
-  position: relative;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.tip {
-  pointer-events: auto;
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .rootInteractive:has(> .cover:hover)::before {
+  button.root:hover::before {
     background: var(--semantic-color-frost-hover);
   }
 
-  :global([data-theme='light'][data-dashboard-bg='solid']) .rootInteractive:has(> .cover:hover)::before {
+  :global([data-theme='light'][data-dashboard-bg='solid']) button.root:hover::before {
     background: var(--primitives-color-neutral-200);
   }
 }
 
-.rootInteractive:has(> .cover:active)::before {
+button.root:active::before {
   background: var(--semantic-color-frost-pressed);
 }
 
@@ -70,17 +51,13 @@
   background: var(--primitives-color-neutral-100);
 }
 
-:global([data-theme='light'][data-dashboard-bg='solid']) .rootInteractive:has(> .cover:active)::before {
+:global([data-theme='light'][data-dashboard-bg='solid']) button.root:active::before {
   background: var(--primitives-color-neutral-200);
 }
 
-.rootInteractive:has(> .cover:focus-visible) {
+.root:focus-visible {
   outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
   outline-offset: calc(var(--primitives-spacing-1) * 1px);
-}
-
-.cover:focus-visible {
-  outline: none;
 }
 
 .lead {

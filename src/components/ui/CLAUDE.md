@@ -28,7 +28,7 @@ These primitives are NOT in `src/design` because they aren't yet stable enough t
 | `TechnicalDetailsDisclosure` | Collapsible "Show technical details" wrapper built on native `<details>`. |
 | `SegmentedControl` | Pill track with a sliding indicator + roving-tabindex arrow-key nav (redesign primitive; used by the Earn Add/Withdraw toggle + request-link expiry). Generic over a string-id union. |
 | `Tooltip` | Portalled hover/focus tooltip. |
-| `InfoTip` | A small muted ⓘ button (named by `label`) showing a short `text` in a rich `Tooltip` — the general form of `tx/FeeInfo`'s trigger. On the vault bar (rate, Earned) and the Earn yearly-yield line / Review row. |
+| `InfoTip` | A small muted ⓘ button (named by `label`) showing a short `text` in a rich `Tooltip` — the general form of `tx/FeeInfo`'s trigger. On the Earn yearly-yield line and the deposit Review row. |
 | `FeeBreakdownTooltip` | Tooltip exposing the fee split (protocol + broadcaster + CCTP) behind the under-amount "+ $X FEE" caption ("incl. $X FEE" when the fee comes out of the amount — `feesFromAmount` / `feeFromProceeds`). |
 | `EstimatedFeeValue` | Formatted fee value with loading state. |
 | `GasBalanceNotice` | Low-native-gas warning shown on the direct-submit (non-gasless) shield path — the wallet holds less than the estimated gas (`hooks/useGasBalanceWarning`; a fixed floor until the estimate loads), with "You have X; about Y is needed". |

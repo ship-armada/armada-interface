@@ -227,7 +227,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | YD-4 | Estimated APY | frozen `meta.apyBps`; REC hides the row when the deposit left no change note | REV, CNF, RCPT, REC | – |
 | YD-5 | Row | `−A` [D1] | ROW | −10 |
 | YD-6 | Max | SDK `maxUnshieldAmount` | AMT | – |
-| YD-7 | Est. yearly yield | `≈ A × apy / 10_000` — simple interest at the live net rate (`apyBps`), shown "≈" with an ⓘ that it isn't guaranteed; omitted with no amount or rate, or a 0 rate (`lib/yield::projectedYearlyYield`) | AMT, REV | ≈ 0.42 at 4.20% |
+| YD-7 | Est. yearly yield | `≈ A × apy / 10_000` — simple interest at the live net rate (`apyBps`), shown "≈" with an ⓘ that it's today's rate and moves with the Aave market; omitted with no amount or rate, or a 0 rate (`lib/yield::projectedYearlyYield`) | AMT, REV | ≈ 0.42 at 4.20% |
 
 - **Recovered:** `amount = |value| − broadcasterFee`; APY from the change note's self-metadata. A deposit that
   left no change note (every Max deposit, every fold-in) has nothing to carry it, so its recovered receipt hides

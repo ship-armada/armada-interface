@@ -62,7 +62,7 @@ describe('<EarnInputStep> yield clarity (package 15)', () => {
   it('the rate\'s ⓘ says it is current, after the vault\'s fee on earnings (12C)', () => {
     setup({ rate: RATE })
     openTip(screen.getByRole('button', { name: 'About the APY estimate' }))
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Current yearly rate after the vault\u2019s 10% fee on earnings.')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Current yearly rate after the vault\u2019s 10% fee on earnings, as determined by the Aave market.')
   })
 
   it('a deposit shows what it would earn in a year at today\'s rate (12E)', () => {

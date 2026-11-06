@@ -78,10 +78,8 @@ describe('formatEarnApyHeadline', () => {
 })
 
 describe('apyExplanation (12C)', () => {
-  it('says the rate is current, net of the vault\'s fee on earnings, and where it comes from', () => {
-    expect(apyExplanation(1_000n)).toBe(
-      'Current yearly rate after the vault\u2019s 10% fee on earnings. It comes from the Aave market the vault lends to, and changes with demand.',
-    )
+  it('says the rate is current, net of the vault\'s fee on earnings, and set by the Aave market', () => {
+    expect(apyExplanation(1_000n)).toBe('Current yearly rate after the vault\u2019s 10% fee on earnings, as determined by the Aave market.')
   })
 
   it('names a fractional fee to one decimal, and leaves the number out while the fee is unknown', () => {

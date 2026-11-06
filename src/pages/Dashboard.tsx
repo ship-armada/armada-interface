@@ -266,7 +266,6 @@ export function Dashboard() {
           vaultBalance={displayedVault}
           vaultRollFromValue={vaultRollFromValue}
           vaultApy={vaultApy}
-          vaultYieldFeeBps={yieldRate?.yieldFeeBps}
           vaultEarned={vaultEarned}
           armadaAddress={shieldedWallet.shieldedAddress}
           balanceHidden={balanceHidden}

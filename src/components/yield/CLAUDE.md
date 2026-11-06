@@ -7,7 +7,7 @@ The Earn flow — deposit private USDC into the vault to earn yield, or withdraw
 | Component | Purpose |
 |---|---|
 | `EarnModal` | Orchestrator. Two `useTx` hooks (`yield-deposit` / `yield-withdraw`); tab switching changes both the max and the dispatched kind. |
-| `EarnInputStep` | Add/Withdraw `SegmentedControl` inside a chain-less `DepositAmountCard`, with a `DepositTooltip` APY intro banner above (its ⓘ: `lib/yield::apyExplanation`); fees route through the card's `flowBreakdown` tooltip. On the Add tab, with an amount and a non-zero rate, an "Est. yearly yield ≈ X USDC" line under the card (`lib/yield::projectedYearlyYield`, with an ⓘ that it's today's rate and not guaranteed — spec YD-7). `VaultExplainer` at the bottom. Split into `EarnInputStepContent` + `EarnInputStepFooter`. |
+| `EarnInputStep` | Add/Withdraw `SegmentedControl` inside a chain-less `DepositAmountCard`, with a `DepositTooltip` APY intro banner above (its ⓘ: `lib/yield::apyExplanation`); fees route through the card's `flowBreakdown` tooltip. On the Add tab, with an amount and a non-zero rate, an "Est. yearly yield ≈ X USDC" line under the card (`lib/yield::projectedYearlyYield`, with an ⓘ: "At today's rate; rate changes with Aave market demand." — spec YD-7). `VaultExplainer` at the bottom. Split into `EarnInputStepContent` + `EarnInputStepFooter`. |
 | `VaultExplainer` | "How the shielded vault works" — a text toggle (`aria-expanded`) opening a short panel: where the yield comes from (the vault lends on Aave), the fee (names the vault's `yieldFeeBps` when known), withdraw any time, privacy, and the risks (smart contracts, Aave liquidity, rate not guaranteed, not insured). **Draft copy pending product/legal sign-off.** |
 | `EarnReviewStep` | Echo of amount, mode, APY value used for the quote, a deposit's "Est. yearly yield" row at that rate (YD-7; not on a withdrawal, the confirmation or the receipt), an "Est. time" row, the fee's ⓘ (`tx/FeeInfo`), and the high-fee warning (`flow/HighFeeNotice`: over 10% of the amount; a tick before Confirm over 25%). |
 | `EarnCompleteStep` | Frost-card confirmation titled "USDC shielded transfer to vault complete" (Add) or "USDC withdrawal complete" (Withdraw). |
@@ -37,7 +37,7 @@ The conversion path means the displayed "amount" is the **expected USDC output**
 
 - No rate yet → "syncing…" (APY value) / "Estimating vault APY…" (intro banner headline)
 - `apyBps === 0n` → "unavailable — pool currently pays no yield" / "Vault currently pays no yield" (Aave reserve set to 0)
-- Otherwise → "~X.XX%" / "Earn ~X.XX% APY"; the banner's info tooltip (and the dashboard's, and the vault bar's rate ⓘ) reads `lib/yield::apyExplanation`: "Current yearly rate after the vault's {fee}% fee on earnings. It comes from the Aave market the vault lends to, and changes with demand." (`useYieldRate().rate.yieldFeeBps`; the number is left out while unknown).
+- Otherwise → "~X.XX%" / "Earn ~X.XX% APY"; the banner's info tooltip (and the dashboard earn banner's) reads `lib/yield::apyExplanation`: "Current yearly rate after the vault's {fee}% fee on earnings, as determined by the Aave market." (`useYieldRate().rate.yieldFeeBps`; the number is left out while unknown).
 
 ## What's wired now
 
