@@ -11,6 +11,6 @@ describe('<LockedDashboard>', () => {
   it('shows the sign-in card and says activity appears once signed in', () => {
     render(<LockedDashboard card={card} />)
     expect(screen.getByRole('heading', { name: 'Your private USDC' })).toBeInTheDocument()
-    expect(screen.getByText('Sign in to see your activity.')).toBeInTheDocument()
+    expect(screen.getByText('Sign in to view')).toBeInTheDocument()
   })
 })

@@ -20,7 +20,7 @@ describe('RecentActivityList', () => {
   it('locked: the same heading, no "View all", and a sign-in message in place of the list', () => {
     render(<RecentActivityList items={items} locked onViewAll={vi.fn()} />)
     expect(screen.getByRole('heading', { name: 'Recent activity' })).toBeInTheDocument()
-    expect(screen.getByText('Sign in to see your activity.')).toBeInTheDocument()
+    expect(screen.getByText('Sign in to view')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'View all' })).not.toBeInTheDocument()
     expect(screen.queryByText('Deposit')).not.toBeInTheDocument()
     expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()

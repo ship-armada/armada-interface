@@ -100,7 +100,7 @@ export interface RecentActivityListProps {
   variant?: RecentActivityListVariant
   onViewAll?: () => void
   onItemClick?: (item: DashboardActivityItem) => void
-  /** Before sign-in: the heading over a "Sign in to see your activity." line — no rows, no "View all" (history is encrypted). */
+  /** Before sign-in: the heading over a "Sign in to view" line — no rows, no "View all" (history is encrypted). */
   locked?: boolean
 }
 
@@ -261,7 +261,7 @@ export function RecentActivityList({
       {locked ? (
         <div className={styles.lockedState}>
           <ClockIcon className={styles.lockedIcon} strokeWidth={1.5} aria-hidden />
-          <p className={styles.lockedText}>Sign in to see your activity.</p>
+          <p className={styles.lockedText}>Sign in to view</p>
         </div>
       ) : items.length === 0 ? (
         <div className={styles.emptyState}>

@@ -273,10 +273,11 @@
   }
 }
 
-/* Before sign-in: an icon + line straight on the page background (no row surface, no icon badge), in the row label's type. */
+/* Before sign-in: a centred icon + line straight on the page background (no row surface, no icon badge), in the row label's type. */
 .lockedState {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--primitives-spacing-2);
   width: 100%;
   color: var(--semantic-color-text-muted);
