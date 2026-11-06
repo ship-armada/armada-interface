@@ -1,4 +1,5 @@
 /* ABOUTME: RequestLinkScreen styles — ported from the armada-app mockup src/pages/RequestLinkScreen.module.css. */
+/* ABOUTME: Adds the link's QR plate and the Copy / Share button row. */
 .column {
   width: 100%;
   max-width: calc(
@@ -73,6 +74,10 @@
 
 .enterShareRow {
   animation-delay: calc(var(--modal-step-enter-delay, 360ms) + 140ms);
+}
+
+.enterQr {
+  animation-delay: calc(var(--modal-step-enter-delay, 360ms) + 105ms);
 }
 
 .enterLinkBox {
@@ -225,8 +230,35 @@
   white-space: nowrap;
 }
 
+.amountAny {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  color: var(--semantic-color-text-muted);
+}
+
 .copyButton {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Copy, and Share beside it where the device has a share sheet — each takes half. */
+.shareButtons {
+  display: flex;
+  gap: var(--primitives-spacing-3);
   width: 100%;
+}
+
+/* The link's QR — the payer landing's plate: frost in light, solid white with dark modules in dark (stays scannable). */
+.qrBox {
+  background: var(--semantic-color-frost-control);
+  border-radius: calc(
+    (var(--primitives-borderRadius-lg) + var(--primitives-borderRadius-xl)) / 2 * 1px
+  );
+  color: var(--semantic-color-text-primary);
+}
+
+:global([data-theme='dark']) .qrBox {
+  background: var(--primitives-color-white-full);
+  color: var(--semantic-color-brand-ink);
 }
 
 .copyStatus {

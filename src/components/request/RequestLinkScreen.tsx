@@ -1,19 +1,18 @@
-// ABOUTME: RequestLinkScreen — shows the generated pay-via-link with Copy + a (disabled) Revoke, plus a wired-ready "Link revoked" variant.
+// ABOUTME: RequestLinkScreen — the generated pay-via-link with a QR, Copy and Share (where the device has a share sheet), plus a wired-ready "Link revoked" variant.
 // ABOUTME: Revoke needs shared backend state to actually work, so its trigger is disabled ("coming soon") until that lands.
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
 import { formatPaymentLinkExpiry } from '@/lib/payViaLink'
+import { PaymentLinkQrCode } from '@/components/payViaLink/PaymentLinkQrCode'
 import styles from './RequestLinkScreen.module.css'
 
 const COPY_FEEDBACK_MS = 2000
 
-function formatExpireInLabel(expiresAt: number): string {
-  const relative = formatPaymentLinkExpiry(expiresAt)
-  if (relative === 'Expired') return 'Expired'
-  return relative.replace(/^Expires /, 'Expire ')
-}
+/** The share sheet's message, ahead of the link. Names no amount or note — those would sit readable in the chat's
+ *  history; the payer sees them on the landing page. */
+const SHARE_TEXT = 'Here\u2019s my Armada payment link:'
 
 /** Middle-truncates a long URL (head…tail) to fit its container, remeasuring on resize. */
 function LinkDisplay({ url }: { url: string }) {
@@ -98,7 +97,18 @@ export function RequestLinkScreen({
   const [linkCopied, setLinkCopied] = useState(false)
   const linkCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const amountLabel = amount ? formatUsdcAmount(parseUsdcInput(amount).value) : null
-  const expiryLabel = formatExpireInLabel(expiresAt)
+  // "Expires in 3 days" / "Expired" — the same wording as the payer's landing and the activity row.
+  const expiryLabel = formatPaymentLinkExpiry(expiresAt)
+  // The device's share sheet (mostly phones); without one, Copy covers sharing.
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+
+  async function handleShare() {
+    try {
+      await navigator.share({ text: SHARE_TEXT, url: paymentLink })
+    } catch {
+      // the user closed the sheet, or the share failed — the link is still there to copy
+    }
+  }
 
   async function handleCopyLink() {
     try {
@@ -146,12 +156,19 @@ export function RequestLinkScreen({
         <h1 className={`${styles.title} ${styles.enter} ${styles.enterTitle}`}>
           USDC payment request
         </h1>
-        {amountLabel ? (
-          <span className={`${styles.amountValue} ${styles.enter} ${styles.enterAmount}`}>
-            {amountLabel}
-          </span>
-        ) : null}
+        {/* No amount → the payer chooses it; say so rather than leave the space blank. */}
+        <span
+          className={[styles.amountValue, !amountLabel && styles.amountAny, styles.enter, styles.enterAmount]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {amountLabel ?? 'Any amount'}
+        </span>
       </header>
+
+      <div className={`${styles.enter} ${styles.enterQr}`}>
+        <PaymentLinkQrCode value={paymentLink} label="QR code for this payment link" className={styles.qrBox} />
+      </div>
 
       <div className={styles.linkSection}>
         <div className={`${styles.linkHeading} ${styles.enter} ${styles.enterShareRow}`}>
@@ -161,14 +178,26 @@ export function RequestLinkScreen({
         <div className={`${styles.linkBox} ${styles.enter} ${styles.enterLinkBox}`}>
           <LinkDisplay url={paymentLink} />
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          label={linkCopied ? 'Copied' : 'Copy'}
-          showIcon={false}
-          className={`${styles.copyButton} ${styles.enter} ${styles.enterCopy}`}
-          onClick={() => void handleCopyLink()}
-        />
+        <div className={`${styles.shareButtons} ${styles.enter} ${styles.enterCopy}`}>
+          <Button
+            variant="primary"
+            size="md"
+            label={linkCopied ? 'Copied' : 'Copy'}
+            showIcon={false}
+            className={styles.copyButton}
+            onClick={() => void handleCopyLink()}
+          />
+          {canShare ? (
+            <Button
+              variant="secondary"
+              size="md"
+              label="Share"
+              showIcon={false}
+              className={styles.copyButton}
+              onClick={() => void handleShare()}
+            />
+          ) : null}
+        </div>
         <span className={styles.copyStatus} role="status" aria-live="polite">
           {linkCopied ? 'Link copied to clipboard' : ''}
         </span>

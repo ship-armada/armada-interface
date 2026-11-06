@@ -1,5 +1,5 @@
 // ABOUTME: PayViaLinkLanding — the payer's view of a shared payment-request link (/pay-via-link).
-// ABOUTME: Validates the link, shows amount/note/recipient + a QR, and hands off to the real Send flow.
+// ABOUTME: Validates the link, shows the amount ("Any amount" when none) / note / recipient + a QR and a check-the-address line, and hands off to the real Send flow.
 
 import { useMemo, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -100,7 +100,7 @@ export function PayViaLinkLanding() {
   const amountLabel = params.amount
     ? formatUsdcAmount(parseUsdcInput(params.amount).value)
     : null
-  const expiryLabel = formatPaymentLinkExpiry(params.expiresAt).replace(/^Expires /, 'Expire ')
+  const expiryLabel = formatPaymentLinkExpiry(params.expiresAt)
   const paymentUrl = window.location.href
 
   return (
@@ -109,11 +109,14 @@ export function PayViaLinkLanding() {
         <h1 className={`${styles.title} ${styles.enter} ${styles.enterTitle}`}>
           USDC payment request
         </h1>
-        {amountLabel ? (
-          <p className={`${styles.amountValue} ${styles.enter} ${styles.enterAmount}`}>
-            {amountLabel}
-          </p>
-        ) : null}
+        {/* A request without an amount lets the payer choose it — say so rather than leave the space blank. */}
+        <p
+          className={[styles.amountValue, !amountLabel && styles.amountAny, styles.enter, styles.enterAmount]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {amountLabel ?? 'Any amount'}
+        </p>
         <p className={`${styles.body} ${styles.enter} ${styles.enterBody}`}>
           You&apos;ve been asked to send USDC privately through Armada.
         </p>
@@ -148,6 +151,10 @@ export function PayViaLinkLanding() {
           <dd className={styles.expiryPill}>{expiryLabel}</dd>
         </div>
       </dl>
+      {/* The link could have been altered on its way here — the sender is the one who can confirm the address. */}
+      <p className={`${styles.checkAddress} ${styles.enter} ${styles.enterSummary}`}>
+        Check this address with the person who sent you this link.
+      </p>
 
       <div className={`${styles.actions} ${styles.enter} ${styles.enterCta}`}>
         <Button

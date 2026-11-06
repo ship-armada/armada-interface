@@ -6,7 +6,7 @@
 
 | Variable | Vercel / Netlify | Purpose |
 |----------|------------------|---------|
-| `VITE_NETWORK` | `sepolia` | Use Sepolia manifests and RPCs (set in `vercel.json` for Vercel; `netlify.toml` for Netlify). |
+| `VITE_NETWORK` | `sepolia` | Use Sepolia manifests and RPCs (set in `vercel.json` for Vercel; `netlify.toml` for Netlify). Also picks the domain in the link-preview card's image URL (`src/config/socialPreview.ts`: sepolia → `https://app.testnet.armada.blue`, mainnet → `https://app.armada.blue`) — a build served elsewhere shows the card only once that domain serves `/og-image.png`. |
 | `VITE_RELAYER_URL` | **Public HTTPS URL** (optional) | Live `/fees` quotes. **Omit on Vercel** unless you host a relayer — wallet-submit flows use offline placeholders. Never use `localhost:3001` on hosted previews. |
 | `VITE_INDEXER_URL` | **Public HTTPS URL** (optional) | Relayer-v2 watcher base URL for shielded quick-sync (`GET /v1/quick-sync/:hubChainId`). Set → the engine hydrates its merkletree from the watcher instead of an O(chain-length) `eth_getLogs` scan. **Unset → the engine falls back to the slow on-chain scan; the app is fully functional either way.** Safe to cache/CDN. On-chain merkleroot validation + the nullifier cross-check keep a malicious watcher from forging or inflating balances (see `SECURITY.md`). HTTPS mandatory on hosted builds (mixed-content). |
 | `VITE_WALLETCONNECT_PROJECT_ID` | Project ID | WalletConnect modal (optional for MetaMask-only testing). |

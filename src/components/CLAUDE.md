@@ -30,7 +30,7 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `yield/` | EarnModal + steps (Add / Withdraw tabs) — see `yield/CLAUDE.md` |
 | `receive/` | ReceiveDialog — plain 0zk address + copy (`openModalAtom='receive'`). Dormant: no entry point today (the Request flow is the dashboard's only receive affordance) |
 | `request/` | RequestModal — the "Request USDC via link" flow (compose amount/expiry/note → generated link screen). Revoke is disabled ("coming soon"); the Link-revoked variant is built but unreachable until backend-backed revocation lands |
-| `payViaLink/` | `PaymentLinkQrCode` — QR of a pay-via-link URL (`qrcode.react`). Shared by the payer landing (`pages/PayViaLinkLanding`) |
+| `payViaLink/` | `PaymentLinkQrCode` — QR of a pay-via-link URL (`qrcode.react`). Shared by the payer landing (`pages/PayViaLinkLanding`) and the requester's link screen (`request/RequestLinkScreen`) |
 | `history/` | `HistoryRecoveryBanner` — chain-history-recovery status banner (mounted in AppLayout) |
 | `sync/` | `SyncGate` + `SyncBanner` — initial shielded-balance sync gate + banner |
 | `onboarding/` | `SignInFlow` (the single state-agnostic account entry for first visit and returning users; restore-from-backup behind a link) + `NonDeterministicSignerScreen` + `OnboardingShell`; the legacy 6-step `OnboardingFlow` is not rendered — see `onboarding/CLAUDE.md` |

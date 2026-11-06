@@ -1,7 +1,7 @@
 // ABOUTME: Vite config for @armada/interface — USDC shield/yield/payment wallet on the Armada protocol.
 // ABOUTME: Serves deployment JSON via dev plugin (committer pattern); runs on port 5176 to avoid collisions with crowdfund apps (5173/4/5) and the showcase (5180).
 
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
@@ -12,6 +12,7 @@ import { ethers } from 'ethers'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import { socialPreviewMeta } from './src/config/socialPreview'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -248,6 +249,22 @@ function serveDeployments() {
   }
 }
 
+/**
+ * Injects the static link-preview tags (`src/config/socialPreview.ts`) into index.html, with the card image on the
+ * build's own domain — chosen by `VITE_NETWORK` (set in netlify.toml for hosted builds; absent locally → relative).
+ */
+function socialPreview(): Plugin {
+  return {
+    name: 'social-preview',
+    transformIndexHtml: () =>
+      socialPreviewMeta(process.env.VITE_NETWORK).map(({ property, name, content }) => ({
+        tag: 'meta',
+        attrs: property !== undefined ? { property, content } : { name: name ?? '', content },
+        injectTo: 'head' as const,
+      })),
+  }
+}
+
 export default defineConfig({
   plugins: [
     // wasm + topLevelAwait MUST come before react() so the Railgun SDK's ZK WASM modules
@@ -273,6 +290,7 @@ export default defineConfig({
     }),
     serveDeployments(),
     serveCircuitArtifacts(),
+    socialPreview(),
     fundGasEndpoint(),
     // Sentry sourcemap upload + release. Self-disables when SENTRY_AUTH_TOKEN is unset, so local
     // dev builds and previews without Sentry env vars build cleanly with zero overhead. Must run
