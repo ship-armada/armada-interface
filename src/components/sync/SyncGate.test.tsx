@@ -1,11 +1,12 @@
-// ABOUTME: Tests for SyncGate — the gate decision (isInitialSyncGated), progress vs failed rendering,
-// ABOUTME: and that "Try again" optimistically flips sync to syncing + bumps the retry epoch.
+// ABOUTME: Tests for SyncGate — the gate decision (isInitialSyncGated), progress vs failed rendering (funds safe; a hint + help
+// ABOUTME: once a retry also failed), and that "Try again" optimistically flips sync to syncing + bumps the retry epoch.
 
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { SyncGate, isInitialSyncGated } from './SyncGate'
 import { syncStateAtom, syncRetryEpochAtom } from '@/state/wallet'
+import { SUPPORT_URL } from '@/config/support'
 
 function wrap(store: ReturnType<typeof createStore>, ui: React.ReactElement) {
   return <Provider store={store}>{ui}</Provider>
@@ -47,6 +48,25 @@ describe('<SyncGate>', () => {
     expect(screen.getByText('Sync interrupted')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
     expect(screen.queryByRole('progressbar')).toBeNull()
+  })
+
+  it('a failed sync says the funds themselves are safe — only loading them here failed (11E)', () => {
+    const store = createStore()
+    store.set(syncStateAtom, { status: 'failed', progress: 0 })
+    render(wrap(store, <SyncGate />))
+    expect(screen.getByText(/Your funds are safe on chain/)).toBeInTheDocument()
+    // First failure: just Try again — no hint or help link yet.
+    expect(screen.queryByRole('link', { name: /Get help/ })).toBeNull()
+  })
+
+  it('once a retry has failed too, adds what to check and a link to get help (11E)', () => {
+    const store = createStore()
+    store.set(syncStateAtom, { status: 'failed', progress: 0 })
+    store.set(syncRetryEpochAtom, 1)
+    render(wrap(store, <SyncGate />))
+    expect(screen.getByText(/Still not loading\?/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Get help on Discord/ })).toHaveAttribute('href', SUPPORT_URL)
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
   })
 
   it('Try again optimistically flips to syncing and bumps the retry epoch', () => {

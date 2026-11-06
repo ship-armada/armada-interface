@@ -1,11 +1,13 @@
 // ABOUTME: Full-area gate shown in place of the dashboard while the initial shielded-balance scan runs or after it fails.
-// ABOUTME: Centered progress meter while syncing; a "Try again" button (via useSyncRetry) when the scan failed.
+// ABOUTME: Centered progress meter while syncing; when the scan failed, "funds are safe on chain" + Try again (+ a hint and help once a retry failed).
 
 import { useMemo, type CSSProperties } from 'react'
 import { useAtomValue } from 'jotai'
+import { ExternalLink } from 'lucide-react'
 import { Button, ArmadaSymbol } from '@/design'
-import { syncStateAtom } from '@/state/wallet'
+import { syncRetryEpochAtom, syncStateAtom } from '@/state/wallet'
 import { useSyncRetry } from '@/hooks/useSyncRetry'
+import { SUPPORT_URL } from '@/config/support'
 import styles from './SyncGate.module.css'
 
 /** Number of ticks in the animated ring (matches the tx-processing ticker). */
@@ -53,6 +55,8 @@ export function isInitialSyncGated(shielded: bigint | null): boolean {
  */
 export function SyncGate() {
   const sync = useAtomValue(syncStateAtom)
+  // Bumped by each "Try again" — a failure after one means retrying alone isn't fixing it.
+  const retried = useAtomValue(syncRetryEpochAtom) > 0
   const retry = useSyncRetry()
   const pct = Math.round(Math.max(0, Math.min(1, sync.progress)) * 100)
 
@@ -62,9 +66,18 @@ export function SyncGate() {
         <div className={styles.panel}>
           <h2 className={styles.heading}>Sync interrupted</h2>
           <p className={styles.body}>
-            We couldn’t finish loading your private balance — usually a temporary network hiccup.
+            Your funds are safe on chain — we just couldn’t finish loading your private balance here. This is usually a
+            temporary network problem.
           </p>
           <Button variant="primary" size="md" label="Try again" showIcon={false} onClick={retry} />
+          {retried ? (
+            <>
+              <p className={styles.hint}>Still not loading? Check your connection, or try again in a few minutes.</p>
+              <a className={styles.helpLink} href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+                Get help on Discord <ExternalLink size={14} aria-hidden="true" />
+              </a>
+            </>
+          ) : null}
         </div>
       </div>
     )

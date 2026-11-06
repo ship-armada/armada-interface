@@ -31,6 +31,12 @@
   min-width: 0;
 }
 
+.helpLink {
+  flex-shrink: 0;
+  color: inherit;
+  text-decoration: underline;
+}
+
 .retry {
   flex-shrink: 0;
   padding: var(--primitives-spacing-1) var(--primitives-spacing-3);
