@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { ShieldModal } from './ShieldModal'
-import { mergeIntentAtom, openModalAtom } from '@/state/ui'
+import { mergeIntentAtom, openModalAtom, repeatIntentAtom, type RepeatIntent } from '@/state/ui'
+import { getNetworkConfig } from '@/config/network'
 import {
   activeShieldedWalletIdAtom,
   evmAddressAtom,
@@ -201,9 +202,11 @@ function renderModal(opts?: {
   max?: bigint
   spendable?: bigint
   evm?: string
+  repeat?: RepeatIntent
 }) {
   const store = createStore()
   if (opts?.open) store.set(openModalAtom, opts.kind ?? 'shield')
+  if (opts?.repeat) store.set(repeatIntentAtom, opts.repeat)
   if (opts?.max !== undefined) {
     store.set(usdcBalancesAtom, { 31337: opts.max })
   }
@@ -551,6 +554,29 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(store.get(mergeIntentAtom)).toMatchObject({ token: 'usdc', blocked: { kind: 'unshield-local', amount: 3_000_000n } })
   })
 
+  it('"Shield again" from a receipt opens on the amount step with the chain and amount filled in, and consumes it (8C)', async () => {
+    const client = getNetworkConfig().clients[0]
+    if (!client) throw new Error('expected a client chain')
+    const store = renderModal({
+      open: true, kind: 'shield', max: 20_000_000n, evm: EVM,
+      repeat: { flow: 'shield', amount: '4.5', fromChainId: client.chainId },
+    })
+    await waitFor(() => expect(screen.getByLabelText('Shield amount')).toHaveValue('4.5'))
+    expect(screen.getByLabelText('Network')).toHaveTextContent(client.name)
+    expect(store.get(repeatIntentAtom)).toBeNull()
+  })
+
+  it('"Unshield again" from a receipt opens the Unshield tab with the destination and amount filled in (8C)', async () => {
+    const client = getNetworkConfig().clients[0]
+    if (!client) throw new Error('expected a client chain')
+    renderModal({
+      open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM,
+      repeat: { flow: 'unshield', amount: '1.25', toChainId: client.chainId },
+    })
+    await waitFor(() => expect(screen.getByLabelText('Unshield amount')).toHaveValue('1.25'))
+    expect(screen.getByLabelText('Network')).toHaveTextContent(client.name)
+  })
+
   it('opens on the Shield tab from openModal=shield with both tabs present', () => {
     renderModal({ open: true, kind: 'shield', max: 10_000_000n, spendable: 10_000_000n, evm: EVM })
     expect(screen.getByText('Shield your USDC')).toBeInTheDocument()
@@ -651,6 +677,17 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       expect(summaryRow('Relayer fee')).toBe('1.000003 USDC')
       expect(summaryRow('CCTP fee (from amount)')).toBe('≈ 0.300007 USDC')
       expect(summaryRow('Total deducted')).toBe('11.000003 USDC')
+      // The fee is still the estimate, so there's no figure for what arrived yet.
+      expect(screen.queryByText('You received')).toBeNull()
+    })
+
+    it('unshield cross-chain, delivered: "You received" is the amount less Circle\'s actual fee (UN-4)', async () => {
+      const store = await submitUnshield(/Anvil Client A/)
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-xchain')).toBe(true))
+      settle(store, 'unshield-xchain', 'client-mint-confirmed', { broadcasterFeeAmount: F, cctpFee: C_ACTUAL, cctpFeeIsEstimate: false })
+      await waitFor(() => expect(screen.getByText('You received')).toBeInTheDocument())
+      expect(summaryRow('CCTP fee (from amount)')).toBe('0.150001 USDC')
+      expect(summaryRow('You received')).toBe('9.849999 USDC')
     })
   })
 

@@ -395,8 +395,8 @@ async function runWaitForDelivery(
   // sourceDomain is the hub's domain. Match on it to reject same-recipient transfers from elsewhere.
   const hubDomain = getNetworkConfig().hub.domain
 
-  // Park the record in 'waiting' so the stepper renders the "Waiting for cross-chain confirmation"
-  // copy. The handler doesn't return here — poll() continues; the 'waiting' state is purely a
+  // Park the record in 'waiting' while the delivery is awaited (the stepper's bridging row reads "Moving your USDC from
+  // {source} to {destination}"). The handler doesn't return here — poll() continues; the 'waiting' state is purely a
   // UI hint for the active row.
   let cursor = markWaiting(record)
   await ctx.upsert(cursor)
@@ -520,40 +520,18 @@ async function runWaitForDelivery(
     })
   }
 
-  // We have ONE real signal (MessageReceived observed) — the intermediate stages between hub
-  // burn and destination mint don't have distinct signals in mock mode (no Iris API; relayer's
-  // /status reports only on hub-side txs). Walk through them as visual progress; finer-grained
-  // detection is a real-CCTP-mode polish that requires Iris polling.
-  //
-  // Brief inter-stage delay so the stepper has time to render each row as "current" rather than
-  // flashing through three transitions in a single frame. ~350ms feels intentional and still
-  // completes the visual sequence in ~1s. Skipped between the last-but-one and terminal stage to
-  // keep the success state landing promptly.
-  const STAGE_VISUAL_DELAY_MS = 350
-  // `cursor` carries forward from the poll loop above — it already reflects any artifact patches
-  // we wrote during the scan, so each advance() composes cleanly on top of the latest seq.
-  const skipStages = ['iris-attestation-ready', 'client-mint-pending', 'client-mint-confirmed'] as const
-  for (let i = 0; i < skipStages.length; i++) {
-    // Cancel/dismiss may have fired since the last delay — checking BEFORE the upsert prevents
-    // us from advancing a record that abortAndMark has already moved to a terminal state.
-    // Without this guard the OCC `updatedSeq` collision would silently drop the write, but the
-    // intent is clearer when we don't even attempt it.
-    if (ctx.signal.aborted) return
-    const next = skipStages[i]!
-    cursor = advance(cursor, next, next === 'client-mint-confirmed' ? { destTxHash: result.value.destTxHash } : {})
-    // The actual CCTP fee replaces the review-time estimate in the SAME write that reaches the terminal stage, so the
-    // Complete screen renders it directly (no estimate-then-snap flash). Unknown → the estimate stays, marked "≈".
-    if (next === 'client-mint-confirmed') cursor = patchMeta(cursor, deliveredUnshieldMeta(result.value.cctpFeeActual))
-    await ctx.upsert(cursor)
-    // Only delay before the next non-terminal hop; no point pausing before terminal.
-    if (i < skipStages.length - 1) {
-      await new Promise<void>(resolve => {
-        const t = setTimeout(resolve, STAGE_VISUAL_DELAY_MS)
-        ctx.signal.addEventListener('abort', () => { clearTimeout(t); resolve() }, { once: true })
-      })
-      if (ctx.signal.aborted) return
-    }
-  }
+  // We have ONE real signal after the hub burn — the destination mint observed — so the stages between (attestation
+  // ready, mint pending) are never seen happening: go straight to delivered in one write, which marks them done too
+  // (advance() completes every earlier stage). Finer-grained rows would need Iris attestation polling.
+  // Cancel/dismiss may have fired during the poll — checking BEFORE the upsert prevents advancing a record that
+  // abortAndMark has already moved to a terminal state.
+  if (ctx.signal.aborted) return
+  // `cursor` carries forward from the poll loop above — it already reflects any artifact patches we wrote during the scan.
+  cursor = advance(cursor, 'client-mint-confirmed', { destTxHash: result.value.destTxHash })
+  // The actual CCTP fee replaces the review-time estimate in the SAME write that reaches the terminal stage, so the
+  // Complete screen renders it directly (no estimate-then-snap flash). Unknown → the estimate stays, marked "≈".
+  cursor = patchMeta(cursor, deliveredUnshieldMeta(result.value.cctpFeeActual))
+  await ctx.upsert(cursor)
 
   // Final shielded-balance refresh — the destination mint is a separate event but the user's
   // shielded debit happened at the hub burn. Refreshing again here is a no-op safety net in case

@@ -24,7 +24,16 @@ export type TxFiguresSource = Pick<TxRecord, 'kind' | 'meta'>
  */
 export type TxFigures =
   | { model: 'deposit'; headline: bigint; fee: bigint | null; netAmount: bigint; estimated: boolean }
-  | { model: 'spend'; headline: bigint; fee: bigint; totalDeducted: bigint; cctpFee: CctpFeeFigure | null }
+  | {
+      model: 'spend'
+      headline: bigint
+      fee: bigint
+      totalDeducted: bigint
+      cctpFee: CctpFeeFigure | null
+      /** A cross-chain unshield's arrival — `amount − protocolFee − actual CCTP fee` — once the actual fee is known; null
+       *  otherwise (an estimate would be a guess), and for kinds with no CCTP leg (the headline is what arrives). */
+      received: bigint | null
+    }
   | { model: 'yield'; headline: bigint; fee: bigint; netAmount: bigint; apyBps: bigint | null; estimated: boolean }
   | { model: 'merge'; headline: bigint; fee: bigint }
   | { model: 'received'; headline: bigint }
@@ -81,14 +90,17 @@ export function txFigures(record: TxFiguresSource): TxFigures {
       const meta = record.meta as MetaFor<'transfer-shielded' | 'unshield-local' | 'unshield-xchain'>
       const protocolFee = 'protocolFee' in meta ? (meta.protocolFee ?? 0n) : 0n
       const cctpFee = 'cctpFee' in meta ? (meta.cctpFee ?? 0n) : 0n
+      const cctpFeeFigure = cctpFee > 0n
+        ? { amount: cctpFee, estimated: !('cctpFeeIsEstimate' in meta) || meta.cctpFeeIsEstimate !== false }
+        : null
       return {
         model: 'spend',
         headline: txHeadline(record),
         fee: meta.broadcasterFeeAmount + protocolFee,
         totalDeducted: meta.amount + meta.broadcasterFeeAmount,
-        cctpFee: cctpFee > 0n
-          ? { amount: cctpFee, estimated: !('cctpFeeIsEstimate' in meta) || meta.cctpFeeIsEstimate !== false }
-          : null,
+        cctpFee: cctpFeeFigure,
+        // What the recipient got on the destination chain: the protocol fee and Circle's fee both come out of the amount.
+        received: cctpFeeFigure && !cctpFeeFigure.estimated ? meta.amount - protocolFee - cctpFeeFigure.amount : null,
       }
     }
     case 'yield-deposit':

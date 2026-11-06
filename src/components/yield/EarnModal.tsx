@@ -4,7 +4,7 @@
 import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
-import { openModalAtom, type ModalKind } from '@/state/ui'
+import { openModalAtom, repeatIntentAtom, type ModalKind } from '@/state/ui'
 import { RelayerStatusBanner } from '@/components/RelayerStatusBanner'
 import { shieldedUsdcAtom, shieldedUsdcSpendableAtom, yieldSharesAtom } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
@@ -56,6 +56,8 @@ export function EarnModal() {
   // Form state
   const [tab, setTab] = useState<EarnTab>(initialTab)
   const [amountStr, setAmountStr] = useState<string>('')
+  // "Deposit again" / "Withdraw again" from a receipt: the tab comes from the modal kind, the amount from the intent.
+  const [repeatIntent, setRepeatIntent] = useAtom(repeatIntentAtom)
 
   // Flow state
   const [step, setStep] = useState<LocalStep>('input')
@@ -263,6 +265,10 @@ export function EarnModal() {
       return
     }
     setTab(initialTab)
+    if (repeatIntent?.flow === 'earn') {
+      setAmountStr(repeatIntent.amount)
+      setRepeatIntent(null)
+    }
     void refreshYieldRate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])

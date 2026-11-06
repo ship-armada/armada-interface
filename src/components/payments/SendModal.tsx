@@ -5,7 +5,7 @@ import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useAtom, useAtomValue } from 'jotai'
-import { openModalAtom, paymentIntentAtom } from '@/state/ui'
+import { openModalAtom, paymentIntentAtom, repeatIntentAtom } from '@/state/ui'
 import { clearPendingPayViaLink } from '@/lib/payViaLink'
 import {
   evmAddressAtom,
@@ -78,6 +78,9 @@ function computeKind(recipient: string, destChainId: number, hubChainId: number)
 export function SendModal() {
   const [openModal, setOpenModal] = useAtom(openModalAtom)
   const [paymentIntent, setPaymentIntent] = useAtom(paymentIntentAtom)
+  // "Send again" from a receipt — seeds the amount step (recipient, chain, amount), still editable.
+  const [repeatIntent, setRepeatIntent] = useAtom(repeatIntentAtom)
+  const sendAgain = repeatIntent?.flow === 'send' ? repeatIntent : null
   const isOpen = openModal === 'payment'
   // Send-only: "unshield to my own wallet" now lives in the Shield/Unshield tabbed modal
   // (ShieldModal). The `withdraw` variant copy survives on the step components (ActivityReceipt
@@ -124,6 +127,11 @@ export function SendModal() {
       } else {
         setStep('input')
       }
+    } else if (isOpen && sendAgain) {
+      setRecipient(sendAgain.recipient)
+      setDestChainId(sendAgain.destChainId)
+      setAmountStr(sendAgain.amount)
+      setStep('input')
     }
   }
   // Double-submit guard (P0-7): ref = synchronous gate (state is async), state = button disable.
@@ -355,6 +363,11 @@ export function SendModal() {
       clearPendingPayViaLink()
     }
   }, [isOpen, paymentIntent, setPaymentIntent])
+
+  // Consume a "Send again" intent the same way, once the render-time block above has seeded from it.
+  useEffect(() => {
+    if (isOpen && sendAgain) setRepeatIntent(null)
+  }, [isOpen, sendAgain, setRepeatIntent])
 
   // Watch the submitted record for terminal transitions. Dep is `record?.executionState` rather
   // than `record` so artifact patches during xchain polling don't re-fire this needlessly — the
@@ -607,6 +620,7 @@ export function SendModal() {
           amount={completeReceipt.headline}
           fee={completeReceipt.fee}
           cctpFee={completeReceipt.cctpFee}
+          received={completeReceipt.received}
           totalDeducted={completeReceipt.totalDeducted}
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}

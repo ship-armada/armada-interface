@@ -1,5 +1,5 @@
-// ABOUTME: Dashboard recent-activity preview — icon-badge rows with scrambled amounts + a "View all" link.
-// ABOUTME: Presentation ported from the armada-app mockup; driven by real tx data via DashboardActivityItem.
+// ABOUTME: Dashboard recent-activity preview — icon-badge rows with scrambled amounts + a "View all" link; the full list
+// ABOUTME: (All activity) sections rows by date. Presentation ported from the armada-app mockup; driven by DashboardActivityItem.
 
 import {
   useCallback,
@@ -27,6 +27,7 @@ import { BalanceScrambleValue } from '@/components/dashboard/BalanceScrambleValu
 import { formatUsdcAmount, formatTimeAgo } from '@/components/dashboard/dashboardFormat'
 import { formatPaymentLinkExpiry } from '@/lib/payViaLink'
 import { formatTransactionDateTime } from '@/lib/format'
+import { groupActivityByDate } from '@/components/dashboard/activityGroups'
 import type {
   DashboardActivityItem,
   DashboardActivityKind,
@@ -281,11 +282,17 @@ export function RecentActivityList({
           </div>
         </div>
       ) : (
-        <ActivityListItems
-          items={items}
-          balanceRevealed={balanceRevealed}
-          onItemClick={onItemClick}
-        />
+        // The full list (All activity) is sectioned: Pending, Today, Yesterday, then by month.
+        groupActivityByDate(items, Date.now()).map((group) => (
+          <div key={group.label} className={styles.group}>
+            <h3 className={styles.groupHeading}>{group.label}</h3>
+            <ActivityListItems
+              items={group.items}
+              balanceRevealed={balanceRevealed}
+              onItemClick={onItemClick}
+            />
+          </div>
+        ))
       )}
     </section>
   )

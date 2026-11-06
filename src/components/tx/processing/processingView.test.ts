@@ -1,18 +1,25 @@
 // ABOUTME: Tests for buildProcessingView — maps a live TxRecord to the processing view model.
-// ABOUTME: Covers stage mapping from the real lifecycle, active-index tracking, completion, and xchain granularity.
+// ABOUTME: Covers stage mapping from the real lifecycle, active-index tracking, completion, and xchain rows naming their chains.
 
 import { describe, it, expect } from 'vitest'
 import { buildProcessingView } from './processingView'
 import type { TxKind, TxRecord, TxExecutionState } from '@/lib/tx/types'
+import { getChainById, getNetworkConfig } from '@/config/network'
 
-// buildProcessingView only reads kind/stage/executionState/artifacts; a partial cast is sufficient.
+const HUB = getNetworkConfig().hub
+const CLIENT_ID = getNetworkConfig().clients[0]?.chainId ?? 0
+const CLIENT = getChainById(CLIENT_ID)?.name ?? ''
+
+// buildProcessingView only reads kind/stage/executionState/artifacts (+ a cross-chain record's chain ids from meta); a
+// partial cast is sufficient. Cross-chain records go from the first client chain to the hub, or the reverse.
 function rec(
   kind: TxKind,
   stage: string,
   executionState: TxExecutionState,
   artifacts: Record<string, unknown> = {},
 ): TxRecord {
-  return { kind, stage, executionState, artifacts } as unknown as TxRecord
+  const meta = kind === 'unshield-xchain' ? { toChainId: CLIENT_ID } : kind === 'shield-xchain' ? { fromChainId: CLIENT_ID } : {}
+  return { kind, stage, executionState, artifacts, meta } as unknown as TxRecord
 }
 
 describe('buildProcessingView', () => {
@@ -89,19 +96,38 @@ describe('buildProcessingView', () => {
     ])
     const bridgeIdx = atPending.stages.findIndex((s) => s.id === 'bridging')
     expect(atPending.activeStageIndex).toBe(bridgeIdx)
-    expect(atPending.stages[bridgeIdx]?.label).toBe('Bridging')
+    // The row names where the USDC is going, and from where.
+    expect(atPending.stages[bridgeIdx]?.label).toBe(`Bridging to ${CLIENT}`)
     // While inside the group, the row shows the LIVE sub-stage subtitle...
-    expect(atPending.stages[bridgeIdx]?.subtitle).toBe('Waiting for cross-chain confirmation')
+    expect(atPending.stages[bridgeIdx]?.subtitle).toBe(`Moving your USDC from ${HUB.name} to ${CLIENT}`)
 
-    // ...and it advances as the underlying stage moves on.
+    // ...which says the burn went out just after it confirms, and that it's arriving once Circle has attested.
+    const atBurn = buildProcessingView(rec('unshield-xchain', 'hub-burn-confirmed', 'active'))
+    expect(atBurn.stages.find((s) => s.id === 'bridging')?.subtitle).toBe(`Sent from ${HUB.name}`)
     const atReady = buildProcessingView(rec('unshield-xchain', 'iris-attestation-ready', 'active'))
-    expect(atReady.stages.find((s) => s.id === 'bridging')?.subtitle).toBe('Cross-chain confirmation ready')
+    expect(atReady.stages.find((s) => s.id === 'bridging')?.subtitle).toBe(`Arriving on ${CLIENT}`)
   })
 
   it('shows the neutral bridging subtitle when the group is not the active step', () => {
     // Still submitting — bridging is upcoming, so it shows the group's neutral line, not a sub-stage.
     const view = buildProcessingView(rec('unshield-xchain', 'submit-relayer', 'active'))
-    expect(view.stages.find((s) => s.id === 'bridging')?.subtitle).toBe('Moving funds across chains')
+    expect(view.stages.find((s) => s.id === 'bridging')?.subtitle).toBe(`Moving your USDC from ${HUB.name} to ${CLIENT}`)
+    // The delivery row names the destination too.
+    expect(view.stages.find((s) => s.id === 'client-mint-pending')?.subtitle).toBe(`Delivering on ${CLIENT}`)
+  })
+
+  it('a cross-chain shield names its source chain while submitting, and bridges to the hub', () => {
+    const view = buildProcessingView(rec('shield-xchain', 'submit-relayer', 'active'))
+    expect(view.stages.find((s) => s.id === 'submit-relayer')?.label).toBe(`Submitting on ${CLIENT}`)
+    expect(view.stages.find((s) => s.id === 'bridging')?.label).toBe(`Bridging to ${HUB.name}`)
+    expect(view.stages.find((s) => s.id === 'bridging')?.subtitle).toBe(`Moving your USDC from ${CLIENT} to ${HUB.name}`)
+  })
+
+  it('falls back to "the source chain" / "the destination chain" for a chain it doesn\'t know', () => {
+    const r = { ...rec('unshield-xchain', 'iris-attestation-pending', 'active'), meta: { toChainId: 999_999 } } as unknown as TxRecord
+    const bridging = buildProcessingView(r).stages.find((s) => s.id === 'bridging')
+    expect(bridging?.label).toBe('Bridging to the destination chain')
+    expect(bridging?.subtitle).toBe(`Moving your USDC from ${HUB.name} to the destination chain`)
   })
 
   it('falls back to index 0 for an unknown stage', () => {

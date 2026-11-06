@@ -1,4 +1,4 @@
-/* ABOUTME: Activity tx-hash search wrapper + shared empty-state class used by ActivityAllPanel. */
+/* ABOUTME: Activity search wrapper + shared empty-state classes (copy + "Clear filters") used by ActivityAllPanel. */
 /* ABOUTME: Field chrome lives on design TextField; keep .searchEmpty here for the panel empty copy. */
 
 .root {
@@ -17,4 +17,21 @@
   line-height: var(--primitives-lineHeight-normal);
   color: var(--semantic-color-text-muted);
   text-align: center;
+}
+
+.clearFilters {
+  display: block;
+  margin: var(--primitives-spacing-2) auto 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--semantic-color-brand-lavender);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.clearFilters:hover,
+.clearFilters:focus-visible {
+  color: var(--semantic-color-text-primary);
 }

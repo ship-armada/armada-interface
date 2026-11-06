@@ -197,6 +197,7 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
 | UN-2 | Relayer fee ("Fees" on local) | `Φ` (plus the protocol unshield fee, 0 by contract) | AMT, REV, CNF, RCPT, REC | 1.000003 / 1.000003 |
 | UN-2x | CCTP fee (xchain only; "taken from the amount") | `C` marked est. → `C'` once known at delivery; est. wherever not known with certainty (REC) | AMT, REV, CNF, RCPT, REC | – / est. 0.300007 → 0.150001 |
 | UN-3 | Total deducted | `A + Φ` | AMT tooltip, REV, CNF, RCPT, REC | 11.000003 / 11.000003 |
+| UN-4 | Recipient received (xchain only; "You received" when the recipient is the connected wallet) | `A − C'` (less the protocol unshield fee, 0 by contract) — only once `C'` is known; no row while the CCTP fee is the estimate | CNF, RCPT | – / 9.849999 |
 | UN-5 | Row | `−A` [D1] | ROW | −10 |
 | UN-6 | Network | hub (local) / destination chain (xchain) | REV, CNF, RCPT, REC | – |
 | UN-7 | Label | "Unshield" when the recipient is the currently connected EVM wallet, else "Send" — the same rule on every post-submit surface; REV keeps its flow's wording | CNF, ROW, RCPT, REC | – |
@@ -213,7 +214,8 @@ Both entry flows — the Send modal's public path and the Unshield tab — must 
   in the same tx; `cctpFee` = the estimate read back from the burn's `maxFee` (`cctpFeeEstimateFromMaxFee`),
   marked est. — the hub doesn't see the actual fee [D4].
 - **Allowed differences:** as `transfer-shielded` (build charged less). xchain REV (est.) → CNF (actual) by
-  `C − C'`. A recovered xchain receipt shows the estimate (marked) where the authored one shows the actual.
+  `C − C'`. A recovered xchain receipt shows the estimate (marked) where the authored one shows the actual, so it has
+  no UN-4 row; nor does REV, or a delivery whose actual fee went unreported.
 
 ### `yield-deposit`
 

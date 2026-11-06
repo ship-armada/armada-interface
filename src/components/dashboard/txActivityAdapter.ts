@@ -23,6 +23,9 @@ export interface DashboardActivityItem {
   amount: number
   occurredAt: number
   txHash?: string
+  /** The counterparty's address, for search: a send's recipient, or a received payment's sender when they disclosed it.
+   *  Absent for a shield, vault op or merge. */
+  address?: string
   /** Outcome bucket — drives the row's status label + amount treatment. */
   status: DashboardActivityStatus
   /** True while the underlying tx is non-terminal (still in flight). Kept as a convenience alias
@@ -68,6 +71,20 @@ export function isWithdrawToSelf(
   return Boolean(ownWallet && recipient && recipient.toLowerCase() === ownWallet.toLowerCase())
 }
 
+/** A send's recipient, or a received payment's disclosed sender; undefined for kinds with no counterparty. */
+function counterpartyAddress(record: TxRecord): string | undefined {
+  switch (record.kind) {
+    case 'transfer-shielded':
+    case 'unshield-local':
+    case 'unshield-xchain':
+      return (record.meta as { recipient?: string }).recipient
+    case 'transfer-shielded-received':
+      return (record.meta as { senderShieldedAddress?: string }).senderShieldedAddress
+    default:
+      return undefined
+  }
+}
+
 export function txRecordToActivityItem(
   record: TxRecord,
   ownWallet?: string | null,
@@ -77,6 +94,7 @@ export function txRecordToActivityItem(
     id: record.id,
     occurredAt: historySortTime(record),
     txHash: record.artifacts.sourceTxHash,
+    address: counterpartyAddress(record),
     status,
     pending: status === 'pending',
   }

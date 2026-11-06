@@ -26,6 +26,12 @@ which the Unshield tab and `ActivityReceipt` reuse to render unshield reviews/re
 step). The `FlowShell` Steps bar is a dedicated 4-segment indicator — `['Recipient', 'Amount',
 'Review', 'Confirm']` — with `currentStep` mapping `recipient→1, input→2, review→3, else→4`.
 
+## Prefilled entry
+
+- A pay-via-link `paymentIntentAtom` seeds the recipient (+ amount → straight to Review).
+- An Activity receipt's "Send again" (`repeatIntentAtom`, `flow: 'send'`) seeds the recipient, destination chain and
+  amount and opens on the amount step (still editable; Back shows the recipient step filled in). Both are consumed on open.
+
 ## Kind selection (address-driven, no tabs)
 
 ```
@@ -63,7 +69,8 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
   through `lib/fees/txFigures`, and submit sends that draft; the confirmation screen (and the Unshield tab's) and the
   Activity receipt derive the figures from the stored record through the same function, not the live plan/quote,
   which stop pricing after review and keep refreshing. A cross-chain unshield itemises "Relayer fee" and "CCTP fee
-  (from amount)" — the CCTP fee comes out of the amount in transit, so it isn't in "Total deducted" (amount + relayer fee).
+  (from amount)" — the CCTP fee comes out of the amount in transit, so it isn't in "Total deducted" (amount + relayer fee). Once delivery reports Circle's actual fee, the confirmation and
+  the receipt add "Recipient received" (amount − that fee; "You received" on an unshield to your own wallet — spec UN-4).
   Until the relayer quote loads there's no fee: "Estimating fees…", Review "—", Confirm held.
 - A send blocked because the wallet is too fragmented offers **"Merge notes"** — in Review's
   "Too many small notes" callout (`MergeNotesNotice`, Confirm held) before any attempt (private sends from the fee plan; public sends, which are unshields, from a

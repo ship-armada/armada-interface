@@ -24,7 +24,8 @@ import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
-import { openModalAtom, balanceHiddenAtom, activityPanelOpenAtom, receiptTxIdAtom } from '@/state/ui'
+import { openModalAtom, balanceHiddenAtom, activityPanelOpenAtom, receiptTxIdAtom, repeatIntentAtom } from '@/state/ui'
+import { repeatModalFor } from '@/components/dashboard/repeatIntent'
 import { useTxInView } from '@/hooks/useTxInView'
 import {
   shieldedUsdcAtom,
@@ -73,6 +74,7 @@ export function Dashboard() {
   const openModal = useAtomValue(openModalAtom)
   const setOpenModal = useSetAtom(openModalAtom)
   const setShareIntent = useSetAtom(requestShareIntentAtom)
+  const setRepeatIntent = useSetAtom(repeatIntentAtom)
 
   // "All activity" side-panel + the per-tx receipt overlay (replaces the retired /history page).
   const [activityPanelOpen, setActivityPanelOpen] = useAtom(activityPanelOpenAtom)
@@ -338,6 +340,11 @@ export function Dashboard() {
         ownWalletAddress={evmAddress ?? undefined}
         open={receiptId !== null}
         onClose={() => setReceiptId(null)}
+        // "Send again" / "Shield again" / …: hand the prefill to the flow it repeats, which seeds its amount step.
+        onRepeat={(intent) => {
+          setRepeatIntent(intent)
+          openActionModal(repeatModalFor(intent))
+        }}
       />
     </div>
   )

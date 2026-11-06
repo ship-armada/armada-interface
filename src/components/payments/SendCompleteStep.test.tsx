@@ -1,7 +1,8 @@
-// ABOUTME: Tests for SendCompleteStep — confirmed title by variant, date/network summary rows (privacy notice hidden once confirmed), CTA wiring.
+// ABOUTME: Tests for SendCompleteStep — confirmed title by variant, date/network summary rows (privacy notice hidden once confirmed), CTA wiring,
+// ABOUTME: and a cross-chain exit's "Recipient received" / "You received" row once Circle's actual fee is known.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { SendCompleteStep, type SendCompleteStepProps } from './SendCompleteStep'
 
 const VALID_EVM = '0xabcdef1234567890abcdef1234567890abcdef12'
@@ -16,6 +17,8 @@ function renderComplete(extras?: Partial<SendCompleteStepProps>) {
     fee: extras?.fee ?? null,
     totalDeducted: extras?.totalDeducted ?? 100_000_000n,
     networkName: extras?.networkName,
+    cctpFee: extras?.cctpFee,
+    received: extras?.received,
     confirmedAt: extras?.confirmedAt ?? Date.now(),
     explorerUrl: extras?.explorerUrl,
     deliveryLink: extras?.deliveryLink,
@@ -27,6 +30,20 @@ function renderComplete(extras?: Partial<SendCompleteStepProps>) {
 }
 
 describe('<SendCompleteStep>', () => {
+  it('a cross-chain send shows what the recipient received once the actual CCTP fee is known (UN-4)', () => {
+    renderComplete({ recipient: VALID_EVM, networkName: 'Base Sepolia', cctpFee: { amount: 150_000n, estimated: false }, received: 99_850_000n })
+    const row = screen.getByText('Recipient received').closest('div')
+    expect(row).toHaveTextContent('99.85 USDC')
+  })
+
+  it('an unshield to your own wallet says "You received"; no row without the figure', () => {
+    renderComplete({ variant: 'withdraw', recipient: VALID_EVM, cctpFee: { amount: 150_000n, estimated: false }, received: 99_850_000n })
+    expect(screen.getByText('You received')).toBeInTheDocument()
+    cleanup()
+    renderComplete({ recipient: VALID_EVM, cctpFee: { amount: 300_000n, estimated: true } })
+    expect(screen.queryByText('Recipient received')).toBeNull()
+  })
+
   it('send: renders the "USDC shielded transfer confirmed" title + date row + amount (privacy notice hidden)', () => {
     renderComplete({ recipient: VALID_0ZK })
     expect(screen.getByText('USDC shielded transfer confirmed')).toBeInTheDocument()

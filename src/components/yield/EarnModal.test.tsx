@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { EarnModal } from './EarnModal'
-import { mergeIntentAtom, openModalAtom } from '@/state/ui'
+import { mergeIntentAtom, openModalAtom, repeatIntentAtom, type RepeatIntent } from '@/state/ui'
 import { txListAtom } from '@/state/tx'
 import type { TxRecord } from '@/lib/tx/types'
 import { activeShieldedWalletIdAtom, shieldedUsdcAtom, shieldedUsdcSpendableAtom, yieldSharesAtom } from '@/state/wallet'
@@ -138,9 +138,10 @@ function withQuotedVaultFee(run: () => Promise<void> | void) {
   }
 }
 
-function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false; shielded?: bigint }) {
+function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false; shielded?: bigint; repeat?: RepeatIntent }) {
   const store = createStore()
   if (opts?.open) store.set(openModalAtom, opts.open)
+  if (opts?.repeat) store.set(repeatIntentAtom, opts.repeat)
   if (opts?.shielded !== undefined) {
     store.set(shieldedUsdcAtom, opts.shielded)
     store.set(shieldedUsdcSpendableAtom, opts.shielded) // no pending in tests → spendable == total
@@ -329,6 +330,12 @@ describe('<EarnModal>', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Merge notes' }))
     expect(store.get(openModalAtom)).toBe('merge')
     expect(store.get(mergeIntentAtom)).toMatchObject({ token: 'usdc', blocked: { kind: 'yield-deposit', amount: 3_000_000n } })
+  })
+
+  it('"Deposit again" / "Withdraw again" from a receipt opens that tab with the amount filled in, and consumes it (8C)', () => {
+    const store = renderModal({ open: 'yield-withdraw', shielded: 10_000_000n, repeat: { flow: 'earn', direction: 'withdraw', amount: '0.75' } })
+    expect(screen.getByLabelText('Shielded vault withdrawal amount')).toHaveValue('0.75')
+    expect(store.get(repeatIntentAtom)).toBeNull()
   })
 
   it('Cancel closes the modal', () => {

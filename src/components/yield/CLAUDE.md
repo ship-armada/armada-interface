@@ -11,6 +11,9 @@ The Earn flow — deposit private USDC into the vault to earn yield, or withdraw
 | `EarnReviewStep` | Echo of amount, mode, APY value used for the quote, an "Est. time" row, the fee's ⓘ (`tx/FeeInfo`), and the high-fee warning (`flow/HighFeeNotice`: over 10% of the amount; a tick before Confirm over 25%). |
 | `EarnCompleteStep` | Frost-card confirmation titled "USDC shielded transfer to vault complete" (Add) or "USDC withdrawal complete" (Withdraw). |
 
+An Activity receipt's "Deposit again" / "Withdraw again" (`repeatIntentAtom`, `flow: 'earn'`) opens the matching tab
+with the amount filled in (consumed on open).
+
 ## Kind selection
 
 ```

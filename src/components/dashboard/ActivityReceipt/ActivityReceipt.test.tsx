@@ -1,6 +1,5 @@
-// ABOUTME: Tests for ActivityReceipt — reconstructs a past tx's confirm-step summary from its record.
-// ABOUTME: Covers the title/amount + a summary row for a deposit, that null record renders nothing, a pending record's live stepper,
-// ABOUTME: and a failed record's banner: where the USDC is (when certain) and a "Get help" link (not for a cancelled tx).
+// ABOUTME: Tests for ActivityReceipt — a past tx's confirm-step summary from its record: title/amount + rows, a pending record's
+// ABOUTME: live stepper, a failed record's banner (where the USDC is, "Get help"), the tx hash + copy, and "do it again".
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
@@ -189,6 +188,36 @@ describe('<ActivityReceipt>', () => {
   it('disables View on explorer without a source tx hash', () => {
     render(<ActivityReceipt record={shieldRecord()} open onClose={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'View on explorer' })).toBeDisabled()
+  })
+
+  it('shows the tx hash, shortened, with a button that copies it in full (8C)', () => {
+    const hash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+    const withHash = { ...shieldRecord(), artifacts: { sourceTxHash: hash } } as unknown as TxRecord
+    render(<ActivityReceipt record={withHash} open onClose={vi.fn()} />)
+    expect(screen.getByText('0x1234...abcdef')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy transaction hash' })).toBeInTheDocument()
+  })
+
+  it('has no tx hash line before there is a hash', () => {
+    render(<ActivityReceipt record={shieldRecord()} open onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Copy transaction hash' })).toBeNull()
+  })
+
+  it('"Shield again" closes the receipt, then hands its prefill on (8C)', async () => {
+    const onClose = vi.fn()
+    const onRepeat = vi.fn()
+    render(<ActivityReceipt record={shieldRecord()} open onClose={onClose} onRepeat={onRepeat} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Shield again' }))
+    await waitFor(() => expect(onRepeat).toHaveBeenCalledWith({ flow: 'shield', amount: '100.5', fromChainId: 31337 }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers no "do it again" for a tx still in flight, or without a handler', () => {
+    const pending = { ...shieldRecord(), stage: 'submit-relayer', executionState: 'active' } as unknown as TxRecord
+    const { rerender } = render(<ActivityReceipt record={pending} open onClose={vi.fn()} onRepeat={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Shield again' })).toBeNull()
+    rerender(<ActivityReceipt record={shieldRecord()} open onClose={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Shield again' })).toBeNull()
   })
 
   it('fires onClose from the Done CTA after the exit animation', async () => {
