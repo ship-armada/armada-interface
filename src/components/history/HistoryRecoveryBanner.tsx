@@ -1,4 +1,4 @@
-// ABOUTME: Slim banner reading historyRecoveryAtom — shows "Recovering activity from chain…" while scanning and a "Recovery failed" notice on error. Hidden otherwise.
+// ABOUTME: Slim banner reading historyRecoveryAtom — "Recovering activity from chain…" during a scan the user started, and a "Recovery failed" notice on error. Hidden otherwise (incl. the sign-in scan).
 // ABOUTME: Mounted in AppLayout alongside SyncBanner so the user gets a uniform "we're working on it" status strip regardless of route.
 
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -7,7 +7,8 @@ import styles from './HistoryRecoveryBanner.module.css'
 
 /**
  * Three states drive rendering:
- *   - `scanning` → narrow blue strip "Recovering activity from chain…"
+ *   - `scanning` → narrow blue strip "Recovering activity from chain…" — only for a scan the user started
+ *     (`userInitiated`); the recovery on sign-in shows nothing, since the sync gate covers that moment
  *   - `failed`   → red strip with a Retry CTA that bumps the epoch atom so the scan re-fires
  *   - `idle`     → not rendered
  *
@@ -20,6 +21,7 @@ export function HistoryRecoveryBanner() {
   const setTrigger = useSetAtom(historyRecoveryTriggerAtom)
 
   if (recovery.state === 'idle') return null
+  if (recovery.state === 'scanning' && !recovery.userInitiated) return null
 
   if (recovery.state === 'failed') {
     return (

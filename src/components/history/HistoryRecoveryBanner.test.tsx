@@ -1,4 +1,5 @@
-// ABOUTME: Tests for HistoryRecoveryBanner — hidden when idle, "Recovering…" while scanning, error copy + Retry CTA on failure that bumps historyRecoveryTriggerAtom.
+// ABOUTME: Tests for HistoryRecoveryBanner — hidden when idle and during the sign-in scan, "Recovering…" during a scan the user started,
+// ABOUTME: error copy + Retry CTA on failure that bumps historyRecoveryTriggerAtom.
 
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -6,11 +7,13 @@ import { Provider, createStore } from 'jotai'
 import { HistoryRecoveryBanner } from './HistoryRecoveryBanner'
 import { historyRecoveryAtom, historyRecoveryTriggerAtom } from '@/state/history'
 
-function renderWith(opts: { state: 'idle' | 'scanning' | 'failed'; error?: string }) {
+function renderWith(opts: { state: 'idle' | 'scanning' | 'failed'; error?: string; userInitiated?: boolean }) {
   const store = createStore()
-  store.set(historyRecoveryAtom, opts.error
-    ? { state: opts.state, error: opts.error }
-    : { state: opts.state })
+  store.set(historyRecoveryAtom, {
+    state: opts.state,
+    ...(opts.error ? { error: opts.error } : {}),
+    ...(opts.userInitiated !== undefined ? { userInitiated: opts.userInitiated } : {}),
+  })
   render(
     <Provider store={store}>
       <HistoryRecoveryBanner />
@@ -25,8 +28,13 @@ describe('<HistoryRecoveryBanner>', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('shows the "Recovering…" copy while scanning', () => {
-    renderWith({ state: 'scanning' })
+  it('stays hidden during the scan that runs on sign-in — the sync gate already covers that moment', () => {
+    renderWith({ state: 'scanning', userInitiated: false })
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('shows the "Recovering…" copy during a scan the user started (Re-scan, Clear history, Retry)', () => {
+    renderWith({ state: 'scanning', userInitiated: true })
     expect(screen.getByText(/Recovering activity from chain/i)).toBeInTheDocument()
   })
 

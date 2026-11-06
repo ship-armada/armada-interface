@@ -218,10 +218,11 @@ async function resolveScanInputs(): Promise<{
  * App.tsx doesn't trigger a duplicate scan because the `lastRunRef` guard skips the effect body
  * when the same walletId+trigger.id ran already.
  *
- * Banner visibility: the recovery banner is surfaced only for the initial recovery on unlock and
- * for user-initiated re-scans (`trigger.silent === false`). Routine incremental delta scans from
- * the incoming-transfer detector (`silent: true`) run without flipping to `scanning`, so a tx
- * completing or a received transfer doesn't flash the banner on the dashboard.
+ * Status: the initial recovery on unlock and user-initiated re-scans (`trigger.silent === false`) flip
+ * the status to `scanning`; only the user-initiated ones (`userInitiated: true`) show the recovery
+ * banner. A failed visible scan shows the failure banner with Retry either way. Routine incremental
+ * delta scans from the incoming-transfer detector (`silent: true`) run without flipping to
+ * `scanning`, so a tx completing or a received transfer doesn't flash anything on the dashboard.
  */
 export function useHistoryRecovery(): void {
   const active = useAtomValue(activeShieldedWalletAtom)
@@ -249,12 +250,15 @@ export function useHistoryRecovery(): void {
     // last `silent` value is stale-true from a prior session) OR a user-initiated re-scan
     // (`!trigger.silent`). A run triggered only by the incoming-transfer detector (`silent: true`)
     // runs silently so it doesn't flash the banner after every balance change.
-    const visible = lastRunRef.current === null || !trigger.silent
+    const initialRun = lastRunRef.current === null
+    const visible = initialRun || !trigger.silent
     lastRunRef.current = runKey
 
     let cancelled = false
     const isCancelled = () => cancelled
-    if (visible) setStatus({ state: 'scanning' })
+    // The sign-in recovery still reads `scanning` (the Dashboard's Earned figure and Settings' Re-scan wait on it) but
+    // isn't user-initiated, so it shows no banner — the sync gate already covers that moment.
+    if (visible) setStatus({ state: 'scanning', userInitiated: !initialRun })
 
     void (async () => {
       const inputs = await resolveScanInputs()
