@@ -16,7 +16,7 @@ import { useShieldedWallet } from '@/hooks/useShieldedWallet'
 import { useNoteCounts } from '@/hooks/useNoteCounts'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
 import { MERGE_SUGGEST_NOTE_COUNT, mergeTokenSymbol, type MergeToken } from '@/lib/shielded/merge-intent'
-import { openModalAtom } from '@/state/ui'
+import { lockReasonAtom, openModalAtom } from '@/state/ui'
 import { preferencesAtom, type AutoLockMinutes } from '@/state/preferences'
 import { txNoticeStyleAtom, type TxNoticeStyle } from '@/state/txNotices'
 import {
@@ -45,6 +45,7 @@ export function SettingsModal() {
 
   const { state, lock } = useShieldedWallet()
   const [prefs, setPrefs] = useAtom(preferencesAtom)
+  const setLockReason = useSetAtom(lockReasonAtom)
   const [txNoticeStyle, setTxNoticeStyle] = useAtom(txNoticeStyleAtom)
   const [exportOpen, setExportOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
@@ -112,7 +113,11 @@ export function SettingsModal() {
                     size="sm"
                     showIcon={false}
                     label="Lock"
-                    onClick={lock}
+                    onClick={() => {
+                      // The sign-in card then reads "You locked Armada."
+                      setLockReason('manual')
+                      lock()
+                    }}
                     disabled={!walletUnlocked}
                   />
                 </div>

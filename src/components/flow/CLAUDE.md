@@ -21,7 +21,7 @@
 `ActionFlowShell`, `FlowHeader`, `FlowFooter`, `FlowStepIndicator` predate the redesign. Don't build new tx flows on them — use `FlowShell`.
 
 - `ActionFlowShell` is not rendered by any app code (`overlayFlow.ts` imports only its `FlowStep` type).
-- `FlowFooter` is still live: `ErrorStep`, the settings dialogs (`ResetWalletDialog`, `RecoverySecretExportDialog`, `ClearHistoryDialog`), and onboarding (`SignInFlow`, `CancelSetupConfirmDialog`, the backup/checksum steps) render it.
+- `FlowFooter` is still live: `ErrorStep`, the settings dialogs (`ResetWalletDialog`, `RecoverySecretExportDialog`, `ClearHistoryDialog`), and onboarding (`RestoreFlow` inside `RestoreModal`, `CancelSetupConfirmDialog`, the backup/checksum steps) render it.
 - `FlowHeader` (and the `FlowStepIndicator` it renders) is still live in `onboarding/OnboardingShell`.
 
 ## FlowShell motion

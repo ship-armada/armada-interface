@@ -99,8 +99,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
             appearing/disappearing never reflows the page content beneath it. pointer-events are
             off on the wrapper and back on for the strips, so clicks pass through empty space. */}
         <div className={styles.bannerOverlay}>
-          {/* The dashboard renders its own prominent full-area SyncGate, so the thin strip would
-              be redundant there — show it only on the other routes (History/Settings). */}
+          {/* The dashboard shows the sync in its balance spot (dashboard/SyncCard), so the thin strip
+              would be redundant there — show it only on the other routes. */}
           {location.pathname !== '/' && <SyncBanner />}
           <HistoryRecoveryBanner />
         </div>

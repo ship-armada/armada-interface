@@ -19,9 +19,9 @@ import { shieldedUsdcAtom } from '@/state/wallet'
 import { formatUsdcAmount, truncateAddress } from '@/lib/format'
 import { TxNoticePreview } from '@/components/debug/TxNoticePreview'
 import { TxTimings } from '@/components/debug/TxTimings'
-import { latencyTimings, stageTimings } from '@/lib/tx/timings'
+import { latencyTimings, signInTimings, stageTimings } from '@/lib/tx/timings'
 import { activeTxListAtom } from '@/state/tx'
-import { balanceLatencySamplesAtom } from '@/state/txTimings'
+import { balanceLatencySamplesAtom, signInLatencySamplesAtom } from '@/state/txTimings'
 import styles from './Debug.module.css'
 
 /**
@@ -178,6 +178,7 @@ export function Debug() {
   const shielded = useAtomValue(shieldedUsdcAtom)
   const txList = useAtomValue(activeTxListAtom)
   const balanceLatencySamples = useAtomValue(balanceLatencySamplesAtom)
+  const signInLatencySamples = useAtomValue(signInLatencySamplesAtom)
   const { address: evmAddress } = useWallet()
   const { state: shieldedState } = useShieldedWallet()
   const { chainId: connectedChainId } = useAccount()
@@ -280,7 +281,11 @@ export function Debug() {
 
   const localMode = isLocalMode()
   // Per-kind stage durations from this wallet's completed records, plus this session's balance-lag samples.
-  const timingRows = [...stageTimings(txList), ...latencyTimings(balanceLatencySamples)]
+  const timingRows = [
+    ...stageTimings(txList),
+    ...latencyTimings(balanceLatencySamples),
+    ...signInTimings(signInLatencySamples),
+  ]
 
   return (
     <div className={styles.page}>

@@ -78,8 +78,9 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-10 Every flow that builds the same kind renders the same figures** (Send-modal public path and the
   Unshield tab both build `unshield-*` records with one builder, `lib/tx/spendDraft.ts`).
 - **G-11 Balances are the real balance only.** The private balance shown anywhere is the SDK's scanned
-  balance; until it is known the dashboard stays on the sync gate (`isInitialSyncGated` — including after the
-  scan completes, until its balance is read) — never a figure derived from local history.
+  balance; until it is known the balance spot shows a syncing state with no figure (`dashboard/SyncCard`,
+  `isInitialSyncGated` — including after the scan completes, until its balance is read) — never a figure derived
+  from local history. A locked wallet shows no private balance at all (neither cached nor derived).
 
 ## 4. Fee model per kind (what moves on chain)
 

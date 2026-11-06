@@ -1,12 +1,15 @@
 // ABOUTME: Tx timing stats for the Debug page — per-kind, per-stage p50 / p90 durations from completed records' stage-entry
-// ABOUTME: stamps (plus the whole tx), and the balance-lag samples. Pure; local data only (package 7).
+// ABOUTME: stamps (plus the whole tx), the balance-lag samples and sign-in → balance. Pure; local data only (package 7).
 
 import { lifecycleFor } from './lifecycles'
 import type { TxKind, TxRecord } from './types'
 
 export interface TimingRow {
-  kind: TxKind
-  /** A lifecycle stage, `total` (first stamp → last), or `balance update` (completion → balance change). */
+  kind: TxKind | 'sign-in'
+  /**
+   * A lifecycle stage, `total` (first stamp → last), `balance update` (completion → balance change), or for `sign-in`
+   * `to balance (first sync)` / `to balance (returning)` (unlock → first known balance).
+   */
   stage: string
   samples: number
   p50: number
@@ -20,7 +23,7 @@ export function percentile(values: readonly number[], p: number): number {
   return sorted[Math.min(rank, sorted.length) - 1] ?? 0
 }
 
-function row(kind: TxKind, stage: string, durations: readonly number[]): TimingRow {
+function row(kind: TimingRow['kind'], stage: string, durations: readonly number[]): TimingRow {
   return { kind, stage, samples: durations.length, p50: percentile(durations, 50), p90: percentile(durations, 90) }
 }
 
@@ -70,4 +73,14 @@ export function latencyTimings(samples: ReadonlyArray<{ kind: TxKind; durationMs
   const byKind = new Map<TxKind, number[]>()
   for (const sample of samples) byKind.set(sample.kind, [...(byKind.get(sample.kind) ?? []), sample.durationMs])
   return [...byKind.keys()].sort().map((kind) => row(kind, 'balance update', byKind.get(kind) ?? []))
+}
+
+/** Sign-in → first known balance, split into a first sync on this device (cold) and a returning one (warm). */
+export function signInTimings(samples: ReadonlyArray<{ cold: boolean; durationMs: number }>): TimingRow[] {
+  const rows: TimingRow[] = []
+  for (const [cold, stage] of [[true, 'to balance (first sync)'], [false, 'to balance (returning)']] as const) {
+    const durations = samples.filter((sample) => sample.cold === cold).map((sample) => sample.durationMs)
+    if (durations.length > 0) rows.push(row('sign-in', stage, durations))
+  }
+  return rows
 }

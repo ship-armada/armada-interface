@@ -1,5 +1,5 @@
-// ABOUTME: Barrel export for the account-entry primitives — SignInFlow (the live single sign-in), plus OnboardingShell + the dead V1 OnboardingFlow and its per-step components.
-// ABOUTME: App.tsx imports SignInFlow; the step components are consumed only by the dead V1 OnboardingFlow.
+// ABOUTME: Barrel export for the account-entry primitives — RestoreModal / RestoreFlow (restore + the compatibility screen), plus OnboardingShell + the dead V1 OnboardingFlow and its steps.
+// ABOUTME: App.tsx mounts RestoreModal (sign-in itself is the dashboard's SignInCard); the step components are consumed only by the dead V1 OnboardingFlow.
 
 export { OnboardingShell } from './OnboardingShell'
 export type { OnboardingShellProps } from './OnboardingShell'
@@ -10,8 +10,10 @@ export type { OnboardingFlowProps } from './OnboardingFlow'
 export { OnboardingLayout } from '../OnboardingLayout/OnboardingLayout'
 export type { OnboardingLayoutProps } from '../OnboardingLayout/OnboardingLayout'
 
-export { SignInFlow } from './SignInFlow'
-export type { SignInFlowProps } from './SignInFlow'
+export { RestoreFlow } from './RestoreFlow'
+export type { RestoreFlowProps } from './RestoreFlow'
+
+export { RestoreModal } from './RestoreModal'
 
 export { WelcomeStep } from './steps/WelcomeStep'
 export type { WelcomeStepProps } from './steps/WelcomeStep'

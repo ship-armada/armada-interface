@@ -1,16 +1,21 @@
-// ABOUTME: Dashboard page — centered Private-USDC BalanceCard + deposit tooltip + recent activity.
-// ABOUTME: Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
+// ABOUTME: Dashboard page — the balance spot (one BalanceSpot card: sign-in face → sync face → BalanceCard) + deposit tooltip + recent
+// ABOUTME: activity. Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAccount } from 'wagmi'
 import { ChartBarIcon } from '@heroicons/react/24/outline'
 import { BalanceCard } from '@/components/dashboard/BalanceCard'
 import { DepositTooltip } from '@/components/dashboard/DepositTooltip'
 import {
   DASHBOARD_TOOLTIP_ENTER_DELAY_MS,
+  activityFirstPaint,
   dashboardActivityEnterDelayMs,
 } from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { DashboardScrollTopFade } from '@/components/dashboard/DashboardScrollTopFade'
+import { FirstSignInBanner, SignInCard, lockNoteFor, payNoteFor } from '@/components/dashboard/SignInCard'
+import { BalanceSpot, type BalanceSpotFace } from '@/components/dashboard/BalanceSpot'
+import { preferencesAtom } from '@/state/preferences'
 import { RecentActivityList, ActivityAllPanel } from '@/components/dashboard/RecentActivityList'
 import { useDepositTooltipHandoff, useEarnBannerHandoff } from '@/hooks/useEarnBannerHandoff'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt'
@@ -18,13 +23,27 @@ import { buildActivityItems, type DashboardActivityItem } from '@/components/das
 import { selfSendAsMerge } from '@/lib/tx/selfSend'
 import { formatUsdcAmount } from '@/components/dashboard/dashboardFormat'
 import type { BalanceRollMode } from '@/components/dashboard/RollingBalanceValue'
-import { SyncGate, isInitialSyncGated } from '@/components/sync'
+import { isInitialSyncGated } from '@/components/sync'
+import { SyncCard } from '@/components/dashboard/SyncCard'
+import { useSyncRetry } from '@/hooks/useSyncRetry'
+import { readHistoryCheckpoint } from '@/lib/shielded/history-checkpoint'
+import { readStoredWalletId, readStoredWalletIdFor } from '@/lib/shielded/wallet'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { apyExplanation, formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
-import { openModalAtom, balanceHiddenAtom, activityPanelOpenAtom, receiptTxIdAtom, repeatIntentAtom } from '@/state/ui'
+import {
+  openModalAtom,
+  balanceHiddenAtom,
+  activityPanelOpenAtom,
+  receiptTxIdAtom,
+  repeatIntentAtom,
+  lockReasonAtom,
+  paymentIntentAtom,
+  restoreEntryAtom,
+  signInStatusAtom,
+} from '@/state/ui'
 import { repeatModalFor } from '@/components/dashboard/repeatIntent'
 import { useTxInView } from '@/hooks/useTxInView'
 import {
@@ -34,6 +53,9 @@ import {
   yieldSharesHeadlineAtom,
   shieldedWalletAtom,
   evmAddressAtom,
+  activeShieldedWalletIdAtom,
+  syncStateAtom,
+  syncRetryEpochAtom,
 } from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
@@ -50,7 +72,7 @@ const ACTIVITY_PREVIEW_MAX = 8
 const ACTIVITY_PANEL_MAX = 500
 
 export function Dashboard() {
-  // Data (all hooks run unconditionally, before the sync gate's early return).
+  // Data (all hooks run unconditionally).
   const shielded = useAtomValue(shieldedUsdcAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
   // Headline figures also count a broadcast spend's held inputs, so a send / vault withdrawal doesn't
@@ -68,6 +90,18 @@ export function Dashboard() {
   )
   const requestLinks = useAtomValue(requestLinksAtom)
   const evmAddress = useAtomValue(evmAddressAtom)
+  // Before sign-in: the sign-in card's inputs — wallet connection and address, the sign-in attempt, why it locked, a waiting pay link.
+  const { status: connectionStatus, address: connectedAddress } = useAccount()
+  const signInStatus = useAtomValue(signInStatusAtom)
+  const setRestoreEntry = useSetAtom(restoreEntryAtom)
+  const lockReason = useAtomValue(lockReasonAtom)
+  const { autoLockMinutes } = useAtomValue(preferencesAtom)
+  const paymentIntent = useAtomValue(paymentIntentAtom)
+  // While the first sync runs after sign-in: its progress / failure, and whether a retry was already made.
+  const syncState = useAtomValue(syncStateAtom)
+  const syncRetried = useAtomValue(syncRetryEpochAtom) > 0
+  const retrySync = useSyncRetry()
+  const activeWalletId = useAtomValue(activeShieldedWalletIdAtom)
 
   // Actions
   const openActionModal = useOpenActionModal()
@@ -100,13 +134,13 @@ export function Dashboard() {
   const [balanceHidden, setBalanceHidden] = useAtom(balanceHiddenAtom)
 
   // Balance odometer roll. The *displayed* balance lags the live atom while a tx modal is open (or
-  // while the initial sync gate is up), then advances to the live value together with the roll
+  // while the initial sync is still loading), then advances to the live value together with the roll
   // trigger — so the card holds the OLD number and rolls to the NEW one on return, rather than
   // flashing NEW then rolling. Mirrors the mockup, which defers the whole advance (value + roll)
   // until the user is back on the dashboard.
   const gated = isInitialSyncGated(shielded)
   // The vault position depends on yieldRate, which loads from a separate poll (useYieldRate) — later
-  // than the wallet scan the sync gate waits on. Only prime the promo-banner handoffs once BOTH the
+  // than the wallet scan the syncing card waits on. Only prime the promo-banner handoffs once BOTH the
   // gate has lifted and the vault data has loaded, so the established balance/vault values form the
   // baseline rather than a late 0 → real arrival that flashes a banner in and out.
   const vaultLoaded = yieldShares !== null && yieldRate !== null
@@ -128,8 +162,8 @@ export function Dashboard() {
   const liveVault = usdcToNumber(earningUsdc)
   const vaultApy = yieldRate !== null ? Number(yieldRate.apyBps) / 100 : undefined
   // Accrued vault yield = current vault value − net capital contributed (settled yield deposits −
-  // withdrawals, from history). Only trustworthy once the vault has loaded, the initial sync gate has
-  // lifted, and history recovery has SETTLED (`idle`) — a mid/failed recovery scan would under-count
+  // withdrawals, from history). Only trustworthy once the vault has loaded, the initial sync has
+  // landed, and history recovery has SETTLED (`idle`) — a mid/failed recovery scan would under-count
   // deposits and over-state the gain. Until then leave it undefined so the bar shows its placeholder
   // rather than a wrong-looking number.
   const historyRecovery = useAtomValue(historyRecoveryAtom)
@@ -150,8 +184,8 @@ export function Dashboard() {
   const [vaultRollFromValue, setVaultRollFromValue] = useState<string | undefined>(undefined)
   const lastLiveRef = useRef<number | null>(null)
   const lastVaultRef = useRef<number>(liveVault)
-  // Captures whether the activity list was on screen at the first real (post-sync-gate) dashboard
-  // paint. Only that initial paint cascades activity in last; later reveals enter immediately.
+  // Whether the activity list takes the page-load cascade, decided once (activityFirstPaint): yes when it first shows with
+  // the balance; no when it was already on screen while syncing, or appears later — those enter immediately.
   const activityVisibleOnPaintRef = useRef<boolean | null>(null)
   useEffect(() => {
     if (gated || openModal !== null) return
@@ -236,19 +270,57 @@ export function Dashboard() {
     '--dashboard-tooltip-enter-delay': `${DASHBOARD_TOOLTIP_ENTER_DELAY_MS}ms`,
   } as CSSProperties
 
-  // Gate the dashboard behind the initial shielded-balance sync. The navbar (AppLayout) stays visible.
-  if (gated) {
-    return <SyncGate />
-  }
+  // The "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. Shown once signed in
+  // (syncing or with the balance).
+  const activityOverlays = (
+    <>
+    {/* Full "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. */}
+    <ActivityAllPanel
+      open={activityPanelOpen}
+      onClose={() => setActivityPanelOpen(false)}
+      items={panelActivityItems}
+      truncatedCount={activityTruncated ? ACTIVITY_PANEL_MAX : undefined}
+      balanceRevealed={!balanceHidden}
+      onItemClick={handleActivityItemClick}
+    />
+    <ActivityReceipt
+      record={activityTxList.find((record) => record.id === receiptId) ?? null}
+      ownWalletAddress={evmAddress ?? undefined}
+      open={receiptId !== null}
+      onClose={() => setReceiptId(null)}
+      // "Send again" / "Shield again" / …: hand the prefill to the flow it repeats, which seeds its amount step. Not
+      // offered while the first sync runs — no flow opens until the balance is known.
+      onRepeat={
+        gated
+          ? undefined
+          : (intent) => {
+              setRepeatIntent(intent)
+              openActionModal(repeatModalFor(intent))
+            }
+      }
+    />
+    </>
+  )
 
-  // Page-load cascade: activity enters last, after the hero → actions → banner beats. Captured on the
-  // first post-gate paint so activity that appears later (e.g. after a tx) just enters immediately.
-  if (activityVisibleOnPaintRef.current === null) {
-    activityVisibleOnPaintRef.current = showActivity
-  }
+  // The balance spot is one card (BalanceSpot) from sign-in through the first sync to the balance, its face following the
+  // wallet. Locked → the sign-in face: no activity (history is encrypted until sign-in) and no banners; it signs in inline
+  // (its button connects if needed, then asks for the signature — useOpenActionModal → useSignIn) and restoring opens the
+  // restore modal. Signed in with no balance yet (11A) → the sync face: no figure (G-11) and no flows until the balance is
+  // known, while activity already shows. Then the balance face, with its intro roll — in the same card.
+  const locked = shieldedWallet.status !== 'unlocked'
+  const face: BalanceSpotFace = locked ? 'sign-in' : gated ? 'sync' : 'balance'
+  const syncFailed = syncState.status === 'failed'
+  // The first sign-in for an address on this device double-signs (the determinism check). Before a wallet connects,
+  // judge by the device: no wallet stored here at all means the first prompt will be one of two.
+  const firstTimeOnDevice =
+    locked && (connectedAddress ? readStoredWalletIdFor(connectedAddress) === null : readStoredWalletId() === null)
+
+  // Page-load cascade: activity enters last, after the hero → actions → banner beats — when it first shows with the balance.
+  // Activity already on screen while syncing keeps no delay (raising it would replay its entrance); later activity enters at once.
+  activityVisibleOnPaintRef.current = activityFirstPaint(activityVisibleOnPaintRef.current, face, showActivity)
   const activityEnterDelayMs = dashboardActivityEnterDelayMs(
     showDepositTooltip || showEarnBanner,
-    activityVisibleOnPaintRef.current,
+    activityVisibleOnPaintRef.current ?? false,
   )
   const activityEnterStyle = {
     '--dashboard-activity-enter-delay': `${activityEnterDelayMs}ms`,
@@ -256,28 +328,63 @@ export function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <DashboardScrollTopFade enabled={showActivity} />
+      <DashboardScrollTopFade enabled={!locked && showActivity} />
       <div className={styles.cardStack}>
-        <BalanceCard
-          balance={displayedBalance}
-          balanceRollTrigger={rollTrigger}
-          balanceRollMode={rollMode}
-          balanceRollFromValue={rollFromValue}
-          vaultBalance={displayedVault}
-          vaultRollFromValue={vaultRollFromValue}
-          vaultApy={vaultApy}
-          vaultEarned={vaultEarned}
-          armadaAddress={shieldedWallet.shieldedAddress}
-          balanceHidden={balanceHidden}
-          onBalanceHiddenChange={setBalanceHidden}
-          onSend={() => openActionModal('payment')}
-          onDeposit={() => openActionModal('shield')}
-          onRequest={() => openActionModal('request')}
-          onEarn={() => openActionModal('yield-deposit')}
-          onVaultOpen={() => openActionModal('yield-deposit')}
-        />
+        <BalanceSpot face={face} showMark={face === 'sign-in' || (face === 'sync' && !syncFailed)}>
+          {face === 'sign-in' ? (
+            <SignInCard
+              connection={
+                connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+                  ? 'reconnecting'
+                  : connectionStatus === 'connected'
+                    ? 'connected'
+                    : 'disconnected'
+              }
+              address={connectedAddress}
+              submitting={signInStatus.submitting}
+              error={signInStatus.error}
+              lockNote={lockNoteFor(lockReason, autoLockMinutes)}
+              payNote={payNoteFor(paymentIntent)}
+              onSignIn={() => openActionModal()}
+              onRestore={() => {
+                setRestoreEntry({ view: 'restore' })
+                setOpenModal('restore')
+              }}
+            />
+          ) : face === 'sync' ? (
+            <SyncCard
+              progress={syncState.progress}
+              failed={syncFailed}
+              retried={syncRetried}
+              // No history checkpoint for this wallet here yet = its first sync on this device, scanning from the start.
+              firstSync={activeWalletId !== null && readHistoryCheckpoint(activeWalletId) === null}
+              onRetry={retrySync}
+            />
+          ) : (
+            <BalanceCard
+              balance={displayedBalance}
+              balanceRollTrigger={rollTrigger}
+              balanceRollMode={rollMode}
+              balanceRollFromValue={rollFromValue}
+              vaultBalance={displayedVault}
+              vaultRollFromValue={vaultRollFromValue}
+              vaultApy={vaultApy}
+              vaultEarned={vaultEarned}
+              armadaAddress={shieldedWallet.shieldedAddress}
+              balanceHidden={balanceHidden}
+              onBalanceHiddenChange={setBalanceHidden}
+              onSend={() => openActionModal('payment')}
+              onDeposit={() => openActionModal('shield')}
+              onRequest={() => openActionModal('request')}
+              onEarn={() => openActionModal('yield-deposit')}
+              onVaultOpen={() => openActionModal('yield-deposit')}
+            />
+          )}
+        </BalanceSpot>
 
-        {showDepositTooltip ? (
+        {firstTimeOnDevice ? <FirstSignInBanner /> : null}
+
+        {face === 'balance' && showDepositTooltip ? (
           <div
             className={[
               styles.cardStackTooltip,
@@ -296,7 +403,7 @@ export function Dashboard() {
         ) : null}
 
         <EarnBannerSlot
-          show={showEarnBanner}
+          show={face === 'balance' && showEarnBanner}
           handoffEnter={earnBannerHandoffEnter}
           persistVisible={earnBannerPersistVisible}
           tooltipEnterStyle={tooltipEnterStyle}
@@ -314,7 +421,7 @@ export function Dashboard() {
           />
         </EarnBannerSlot>
 
-        {showActivity ? (
+        {!locked && showActivity ? (
           <div className={styles.activityEnter} style={activityEnterStyle}>
             <RecentActivityList
               items={previewActivityItems}
@@ -326,26 +433,7 @@ export function Dashboard() {
         ) : null}
       </div>
 
-      {/* Full "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. */}
-      <ActivityAllPanel
-        open={activityPanelOpen}
-        onClose={() => setActivityPanelOpen(false)}
-        items={panelActivityItems}
-        truncatedCount={activityTruncated ? ACTIVITY_PANEL_MAX : undefined}
-        balanceRevealed={!balanceHidden}
-        onItemClick={handleActivityItemClick}
-      />
-      <ActivityReceipt
-        record={activityTxList.find((record) => record.id === receiptId) ?? null}
-        ownWalletAddress={evmAddress ?? undefined}
-        open={receiptId !== null}
-        onClose={() => setReceiptId(null)}
-        // "Send again" / "Shield again" / …: hand the prefill to the flow it repeats, which seeds its amount step.
-        onRepeat={(intent) => {
-          setRepeatIntent(intent)
-          openActionModal(repeatModalFor(intent))
-        }}
-      />
+      {!locked ? activityOverlays : null}
     </div>
   )
 }

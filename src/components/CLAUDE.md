@@ -24,7 +24,7 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `flow/` | `FlowShell` (the live modal chrome, wrapping vendored `FlowModalOverlay + ModalShell + ModalStepSwitch`) + `useFlowExit` + `ErrorStep` + `ProgressStep`. Pre-redesign `ActionFlowShell` is unused; `FlowFooter` / `FlowHeader` / `FlowStepIndicator` are still used by `ErrorStep`, settings dialogs and onboarding — see `flow/CLAUDE.md` |
 | `deposit/` | Shared flow primitives — `DepositAmountCard` (amount + chain + fee caption + % pills), `DepositReviewSummary`, `DepositOverlayShell` — reused across shield/send/earn |
 | `tx/` | TxLifecycleStepper, TxRow, TxStatusChip, TxActions, stageCopy helpers, `processing/` (TxProgressCard + timeline) — see `tx/CLAUDE.md` |
-| `dashboard/` | BalanceCard + numerals + RecentActivityList (+ ActivityAllPanel / receipts) + DepositTooltip (centered card stack) — see `dashboard/CLAUDE.md` |
+| `dashboard/` | BalanceSpot (the one balance-spot card: SignInCard → SyncCard → BalanceCard faces) + numerals + RecentActivityList (+ ActivityAllPanel / receipts) + DepositTooltip (centered card stack) — see `dashboard/CLAUDE.md` |
 | `shield/` | ShieldModal + steps (deposit; same-chain + cross-chain) — see `shield/CLAUDE.md` |
 | `payments/` | SendModal — the shared Send/Withdraw flow (variant-driven, address-picks-kind). Also seeds recipient/amount from a pay-via-link `paymentIntentAtom` on open — see `payments/CLAUDE.md` |
 | `yield/` | EarnModal + steps (Add / Withdraw tabs) — see `yield/CLAUDE.md` |
@@ -32,9 +32,9 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `request/` | RequestModal — the "Request USDC via link" flow (compose amount/expiry/note → generated link screen). Revoke is disabled ("coming soon"); the Link-revoked variant is built but unreachable until backend-backed revocation lands |
 | `payViaLink/` | `PaymentLinkQrCode` — QR of a pay-via-link URL (`qrcode.react`). Shared by the payer landing (`pages/PayViaLinkLanding`) and the requester's link screen (`request/RequestLinkScreen`) |
 | `history/` | `HistoryRecoveryBanner` — shown only when a chain-history recovery scan failed: "Couldn't recover activity from chain" + Retry (mounted in AppLayout). Nothing while a scan runs — Settings' "Scanning…" and the refilling list show it |
-| `sync/` | `SyncGate` + `SyncBanner` — initial shielded-balance sync gate + banner. A failed sync says "Your funds are safe on chain" (only loading them here failed) with Try again; once a retry has failed too (`syncRetryEpochAtom` > 0), the gate adds "Still not loading? Check your connection…" and both add "Get help on Discord" (`config/support`) |
-| `onboarding/` | `SignInFlow` (the single state-agnostic account entry for first visit and returning users; restore-from-backup behind a link) + `NonDeterministicSignerScreen` + `OnboardingShell`; the legacy 6-step `OnboardingFlow` is not rendered — see `onboarding/CLAUDE.md` |
-| `OnboardingLayout/` | Shell chrome for the onboarding/unlock screens |
+| `sync/` | `SyncBanner` (the initial-sync strip on routes other than the dashboard; the dashboard shows `dashboard/SyncCard`) + `isInitialSyncGated` (no SDK balance yet). A failed sync says "Your funds are safe on chain" (only loading them here failed) with Try again; once a retry has failed too (`syncRetryEpochAtom` > 0), the card adds "Still not loading? Check your connection…" and both add "Get help on Discord" (`config/support`) |
+| `onboarding/` | `RestoreModal` + `RestoreFlow` (restore from a backup file / recovery secret, and the compatibility screen for a wallet that can't use sign-in — sign-in itself is inline on `dashboard/SignInCard`) + `NonDeterministicSignerScreen` + `OnboardingShell`; the legacy 6-step `OnboardingFlow` is not rendered — see `onboarding/CLAUDE.md` |
+| `OnboardingLayout/` | Two-panel brand layout from the retired full-page sign-in. Not rendered (still exported from `onboarding/`); dead code, a candidate for #132 |
 | `settings/` | SettingsModal + RecoverySecretExportDialog, ResetWalletDialog, ClearHistoryDialog — see `settings/CLAUDE.md` |
 
 ## When you add a component

@@ -1,0 +1,164 @@
+/* ABOUTME: SyncCard styling — the sync face's content box (BalanceCard.module.css .card; the surface is BalanceSpot's): the tick
+   ABOUTME: ring + percent over its caption, pinned to the top, or the failure's title + copy, Try again, then help, centred. */
+
+.card {
+  /* The status sits in the middle of the card's height (the failure); the syncing state is pinned to the top (.cardSyncing). */
+  justify-content: center;
+  /* At least the signed-in BalanceCard's height (no vault bar), like the sign-in card, so the balance spot doesn't jump
+     between sign-in, syncing and the balance; a failure's help lines can grow it. Measured from the rendered BalanceCard —
+     update with SignInCard.module.css if its layout changes. */
+  min-height: 284px;
+}
+
+@media (max-width: 479px) {
+  .card {
+    min-height: 260px;
+  }
+}
+
+/* Syncing: the ring sits at the top of the face, around the shared mark BalanceSpot draws there — the same ring-sized space the
+   sign-in face leaves (SignInCard.module.css .brandMark) — so on sign-in the mark stays put and the ring appears around it. */
+.cardSyncing {
+  justify-content: flex-start;
+}
+
+/* Centred stack. The wider gap separates the groups — the headline, its copy, the action, the help — and each group keeps
+   its lines close (.text, .help), so the headline leads and the help reads as secondary. */
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--primitives-spacing-5);
+  text-align: center;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--primitives-spacing-2);
+}
+
+.help {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+}
+
+/* Rotating tick ring around the Armada mark — mirrors the tx-processing ticker, retinted to the theme lavender. Sized to sit
+   in the card's height with the caption under it, around BalanceSpot's 108px mark. The sign-in face's .brandMark box and
+   BalanceSpot.module.css .mark match --ring-size — change them together. */
+.tickRing {
+  --ring-size: 152px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--ring-size);
+  height: var(--ring-size);
+}
+
+.tick {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.5px;
+  height: var(--primitives-spacing-2);
+  border-radius: calc(var(--primitives-borderRadius-sm) * 0.5px);
+  background: var(--semantic-color-text-lavender);
+  transform-origin: 50% calc(var(--ring-size) / 2);
+  transform: translate(-50%, calc(var(--ring-size) / -2)) rotate(calc(var(--i) * 6deg));
+  opacity: 0.4;
+  animation: tickSweep 2.1s linear infinite;
+  animation-delay: calc(var(--i) * 0.035s);
+}
+
+@keyframes tickSweep {
+  0% {
+    opacity: 1;
+    width: 3px;
+  }
+
+  12% {
+    opacity: 0.7;
+    width: 2.25px;
+  }
+
+  30% {
+    opacity: 0.45;
+    width: 1.5px;
+  }
+
+  100% {
+    opacity: 0.4;
+    width: 1.5px;
+  }
+}
+
+/* Dead-centred over the logo, on top of the ring. */
+.pct {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-md) * 1px);
+  font-weight: var(--primitives-fontWeight-medium);
+  color: var(--semantic-color-text-lavender);
+}
+
+/* Keeps the number + "%" inline on a shared baseline (the .pct grid centres this as one item). */
+.pctValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  transform: translateX(2px);
+}
+
+/* The trailing "%" — a touch smaller + muted so the number reads as the focus. */
+.pctSymbol {
+  font-size: 0.8em;
+  color: var(--semantic-color-text-muted);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-xl) * 1px);
+  font-weight: var(--primitives-fontWeight-semibold);
+  line-height: var(--primitives-lineHeight-tight);
+  color: var(--semantic-color-text-primary);
+}
+
+.body {
+  margin: 0;
+  color: var(--semantic-color-text-secondary);
+}
+
+.note {
+  margin: 0;
+  color: var(--semantic-color-text-muted);
+}
+
+.helpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+}
+
+.helpLink:hover,
+.helpLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick {
+    animation: none;
+    opacity: 0.55;
+    width: 1.5px;
+  }
+}

@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from 'vitest'
 import type { TxRecord } from './types'
-import { percentile, stageTimings, latencyTimings } from './timings'
+import { percentile, stageTimings, latencyTimings, signInTimings } from './timings'
 import { txRecord } from '@/test/fixtures/txValues'
 
 function shield(id: string, stamps: Record<string, number>, executionState: TxRecord['executionState'] = 'completed'): TxRecord {
@@ -52,5 +52,21 @@ describe('latencyTimings', () => {
       { kind: 'shield', stage: 'balance update', samples: 1, p50: 1_000, p90: 1_000 },
       { kind: 'transfer-shielded', stage: 'balance update', samples: 2, p50: 2_000, p90: 6_000 },
     ])
+  })
+})
+
+describe('signInTimings', () => {
+  it('summarises sign-in → balance, split into a first sync on this device and a returning one', () => {
+    expect(
+      signInTimings([
+        { cold: true, durationMs: 20_000 },
+        { cold: false, durationMs: 1_500 },
+        { cold: false, durationMs: 2_500 },
+      ]),
+    ).toEqual([
+      { kind: 'sign-in', stage: 'to balance (first sync)', samples: 1, p50: 20_000, p90: 20_000 },
+      { kind: 'sign-in', stage: 'to balance (returning)', samples: 2, p50: 1_500, p90: 2_500 },
+    ])
+    expect(signInTimings([])).toEqual([])
   })
 })

@@ -7,6 +7,7 @@ import { useShieldedWallet } from './useShieldedWallet'
 import { preferencesAtom } from '@/state/preferences'
 import { pendingTxsAtom } from '@/state/tx'
 import { autoLockDeadlineAtom } from '@/state/wallet'
+import { lockReasonAtom } from '@/state/ui'
 
 /** Activity events we treat as a sign of user presence. Passive listeners — no preventDefault. */
 const ACTIVITY_EVENTS: ReadonlyArray<keyof WindowEventMap> = [
@@ -89,6 +90,8 @@ export function useAutoLock() {
         timer = setTimeout(fire, 60_000)
         return
       }
+      // The sign-in card tells the user why ("Locked after N minutes of inactivity").
+      store.set(lockReasonAtom, 'idle')
       lockRef.current()
     }
 
@@ -117,6 +120,7 @@ export function useAutoLock() {
         hiddenTimer = setTimeout(hiddenLockCheck, 60_000)
         return
       }
+      store.set(lockReasonAtom, 'hidden')
       lockRef.current()
     }
 
