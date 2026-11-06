@@ -8,6 +8,7 @@ import { useShieldedWallet } from './useShieldedWallet'
 import {
   activeShieldedWalletIdAtom,
   evmAddressAtom,
+  restoredWalletAwaitingBalanceAtom,
   shieldedWalletsAtom,
 } from '@/state/wallet'
 import type { ShieldedWalletState } from '@/lib/shielded/wallet'
@@ -313,6 +314,8 @@ describe('unlockByPaste', () => {
     // contents. Check that exactly 32 bytes were passed (entropy floor canary asserts contents).
     expect(bytesArg.length).toBe(32)
     expect(store.get(shieldedWalletsAtom)['wallet-id-1']).toEqual(SAMPLE_STATE)
+    // A restore marks the wallet so its first known balance gets a "Your balance is up to date" toast (11F).
+    expect(store.get(restoredWalletAwaitingBalanceAtom)).toBe('wallet-id-1')
   })
 
   it('also accepts input without 0x prefix', async () => {
@@ -364,6 +367,7 @@ describe('unlockByBackup', () => {
 
     expect(mockUnlockFromBackup).toHaveBeenCalledTimes(1)
     expect(store.get(activeShieldedWalletIdAtom)).toBe('wallet-id-1')
+    expect(store.get(restoredWalletAwaitingBalanceAtom)).toBe('wallet-id-1')
   })
 
   it('rejects malformed JSON', async () => {

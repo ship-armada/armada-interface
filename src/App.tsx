@@ -20,6 +20,7 @@ import { useHistoryRecovery } from '@/hooks/useHistoryRecovery'
 import { useIncomingTransferDetector } from '@/hooks/useIncomingTransferDetector'
 import { useNowTicker } from '@/hooks/useNowTicker'
 import { useShieldedBalanceSync } from '@/hooks/useShieldedBalanceSync'
+import { useRestoreSyncedToast } from '@/hooks/useRestoreSyncedToast'
 import { useShieldedSyncPoll } from '@/hooks/useShieldedSyncPoll'
 import { useShieldedWatch } from '@/hooks/useShieldedWatch'
 import { useNullifierCrossCheck } from '@/hooks/useNullifierCrossCheck'
@@ -85,6 +86,8 @@ export function App() {
   // mirrors the active wallet's shielded USDC balance into shieldedUsdcAtom for BalanceHero
   // and the shield/unshield modals.
   useShieldedBalanceSync()
+  // After a restore (backup / pasted secret), one "Your balance is up to date" toast once its balance is known.
+  useRestoreSyncedToast()
   // Drive periodic wallet.sync() (visibility-gated) so live balance + incoming-transfer updates keep
   // flowing — the SDK-native replacement for the stock engine's continuous scan poller.
   useShieldedSyncPoll()

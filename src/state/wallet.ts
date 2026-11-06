@@ -31,6 +31,12 @@ export const shieldedWalletAtom = atom<{ status: 'locked' | 'unlocked' | 'missin
 })
 
 /**
+ * The id of a wallet just restored (from a backup file or a pasted recovery secret) whose balance isn't known yet; null
+ * otherwise. `useRestoreSyncedToast` shows "Your balance is up to date" once that balance lands, then clears it.
+ */
+export const restoredWalletAwaitingBalanceAtom = atom<string | null>(null)
+
+/**
  * Unshielded USDC balance per chain id (raw 6-decimal units). Empty map until balances hook fetches.
  */
 export const usdcBalancesAtom = atom<Record<number, bigint>>({})
