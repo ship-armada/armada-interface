@@ -8,6 +8,7 @@ import {
   activeShieldedWalletIdAtom,
   activeShieldedWalletAtom,
   evmAddressAtom,
+  restoredWalletAwaitingBalanceAtom,
   shieldedWalletsAtom,
 } from '@/state/wallet'
 import { wagmiConfig } from '@/config/wagmi'
@@ -53,6 +54,8 @@ export function useShieldedWallet() {
   const evmAddress = useAtomValue(evmAddressAtom)
   const setWallets = useSetAtom(shieldedWalletsAtom)
   const setActiveId = useSetAtom(activeShieldedWalletIdAtom)
+  // A restore's first known balance gets a "Your balance is up to date" toast (useRestoreSyncedToast).
+  const setRestoredAwaitingBalance = useSetAtom(restoredWalletAwaitingBalanceAtom)
 
   /**
    * Primary unlock path (v2 amendment): build the deterministic EIP-712 message for the given
@@ -193,6 +196,7 @@ export function useShieldedWallet() {
       })
       setWallets(prev => ({ ...prev, [next.id]: next }))
       setActiveId(next.id)
+      setRestoredAwaitingBalance(next.id)
     } catch (err) {
       trackError('useShieldedWallet.unlockByPaste', err, { scope: 'shielded.unlock', message: 'paste unlock failed' })
       throw err
@@ -201,7 +205,7 @@ export function useShieldedWallet() {
       // local copy is safe and removes the duplicate from heap.
       bytes.fill(0)
     }
-  }, [evmAddress, setWallets, setActiveId])
+  }, [evmAddress, setWallets, setActiveId, setRestoredAwaitingBalance])
 
   /**
    * Unlock from a downloaded backup file + the user's passphrase. Reads the file as text, parses
@@ -225,11 +229,12 @@ export function useShieldedWallet() {
       })
       setWallets(prev => ({ ...prev, [next.id]: next }))
       setActiveId(next.id)
+      setRestoredAwaitingBalance(next.id)
     } catch (err) {
       trackError('useShieldedWallet.unlockByBackup', err, { scope: 'shielded.unlock', message: 'backup unlock failed' })
       throw err
     }
-  }, [evmAddress, setWallets, setActiveId])
+  }, [evmAddress, setWallets, setActiveId, setRestoredAwaitingBalance])
 
   /**
    * Export the currently-unlocked wallet's root_secret + creationBlock as an encrypted v2

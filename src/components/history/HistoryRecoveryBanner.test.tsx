@@ -1,4 +1,5 @@
-// ABOUTME: Tests for HistoryRecoveryBanner — hidden when idle, "Recovering…" while scanning, error copy + Retry CTA on failure that bumps historyRecoveryTriggerAtom.
+// ABOUTME: Tests for HistoryRecoveryBanner — hidden when idle or scanning (Settings and the refilling list show a scan), error copy +
+// ABOUTME: Retry CTA on failure that bumps historyRecoveryTriggerAtom.
 
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -25,9 +26,9 @@ describe('<HistoryRecoveryBanner>', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('shows the "Recovering…" copy while scanning', () => {
+  it('stays hidden while a scan runs — on sign-in the sync gate covers it, otherwise Settings\' "Scanning…" and the list', () => {
     renderWith({ state: 'scanning' })
-    expect(screen.getByText(/Recovering activity from chain/i)).toBeInTheDocument()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('shows error copy + Retry CTA on failure; clicking Retry bumps the epoch atom', () => {

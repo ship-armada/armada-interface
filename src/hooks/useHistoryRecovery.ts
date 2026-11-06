@@ -218,10 +218,10 @@ async function resolveScanInputs(): Promise<{
  * App.tsx doesn't trigger a duplicate scan because the `lastRunRef` guard skips the effect body
  * when the same walletId+trigger.id ran already.
  *
- * Banner visibility: the recovery banner is surfaced only for the initial recovery on unlock and
- * for user-initiated re-scans (`trigger.silent === false`). Routine incremental delta scans from
- * the incoming-transfer detector (`silent: true`) run without flipping to `scanning`, so a tx
- * completing or a received transfer doesn't flash the banner on the dashboard.
+ * Status: the initial recovery on unlock and user-initiated re-scans (`trigger.silent === false`) flip
+ * the status to `scanning` (no banner — Settings' "Scanning…" and the refilling list show it); a failed
+ * one shows the failure banner with Retry. Routine incremental delta scans from the incoming-transfer
+ * detector (`silent: true`) run without flipping to `scanning`, and fail quietly (telemetry only).
  */
 export function useHistoryRecovery(): void {
   const active = useAtomValue(activeShieldedWalletAtom)
@@ -254,6 +254,7 @@ export function useHistoryRecovery(): void {
 
     let cancelled = false
     const isCancelled = () => cancelled
+    // `scanning` drives Settings' Re-scan button and holds the Dashboard's Earned figure; no banner shows for it.
     if (visible) setStatus({ state: 'scanning' })
 
     void (async () => {

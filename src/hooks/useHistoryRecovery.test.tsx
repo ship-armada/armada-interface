@@ -200,8 +200,8 @@ describe('useHistoryRecovery', () => {
 
   it('runs a silent (detector) scan without flipping to "scanning"', async () => {
     // WHY: the incoming-transfer detector bumps silently after every balance change. That scan must
-    // still run + persist rows, but must NOT surface the recovery banner (state stays idle) — else
-    // every completing tx flashes "Recovering activity from chain…" on the dashboard.
+    // still run + persist rows, but must stay idle — else every completing tx would flip Settings' Re-scan to
+    // "Scanning…" and hide the Dashboard's Earned figure, and a background failure would raise the Retry banner.
     let resolveScan: ((v: ReturnType<typeof scanResult>) => void) | null = null
     hoisted.runHistoryScan.mockResolvedValueOnce(scanResult([], null)) // initial unlock scan
     const store = makeStore({ unlocked: true })

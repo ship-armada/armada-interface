@@ -30,6 +30,25 @@
 
 /* Same family as the body copy (ui sans), just a little larger + semibold for emphasis. Shared by
    both the syncing ("Loading your private balance") and failed ("Sync interrupted") states. */
+.hint {
+  margin: 0;
+  max-width: 38ch;
+  color: var(--semantic-color-text-muted);
+}
+
+.helpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+}
+
+.helpLink:hover,
+.helpLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
 .heading {
   margin: 0;
   font-family: var(--semantic-typography-body-font-family), sans-serif;

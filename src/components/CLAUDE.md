@@ -31,8 +31,8 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `receive/` | ReceiveDialog — plain 0zk address + copy (`openModalAtom='receive'`). Dormant: no entry point today (the Request flow is the dashboard's only receive affordance) |
 | `request/` | RequestModal — the "Request USDC via link" flow (compose amount/expiry/note → generated link screen). Revoke is disabled ("coming soon"); the Link-revoked variant is built but unreachable until backend-backed revocation lands |
 | `payViaLink/` | `PaymentLinkQrCode` — QR of a pay-via-link URL (`qrcode.react`). Shared by the payer landing (`pages/PayViaLinkLanding`) and the requester's link screen (`request/RequestLinkScreen`) |
-| `history/` | `HistoryRecoveryBanner` — chain-history-recovery status banner (mounted in AppLayout) |
-| `sync/` | `SyncGate` + `SyncBanner` — initial shielded-balance sync gate + banner |
+| `history/` | `HistoryRecoveryBanner` — shown only when a chain-history recovery scan failed: "Couldn't recover activity from chain" + Retry (mounted in AppLayout). Nothing while a scan runs — Settings' "Scanning…" and the refilling list show it |
+| `sync/` | `SyncGate` + `SyncBanner` — initial shielded-balance sync gate + banner. A failed sync says "Your funds are safe on chain" (only loading them here failed) with Try again; once a retry has failed too (`syncRetryEpochAtom` > 0), the gate adds "Still not loading? Check your connection…" and both add "Get help on Discord" (`config/support`) |
 | `onboarding/` | `SignInFlow` (the single state-agnostic account entry for first visit and returning users; restore-from-backup behind a link) + `NonDeterministicSignerScreen` + `OnboardingShell`; the legacy 6-step `OnboardingFlow` is not rendered — see `onboarding/CLAUDE.md` |
 | `OnboardingLayout/` | Shell chrome for the onboarding/unlock screens |
 | `settings/` | SettingsModal + RecoverySecretExportDialog, ResetWalletDialog, ClearHistoryDialog — see `settings/CLAUDE.md` |
