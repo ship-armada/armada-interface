@@ -12,6 +12,7 @@ import { isTerminalState } from './types'
 import type { StageFor, TxKind, TxRecord } from './types'
 import { txListAtom, upsertTxAtom } from '@/state/tx'
 import { tabVisibleAtom } from '@/state/visibility'
+import { anotherTabActiveAtom } from '@/state/ui'
 
 const LOCK_NAME = 'armada-tx-executor'
 
@@ -94,6 +95,9 @@ export function startEngine(): void {
         // Another tab holds the lock — we run in follower mode.
         isLeader = false
         track('tx.engine.started', { isLeader: false })
+        // A second tab can't run at all (the SDK allows one scan DB per origin), so show "Armada is open in another tab"
+        // now — at boot, before the user signs in — rather than after, when the SDK instance fails to open.
+        getDefaultStore().set(anotherTabActiveAtom, true)
         return // returning releases nothing (we never had the lock)
       }
       onBecomeLeader()
