@@ -10,7 +10,7 @@ import styles from './SyncBanner.module.css'
 /**
  * Thin banner that appears below the app header during initial shielded-balance sync.
  *
- * - `syncing` → "Loading your private balance — N%. Subsequent visits will be much faster."
+ * - `syncing` → "Loading your private balance — N%. Keep this tab open until it finishes; subsequent visits are instant."
  *   Includes a progress bar driven by the SDK's MerkletreeScanStatus progress value.
  * - `failed` → "Sync interrupted — your funds are safe on chain." with an inline "Try again" button (re-runs the
  *   scan), plus "Get help" once a retry has failed too.
@@ -50,8 +50,8 @@ export function SyncBanner() {
     <div className={`${styles.banner} ${styles.syncing}`} role="status" aria-live="polite">
       <span className={styles.message}>
         First sign-in on this device — loading your private balance ({pct}%). This walks the
-        chain from deploy so any prior activity for your wallet is fully discovered. Subsequent
-        visits are instant.
+        chain from deploy so any prior activity for your wallet is fully discovered. Keep this tab
+        open until it finishes; subsequent visits are instant.
       </span>
       <span
         className={styles.progressTrack}

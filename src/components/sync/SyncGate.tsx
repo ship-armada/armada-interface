@@ -88,7 +88,8 @@ export function SyncGate() {
       <div className={styles.panel}>
         <ArmadaTickRing pct={pct} />
         <p className={styles.body}>
-          Scanning the chain to load your private balance. This can take a moment.
+          Scanning the chain to load your private balance. This can take a moment — keep this tab open until it
+          finishes.
         </p>
       </div>
     </div>
