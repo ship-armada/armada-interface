@@ -39,9 +39,10 @@
   color: var(--semantic-color-status-error);
 }
 
-/* The "Connected as 0x…" line under the button. Semibold for emphasis. */
+/* The "Connected as 0x…" line under the button — muted, semibold for emphasis, as on the retired sign-in page. */
 .connectedAs {
   margin: 0;
+  color: var(--semantic-color-text-muted);
   font-weight: var(--primitives-fontWeight-semibold);
 }
 
