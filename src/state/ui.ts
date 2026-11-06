@@ -17,14 +17,30 @@ export type ModalKind =
   | 'wallet-unlock'
   | 'wallet-reset'
   | 'merge'
+  | 'sign-in'
 
 /** Dashboard / action flows that require a connected EVM wallet before opening. */
 export type ActionModalKind = Exclude<
   ModalKind,
-  null | 'wallet-unlock' | 'wallet-reset' | 'receive' | 'settings' | 'merge'
+  null | 'wallet-unlock' | 'wallet-reset' | 'receive' | 'settings' | 'merge' | 'sign-in'
 >
 
 export const openModalAtom = atom<ModalKind>(null)
+
+/**
+ * The flow to open once sign-in succeeds — set when an action is tapped while locked (`useOpenActionModal`), so the
+ * sign-in modal continues into it instead of dropping the user on the dashboard. null = just sign in.
+ */
+export const signInResumeAtom = atom<ActionModalKind | null>(null)
+
+/** True while waiting for a wallet to connect before signing in (or opening a flow) — set when an action is tapped
+ *  with no wallet connected; `useOpenActionModal` carries on once it connects. */
+export const signInAwaitingConnectAtom = atom(false)
+
+/** Why the wallet last locked — shown on the sign-in card ("Locked after 15 minutes of inactivity"). Cleared on unlock. */
+export type LockReason = 'idle' | 'hidden' | 'manual'
+
+export const lockReasonAtom = atom<LockReason | null>(null)
 
 /**
  * Set when the `@armada/sdk` read instance can't open the shielded scan DB because another live
