@@ -1,12 +1,9 @@
-// ABOUTME: SyncCard — the balance spot while the first sync runs after sign-in: "Syncing… N%" with no figure (G-11), Shield /
-// ABOUTME: Request working meanwhile (Send / Earn wait for the balance), and the failure state: funds safe, Try again, help after a retry.
+// ABOUTME: SyncCard — the balance spot while the first sync runs after sign-in: "Syncing… N%" with no figure (G-11) and no flow
+// ABOUTME: buttons (they wait for the balance), and the failure state: funds safe, Try again, help after a retry.
 
-import { ArrowDownIcon, ArrowRightIcon, ChartBarIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { ExternalLink } from 'lucide-react'
 import { Button } from '@/design'
-import { BalanceActionButton } from '@/components/dashboard/BalanceActionButton'
 import { SUPPORT_URL } from '@/config/support'
-import type { ActionModalKind } from '@/state/ui'
 import cardStyles from '../BalanceCard/BalanceCard.module.css'
 import styles from './SyncCard.module.css'
 
@@ -20,11 +17,9 @@ export interface SyncCardProps {
   /** No scan checkpoint for this wallet on this device yet: the scan starts from the beginning and takes longer. */
   firstSync: boolean
   onRetry: () => void
-  /** Shield / Request — the flows that don't need the private balance. */
-  onAction: (kind: ActionModalKind) => void
 }
 
-export function SyncCard({ progress, failed, retried, firstSync, onRetry, onAction }: SyncCardProps) {
+export function SyncCard({ progress, failed, retried, firstSync, onRetry }: SyncCardProps) {
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100)
 
   return (
@@ -66,27 +61,6 @@ export function SyncCard({ progress, failed, retried, firstSync, onRetry, onActi
         </div>
       )}
 
-      <div className={styles.actions}>
-        <div className={cardStyles.actionRow}>
-          <div className={cardStyles.actionEnter}>
-            <BalanceActionButton
-              variant="primary"
-              label="Shield"
-              icon={<PlusIcon strokeWidth={1.5} />}
-              onClick={() => onAction('shield')}
-            />
-          </div>
-          <div className={cardStyles.actionEnter}>
-            <BalanceActionButton label="Send" icon={<ArrowRightIcon strokeWidth={1.5} />} disabled />
-          </div>
-          <div className={cardStyles.actionEnter}>
-            <BalanceActionButton label="Request" icon={<ArrowDownIcon strokeWidth={1.5} />} onClick={() => onAction('request')} />
-          </div>
-          <div className={cardStyles.actionEnter}>
-            <BalanceActionButton label="Earn" icon={<ChartBarIcon strokeWidth={1.5} />} disabled />
-          </div>
-        </div>
-      </div>
     </section>
   )
 }

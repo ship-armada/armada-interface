@@ -286,11 +286,16 @@ export function Dashboard() {
       ownWalletAddress={evmAddress ?? undefined}
       open={receiptId !== null}
       onClose={() => setReceiptId(null)}
-      // "Send again" / "Shield again" / …: hand the prefill to the flow it repeats, which seeds its amount step.
-      onRepeat={(intent) => {
-        setRepeatIntent(intent)
-        openActionModal(repeatModalFor(intent))
-      }}
+      // "Send again" / "Shield again" / …: hand the prefill to the flow it repeats, which seeds its amount step. Not
+      // offered while the first sync runs — no flow opens until the balance is known.
+      onRepeat={
+        gated
+          ? undefined
+          : (intent) => {
+              setRepeatIntent(intent)
+              openActionModal(repeatModalFor(intent))
+            }
+      }
     />
     </>
   )
@@ -333,7 +338,7 @@ export function Dashboard() {
   }
 
   // Signed in but the first sync hasn't produced a balance yet (11A): the sync card holds the balance spot (no figure —
-  // G-11) while activity, Shield and Request already work. The full card mounts with its intro roll once the balance lands.
+  // G-11) and offers no flows — they open once the balance is known — while activity already shows. The full card mounts with its intro roll once the balance lands.
   if (gated) {
     const showSyncActivity = allActivityItems.length > 0
     return (
@@ -347,7 +352,6 @@ export function Dashboard() {
             // No history checkpoint for this wallet here yet = its first sync on this device, scanning from the start.
             firstSync={activeWalletId !== null && readHistoryCheckpoint(activeWalletId) === null}
             onRetry={retrySync}
-            onAction={(kind) => openActionModal(kind)}
           />
           {showSyncActivity ? (
             <RecentActivityList

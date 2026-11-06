@@ -1,4 +1,4 @@
-/* ABOUTME: SyncCard styling — the balance card's surface and action row (BalanceCard.module.css) with the sync status in place
+/* ABOUTME: SyncCard styling — the balance card's surface (BalanceCard.module.css) with the sync status in place
    ABOUTME: of the balance: a small spinner + "Syncing… N%", the caption, and the inline failure with Try again / help. */
 
 .card {
@@ -65,12 +65,6 @@
 .helpLink:hover,
 .helpLink:focus-visible {
   color: var(--semantic-color-text-primary);
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--primitives-spacing-3);
 }
 
 @keyframes syncCardSpin {

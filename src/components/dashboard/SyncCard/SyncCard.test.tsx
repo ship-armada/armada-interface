@@ -1,5 +1,5 @@
 // ABOUTME: Tests for SyncCard — the balance spot while the first sync runs after sign-in: progress with no balance figure, what
-// ABOUTME: works meanwhile (Shield / Request; Send / Earn wait for the balance), and the failure state (funds safe, Try again, help).
+// ABOUTME: no flow buttons until the balance loads, and the failure state (funds safe, Try again, help).
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -8,7 +8,7 @@ import { SUPPORT_URL } from '@/config/support'
 
 function renderCard(extra: Partial<SyncCardProps> = {}) {
   const props: SyncCardProps = {
-    progress: 0.42, failed: false, retried: false, firstSync: false, onRetry: vi.fn(), onAction: vi.fn(), ...extra,
+    progress: 0.42, failed: false, retried: false, firstSync: false, onRetry: vi.fn(), ...extra,
   }
   render(<SyncCard {...props} />)
   return props
@@ -28,15 +28,11 @@ describe('<SyncCard>', () => {
     expect(screen.getByText('Scanning the chain from the start — this first sync takes longer.')).toBeInTheDocument()
   })
 
-  it('Shield and Request work meanwhile; Send and Earn wait for the balance', () => {
-    const onAction = vi.fn()
-    renderCard({ onAction })
-    fireEvent.click(screen.getByRole('button', { name: 'Shield' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Request' }))
-    expect(onAction).toHaveBeenNthCalledWith(1, 'shield')
-    expect(onAction).toHaveBeenNthCalledWith(2, 'request')
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Earn' })).toBeDisabled()
+  it('offers no flow buttons until the balance has loaded', () => {
+    renderCard()
+    for (const name of ['Shield', 'Send', 'Request', 'Earn']) {
+      expect(screen.queryByRole('button', { name })).toBeNull()
+    }
   })
 
   it('a failed sync says the funds are safe on chain, with Try again', () => {
