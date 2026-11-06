@@ -1,12 +1,12 @@
-// ABOUTME: Tests for SignInCard — the locked dashboard's balance spot: what signing in does, the button by connection state,
-// ABOUTME: the wallet's public USDC, why it locked, a pending pay link, and "How this works".
+// ABOUTME: Tests for SignInCard — the locked dashboard's inline sign-in: the button by connection / signing state, "Connected as",
+// ABOUTME: the error, why it locked or which pay link waits, the restore link, and the first-visit two-signature banner.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { SignInCard, lockNoteFor, payNoteFor, type SignInCardProps } from './SignInCard'
 
 function renderCard(extra: Partial<SignInCardProps> = {}) {
-  const props: SignInCardProps = { connection: 'connected', onSignIn: vi.fn(), ...extra }
+  const props: SignInCardProps = { connection: 'connected', onSignIn: vi.fn(), onRestore: vi.fn(), ...extra }
   render(<SignInCard {...props} />)
   return props
 }
@@ -28,54 +28,69 @@ describe('lockNoteFor / payNoteFor', () => {
 })
 
 describe('<SignInCard>', () => {
-  it('says what signing in does, with no balance figure', () => {
+  const address = '0xabcdef0123456789abcdef0123456789abcdef01'
+
+  it('explains the signature-derived wallet, with no balance figure', () => {
     renderCard()
-    expect(screen.getByRole('heading', { name: 'Your private USDC' })).toBeInTheDocument()
     expect(
-      screen.getByText('Sign a message (not a transaction) to unlock your private balance. No seed phrase — the same wallet unlocks it on any device.'),
+      screen.getByText(
+        'Your shielded wallet is derived from a signature your EVM wallet produces — no passphrase, no recovery phrase. Sign in from any device with the same wallet.',
+      ),
     ).toBeInTheDocument()
+    expect(screen.queryByText(/\d+\.\d{2}/)).toBeNull()
   })
 
-  it('the button connects first when there is no wallet, then signs in', () => {
-    const onSignIn = vi.fn()
-    renderCard({ connection: 'disconnected', onSignIn })
+  it('disconnected, the button connects first and there is no "Connected as"', () => {
+    const { onSignIn } = renderCard({ connection: 'disconnected', address })
     fireEvent.click(screen.getByRole('button', { name: 'Connect wallet' }))
     expect(onSignIn).toHaveBeenCalledOnce()
+    expect(screen.queryByText(/Connected as/)).toBeNull()
   })
 
-  it('connected, the button signs in', () => {
-    const onSignIn = vi.fn()
-    renderCard({ connection: 'connected', onSignIn })
+  it('connected, the button signs in, under it the shortened wallet address', () => {
+    const { onSignIn } = renderCard({ address })
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     expect(onSignIn).toHaveBeenCalledOnce()
+    expect(screen.getByText(/Connected as/)).toHaveTextContent('Connected as 0xabcd...ef01')
   })
 
   it('while the wallet reconnects, says so instead of offering "Connect wallet"', () => {
     renderCard({ connection: 'reconnecting' })
     expect(screen.getByRole('button', { name: 'Reconnecting…' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: 'Connect wallet' })).toBeNull()
   })
 
-  it('shows the wallet\'s public USDC as a reason to sign in, and nothing at zero', () => {
-    const { rerender } = render(<SignInCard connection="connected" publicUsdc="120.00" onSignIn={vi.fn()} />)
-    expect(screen.getByText('You have 120.00 USDC in your wallet — sign in to shield it.')).toBeInTheDocument()
-    rerender(<SignInCard connection="connected" publicUsdc={null} onSignIn={vi.fn()} />)
-    expect(screen.queryByText(/in your wallet — sign in to shield it/)).toBeNull()
+  it('while the wallet prompt is open, the button waits for the signature', () => {
+    renderCard({ address, submitting: true })
+    const button = screen.getByRole('button', { name: 'Waiting for signature…' })
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    expect(button).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('says why it locked, and what a pending pay link is waiting for', () => {
-    renderCard({ lockNote: 'Locked after 15 minutes of inactivity.', payNote: 'Sign in to pay 25.00 USDC to 0zk1…ab12' })
-    expect(screen.getByText('Locked after 15 minutes of inactivity.')).toBeInTheDocument()
-    expect(screen.getByText('Sign in to pay 25.00 USDC to 0zk1…ab12')).toBeInTheDocument()
+  it('a failed sign-in shows its message', () => {
+    renderCard({ address, error: 'Signature request declined.' })
+    expect(screen.getByRole('alert')).toHaveTextContent('Signature request declined.')
   })
 
-  it('"How this works" explains the signature', () => {
-    renderCard()
-    const toggle = screen.getByRole('button', { name: 'How this works' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText(/a message, not a transaction/)).toBeInTheDocument()
+  it('says what a pending pay link is waiting for, else why it locked', () => {
+    const { rerender } = render(<SignInCard connection="connected" lockNote="You locked Armada." onSignIn={vi.fn()} onRestore={vi.fn()} />)
+    expect(screen.getByText('You locked Armada.')).toBeInTheDocument()
+    rerender(<SignInCard connection="connected" lockNote="You locked Armada." payNote="Sign in to pay 25.00 USDC to 0zk1…" onSignIn={vi.fn()} onRestore={vi.fn()} />)
+    expect(screen.getByText('Sign in to pay 25.00 USDC to 0zk1…')).toBeInTheDocument()
+    expect(screen.queryByText('You locked Armada.')).toBeNull()
   })
 
+  it('"Restore wallet from backup instead" opens the restore', () => {
+    const { onRestore } = renderCard()
+    fireEvent.click(screen.getByRole('button', { name: 'Restore wallet from backup instead' }))
+    expect(onRestore).toHaveBeenCalledOnce()
+  })
+
+  it('on a first visit from this device, a banner below the card says to expect two signatures', () => {
+    const { unmount } = render(<SignInCard connection="connected" firstTimeOnDevice onSignIn={vi.fn()} onRestore={vi.fn()} />)
+    expect(screen.getByText('First time on this device?')).toBeInTheDocument()
+    expect(screen.getByText(/two signatures to confirm your wallet is compatible/)).toBeInTheDocument()
+    unmount()
+    renderCard({ firstTimeOnDevice: false })
+    expect(screen.queryByText('First time on this device?')).toBeNull()
+  })
 })

@@ -13,7 +13,6 @@ import {
 } from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { DashboardScrollTopFade } from '@/components/dashboard/DashboardScrollTopFade'
 import { SignInCard, lockNoteFor, payNoteFor } from '@/components/dashboard/SignInCard'
-import { formatUsdcAmount as formatUsdcRaw } from '@/lib/format'
 import { preferencesAtom } from '@/state/preferences'
 import { RecentActivityList, ActivityAllPanel } from '@/components/dashboard/RecentActivityList'
 import { useDepositTooltipHandoff, useEarnBannerHandoff } from '@/hooks/useEarnBannerHandoff'
@@ -26,6 +25,7 @@ import { isInitialSyncGated } from '@/components/sync'
 import { SyncCard } from '@/components/dashboard/SyncCard'
 import { useSyncRetry } from '@/hooks/useSyncRetry'
 import { readHistoryCheckpoint } from '@/lib/shielded/history-checkpoint'
+import { readStoredWalletId, readStoredWalletIdFor } from '@/lib/shielded/wallet'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { apyExplanation, formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
@@ -39,6 +39,8 @@ import {
   repeatIntentAtom,
   lockReasonAtom,
   paymentIntentAtom,
+  restoreEntryAtom,
+  signInStatusAtom,
 } from '@/state/ui'
 import { repeatModalFor } from '@/components/dashboard/repeatIntent'
 import { useTxInView } from '@/hooks/useTxInView'
@@ -49,7 +51,6 @@ import {
   yieldSharesHeadlineAtom,
   shieldedWalletAtom,
   evmAddressAtom,
-  usdcBalancesAtom,
   activeShieldedWalletIdAtom,
   syncStateAtom,
   syncRetryEpochAtom,
@@ -88,8 +89,9 @@ export function Dashboard() {
   const requestLinks = useAtomValue(requestLinksAtom)
   const evmAddress = useAtomValue(evmAddressAtom)
   // Before sign-in: the sign-in card's inputs — wallet connection, its public USDC, why it locked, a waiting pay link.
-  const { status: connectionStatus } = useAccount()
-  const publicUsdcByChain = useAtomValue(usdcBalancesAtom)
+  const { status: connectionStatus, address: connectedAddress } = useAccount()
+  const signInStatus = useAtomValue(signInStatusAtom)
+  const setRestoreEntry = useSetAtom(restoreEntryAtom)
   const lockReason = useAtomValue(lockReasonAtom)
   const { autoLockMinutes } = useAtomValue(preferencesAtom)
   const paymentIntent = useAtomValue(paymentIntentAtom)
@@ -294,9 +296,14 @@ export function Dashboard() {
   )
 
   // Before sign-in: only the sign-in card, in the balance spot — no activity (history is encrypted until sign-in) and no
-  // banners. The card's one button connects and signs in (useOpenActionModal).
+  // banners. The card signs in inline: its button connects if needed, then asks for the signature (useOpenActionModal →
+  // useSignIn); restoring from a backup opens the restore modal.
   if (shieldedWallet.status !== 'unlocked') {
-    const publicUsdc = Object.values(publicUsdcByChain).reduce((sum, value) => sum + value, 0n)
+    // The first sign-in for an address on this device double-signs (the determinism check). Before a wallet connects,
+    // judge by the device: no wallet stored here at all means the first prompt will be one of two.
+    const firstTimeOnDevice = connectedAddress
+      ? readStoredWalletIdFor(connectedAddress) === null
+      : readStoredWalletId() === null
     return (
       <div className={styles.page}>
         <div className={styles.cardStack}>
@@ -308,10 +315,17 @@ export function Dashboard() {
                   ? 'connected'
                   : 'disconnected'
             }
-            publicUsdc={publicUsdc > 0n ? formatUsdcRaw(publicUsdc) : null}
+            address={connectedAddress}
+            submitting={signInStatus.submitting}
+            error={signInStatus.error}
             lockNote={lockNoteFor(lockReason, autoLockMinutes)}
             payNote={payNoteFor(paymentIntent)}
+            firstTimeOnDevice={firstTimeOnDevice}
             onSignIn={() => openActionModal()}
+            onRestore={() => {
+              setRestoreEntry({ view: 'restore' })
+              setOpenModal('restore')
+            }}
           />
         </div>
       </div>

@@ -1,38 +1,21 @@
-/* ABOUTME: SignInCard styling — the balance card's surface (BalanceCard.module.css) with the sign-in copy in
-   ABOUTME: place of the balance: heading, body, notes, the full-width button and the "How this works" toggle. */
+/* ABOUTME: SignInCard styling — the balance card's surface (BalanceCard.module.css) holding the inline sign-in (button, "Connected
+   ABOUTME: as", intro, restore link, styled as the retired sign-in page had them) and the first-visit banner below the card. */
 
 .card {
-  gap: var(--primitives-spacing-6);
+  /* Tighter than the balance card's own gap so the connected card (button, "Connected as", intro, link) fits its height. */
+  gap: var(--primitives-spacing-4);
   /* At least the signed-in BalanceCard's height (no vault bar), so signing in doesn't make the balance spot jump; extra
-     lines (lock reason, pay link, public USDC, "How this works") grow it. Measured from the rendered BalanceCard — update
-     both values if its layout changes. */
+     lines (lock reason / pay link, an error) grow it. Measured from the rendered BalanceCard — update both values if its
+     layout changes. */
   min-height: 284px;
 }
 
 @media (max-width: 479px) {
   .card {
+    /* The intro wraps to more lines on a phone; a tighter gap keeps the connected card at the balance card's height. */
+    gap: var(--primitives-spacing-3);
     min-height: 260px;
   }
-}
-
-.copy {
-  display: flex;
-  flex-direction: column;
-  gap: var(--primitives-spacing-2);
-}
-
-.heading {
-  margin: 0;
-  font-family: var(--primitives-fontFamily-ui), sans-serif;
-  font-size: calc(var(--primitives-fontSize-xl) * 1px);
-  font-weight: var(--primitives-fontWeight-semibold);
-  line-height: var(--primitives-lineHeight-tight);
-  color: var(--semantic-color-text-primary);
-}
-
-.body {
-  margin: 0;
-  color: var(--semantic-color-text-secondary);
 }
 
 .note {
@@ -40,17 +23,7 @@
   color: var(--semantic-color-text-muted);
 }
 
-.pay {
-  margin: 0;
-  padding: var(--primitives-spacing-2) var(--primitives-spacing-3);
-  border-radius: calc(var(--semantic-borderRadius-item) * 1px);
-  background: var(--semantic-color-surface-raised);
-  color: var(--semantic-color-text-primary);
-}
-
 .actions {
-  /* Keeps the button at the bottom when the card is taller than its copy. */
-  margin-top: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -61,23 +34,100 @@
   width: 100%;
 }
 
-.explainToggle {
-  appearance: none;
-  border: none;
-  background: none;
-  padding: 0;
-  font: inherit;
-  color: var(--semantic-color-text-muted);
-  text-decoration: underline;
-  cursor: pointer;
+.error {
+  align-self: stretch;
+  color: var(--semantic-color-status-error);
 }
 
-.explainToggle:hover,
-.explainToggle:focus-visible {
+/* The "Connected as 0x…" line under the button. Semibold for emphasis. */
+.connectedAs {
+  margin: 0;
+  font-weight: var(--primitives-fontWeight-semibold);
+}
+
+.intro {
+  margin: 0;
+  color: var(--semantic-color-text-muted);
+  line-height: var(--primitives-lineHeight-normal);
+}
+
+/* Quiet text link — "Restore wallet from backup instead". Keeps to the bottom when the card is taller than its content. */
+.textLink {
+  margin-top: auto;
+  align-self: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--semantic-component-button-primary-bg);
+  cursor: pointer;
+  font: inherit;
+}
+
+.textLink:hover,
+.textLink:focus-visible {
+  color: var(--semantic-component-button-primary-bg-active);
+}
+
+/* Dark: the primary-button ink reads too dark against the page here, so links go lavender. */
+:global([data-theme='dark']) .textLink {
+  color: var(--semantic-color-brand-lavender);
+}
+
+:global([data-theme='dark']) .textLink:hover,
+:global([data-theme='dark']) .textLink:focus-visible {
+  color: var(--primitives-color-purple-300);
+}
+
+/* First-visit note under the card, as a callout banner — mirrors the dashboard DepositTooltip (surface card + tinted
+   icon tile + text). */
+.firstTimeBanner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--primitives-spacing-4);
+  width: 100%;
+  padding: var(--primitives-spacing-3);
+  border-radius: calc(var(--semantic-borderRadius-modal) * 1px);
+  background: var(--semantic-color-surface-default);
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.firstTimeIconTile {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--semantic-color-brand-lavender);
+}
+
+.firstTimeIcon {
+  width: var(--primitives-spacing-8);
+  height: var(--primitives-spacing-8);
+}
+
+.firstTimeText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--primitives-spacing-1);
+}
+
+/* "First time on this device?" — subhead, matching the dashboard banner headline. */
+.firstTimeHeadline {
+  margin: 0;
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-weight: var(--primitives-fontWeight-semibold);
+  font-size: calc(var(--primitives-fontSize-md) * 1px);
+  line-height: var(--primitives-lineHeight-snug);
+  letter-spacing: var(--primitives-letterSpacing-normal);
   color: var(--semantic-color-text-primary);
 }
 
-.explain {
+/* Body copy — matches the dashboard banner body (size from armada-text-ui-body-sm). */
+.firstTimeBody {
   margin: 0;
-  color: var(--semantic-color-text-secondary);
+  color: color-mix(in srgb, var(--semantic-color-text-primary) 60%, transparent);
 }

@@ -1,11 +1,11 @@
 // ABOUTME: Top-level route shell — runs the v2 schema migration before anything else, installs the visibility listener, hydrates tx history, starts the executor,
-// ABOUTME: then always renders the app (header + Outlet + modals). Locked, the dashboard shows the sign-in card; sign-in itself is SignInModal over the app.
+// ABOUTME: then always renders the app (header + Outlet + modals). Locked, the dashboard shows the sign-in card, which signs in inline; RestoreModal handles restores.
 
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AppLayout } from '@/components/AppLayout'
-import { SignInModal } from '@/components/onboarding'
+import { RestoreModal } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
 import { SendModal } from '@/components/payments'
 import { MergeModal } from '@/components/consolidate/MergeModal'
@@ -206,7 +206,7 @@ export function App() {
       {/* Feature modals — mounted at App level so opening one doesn't depend on the current route. */}
       {/* Sign-in: first visit and returning alike (signIn() first-derives or re-derives the same identity), opened from
           the dashboard's sign-in card or any flow tapped while locked. Restore (backup / secret) sits behind a link. */}
-      <SignInModal />
+      <RestoreModal />
       <ShieldModal />
       <SendModal />
       <EarnModal />
