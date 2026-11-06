@@ -32,6 +32,7 @@ import { useTxNotices } from '@/hooks/useTxNotices'
 import { usePendingTabTitle } from '@/hooks/usePendingTabTitle'
 import { useTxNoticePresenter } from '@/hooks/useTxNoticePresenter'
 import { useBalanceLatencyProbe } from '@/hooks/useBalanceLatencyProbe'
+import { useSignInBalanceProbe } from '@/hooks/useSignInBalanceProbe'
 import { useRequestLinks } from '@/hooks/useRequestLinks'
 import { useTxResume } from '@/hooks/useTxResume'
 import { useUsdcBalances } from '@/hooks/useUsdcBalances'
@@ -77,6 +78,7 @@ export function App() {
   usePendingTabTitle() // "(1) Armada App — …" in the tab while a tx is in flight
   useTxNoticePresenter() // the feed → a toast, or the header pill announcing it (Settings → "Show transaction updates")
   useBalanceLatencyProbe() // how long the balance lags a completed tx (Debug → Tx timings; console telemetry)
+  useSignInBalanceProbe() // sign-in → first known balance, first sync vs returning (Debug → Tx timings; console telemetry)
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
   usePayViaLinkIntent() // pick up a pending pay-via-link hand-off + open the prefilled Send on unlock
   // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (OnboardingFlow's

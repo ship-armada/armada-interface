@@ -85,6 +85,7 @@ export type EventRegistry = {
   // returns a hash + the poller confirms inclusion.
   // Completion → the next shielded balance change (3D). `timedOut` = no change within the probe window.
   'tx.balance.latency':       { id: string; kind: TxKind; durationMs: number; timedOut: boolean }
+  'sync.initial':             { durationMs: number; cold: boolean }
   'tx.relayer.submitted':     { id: string; kind: TxKind }
   'tx.relayer.confirmed':     { id: string; kind: TxKind }
   'tx.relayer.rejected':      { id: string; kind: TxKind; errorCode?: string }

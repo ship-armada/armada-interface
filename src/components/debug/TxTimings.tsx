@@ -1,5 +1,5 @@
 // ABOUTME: Debug-page "Tx timings" table — p50 / p90 per kind and stage (from completed records' stage stamps and this
-// ABOUTME: session's balance-lag samples, lib/tx/timings), in seconds, with "Copy" to share it as plain text.
+// ABOUTME: session's balance-lag and sign-in → balance samples, lib/tx/timings), in seconds, with "Copy" to share it as plain text.
 
 import { Button } from '@/design'
 import type { TimingRow } from '@/lib/tx/timings'
