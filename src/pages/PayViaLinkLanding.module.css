@@ -42,6 +42,9 @@
   flex-direction: column;
   align-items: center;
   gap: var(--primitives-spacing-6);
+  /* The page centres this stack, wordmark included — which put the card itself below centre. Space under the stack
+     equal to the wordmark + its gap centres the card; the extra 6vh lifts it a little more, since dead-centre reads low. */
+  margin-bottom: calc(var(--primitives-spacing-8) + var(--primitives-spacing-6) + 6vh);
 }
 
 .logoWrap {
