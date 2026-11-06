@@ -51,7 +51,7 @@ export function useShieldedBalanceSync(): void {
   useEffect(() => {
     if (active?.status !== 'unlocked') {
       // Lock / reset / account-switch path — drop balance state so stale data doesn't linger past
-      // a session, AND reset the sync gate to idle. Without the sync reset, the NEXT wallet
+      // a session, AND reset the sync state to idle. Without the sync reset, the NEXT wallet
       // inherits this one's 'complete' status, so its dashboard renders ungated with a null
       // balance and enabled spend buttons until its own first scan event fires. (W-1)
       latestWalletIdRef.current = null
@@ -72,7 +72,7 @@ export function useShieldedBalanceSync(): void {
     let unsubscribeScan: (() => void) | null = null
     let cancelled = false
 
-    // Drive the INITIAL-load sync gate/banner (`syncStateAtom`) off the SDK wallet's scan lifecycle:
+    // Drive the INITIAL-load syncing card/banner (`syncStateAtom`) off the SDK wallet's scan lifecycle:
     // scan:started → syncing, scan:progress → the running fraction, scan:complete → complete,
     // scan:error → failed. `syncStateAtom` tracks the initial load ONLY. After the first `complete`,
     // the 15s poll keeps syncing the chain in the background, but those routine scan:started/complete

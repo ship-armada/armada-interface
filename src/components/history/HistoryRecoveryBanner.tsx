@@ -17,7 +17,7 @@ export function HistoryRecoveryBanner() {
   const recovery = useAtomValue(historyRecoveryAtom)
   const setTrigger = useSetAtom(historyRecoveryTriggerAtom)
 
-  // A running scan shows nothing here: on sign-in the sync gate covers it; a Re-scan / Clear history shows in Settings'
+  // A running scan shows nothing here: on sign-in the dashboard's syncing card covers it; a Re-scan / Clear history shows in Settings'
   // "Scanning…" and the refilling Activity list.
   if (recovery.state !== 'failed') return null
 

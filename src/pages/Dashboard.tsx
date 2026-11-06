@@ -70,7 +70,7 @@ const ACTIVITY_PREVIEW_MAX = 8
 const ACTIVITY_PANEL_MAX = 500
 
 export function Dashboard() {
-  // Data (all hooks run unconditionally, before the sync gate's early return).
+  // Data (all hooks run unconditionally, before the locked / syncing early returns).
   const shielded = useAtomValue(shieldedUsdcAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
   // Headline figures also count a broadcast spend's held inputs, so a send / vault withdrawal doesn't
@@ -131,13 +131,13 @@ export function Dashboard() {
   const [balanceHidden, setBalanceHidden] = useAtom(balanceHiddenAtom)
 
   // Balance odometer roll. The *displayed* balance lags the live atom while a tx modal is open (or
-  // while the initial sync gate is up), then advances to the live value together with the roll
+  // while the initial sync is still loading), then advances to the live value together with the roll
   // trigger — so the card holds the OLD number and rolls to the NEW one on return, rather than
   // flashing NEW then rolling. Mirrors the mockup, which defers the whole advance (value + roll)
   // until the user is back on the dashboard.
   const gated = isInitialSyncGated(shielded)
   // The vault position depends on yieldRate, which loads from a separate poll (useYieldRate) — later
-  // than the wallet scan the sync gate waits on. Only prime the promo-banner handoffs once BOTH the
+  // than the wallet scan the syncing card waits on. Only prime the promo-banner handoffs once BOTH the
   // gate has lifted and the vault data has loaded, so the established balance/vault values form the
   // baseline rather than a late 0 → real arrival that flashes a banner in and out.
   const vaultLoaded = yieldShares !== null && yieldRate !== null
@@ -159,8 +159,8 @@ export function Dashboard() {
   const liveVault = usdcToNumber(earningUsdc)
   const vaultApy = yieldRate !== null ? Number(yieldRate.apyBps) / 100 : undefined
   // Accrued vault yield = current vault value − net capital contributed (settled yield deposits −
-  // withdrawals, from history). Only trustworthy once the vault has loaded, the initial sync gate has
-  // lifted, and history recovery has SETTLED (`idle`) — a mid/failed recovery scan would under-count
+  // withdrawals, from history). Only trustworthy once the vault has loaded, the initial sync has
+  // landed, and history recovery has SETTLED (`idle`) — a mid/failed recovery scan would under-count
   // deposits and over-state the gain. Until then leave it undefined so the bar shows its placeholder
   // rather than a wrong-looking number.
   const historyRecovery = useAtomValue(historyRecoveryAtom)
@@ -181,7 +181,7 @@ export function Dashboard() {
   const [vaultRollFromValue, setVaultRollFromValue] = useState<string | undefined>(undefined)
   const lastLiveRef = useRef<number | null>(null)
   const lastVaultRef = useRef<number>(liveVault)
-  // Captures whether the activity list was on screen at the first real (post-sync-gate) dashboard
+  // Captures whether the activity list was on screen at the first real (post-sync) dashboard
   // paint. Only that initial paint cascades activity in last; later reveals enter immediately.
   const activityVisibleOnPaintRef = useRef<boolean | null>(null)
   useEffect(() => {

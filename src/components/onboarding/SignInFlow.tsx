@@ -120,7 +120,7 @@ export function SignInFlow({ onUnlocked, autoStart = false }: SignInFlowProps) {
       await signIn()
       onUnlocked()
     } catch (err) {
-      // Typed determinism error → the full-page compatibility screen (smart-account / non-RFC-6979
+      // Typed determinism error → the compatibility screen (smart-account / non-RFC-6979
       // wallets can't use sign-in and must restore via backup/paste).
       if (isNonDeterministicSignerError(err)) {
         setSignerErrorReason(err.reason)

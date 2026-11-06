@@ -16,8 +16,8 @@ import styles from './SyncBanner.module.css'
  *   scan), plus "Get help" once a retry has failed too.
  * - `idle` / `complete` → not rendered (banner area collapses to nothing).
  *
- * AppLayout renders this only on non-dashboard routes (the dashboard shows the full-area
- * `SyncGate` instead). Reads syncStateAtom directly because it lives at the app-chrome layer —
+ * AppLayout renders this only on non-dashboard routes (the dashboard shows its
+ * `dashboard/SyncCard` in the balance spot instead). Reads syncStateAtom directly because it lives at the app-chrome layer —
  * per components/CLAUDE.md, atom reads at the chrome level are fine.
  */
 export function SyncBanner() {

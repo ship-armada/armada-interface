@@ -42,7 +42,7 @@ export const restoredWalletAwaitingBalanceAtom = atom<string | null>(null)
 export const usdcBalancesAtom = atom<Record<number, bigint>>({})
 
 /** Shielded USDC balance — TOTAL (spendable + pending), raw 6-decimal units. null until the shielded
- *  sync completes. Drives the headline/hero display + the sync gate. */
+ *  sync completes. Drives the headline/hero display + the dashboard's syncing state. */
 export const shieldedUsdcAtom = atom<bigint | null>(null)
 
 /**
