@@ -88,7 +88,7 @@ export function Dashboard() {
   )
   const requestLinks = useAtomValue(requestLinksAtom)
   const evmAddress = useAtomValue(evmAddressAtom)
-  // Before sign-in: the sign-in card's inputs — wallet connection, its public USDC, why it locked, a waiting pay link.
+  // Before sign-in: the sign-in card's inputs — wallet connection and address, the sign-in attempt, why it locked, a waiting pay link.
   const { status: connectionStatus, address: connectedAddress } = useAccount()
   const signInStatus = useAtomValue(signInStatusAtom)
   const setRestoreEntry = useSetAtom(restoreEntryAtom)
