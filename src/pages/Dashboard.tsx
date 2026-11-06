@@ -9,6 +9,7 @@ import { BalanceCard } from '@/components/dashboard/BalanceCard'
 import { DepositTooltip } from '@/components/dashboard/DepositTooltip'
 import {
   DASHBOARD_TOOLTIP_ENTER_DELAY_MS,
+  activityFirstPaint,
   dashboardActivityEnterDelayMs,
 } from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { DashboardScrollTopFade } from '@/components/dashboard/DashboardScrollTopFade'
@@ -183,8 +184,8 @@ export function Dashboard() {
   const [vaultRollFromValue, setVaultRollFromValue] = useState<string | undefined>(undefined)
   const lastLiveRef = useRef<number | null>(null)
   const lastVaultRef = useRef<number>(liveVault)
-  // Captures whether the activity list was on screen at the first real (post-sync) dashboard
-  // paint. Only that initial paint cascades activity in last; later reveals enter immediately.
+  // Whether the activity list takes the page-load cascade, decided once (activityFirstPaint): yes when it first shows with
+  // the balance; no when it was already on screen while syncing, or appears later — those enter immediately.
   const activityVisibleOnPaintRef = useRef<boolean | null>(null)
   useEffect(() => {
     if (gated || openModal !== null) return
@@ -314,15 +315,13 @@ export function Dashboard() {
   const firstTimeOnDevice =
     locked && (connectedAddress ? readStoredWalletIdFor(connectedAddress) === null : readStoredWalletId() === null)
 
-  // Page-load cascade: activity enters last, after the hero → actions → banner beats. Captured on the first paint with the
-  // balance, so activity already shown while syncing stays put, and activity that appears later just enters immediately.
-  if (face === 'balance' && activityVisibleOnPaintRef.current === null) {
-    activityVisibleOnPaintRef.current = showActivity
-  }
-  const activityEnterDelayMs =
-    face === 'balance'
-      ? dashboardActivityEnterDelayMs(showDepositTooltip || showEarnBanner, activityVisibleOnPaintRef.current ?? false)
-      : 0
+  // Page-load cascade: activity enters last, after the hero → actions → banner beats — when it first shows with the balance.
+  // Activity already on screen while syncing keeps no delay (raising it would replay its entrance); later activity enters at once.
+  activityVisibleOnPaintRef.current = activityFirstPaint(activityVisibleOnPaintRef.current, face, showActivity)
+  const activityEnterDelayMs = dashboardActivityEnterDelayMs(
+    showDepositTooltip || showEarnBanner,
+    activityVisibleOnPaintRef.current ?? false,
+  )
   const activityEnterStyle = {
     '--dashboard-activity-enter-delay': `${activityEnterDelayMs}ms`,
   } as CSSProperties

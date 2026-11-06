@@ -1,7 +1,9 @@
 // ABOUTME: Timing constants and helpers for the BalanceCard reveal, digit roll, action-enter, and
 // ABOUTME: promo-banner handoff animations. Ported from the armada-app design mockup (ba1120a/5c2b3e8).
 
-/** Keep in sync with BalanceCard.module.css `.card` enter. */
+import type { BalanceSpotFace } from '@/components/dashboard/BalanceSpot'
+
+/** Keep in sync with BalanceSpot.module.css `.card` enter (the balance spot's card). */
 export const DASHBOARD_CARD_ENTER_DELAY_MS = 220
 export const DASHBOARD_CARD_ENTER_DURATION_MS = 480
 
@@ -116,6 +118,23 @@ export function activityRevealDelayAfterIntroMs(): number {
 
 export function activityRevealDelayAfterPromoMs(): number {
   return DASHBOARD_TOOLTIP_ENTER_DELAY_MS + DASHBOARD_TOOLTIP_ENTER_MS + ACTIVITY_REVEAL_BUFFER_MS
+}
+
+/**
+ * Whether the dashboard activity list takes the page-load cascade (`dashboardActivityEnterDelayMs`'s `isInitialPaint`), decided
+ * once per sign-in: activity already on screen while the first sync ran never cascades — raising its enter delay afterwards
+ * would make the browser replay its finished entrance — activity that first shows with the balance does, and anything later
+ * enters at once. Returns `previous` once decided; null until there's something to decide.
+ */
+export function activityFirstPaint(
+  previous: boolean | null,
+  face: BalanceSpotFace,
+  showActivity: boolean,
+): boolean | null {
+  if (previous !== null) return previous
+  if (face === 'sync') return showActivity ? false : null
+  if (face === 'balance') return showActivity
+  return null
 }
 
 /** Page-load cascade: hero → actions → banner → activity. Later reveals use 0. */
