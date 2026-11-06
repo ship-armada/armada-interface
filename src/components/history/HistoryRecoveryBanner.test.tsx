@@ -1,5 +1,5 @@
-// ABOUTME: Tests for HistoryRecoveryBanner — hidden when idle and during the sign-in scan, "Recovering…" during a scan the user started,
-// ABOUTME: error copy + Retry CTA on failure that bumps historyRecoveryTriggerAtom.
+// ABOUTME: Tests for HistoryRecoveryBanner — hidden when idle or scanning (Settings and the refilling list show a scan), error copy +
+// ABOUTME: Retry CTA on failure that bumps historyRecoveryTriggerAtom.
 
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -7,13 +7,11 @@ import { Provider, createStore } from 'jotai'
 import { HistoryRecoveryBanner } from './HistoryRecoveryBanner'
 import { historyRecoveryAtom, historyRecoveryTriggerAtom } from '@/state/history'
 
-function renderWith(opts: { state: 'idle' | 'scanning' | 'failed'; error?: string; userInitiated?: boolean }) {
+function renderWith(opts: { state: 'idle' | 'scanning' | 'failed'; error?: string }) {
   const store = createStore()
-  store.set(historyRecoveryAtom, {
-    state: opts.state,
-    ...(opts.error ? { error: opts.error } : {}),
-    ...(opts.userInitiated !== undefined ? { userInitiated: opts.userInitiated } : {}),
-  })
+  store.set(historyRecoveryAtom, opts.error
+    ? { state: opts.state, error: opts.error }
+    : { state: opts.state })
   render(
     <Provider store={store}>
       <HistoryRecoveryBanner />
@@ -28,14 +26,9 @@ describe('<HistoryRecoveryBanner>', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('stays hidden during the scan that runs on sign-in — the sync gate already covers that moment', () => {
-    renderWith({ state: 'scanning', userInitiated: false })
+  it('stays hidden while a scan runs — on sign-in the sync gate covers it, otherwise Settings\' "Scanning…" and the list', () => {
+    renderWith({ state: 'scanning' })
     expect(screen.queryByRole('status')).toBeNull()
-  })
-
-  it('shows the "Recovering…" copy during a scan the user started (Re-scan, Clear history, Retry)', () => {
-    renderWith({ state: 'scanning', userInitiated: true })
-    expect(screen.getByText(/Recovering activity from chain/i)).toBeInTheDocument()
   })
 
   it('shows error copy + Retry CTA on failure; clicking Retry bumps the epoch atom', () => {

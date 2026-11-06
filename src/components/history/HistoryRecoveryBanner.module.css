@@ -1,4 +1,4 @@
-/* ABOUTME: HistoryRecoveryBanner styling — slim status strip matching SyncBanner's rhythm so the two coexist visually when both are active. */
+/* ABOUTME: HistoryRecoveryBanner styling — slim failure strip matching SyncBanner's rhythm so the two coexist visually when both are active. */
 /* ABOUTME: Reuses the same border-radius + max-width to keep horizontal alignment with sync feedback. */
 
 .banner {
@@ -12,12 +12,6 @@
   padding: var(--primitives-spacing-3) var(--primitives-spacing-4);
   border-radius: calc(var(--semantic-borderRadius-input) * 1px);
   border: 1px solid var(--semantic-color-border-default);
-}
-
-.scanning {
-  background: rgba(196, 145, 229, 0.08);
-  border-color: var(--semantic-color-border-lavender);
-  color: var(--semantic-color-text-secondary);
 }
 
 .failed {

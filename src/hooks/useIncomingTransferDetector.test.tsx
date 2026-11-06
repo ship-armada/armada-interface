@@ -101,7 +101,7 @@ describe('useIncomingTransferDetector', () => {
         vi.advanceTimersByTime(2_000)
       })
       expect(store.get(historyRecoveryTriggerAtom).id).toBe(1)
-      // The detector's scan is silent so it doesn't flash the recovery banner after a balance change.
+      // The detector's scan is silent so a balance change doesn't flip the recovery status to scanning.
       expect(store.get(historyRecoveryTriggerAtom).silent).toBe(true)
 
       // A later, separate event bumps again after its own window.

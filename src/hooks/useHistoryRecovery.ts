@@ -219,10 +219,9 @@ async function resolveScanInputs(): Promise<{
  * when the same walletId+trigger.id ran already.
  *
  * Status: the initial recovery on unlock and user-initiated re-scans (`trigger.silent === false`) flip
- * the status to `scanning`; only the user-initiated ones (`userInitiated: true`) show the recovery
- * banner. A failed visible scan shows the failure banner with Retry either way. Routine incremental
- * delta scans from the incoming-transfer detector (`silent: true`) run without flipping to
- * `scanning`, so a tx completing or a received transfer doesn't flash anything on the dashboard.
+ * the status to `scanning` (no banner — Settings' "Scanning…" and the refilling list show it); a failed
+ * one shows the failure banner with Retry. Routine incremental delta scans from the incoming-transfer
+ * detector (`silent: true`) run without flipping to `scanning`, and fail quietly (telemetry only).
  */
 export function useHistoryRecovery(): void {
   const active = useAtomValue(activeShieldedWalletAtom)
@@ -250,15 +249,13 @@ export function useHistoryRecovery(): void {
     // last `silent` value is stale-true from a prior session) OR a user-initiated re-scan
     // (`!trigger.silent`). A run triggered only by the incoming-transfer detector (`silent: true`)
     // runs silently so it doesn't flash the banner after every balance change.
-    const initialRun = lastRunRef.current === null
-    const visible = initialRun || !trigger.silent
+    const visible = lastRunRef.current === null || !trigger.silent
     lastRunRef.current = runKey
 
     let cancelled = false
     const isCancelled = () => cancelled
-    // The sign-in recovery still reads `scanning` (the Dashboard's Earned figure and Settings' Re-scan wait on it) but
-    // isn't user-initiated, so it shows no banner — the sync gate already covers that moment.
-    if (visible) setStatus({ state: 'scanning', userInitiated: !initialRun })
+    // `scanning` drives Settings' Re-scan button and holds the Dashboard's Earned figure; no banner shows for it.
+    if (visible) setStatus({ state: 'scanning' })
 
     void (async () => {
       const inputs = await resolveScanInputs()
