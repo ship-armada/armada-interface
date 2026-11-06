@@ -3,6 +3,16 @@
 
 .card {
   gap: var(--primitives-spacing-6);
+  /* At least the signed-in BalanceCard's height (no vault bar), so signing in doesn't make the balance spot jump; extra
+     lines (lock reason, pay link, public USDC, "How this works") grow it. Measured from the rendered BalanceCard — update
+     both values if its layout changes. */
+  min-height: 284px;
+}
+
+@media (max-width: 479px) {
+  .card {
+    min-height: 260px;
+  }
 }
 
 .copy {
@@ -39,6 +49,8 @@
 }
 
 .actions {
+  /* Keeps the button at the bottom when the card is taller than its copy. */
+  margin-top: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
