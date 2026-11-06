@@ -3,6 +3,16 @@
 
 .card {
   gap: var(--primitives-spacing-6);
+  /* At least the signed-in BalanceCard's height (no vault bar), like the sign-in card, so the balance spot doesn't jump
+     between sign-in, syncing and the balance; a failure's help lines can grow it. Measured from the rendered BalanceCard —
+     update with SignInCard.module.css if its layout changes. */
+  min-height: 284px;
+}
+
+@media (max-width: 479px) {
+  .card {
+    min-height: 260px;
+  }
 }
 
 .status {

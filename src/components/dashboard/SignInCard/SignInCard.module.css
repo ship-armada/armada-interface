@@ -5,8 +5,8 @@
   /* Tighter than the balance card's own gap; the description adds its own room above and below (.intro). */
   gap: var(--primitives-spacing-3);
   /* At least the signed-in BalanceCard's height (no vault bar), so signing in doesn't make the balance spot jump; the
-     connected card's "Connected as" line, the lock reason / pay link and an error grow it. Measured from the rendered BalanceCard — update both values if its
-     layout changes. */
+     connected card's "Connected as" line, the lock reason / pay link and an error grow it. Measured from the rendered BalanceCard — update both values (and
+     SyncCard.module.css's) if its layout changes. */
   min-height: 284px;
 }
 
