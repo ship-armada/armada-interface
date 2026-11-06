@@ -1,8 +1,9 @@
-// ABOUTME: Dashboard page — centered Private-USDC BalanceCard + deposit tooltip + recent activity.
-// ABOUTME: Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
+// ABOUTME: Dashboard page — centered Private-USDC BalanceCard + deposit tooltip + recent activity; before sign-in, the LockedDashboard
+// ABOUTME: (sign-in card in the balance spot). Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAccount } from 'wagmi'
 import { ChartBarIcon } from '@heroicons/react/24/outline'
 import { BalanceCard } from '@/components/dashboard/BalanceCard'
 import { DepositTooltip } from '@/components/dashboard/DepositTooltip'
@@ -11,6 +12,10 @@ import {
   dashboardActivityEnterDelayMs,
 } from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { DashboardScrollTopFade } from '@/components/dashboard/DashboardScrollTopFade'
+import { LockedDashboard } from '@/components/dashboard/LockedDashboard'
+import { lockNoteFor, payNoteFor } from '@/components/dashboard/SignInCard'
+import { formatUsdcAmount as formatUsdcRaw } from '@/lib/format'
+import { preferencesAtom } from '@/state/preferences'
 import { RecentActivityList, ActivityAllPanel } from '@/components/dashboard/RecentActivityList'
 import { useDepositTooltipHandoff, useEarnBannerHandoff } from '@/hooks/useEarnBannerHandoff'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt'
@@ -24,7 +29,15 @@ import { useOpenActionModal } from '@/hooks/useOpenActionModal'
 import { apyExplanation, formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
-import { openModalAtom, balanceHiddenAtom, activityPanelOpenAtom, receiptTxIdAtom, repeatIntentAtom } from '@/state/ui'
+import {
+  openModalAtom,
+  balanceHiddenAtom,
+  activityPanelOpenAtom,
+  receiptTxIdAtom,
+  repeatIntentAtom,
+  lockReasonAtom,
+  paymentIntentAtom,
+} from '@/state/ui'
 import { repeatModalFor } from '@/components/dashboard/repeatIntent'
 import { useTxInView } from '@/hooks/useTxInView'
 import {
@@ -34,6 +47,7 @@ import {
   yieldSharesHeadlineAtom,
   shieldedWalletAtom,
   evmAddressAtom,
+  usdcBalancesAtom,
 } from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
@@ -68,6 +82,12 @@ export function Dashboard() {
   )
   const requestLinks = useAtomValue(requestLinksAtom)
   const evmAddress = useAtomValue(evmAddressAtom)
+  // Before sign-in: the sign-in card's inputs — wallet connection, its public USDC, why it locked, a waiting pay link.
+  const { status: connectionStatus } = useAccount()
+  const publicUsdcByChain = useAtomValue(usdcBalancesAtom)
+  const lockReason = useAtomValue(lockReasonAtom)
+  const { autoLockMinutes } = useAtomValue(preferencesAtom)
+  const paymentIntent = useAtomValue(paymentIntentAtom)
 
   // Actions
   const openActionModal = useOpenActionModal()
@@ -235,6 +255,43 @@ export function Dashboard() {
   const tooltipEnterStyle = {
     '--dashboard-tooltip-enter-delay': `${DASHBOARD_TOOLTIP_ENTER_DELAY_MS}ms`,
   } as CSSProperties
+
+  // Before sign-in: the sign-in card in the balance spot, the earn banner from the public APY, and an activity placeholder
+  // (history is encrypted until sign-in). Every action signs in first, then continues (useOpenActionModal).
+  if (shieldedWallet.status !== 'unlocked') {
+    const publicUsdc = Object.values(publicUsdcByChain).reduce((sum, value) => sum + value, 0n)
+    return (
+      <div className={styles.page}>
+        <div className={styles.cardStack}>
+          <LockedDashboard
+            card={{
+              connection:
+                connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+                  ? 'reconnecting'
+                  : connectionStatus === 'connected'
+                    ? 'connected'
+                    : 'disconnected',
+              publicUsdc: publicUsdc > 0n ? formatUsdcRaw(publicUsdc) : null,
+              lockNote: lockNoteFor(lockReason, autoLockMinutes),
+              payNote: payNoteFor(paymentIntent),
+              onSignIn: () => openActionModal(),
+              onAction: (kind) => openActionModal(kind),
+            }}
+            earnBanner={
+              earnApyAvailable
+                ? {
+                    headline: formatEarnApyHeadline(vaultApy ?? 0),
+                    ariaLabel: `Estimated yearly yield ~${formatApyPercent(vaultApy ?? 0)}`,
+                    infoTooltip: apyExplanation(yieldRate?.yieldFeeBps),
+                    onDeposit: () => openActionModal('yield-deposit'),
+                  }
+                : null
+            }
+          />
+        </div>
+      </div>
+    )
+  }
 
   // Gate the dashboard behind the initial shielded-balance sync. The navbar (AppLayout) stays visible.
   if (gated) {

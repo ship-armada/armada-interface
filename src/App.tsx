@@ -1,12 +1,11 @@
-// ABOUTME: Top-level route shell + wallet-status guard — runs the v2 schema migration before anything else, installs the visibility listener, hydrates tx history, starts the executor, and renders SignInFlow / Outlet based on local mode.
-// ABOUTME: Guard uses a local mode state (not direct atom read) so a sign-in in progress doesn't get unmounted the moment signIn() flips the wallet atom to unlocked.
+// ABOUTME: Top-level route shell — runs the v2 schema migration before anything else, installs the visibility listener, hydrates tx history, starts the executor,
+// ABOUTME: then always renders the app (header + Outlet + modals). Locked, the dashboard shows the sign-in card; sign-in itself is SignInModal over the app.
 
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AppLayout } from '@/components/AppLayout'
-import { SignInFlow } from '@/components/onboarding'
-import { OnboardingLayout } from '@/components/OnboardingLayout/OnboardingLayout'
+import { SignInModal } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
 import { SendModal } from '@/components/payments'
 import { MergeModal } from '@/components/consolidate/MergeModal'
@@ -16,6 +15,7 @@ import { EarnModal } from '@/components/yield'
 import { SettingsModal } from '@/components/settings'
 import { SingleTabGate } from '@/components/SingleTabGate'
 import { useAutoLock } from '@/hooks/useAutoLock'
+import { useCloseFlowsOnLock } from '@/hooks/useCloseFlowsOnLock'
 import { usePayViaLinkIntent } from '@/hooks/usePayViaLinkIntent'
 import { useHistoryRecovery } from '@/hooks/useHistoryRecovery'
 import { useIncomingTransferDetector } from '@/hooks/useIncomingTransferDetector'
@@ -48,7 +48,6 @@ import '@/features/yield-deposit'
 import '@/features/yield-withdraw'
 import { startEngine } from '@/lib/tx/executor'
 import { trackError } from '@/lib/telemetry'
-import { appModeForWalletStatus, type GuardMode } from '@/lib/app-mode'
 import { preloadArtifactsFromOrigin } from '@/lib/shielded/artifacts'
 import { runSchemaMigrationIfNeeded } from '@/lib/shielded/schema-migration'
 import { readStoredWalletId } from '@/lib/shielded/wallet'
@@ -66,6 +65,7 @@ import { anotherTabActiveAtom } from '@/state/ui'
 
 export function App() {
   useTabVisible()
+  useCloseFlowsOnLock() // the shell stays up while locked — close flows / receipt / panel that need the unlocked wallet
   useDebugSync() // ?debug URL param → persisted debug-mode flag (gates dev-only affordances)
   useNowTicker() // refresh "3m ago" labels on a 60s cadence
   useTxHistory() // hydrate tx history from IDB on cold load
@@ -120,7 +120,8 @@ export function App() {
   const anotherTabActive = useAtomValue(anotherTabActiveAtom)
   const setShieldedWallets = useSetAtom(shieldedWalletsAtom)
   const setActiveWalletId = useSetAtom(activeShieldedWalletIdAtom)
-  const [mode, setMode] = useState<GuardMode>('pre-migration')
+  // Boot phases before the app renders: the v2 schema migration, then seeding the persisted wallet.
+  const [mode, setMode] = useState<'pre-migration' | 'pre-init' | 'app'>('pre-migration')
 
   // v2 schema migration: drops legacy localStorage keys + IndexedDB databases on first run of
   // the v2 schema. Synchronous portion (localStorage) is done by the time the awaited promise
@@ -153,17 +154,13 @@ export function App() {
       trackError('shielded.artifacts.preload', err),
     )
   }, [mode])
-  // Cold-boot hydration + initial mode derivation, in one pass to avoid a race between
-  // separate effects (the mode effect would otherwise read a stale `wallet.status` before the
-  // hydration setState landed). Source of truth on cold boot is localStorage — the SDK
-  // persists wallet IDB and we persist the walletId on sign-in, but Jotai atoms reset to
+  // Cold-boot hydration, in one pass so the app never renders before the wallet entry is seeded. Source of truth on cold
+  // boot is localStorage — the SDK persists wallet IDB and we persist the walletId on sign-in, but Jotai atoms reset to
   // defaults on every page load.
-  //
-  // Two cases, both landing on the unified sign-in screen:
   //   - `wallet.status === 'unlocked'`: HMR re-mount, atoms already populated → straight to app.
-  //   - otherwise: seed the persisted walletId (if any) as a `locked` entry so sign-in has an
-  //     active wallet to unlock, then → SignInFlow. First-run (no persisted id) also lands here;
-  //     signing in first-derives the wallet.
+  //   - otherwise: seed the persisted walletId (if any) as a `locked` entry so sign-in has an active wallet to unlock,
+  //     then → the app, whose dashboard shows the sign-in card. First-run (no persisted id) also lands there; signing in
+  //     first-derives the wallet.
   useEffect(() => {
     if (mode !== 'pre-init') return
     if (wallet.status === 'unlocked') {
@@ -177,18 +174,12 @@ export function App() {
       )
       setActiveWalletId(prev => prev ?? persistedId)
     }
-    setMode('signin')
+    setMode('app')
   }, [mode, wallet.status, setShieldedWallets, setActiveWalletId])
 
-  // After initial derivation, react to subsequent wallet-status changes while in app mode:
-  //   locked  → auto-lock timer / account-switch locked the wallet → back to the unlock screen.
-  //   missing → Settings → Reset wiped the wallet, or an account-switch landed on an account with
-  //             no wallet on this device → back to onboarding. Without this, the app shell renders
-  //             with no active wallet and the first action throws 'no active shielded walletId'. (P1-14)
-  useEffect(() => {
-    const next = appModeForWalletStatus(mode, wallet.status)
-    if (next) setMode(next)
-  }, [mode, wallet.status])
+  // A lock (auto-lock, account switch, tab hidden) or Settings → Reset (wallet 'missing') no longer swaps the page: the
+  // dashboard shows the sign-in card, every flow signs in first (useOpenActionModal), and useCloseFlowsOnLock closes
+  // anything that needed the unlocked wallet.
 
   // Another tab already holds the shielded scan instance (SDK enforces one per origin) — supersede
   // every mode with the single-tab gate so the user sees a clear message, not a broken shell.
@@ -205,23 +196,15 @@ export function App() {
     return null
   }
 
-  if (mode === 'signin') {
-    // One state-agnostic sign-in screen for first visit and returning users alike — signIn()
-    // first-derives or re-derives the same shielded identity from the EVM signature. Restore
-    // (backup file / recovery secret) is available behind a link for new-device / smart-account users.
-    return (
-      <OnboardingLayout>
-        <SignInFlow onUnlocked={() => setMode('app')} />
-      </OnboardingLayout>
-    )
-  }
-
   return (
     <>
       <AppLayout>
         <Outlet />
       </AppLayout>
       {/* Feature modals — mounted at App level so opening one doesn't depend on the current route. */}
+      {/* Sign-in: first visit and returning alike (signIn() first-derives or re-derives the same identity), opened from
+          the dashboard's sign-in card or any flow tapped while locked. Restore (backup / secret) sits behind a link. */}
+      <SignInModal />
       <ShieldModal />
       <SendModal />
       <EarnModal />

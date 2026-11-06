@@ -8,6 +8,7 @@ import { useAutoLock } from './useAutoLock'
 import { activeShieldedWalletIdAtom, shieldedWalletsAtom } from '@/state/wallet'
 import { preferencesAtom, DEFAULT_PREFERENCES } from '@/state/preferences'
 import { txListAtom } from '@/state/tx'
+import { lockReasonAtom } from '@/state/ui'
 import type { TxRecord } from '@/lib/tx/types'
 
 function Harness() {
@@ -76,6 +77,8 @@ describe('useAutoLock', () => {
     })
     // After the timeout, lock() should have flipped the entry to 'locked'.
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    // The sign-in card says why: "Locked after 5 minutes of inactivity."
+    expect(store.get(lockReasonAtom)).toBe('idle')
   })
 
   it('does not lock when the wallet is already locked', () => {
@@ -183,6 +186,7 @@ describe('useAutoLock', () => {
       vi.advanceTimersByTime(1 * 60_000 + 1)
     })
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    expect(store.get(lockReasonAtom)).toBe('hidden')
   })
 
   it('cancels the hidden grace when the tab becomes visible again', () => {

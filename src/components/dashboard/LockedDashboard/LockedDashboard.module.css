@@ -1,0 +1,35 @@
+/* ABOUTME: LockedDashboard styling — the activity placeholder under the sign-in card: a quiet row with a clock badge, in the
+   ABOUTME: activity list's frost surface, so the locked dashboard keeps the signed-in layout's shape. */
+
+.activity {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+  width: 100%;
+  padding: var(--primitives-spacing-4);
+  border-radius: calc(var(--semantic-borderRadius-modal) * 1px);
+  background: var(--semantic-color-frost-control);
+  box-sizing: border-box;
+}
+
+.activityIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--primitives-spacing-10);
+  height: var(--primitives-spacing-10);
+  flex-shrink: 0;
+  border-radius: calc(var(--semantic-borderRadius-item) * 1px);
+  background: var(--semantic-color-surface-thumb);
+  color: var(--semantic-color-text-muted);
+}
+
+.activityIcon svg {
+  width: var(--primitives-spacing-5);
+  height: var(--primitives-spacing-5);
+}
+
+.activityText {
+  margin: 0;
+  color: var(--semantic-color-text-muted);
+}

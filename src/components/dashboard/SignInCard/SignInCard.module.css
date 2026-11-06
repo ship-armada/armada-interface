@@ -1,0 +1,71 @@
+/* ABOUTME: SignInCard styling — the balance card's surface and action row (BalanceCard.module.css) with the sign-in copy in
+   ABOUTME: place of the balance: heading, body, notes, the full-width button and the "How this works" toggle. */
+
+.card {
+  gap: var(--primitives-spacing-6);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-xl) * 1px);
+  font-weight: var(--primitives-fontWeight-semibold);
+  line-height: var(--primitives-lineHeight-tight);
+  color: var(--semantic-color-text-primary);
+}
+
+.body {
+  margin: 0;
+  color: var(--semantic-color-text-secondary);
+}
+
+.note {
+  margin: 0;
+  color: var(--semantic-color-text-muted);
+}
+
+.pay {
+  margin: 0;
+  padding: var(--primitives-spacing-2) var(--primitives-spacing-3);
+  border-radius: calc(var(--semantic-borderRadius-item) * 1px);
+  background: var(--semantic-color-surface-raised);
+  color: var(--semantic-color-text-primary);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+}
+
+.signIn {
+  width: 100%;
+}
+
+.explainToggle {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.explainToggle:hover,
+.explainToggle:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
+.explain {
+  margin: 0;
+  color: var(--semantic-color-text-secondary);
+}
