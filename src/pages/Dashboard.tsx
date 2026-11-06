@@ -21,7 +21,7 @@ import type { BalanceRollMode } from '@/components/dashboard/RollingBalanceValue
 import { SyncGate, isInitialSyncGated } from '@/components/sync'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
-import { formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
+import { apyExplanation, formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
 import { openModalAtom, balanceHiddenAtom, activityPanelOpenAtom, receiptTxIdAtom, repeatIntentAtom } from '@/state/ui'
@@ -308,7 +308,7 @@ export function Dashboard() {
             iconTileTone="purple"
             headline={formatEarnApyHeadline(vaultApy ?? 0)}
             body="Add USDC to Armada's shielded vault and start earning now."
-            infoTooltip="The APY is an estimate from recent shielded vault performance."
+            infoTooltip={apyExplanation(yieldRate?.yieldFeeBps)}
             ariaLabel={`Estimated yearly yield ~${formatApyPercent(vaultApy ?? 0)}`}
             onDeposit={() => openActionModal('yield-deposit')}
           />

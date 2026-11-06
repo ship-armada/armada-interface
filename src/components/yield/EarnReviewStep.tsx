@@ -1,5 +1,5 @@
 // ABOUTME: Earn review step — frost card with left-aligned UI title + big mono amount, shared EarnReviewSummary table, Confirm/Back CTAs.
-// ABOUTME: Delegates the summary rows (mode, APY, amount, fees, total) to EarnReviewSummary; keeps the sync-gate + slippage notices.
+// ABOUTME: Delegates the summary rows (mode, APY, a deposit's est. yearly yield, amount, fees, total) to EarnReviewSummary; keeps the sync-gate + slippage notices.
 
 import { HighFeeNotice } from '@/components/flow/HighFeeNotice'
 import { useHighFeeAck } from '@/hooks/useHighFeeAck'
@@ -9,6 +9,7 @@ import { FeeUpdatedBanner } from '@/components/flow/FeeUpdatedBanner/FeeUpdatedB
 import { MergeNotesNotice } from '@/components/consolidate/MergeNotesNotice'
 import { formatUsdcPlain } from '@/lib/format'
 import type { YieldRate } from '@/hooks/useYieldRate'
+import { projectedYearlyYield } from '@/lib/yield'
 import type { EarnTab } from './EarnInputStep'
 import styles from './EarnReviewStep.module.css'
 
@@ -64,6 +65,8 @@ export function EarnReviewStep({
   const confirmLabel = tab === 'add' ? 'Confirm deposit' : 'Confirm withdrawal'
   // The relayer fee: on top of a deposit, skimmed from a withdrawal's proceeds — either way, lost to the user.
   const highFee = useHighFeeAck(fee, amount)
+  // A deposit's rough yearly earnings at the rate being reviewed (12E, YD-7); none for a withdrawal or before the rate.
+  const yearlyYield = tab === 'add' && rate !== null && rate.apyBps > 0n ? projectedYearlyYield(amount, rate.apyBps) : null
 
   return (
     <div className={styles.root}>
@@ -86,6 +89,7 @@ export function EarnReviewStep({
           netAmount={netAmount}
           netLabel={netLabel}
           estimated={estimated}
+          yearlyYield={yearlyYield}
         />
 
         {tab === 'withdraw' ? (

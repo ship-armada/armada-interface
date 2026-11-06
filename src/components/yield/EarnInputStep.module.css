@@ -1,4 +1,4 @@
-/* ABOUTME: EarnInputStep layout — APY intro banner, amount card (with in-card Add/Withdraw tabs), and the withdraw pre-flight gate. */
+/* ABOUTME: EarnInputStep layout — APY intro banner, amount card (with in-card Add/Withdraw tabs), a deposit's est. yearly yield line, and the withdraw pre-flight gate. */
 /* ABOUTME: Tabs render as a shared SegmentedControl inside the card; the APY banner is a shared DepositTooltip above it. */
 
 .root {
@@ -9,6 +9,26 @@
 }
 
 /* Serif display prompt (matches the flow mockup). */
+.yearlyYield {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--primitives-spacing-3);
+  margin: 0;
+  width: 100%;
+  color: var(--semantic-color-text-muted);
+}
+
+.yearlyYieldLabel {
+  display: inline-flex;
+  align-items: center;
+}
+
+.yearlyYieldValue {
+  color: var(--semantic-color-text-primary);
+  font-family: var(--primitives-fontFamily-mono), ui-monospace, monospace;
+}
+
 .title {
   composes: displayLg from '../../design/styles/displayLgTitle.module.css';
   margin: 0;

@@ -20,6 +20,9 @@ export interface YieldRate {
    * uses this; the contract math (deposit/withdraw share conversions) uses `rate`.
    */
   apyBps: bigint
+  /** The vault's fee on earnings in basis points (clamped to 10_000) — named in the rate's ⓘ (`lib/yield::apyExplanation`).
+   *  Absent on a rate frozen on a record (`frozenApyRate`). */
+  yieldFeeBps?: bigint
   fetchedAt: number
 }
 
@@ -167,7 +170,7 @@ export function useYieldRate(): UseYieldRateResult {
     const clampedFeeBps = yieldFeeBps > 10_000n ? 10_000n : yieldFeeBps
     const apyBps = (grossAnnualBps * (10_000n - clampedFeeBps)) / 10_000n
 
-    return { rate: usdcPerShare, apyBps, fetchedAt: Date.now() }
+    return { rate: usdcPerShare, apyBps, yieldFeeBps: clampedFeeBps, fetchedAt: Date.now() }
   }, [])
 
   const query = useQuery({

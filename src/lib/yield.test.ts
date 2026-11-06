@@ -1,8 +1,8 @@
 // ABOUTME: Tests for lib/yield helpers — sharesToUsdc bigint math (zero, normal, large), rateToApy bps→percentage conversion,
-// ABOUTME: and the shared APY display formats (formatApyPercent, formatEarnApyHeadline).
+// ABOUTME: the shared APY display formats, the rate's explanation (naming the vault's fee) and the projected yearly yield.
 
 import { describe, it, expect } from 'vitest'
-import { sharesToUsdc, rateToApy, formatApyPercent, formatEarnApyHeadline } from './yield'
+import { sharesToUsdc, rateToApy, formatApyPercent, formatEarnApyHeadline, apyExplanation, projectedYearlyYield } from './yield'
 
 describe('sharesToUsdc', () => {
   it('returns 0 for zero shares', () => {
@@ -74,5 +74,25 @@ describe('formatEarnApyHeadline', () => {
   it('reads "Earn ~X.XX% APY" in the shared two-decimal format', () => {
     expect(formatEarnApyHeadline(4.2)).toBe('Earn ~4.20% APY')
     expect(formatEarnApyHeadline(4.567)).toBe('Earn ~4.57% APY')
+  })
+})
+
+describe('apyExplanation (12C)', () => {
+  it('says the rate is current, net of the vault\'s fee on earnings, and set by the Aave market', () => {
+    expect(apyExplanation(1_000n)).toBe('Current yearly rate after the vault\u2019s 10% fee on earnings, as determined by the Aave market.')
+  })
+
+  it('names a fractional fee to one decimal, and leaves the number out while the fee is unknown', () => {
+    expect(apyExplanation(1_250n)).toContain('vault\u2019s 12.5% fee')
+    expect(apyExplanation(undefined)).toContain('after the vault\u2019s fee on earnings')
+  })
+})
+
+describe('projectedYearlyYield (12E)', () => {
+  it('is the amount times the net rate, without compounding (raw 6-decimal USDC)', () => {
+    // 100 USDC at 4.20% net → 4.20 USDC a year.
+    expect(projectedYearlyYield(100_000_000n, 420n)).toBe(4_200_000n)
+    expect(projectedYearlyYield(0n, 420n)).toBe(0n)
+    expect(projectedYearlyYield(100_000_000n, 0n)).toBe(0n)
   })
 })

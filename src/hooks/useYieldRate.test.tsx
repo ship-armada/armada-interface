@@ -102,6 +102,8 @@ describe('useYieldRate', () => {
     const latest = results.at(-1)
     // Net APY = 500 bps × (10_000 - 1_000) / 10_000 = 450 bps
     expect(latest?.rate?.apyBps).toBe(450n)
+    // The fee itself is passed through for the rate's ⓘ ("after the vault's 10% fee on earnings", 12C).
+    expect(latest?.rate?.yieldFeeBps).toBe(1_000n)
   })
 
   it('returns rate=null when yield is not deployed on this network', async () => {
@@ -156,5 +158,6 @@ describe('useYieldRate', () => {
     const { results } = renderHarness()
     await waitFor(() => expect(results.at(-1)?.rate).not.toBeNull())
     expect(results.at(-1)?.rate?.apyBps).toBe(0n)
+    expect(results.at(-1)?.rate?.yieldFeeBps).toBe(10_000n)
   })
 })

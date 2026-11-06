@@ -1,8 +1,10 @@
-// ABOUTME: Tests for EarnReviewStep — headline + mode + APY copy + dispatch Back/Confirm.
+// ABOUTME: Tests for EarnReviewStep — headline + mode + APY copy + dispatch Back/Confirm, and a deposit's est. yearly yield row.
+// ABOUTME: Rows are read by label via test/summaryRows.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { EarnReviewStep } from './EarnReviewStep'
+import { summaryRow } from '@/test/summaryRows'
 
 function setupAdd() {
   const onBack = vi.fn()
@@ -65,6 +67,27 @@ describe('<EarnReviewStep>', () => {
     )
     expect(screen.getByRole('heading', { name: 'Review USDC withdraw from shielded vault' })).toBeInTheDocument()
     expect(screen.getByText('Withdraw from shielded vault')).toBeInTheDocument()
+  })
+
+  it('a deposit\'s Review shows its est. yearly yield at the rate it was reviewed at (12E, YD-7)', () => {
+    render(
+      <EarnReviewStep
+        tab="add"
+        amount={100_000_000n}
+        rate={{ rate: 1_000_000n, apyBps: 420n, yieldFeeBps: 1_000n, fetchedAt: 0 }}
+        fee={null}
+        netAmount={100_000_000n}
+        netLabel="Total deducted from balance"
+        onBack={() => {}}
+        onConfirm={() => {}}
+      />,
+    )
+    expect(summaryRow('Est. yearly yield')).toBe('\u2248 4.20 USDC')
+  })
+
+  it('no est. yearly yield on a withdrawal\'s Review, or before the rate loads', () => {
+    setupAdd()
+    expect(screen.queryByText('Est. yearly yield')).toBeNull()
   })
 
   it('APY shows syncing copy when rate is null', () => {

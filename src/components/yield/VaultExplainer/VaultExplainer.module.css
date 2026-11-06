@@ -1,0 +1,62 @@
+/* ABOUTME: VaultExplainer styling — a quiet centred text toggle with a chevron, opening a raised panel of short paragraphs. */
+/* ABOUTME: Matches the flow's muted secondary copy; the panel uses the raised surface like the review callouts. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--primitives-spacing-3);
+  width: 100%;
+}
+
+.toggle {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  font: inherit;
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.toggle:hover,
+.toggle:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
+.chevron {
+  width: var(--primitives-spacing-4);
+  height: var(--primitives-spacing-4);
+  transition: transform 150ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+  width: 100%;
+  padding: var(--primitives-spacing-4);
+  border-radius: calc(var(--semantic-borderRadius-item) * 1px);
+  background: var(--semantic-color-surface-raised);
+  color: var(--semantic-color-text-secondary);
+  box-sizing: border-box;
+}
+
+.panel strong {
+  color: var(--semantic-color-text-primary);
+  font-weight: var(--primitives-fontWeight-semibold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

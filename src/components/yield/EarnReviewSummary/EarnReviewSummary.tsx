@@ -3,7 +3,8 @@
 
 import { ArmadaLogo } from '@/design'
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
-import { formatApyPercent, rateToApy } from '@/lib/yield'
+import { PROJECTED_YIELD_EXPLANATION, formatApyPercent, rateToApy } from '@/lib/yield'
+import { InfoTip } from '@/components/ui/InfoTip'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { EarnTab } from '../EarnInputStep'
@@ -42,6 +43,9 @@ export interface EarnReviewSummaryProps {
   showApy?: boolean
   /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
   estimatedTime?: string
+  /** A deposit Review's "Est. yearly yield" (`lib/yield::projectedYearlyYield`, spec YD-7) — at the reviewed rate, shown "≈"
+   *  with an ⓘ saying it isn't guaranteed. Omitted elsewhere (and on a withdrawal). */
+  yearlyYield?: bigint | null
 }
 
 function formatApy(rate: YieldRate | null): string {
@@ -62,6 +66,7 @@ export function EarnReviewSummary({
   showApy = true,
   estimated,
   estimatedTime,
+  yearlyYield = null,
 }: EarnReviewSummaryProps) {
   const modeLabel = tab === 'add' ? 'Add to vault' : 'Withdraw from shielded vault'
   const amountLabel = tab === 'add' ? 'Your deposit' : 'Your withdrawal'
@@ -87,6 +92,15 @@ export function EarnReviewSummary({
           <div className={styles.summaryRow}>
             <span className={styles.summaryLabel}>Estimated APY</span>
             <span className={styles.summaryValue}>{formatApy(rate)}</span>
+          </div>
+        ) : null}
+        {yearlyYield !== null ? (
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryLabel}>
+              Est. yearly yield
+              <InfoTip text={PROJECTED_YIELD_EXPLANATION} label="About the yearly yield estimate" />
+            </span>
+            <span className={[styles.summaryValue, usdcAmount.font].join(' ')}>{`\u2248 ${formatUsdcAmount(yearlyYield)} USDC`}</span>
           </div>
         ) : null}
         <div className={styles.summaryRow}>
