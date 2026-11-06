@@ -1,4 +1,4 @@
-// ABOUTME: Tests for PayViaLinkLanding — renders per parse state + hands off a valid link to the Send flow.
+// ABOUTME: Tests for PayViaLinkLanding — renders per parse state ("Any amount" when none, a check-the-address line) + hands off a valid link to the Send flow.
 // ABOUTME: Uses MemoryRouter so useLocation() sees the link query; a '/' stub stands in for the dashboard.
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -31,6 +31,16 @@ describe('PayViaLinkLanding', () => {
     expect(screen.getByText('25.00')).toBeInTheDocument()
     expect(screen.getByText('Invoice 7')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Scan to open payment request' })).toBeInTheDocument()
+  })
+
+  it('asks the payer to check the address with whoever sent the link (10F)', () => {
+    renderAt(`/pay-via-link?to=${VALID_0ZK}&id=req_a&expires=${FUTURE}&amount=25`)
+    expect(screen.getByText('Check this address with the person who sent you this link.')).toBeInTheDocument()
+  })
+
+  it('a request without an amount reads "Any amount" (10G)', () => {
+    renderAt(`/pay-via-link?to=${VALID_0ZK}&id=req_a&expires=${FUTURE}`)
+    expect(screen.getByText('Any amount')).toBeInTheDocument()
   })
 
   it('lets the payer copy the FULL recipient address', async () => {

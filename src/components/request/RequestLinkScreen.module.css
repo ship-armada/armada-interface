@@ -230,6 +230,11 @@
   white-space: nowrap;
 }
 
+.amountAny {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  color: var(--semantic-color-text-muted);
+}
+
 .copyButton {
   flex: 1 1 0;
   min-width: 0;

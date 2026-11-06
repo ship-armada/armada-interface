@@ -15,6 +15,13 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, 'share')
 })
 
+describe('<RequestLinkScreen> amount', () => {
+  it('a request without an amount reads "Any amount" (10G)', () => {
+    render(<RequestLinkScreen paymentLink={LINK} expiresAt={Date.now() + 86_400_000} revoked={false} onDone={vi.fn()} />)
+    expect(screen.getByText('Any amount')).toBeInTheDocument()
+  })
+})
+
 describe('<RequestLinkScreen> sharing (10B)', () => {
   it('shows a QR code of the link, so someone nearby can scan it', () => {
     renderScreen()

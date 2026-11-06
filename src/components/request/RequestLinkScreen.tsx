@@ -161,11 +161,14 @@ export function RequestLinkScreen({
         <h1 className={`${styles.title} ${styles.enter} ${styles.enterTitle}`}>
           USDC payment request
         </h1>
-        {amountLabel ? (
-          <span className={`${styles.amountValue} ${styles.enter} ${styles.enterAmount}`}>
-            {amountLabel}
-          </span>
-        ) : null}
+        {/* No amount → the payer chooses it; say so rather than leave the space blank. */}
+        <span
+          className={[styles.amountValue, !amountLabel && styles.amountAny, styles.enter, styles.enterAmount]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {amountLabel ?? 'Any amount'}
+        </span>
       </header>
 
       <div className={`${styles.enter} ${styles.enterQr}`}>

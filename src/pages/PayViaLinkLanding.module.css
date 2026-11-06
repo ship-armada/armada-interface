@@ -107,6 +107,24 @@
   font-variant-numeric: tabular-nums;
 }
 
+.amountAny {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  color: var(--semantic-color-text-muted);
+}
+
+/* Under the summary: the payer should confirm the recipient with whoever sent the link. */
+.checkAddress {
+  margin: 0;
+  width: 100%;
+  font-family: var(--semantic-typography-ui-body-sm-font-family);
+  font-size: var(--semantic-typography-ui-body-sm-font-size);
+  font-weight: var(--semantic-typography-ui-body-sm-font-weight);
+  line-height: var(--semantic-typography-ui-body-sm-line-height);
+  letter-spacing: var(--semantic-typography-ui-body-sm-letter-spacing);
+  color: var(--semantic-color-text-muted);
+  text-align: left;
+}
+
 .body {
   margin: 0;
   width: 100%;
