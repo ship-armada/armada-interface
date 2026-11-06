@@ -1,8 +1,8 @@
-// ABOUTME: SignInCard — the locked dashboard's balance spot and its inline sign-in: the gradient Armada mark, the Connect / Sign in button
-// ABOUTME: (waiting for the signature, errors), "Connected as", the signature-derived wallet line, the restore link, a first-visit banner below.
+// ABOUTME: SignInCard — the balance spot's sign-in face (inside BalanceSpot): space for the shared Armada mark, the Connect / Sign in
+// ABOUTME: button (waiting for the signature, errors), "Connected as", the wallet line, the restore link; plus the first-visit banner.
 
 import { InformationCircleIcon } from '@heroicons/react/24/outline'
-import { ArmadaSymbol, Button } from '@/design'
+import { Button } from '@/design'
 import type { LockReason, PaymentIntent } from '@/state/ui'
 import { shortAddress } from '@/lib/address'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
@@ -22,8 +22,6 @@ export interface SignInCardProps {
   lockNote?: string | null
   /** A pay link waiting on sign-in ("Sign in to pay 25.00 USDC to 0zk1…ab12") — shown instead of the lock note. */
   payNote?: string | null
-  /** No wallet signed in on this device yet: the first sign-in asks for two signatures (the determinism check). */
-  firstTimeOnDevice?: boolean
   /** Connect (if needed) and sign in. */
   onSignIn: () => void
   /** Open the restore (backup file / recovery secret). */
@@ -59,7 +57,6 @@ export function SignInCard({
   error,
   lockNote,
   payNote,
-  firstTimeOnDevice = false,
   onSignIn,
   onRestore,
 }: SignInCardProps) {
@@ -74,57 +71,57 @@ export function SignInCard({
   const contextNote = payNote ?? lockNote
 
   return (
-    <>
-      <section className={`${cardStyles.card} ${styles.card}`} aria-label="Sign in">
-        <div className={styles.brandMark} aria-hidden>
-          <ArmadaSymbol size={108} />
-        </div>
-        {contextNote ? <p className={styles.note}>{contextNote}</p> : null}
-        <div className={styles.actions}>
-          <Button
-            variant="primary"
-            size="lg"
-            label={buttonLabel}
-            showIcon={false}
-            className={styles.signIn}
-            disabled={connection === 'reconnecting' || submitting}
-            loading={submitting}
-            onClick={onSignIn}
-          />
-          {error ? (
-            <div role="alert" className={styles.error}>
-              {error}
-            </div>
-          ) : null}
-          {connection === 'connected' && address ? (
-            <p className={styles.connectedAs}>Connected as {shortAddress(address)}</p>
-          ) : null}
-        </div>
-        <div className={styles.intro}>
-          <p>
-            Your shielded wallet is derived from a signature your EVM wallet produces — no passphrase, no recovery
-            phrase.
-          </p>
-          <p>Sign in from any device with the same wallet.</p>
-        </div>
-        <button type="button" className={styles.textLink} onClick={onRestore}>
-          Restore wallet from backup instead
-        </button>
-      </section>
-      {firstTimeOnDevice ? (
-        <div className={styles.firstTimeBanner}>
-          <span className={styles.firstTimeIconTile} aria-hidden>
-            <InformationCircleIcon className={styles.firstTimeIcon} strokeWidth={1.5} />
-          </span>
-          <div className={styles.firstTimeText}>
-            <p className={styles.firstTimeHeadline}>First time on this device?</p>
-            <p className={`armada-text-ui-body-sm ${styles.firstTimeBody}`}>
-              We&rsquo;ll ask for two signatures to confirm your wallet is compatible. After that it&rsquo;s a single
-              signature.
-            </p>
+    <section className={`${cardStyles.card} ${styles.card}`} aria-label="Sign in">
+      {/* The shared Armada mark is BalanceSpot's, drawn over this space so it stays put when the sync face takes over. */}
+      <div className={styles.brandMark} aria-hidden />
+      {contextNote ? <p className={styles.note}>{contextNote}</p> : null}
+      <div className={styles.actions}>
+        <Button
+          variant="primary"
+          size="lg"
+          label={buttonLabel}
+          showIcon={false}
+          className={styles.signIn}
+          disabled={connection === 'reconnecting' || submitting}
+          loading={submitting}
+          onClick={onSignIn}
+        />
+        {error ? (
+          <div role="alert" className={styles.error}>
+            {error}
           </div>
-        </div>
-      ) : null}
-    </>
+        ) : null}
+        {connection === 'connected' && address ? (
+          <p className={styles.connectedAs}>Connected as {shortAddress(address)}</p>
+        ) : null}
+      </div>
+      <div className={styles.intro}>
+        <p>
+          Your shielded wallet is derived from a signature your EVM wallet produces — no passphrase, no recovery
+          phrase.
+        </p>
+        <p>Sign in from any device with the same wallet.</p>
+      </div>
+      <button type="button" className={styles.textLink} onClick={onRestore}>
+        Restore wallet from backup instead
+      </button>
+    </section>
+  )
+}
+
+/** Under the card on a first visit from this device: the first sign-in asks for two signatures (the determinism check). */
+export function FirstSignInBanner() {
+  return (
+    <div className={styles.firstTimeBanner}>
+      <span className={styles.firstTimeIconTile} aria-hidden>
+        <InformationCircleIcon className={styles.firstTimeIcon} strokeWidth={1.5} />
+      </span>
+      <div className={styles.firstTimeText}>
+        <p className={styles.firstTimeHeadline}>First time on this device?</p>
+        <p className={`armada-text-ui-body-sm ${styles.firstTimeBody}`}>
+          We&rsquo;ll ask for two signatures to confirm your wallet is compatible. After that it&rsquo;s a single signature.
+        </p>
+      </div>
+    </div>
   )
 }

@@ -1,0 +1,3 @@
+// ABOUTME: Barrel for BalanceSpot — the one card the balance spot keeps from sign-in through sync to the balance.
+export { BalanceSpot } from './BalanceSpot'
+export type { BalanceSpotFace, BalanceSpotProps } from './BalanceSpot'

@@ -1,5 +1,5 @@
-// ABOUTME: Dashboard page — centered Private-USDC BalanceCard + deposit tooltip + recent activity; before sign-in, only the
-// ABOUTME: sign-in card (in the balance spot). Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
+// ABOUTME: Dashboard page — the balance spot (one BalanceSpot card: sign-in face → sync face → BalanceCard) + deposit tooltip + recent
+// ABOUTME: activity. Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -12,7 +12,8 @@ import {
   dashboardActivityEnterDelayMs,
 } from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { DashboardScrollTopFade } from '@/components/dashboard/DashboardScrollTopFade'
-import { SignInCard, lockNoteFor, payNoteFor } from '@/components/dashboard/SignInCard'
+import { FirstSignInBanner, SignInCard, lockNoteFor, payNoteFor } from '@/components/dashboard/SignInCard'
+import { BalanceSpot, type BalanceSpotFace } from '@/components/dashboard/BalanceSpot'
 import { preferencesAtom } from '@/state/preferences'
 import { RecentActivityList, ActivityAllPanel } from '@/components/dashboard/RecentActivityList'
 import { useDepositTooltipHandoff, useEarnBannerHandoff } from '@/hooks/useEarnBannerHandoff'
@@ -70,7 +71,7 @@ const ACTIVITY_PREVIEW_MAX = 8
 const ACTIVITY_PANEL_MAX = 500
 
 export function Dashboard() {
-  // Data (all hooks run unconditionally, before the locked / syncing early returns).
+  // Data (all hooks run unconditionally).
   const shielded = useAtomValue(shieldedUsdcAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
   // Headline figures also count a broadcast spend's held inputs, so a send / vault withdrawal doesn't
@@ -268,8 +269,8 @@ export function Dashboard() {
     '--dashboard-tooltip-enter-delay': `${DASHBOARD_TOOLTIP_ENTER_DELAY_MS}ms`,
   } as CSSProperties
 
-  // The "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. Shared by the
-  // syncing view and the full dashboard.
+  // The "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. Shown once signed in
+  // (syncing or with the balance).
   const activityOverlays = (
     <>
     {/* Full "all activity" panel (View all) + the per-tx receipt overlay — replace the old /history page. */}
@@ -300,110 +301,91 @@ export function Dashboard() {
     </>
   )
 
-  // Before sign-in: only the sign-in card, in the balance spot — no activity (history is encrypted until sign-in) and no
-  // banners. The card signs in inline: its button connects if needed, then asks for the signature (useOpenActionModal →
-  // useSignIn); restoring from a backup opens the restore modal.
-  if (shieldedWallet.status !== 'unlocked') {
-    // The first sign-in for an address on this device double-signs (the determinism check). Before a wallet connects,
-    // judge by the device: no wallet stored here at all means the first prompt will be one of two.
-    const firstTimeOnDevice = connectedAddress
-      ? readStoredWalletIdFor(connectedAddress) === null
-      : readStoredWalletId() === null
-    return (
-      <div className={styles.page}>
-        <div className={styles.cardStack}>
-          <SignInCard
-            connection={
-              connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
-                ? 'reconnecting'
-                : connectionStatus === 'connected'
-                  ? 'connected'
-                  : 'disconnected'
-            }
-            address={connectedAddress}
-            submitting={signInStatus.submitting}
-            error={signInStatus.error}
-            lockNote={lockNoteFor(lockReason, autoLockMinutes)}
-            payNote={payNoteFor(paymentIntent)}
-            firstTimeOnDevice={firstTimeOnDevice}
-            onSignIn={() => openActionModal()}
-            onRestore={() => {
-              setRestoreEntry({ view: 'restore' })
-              setOpenModal('restore')
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
+  // The balance spot is one card (BalanceSpot) from sign-in through the first sync to the balance, its face following the
+  // wallet. Locked → the sign-in face: no activity (history is encrypted until sign-in) and no banners; it signs in inline
+  // (its button connects if needed, then asks for the signature — useOpenActionModal → useSignIn) and restoring opens the
+  // restore modal. Signed in with no balance yet (11A) → the sync face: no figure (G-11) and no flows until the balance is
+  // known, while activity already shows. Then the balance face, with its intro roll — in the same card.
+  const locked = shieldedWallet.status !== 'unlocked'
+  const face: BalanceSpotFace = locked ? 'sign-in' : gated ? 'sync' : 'balance'
+  const syncFailed = syncState.status === 'failed'
+  // The first sign-in for an address on this device double-signs (the determinism check). Before a wallet connects,
+  // judge by the device: no wallet stored here at all means the first prompt will be one of two.
+  const firstTimeOnDevice =
+    locked && (connectedAddress ? readStoredWalletIdFor(connectedAddress) === null : readStoredWalletId() === null)
 
-  // Signed in but the first sync hasn't produced a balance yet (11A): the sync card holds the balance spot (no figure —
-  // G-11) and offers no flows — they open once the balance is known — while activity already shows. The full card mounts with its intro roll once the balance lands.
-  if (gated) {
-    const showSyncActivity = allActivityItems.length > 0
-    return (
-      <div className={styles.page}>
-        <DashboardScrollTopFade enabled={showSyncActivity} />
-        <div className={styles.cardStack}>
-          <SyncCard
-            progress={syncState.progress}
-            failed={syncState.status === 'failed'}
-            retried={syncRetried}
-            // No history checkpoint for this wallet here yet = its first sync on this device, scanning from the start.
-            firstSync={activeWalletId !== null && readHistoryCheckpoint(activeWalletId) === null}
-            onRetry={retrySync}
-          />
-          {showSyncActivity ? (
-            <RecentActivityList
-              items={previewActivityItems}
-              balanceRevealed={!balanceHidden}
-              onViewAll={() => setActivityPanelOpen(true)}
-              onItemClick={handleActivityItemClick}
-            />
-          ) : null}
-        </div>
-        {activityOverlays}
-      </div>
-    )
-  }
-
-  // Page-load cascade: activity enters last, after the hero → actions → banner beats. Captured on the
-  // first post-gate paint so activity that appears later (e.g. after a tx) just enters immediately.
-  if (activityVisibleOnPaintRef.current === null) {
+  // Page-load cascade: activity enters last, after the hero → actions → banner beats. Captured on the first paint with the
+  // balance, so activity already shown while syncing stays put, and activity that appears later just enters immediately.
+  if (face === 'balance' && activityVisibleOnPaintRef.current === null) {
     activityVisibleOnPaintRef.current = showActivity
   }
-  const activityEnterDelayMs = dashboardActivityEnterDelayMs(
-    showDepositTooltip || showEarnBanner,
-    activityVisibleOnPaintRef.current,
-  )
+  const activityEnterDelayMs =
+    face === 'balance'
+      ? dashboardActivityEnterDelayMs(showDepositTooltip || showEarnBanner, activityVisibleOnPaintRef.current ?? false)
+      : 0
   const activityEnterStyle = {
     '--dashboard-activity-enter-delay': `${activityEnterDelayMs}ms`,
   } as CSSProperties
 
   return (
     <div className={styles.page}>
-      <DashboardScrollTopFade enabled={showActivity} />
+      <DashboardScrollTopFade enabled={!locked && showActivity} />
       <div className={styles.cardStack}>
-        <BalanceCard
-          balance={displayedBalance}
-          balanceRollTrigger={rollTrigger}
-          balanceRollMode={rollMode}
-          balanceRollFromValue={rollFromValue}
-          vaultBalance={displayedVault}
-          vaultRollFromValue={vaultRollFromValue}
-          vaultApy={vaultApy}
-          vaultEarned={vaultEarned}
-          armadaAddress={shieldedWallet.shieldedAddress}
-          balanceHidden={balanceHidden}
-          onBalanceHiddenChange={setBalanceHidden}
-          onSend={() => openActionModal('payment')}
-          onDeposit={() => openActionModal('shield')}
-          onRequest={() => openActionModal('request')}
-          onEarn={() => openActionModal('yield-deposit')}
-          onVaultOpen={() => openActionModal('yield-deposit')}
-        />
+        <BalanceSpot face={face} showMark={face === 'sign-in' || (face === 'sync' && !syncFailed)}>
+          {face === 'sign-in' ? (
+            <SignInCard
+              connection={
+                connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+                  ? 'reconnecting'
+                  : connectionStatus === 'connected'
+                    ? 'connected'
+                    : 'disconnected'
+              }
+              address={connectedAddress}
+              submitting={signInStatus.submitting}
+              error={signInStatus.error}
+              lockNote={lockNoteFor(lockReason, autoLockMinutes)}
+              payNote={payNoteFor(paymentIntent)}
+              onSignIn={() => openActionModal()}
+              onRestore={() => {
+                setRestoreEntry({ view: 'restore' })
+                setOpenModal('restore')
+              }}
+            />
+          ) : face === 'sync' ? (
+            <SyncCard
+              progress={syncState.progress}
+              failed={syncFailed}
+              retried={syncRetried}
+              // No history checkpoint for this wallet here yet = its first sync on this device, scanning from the start.
+              firstSync={activeWalletId !== null && readHistoryCheckpoint(activeWalletId) === null}
+              onRetry={retrySync}
+            />
+          ) : (
+            <BalanceCard
+              balance={displayedBalance}
+              balanceRollTrigger={rollTrigger}
+              balanceRollMode={rollMode}
+              balanceRollFromValue={rollFromValue}
+              vaultBalance={displayedVault}
+              vaultRollFromValue={vaultRollFromValue}
+              vaultApy={vaultApy}
+              vaultEarned={vaultEarned}
+              armadaAddress={shieldedWallet.shieldedAddress}
+              balanceHidden={balanceHidden}
+              onBalanceHiddenChange={setBalanceHidden}
+              onSend={() => openActionModal('payment')}
+              onDeposit={() => openActionModal('shield')}
+              onRequest={() => openActionModal('request')}
+              onEarn={() => openActionModal('yield-deposit')}
+              onVaultOpen={() => openActionModal('yield-deposit')}
+            />
+          )}
+        </BalanceSpot>
 
-        {showDepositTooltip ? (
+        {firstTimeOnDevice ? <FirstSignInBanner /> : null}
+
+        {face === 'balance' && showDepositTooltip ? (
           <div
             className={[
               styles.cardStackTooltip,
@@ -422,7 +404,7 @@ export function Dashboard() {
         ) : null}
 
         <EarnBannerSlot
-          show={showEarnBanner}
+          show={face === 'balance' && showEarnBanner}
           handoffEnter={earnBannerHandoffEnter}
           persistVisible={earnBannerPersistVisible}
           tooltipEnterStyle={tooltipEnterStyle}
@@ -440,7 +422,7 @@ export function Dashboard() {
           />
         </EarnBannerSlot>
 
-        {showActivity ? (
+        {!locked && showActivity ? (
           <div className={styles.activityEnter} style={activityEnterStyle}>
             <RecentActivityList
               items={previewActivityItems}
@@ -452,7 +434,7 @@ export function Dashboard() {
         ) : null}
       </div>
 
-      {activityOverlays}
+      {!locked ? activityOverlays : null}
     </div>
   )
 }

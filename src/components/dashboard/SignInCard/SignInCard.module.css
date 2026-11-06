@@ -1,5 +1,5 @@
-/* ABOUTME: SignInCard styling — the balance card's surface (BalanceCard.module.css) holding the inline sign-in (button, "Connected
-   ABOUTME: as", intro, restore link, styled as the retired sign-in page had them) under the Armada mark, and the first-visit banner. */
+/* ABOUTME: SignInCard styling — the sign-in face's content box (BalanceCard.module.css .card; the surface is BalanceSpot's): space for
+   ABOUTME: the shared mark, the inline sign-in styled as the retired sign-in page had it, and FirstSignInBanner below the card. */
 
 .card {
   /* Tighter than the balance card's own gap; the description adds its own room above and below (.intro). */
@@ -18,9 +18,9 @@
   }
 }
 
-/* Decorative brand mark at the top of the card — the gradient Armada mark the syncing card's ring holds, at the same size, in a
-   box the ring's size (SyncCard.module.css .tickRing --ring-size), so after sign-in the mark stays exactly where it is and the
-   ring appears around it. Change them together. */
+/* Space at the top of the face for the shared Armada mark (BalanceSpot draws it over this box), the size of the sync face's
+   ring (SyncCard.module.css .tickRing --ring-size) — so on sign-in the mark stays exactly where it is and the ring appears
+   around it. Change them together (and BalanceSpot.module.css .mark). */
 .brandMark {
   display: flex;
   align-items: center;

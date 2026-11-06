@@ -22,7 +22,6 @@ import {
   vaultPositionExitDurationMs,
 } from './balanceRevealMotion'
 import { VaultPositionBar } from '@/components/dashboard/VaultPositionBar'
-import { useDashboardBackground } from '@/hooks/useDashboardBackground'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { formatUsdcAmount, truncateArmadaAddress } from '@/components/dashboard/dashboardFormat'
 import styles from './BalanceCard.module.css'
@@ -95,8 +94,6 @@ export function BalanceCard({
   armadaAddress,
 }: BalanceCardProps) {
   const isMobileLayout = useMobileLayout()
-  const [background] = useDashboardBackground()
-  const isSolidBackground = background === 'solid'
   const [internalBalanceHidden, setInternalBalanceHidden] = useState(false)
   const balanceHiddenControlled = balanceHiddenProp !== undefined
   const balanceHidden = balanceHiddenControlled ? balanceHiddenProp : internalBalanceHidden
@@ -321,9 +318,7 @@ export function BalanceCard({
 
   return (
     <div className={styles.cardShell}>
-      <div
-        className={[styles.card, isSolidBackground && styles.cardSolid].filter(Boolean).join(' ')}
-      >
+      <div className={styles.card}>
         <button
           type="button"
           className={styles.visibilityToggle}

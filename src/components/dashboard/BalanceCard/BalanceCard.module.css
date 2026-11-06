@@ -1,4 +1,4 @@
-/* ABOUTME: BalanceCard styling — card shell, header/address, balance numeral font-fit + reveal motion, action row, vault bar. */
+/* ABOUTME: BalanceCard styling — the content box (the surface is BalanceSpot's), header/address, balance numeral font-fit + reveal motion, action row, vault bar. */
 /* ABOUTME: Ported from the armada-app design mockup (polish update). */
 .cardShell {
   position: relative;
@@ -62,11 +62,11 @@
   }
 }
 
+/* The card's content box — padding and layout. The surface (background, radius, entrance) is BalanceSpot's, which the balance
+   spot's faces (this card, SignInCard, SyncCard) share. */
 .card {
   width: 100%;
   height: auto;
-  background: var(--semantic-color-surface-main);
-  border-radius: var(--primitives-spacing-10);
   position: relative;
   --balance-card-padding: var(--primitives-spacing-8);
   padding: var(--balance-card-padding);
@@ -76,19 +76,6 @@
   justify-content: flex-start;
   gap: var(--balance-card-padding);
   box-sizing: border-box;
-  animation: balanceCardEnter 480ms cubic-bezier(0.22, 1, 0.36, 1) 220ms both;
-}
-
-.card:not(.cardSolid) {
-  background: linear-gradient(
-    180deg,
-    var(--semantic-color-frost-hero-from) 0%,
-    var(--semantic-color-frost-hero-to) 100%
-  );
-}
-
-.cardSolid {
-  background: var(--semantic-color-surface-default);
 }
 
 .cardFooter {
@@ -372,18 +359,6 @@
   color: var(--semantic-color-text-primary);
 }
 
-@keyframes balanceCardEnter {
-  from {
-    opacity: 0;
-    transform: translateY(var(--primitives-spacing-10));
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .balanceRow {
   display: flex;
   align-items: center;
@@ -544,7 +519,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card,
   .balanceClusterIntro .balanceValue,
   .balanceClusterStable .balanceValue,
   .actionEnter {

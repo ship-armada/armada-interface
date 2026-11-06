@@ -1,9 +1,9 @@
-// ABOUTME: SyncCard — the balance spot while the first sync runs after sign-in: the Armada mark in an animated tick ring with the
-// ABOUTME: live percent, no balance figure (G-11) and no flow buttons; and the failure state: funds safe, Try again, help after a retry.
+// ABOUTME: SyncCard — the balance spot's face while the first sync runs (inside BalanceSpot): an animated tick ring around the shared
+// ABOUTME: Armada mark with the live percent, no balance figure (G-11), no flow buttons; and the failure: funds safe, Try again, help.
 
 import { useMemo, type CSSProperties } from 'react'
 import { ExternalLink } from 'lucide-react'
-import { ArmadaSymbol, Button } from '@/design'
+import { Button } from '@/design'
 import { SUPPORT_URL } from '@/config/support'
 import cardStyles from '../BalanceCard/BalanceCard.module.css'
 import styles from './SyncCard.module.css'
@@ -11,10 +11,7 @@ import styles from './SyncCard.module.css'
 /** Number of ticks in the animated ring (matches the tx-processing ticker). */
 const TICK_COUNT = 60
 
-/** The Armada mark's size inside the ring — the ring (`--ring-size` in the CSS) is sized to fit the card's height. */
-const RING_LOGO_SIZE = 108
-
-/** Rotating tick ring with the Armada mark + live percent stacked at its centre. */
+/** Rotating tick ring with the live percent at its centre — around the shared Armada mark BalanceSpot draws in this space. */
 function ArmadaTickRing({ pct }: { pct: number }) {
   const ticks = useMemo(() => Array.from({ length: TICK_COUNT }, (_, i) => i), [])
   return (
@@ -22,7 +19,6 @@ function ArmadaTickRing({ pct }: { pct: number }) {
       {ticks.map((i) => (
         <span key={i} className={styles.tick} style={{ '--i': i } as CSSProperties} aria-hidden />
       ))}
-      <ArmadaSymbol size={RING_LOGO_SIZE} className={styles.ringLogo} />
       <div
         className={styles.pct}
         role="progressbar"

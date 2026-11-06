@@ -1,9 +1,9 @@
 // ABOUTME: Tests for SignInCard — the locked dashboard's inline sign-in: the button by connection / signing state, "Connected as",
-// ABOUTME: the error, why it locked or which pay link waits, the restore link, and the first-visit two-signature banner.
+// ABOUTME: the error, why it locked or which pay link waits, the restore link, and the first-visit two-signature banner (FirstSignInBanner).
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { SignInCard, lockNoteFor, payNoteFor, type SignInCardProps } from './SignInCard'
+import { FirstSignInBanner, SignInCard, lockNoteFor, payNoteFor, type SignInCardProps } from './SignInCard'
 
 function renderCard(extra: Partial<SignInCardProps> = {}) {
   const props: SignInCardProps = { connection: 'connected', onSignIn: vi.fn(), onRestore: vi.fn(), ...extra }
@@ -86,12 +86,9 @@ describe('<SignInCard>', () => {
     expect(onRestore).toHaveBeenCalledOnce()
   })
 
-  it('on a first visit from this device, a banner below the card says to expect two signatures', () => {
-    const { unmount } = render(<SignInCard connection="connected" firstTimeOnDevice onSignIn={vi.fn()} onRestore={vi.fn()} />)
+  it('the first-visit banner says to expect two signatures', () => {
+    render(<FirstSignInBanner />)
     expect(screen.getByText('First time on this device?')).toBeInTheDocument()
     expect(screen.getByText(/two signatures to confirm your wallet is compatible/)).toBeInTheDocument()
-    unmount()
-    renderCard({ firstTimeOnDevice: false })
-    expect(screen.queryByText('First time on this device?')).toBeNull()
   })
 })

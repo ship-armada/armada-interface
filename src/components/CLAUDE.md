@@ -24,7 +24,7 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `flow/` | `FlowShell` (the live modal chrome, wrapping vendored `FlowModalOverlay + ModalShell + ModalStepSwitch`) + `useFlowExit` + `ErrorStep` + `ProgressStep`. Pre-redesign `ActionFlowShell` is unused; `FlowFooter` / `FlowHeader` / `FlowStepIndicator` are still used by `ErrorStep`, settings dialogs and onboarding — see `flow/CLAUDE.md` |
 | `deposit/` | Shared flow primitives — `DepositAmountCard` (amount + chain + fee caption + % pills), `DepositReviewSummary`, `DepositOverlayShell` — reused across shield/send/earn |
 | `tx/` | TxLifecycleStepper, TxRow, TxStatusChip, TxActions, stageCopy helpers, `processing/` (TxProgressCard + timeline) — see `tx/CLAUDE.md` |
-| `dashboard/` | BalanceCard + numerals + RecentActivityList (+ ActivityAllPanel / receipts) + DepositTooltip (centered card stack) — see `dashboard/CLAUDE.md` |
+| `dashboard/` | BalanceSpot (the one balance-spot card: SignInCard → SyncCard → BalanceCard faces) + numerals + RecentActivityList (+ ActivityAllPanel / receipts) + DepositTooltip (centered card stack) — see `dashboard/CLAUDE.md` |
 | `shield/` | ShieldModal + steps (deposit; same-chain + cross-chain) — see `shield/CLAUDE.md` |
 | `payments/` | SendModal — the shared Send/Withdraw flow (variant-driven, address-picks-kind). Also seeds recipient/amount from a pay-via-link `paymentIntentAtom` on open — see `payments/CLAUDE.md` |
 | `yield/` | EarnModal + steps (Add / Withdraw tabs) — see `yield/CLAUDE.md` |
