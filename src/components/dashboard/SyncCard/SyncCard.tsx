@@ -26,19 +26,21 @@ export function SyncCard({ progress, failed, retried, firstSync, onRetry }: Sync
     <section className={`${cardStyles.card} ${styles.card}`} aria-label="Private USDC">
       {failed ? (
         <div className={styles.status} role="status" aria-live="polite">
-          <h2 className={styles.title}>Sync interrupted</h2>
-          <p className={styles.body}>
-            Your funds are safe on chain — we just couldn’t finish loading your private balance here. This is usually a
-            temporary network problem.
-          </p>
+          <div className={styles.text}>
+            <h2 className={styles.title}>Sync interrupted</h2>
+            <p className={styles.body}>
+              Your funds are safe on chain — we just couldn’t finish loading your private balance here. This is usually
+              a temporary network problem.
+            </p>
+          </div>
           <Button variant="primary" size="md" label="Try again" showIcon={false} onClick={onRetry} />
           {retried ? (
-            <>
+            <div className={styles.help}>
               <p className={styles.note}>Still not loading? Check your connection, or try again in a few minutes.</p>
               <a className={styles.helpLink} href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
                 Get help on Discord <ExternalLink size={14} aria-hidden="true" />
               </a>
-            </>
+            </div>
           ) : null}
         </div>
       ) : (
@@ -54,13 +56,16 @@ export function SyncCard({ progress, failed, retried, firstSync, onRetry }: Sync
             <span className={styles.spinner} aria-hidden />
             <span className={styles.progressText}>{`Syncing… ${pct}%`}</span>
           </div>
-          <p className={styles.body}>
-            Scanning the chain to load your private balance — keep this tab open until it finishes.
-          </p>
-          {firstSync ? <p className={styles.note}>Scanning the chain from the start — this first sync takes longer.</p> : null}
+          <div className={styles.text}>
+            <p className={styles.body}>
+              Scanning the chain to load your private balance — keep this tab open until it finishes.
+            </p>
+            {firstSync ? (
+              <p className={styles.note}>Scanning the chain from the start — this first sync takes longer.</p>
+            ) : null}
+          </div>
         </div>
       )}
-
     </section>
   )
 }

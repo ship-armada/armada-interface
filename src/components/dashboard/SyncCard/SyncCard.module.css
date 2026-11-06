@@ -1,8 +1,9 @@
-/* ABOUTME: SyncCard styling — the balance card's surface (BalanceCard.module.css) with the sync status in place
-   ABOUTME: of the balance: a small spinner + "Syncing… N%", the caption, and the inline failure with Try again / help. */
+/* ABOUTME: SyncCard styling — the balance card's surface (BalanceCard.module.css) with the sync status centred in place of
+   ABOUTME: the balance: spinner + "Syncing… N%" over its caption, or the failure's title + copy, Try again, then help. */
 
 .card {
-  gap: var(--primitives-spacing-6);
+  /* The status sits in the middle of the card's height. */
+  justify-content: center;
   /* At least the signed-in BalanceCard's height (no vault bar), like the sign-in card, so the balance spot doesn't jump
      between sign-in, syncing and the balance; a failure's help lines can grow it. Measured from the rendered BalanceCard —
      update with SignInCard.module.css if its layout changes. */
@@ -15,11 +16,28 @@
   }
 }
 
+/* Centred stack. The wider gap separates the groups — the headline, its copy, the action, the help — and each group keeps
+   its lines close (.text, .help), so the headline leads and the help reads as secondary. */
 .status {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  gap: var(--primitives-spacing-5);
+  text-align: center;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: var(--primitives-spacing-2);
+}
+
+.help {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
 }
 
 .progress {
