@@ -1,12 +1,12 @@
 // ABOUTME: Tests for SignInCard — the locked dashboard's balance spot: what signing in does, the button by connection state,
-// ABOUTME: the wallet's public USDC, why it locked, a pending pay link, "How this works", and action tiles that ask to sign in.
+// ABOUTME: the wallet's public USDC, why it locked, a pending pay link, and "How this works".
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { SignInCard, lockNoteFor, payNoteFor, type SignInCardProps } from './SignInCard'
 
 function renderCard(extra: Partial<SignInCardProps> = {}) {
-  const props: SignInCardProps = { connection: 'connected', onSignIn: vi.fn(), onAction: vi.fn(), ...extra }
+  const props: SignInCardProps = { connection: 'connected', onSignIn: vi.fn(), ...extra }
   render(<SignInCard {...props} />)
   return props
 }
@@ -57,9 +57,9 @@ describe('<SignInCard>', () => {
   })
 
   it('shows the wallet\'s public USDC as a reason to sign in, and nothing at zero', () => {
-    const { rerender } = render(<SignInCard connection="connected" publicUsdc="120.00" onSignIn={vi.fn()} onAction={vi.fn()} />)
+    const { rerender } = render(<SignInCard connection="connected" publicUsdc="120.00" onSignIn={vi.fn()} />)
     expect(screen.getByText('You have 120.00 USDC in your wallet — sign in to shield it.')).toBeInTheDocument()
-    rerender(<SignInCard connection="connected" publicUsdc={null} onSignIn={vi.fn()} onAction={vi.fn()} />)
+    rerender(<SignInCard connection="connected" publicUsdc={null} onSignIn={vi.fn()} />)
     expect(screen.queryByText(/in your wallet — sign in to shield it/)).toBeNull()
   })
 
@@ -78,12 +78,4 @@ describe('<SignInCard>', () => {
     expect(screen.getByText(/a message, not a transaction/)).toBeInTheDocument()
   })
 
-  it('the action tiles ask to sign in for that flow', () => {
-    const onAction = vi.fn()
-    renderCard({ onAction })
-    fireEvent.click(screen.getByRole('button', { name: 'Shield' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Request' }))
-    expect(onAction).toHaveBeenNthCalledWith(1, 'shield')
-    expect(onAction).toHaveBeenNthCalledWith(2, 'request')
-  })
 })

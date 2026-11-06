@@ -1,11 +1,9 @@
 // ABOUTME: SignInCard — the locked dashboard's balance spot: what signing in does, a Connect / Sign in button, the wallet's public
-// ABOUTME: USDC as a nudge, why it locked or which pay link is waiting, "How this works", and action tiles that sign in first.
+// ABOUTME: USDC as a nudge, why it locked or which pay link is waiting, and "How this works". No action tiles before sign-in.
 
 import { useId, useState } from 'react'
-import { ArrowDownIcon, ArrowRightIcon, ChartBarIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/design'
-import { BalanceActionButton } from '@/components/dashboard/BalanceActionButton'
-import type { ActionModalKind, LockReason, PaymentIntent } from '@/state/ui'
+import type { LockReason, PaymentIntent } from '@/state/ui'
 import { shortAddress } from '@/lib/address'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
 import cardStyles from '../BalanceCard/BalanceCard.module.css'
@@ -22,8 +20,6 @@ export interface SignInCardProps {
   payNote?: string | null
   /** Connect (if needed) and sign in. */
   onSignIn: () => void
-  /** An action tile — signs in first, then opens that flow. */
-  onAction: (kind: ActionModalKind) => void
 }
 
 /** The card's line on why the wallet locked; null when it wasn't an auto-lock / "Lock now" (or hasn't locked). */
@@ -51,7 +47,7 @@ export function payNoteFor(intent: PaymentIntent | null): string | null {
 const HOW_IT_WORKS =
   'Armada derives your private account from a signature your wallet makes — a message, not a transaction, so it costs nothing and moves nothing. Signing again with the same wallet always unlocks the same account, on any device. Your private balance and history stay encrypted until you sign.'
 
-export function SignInCard({ connection, publicUsdc, lockNote, payNote, onSignIn, onAction }: SignInCardProps) {
+export function SignInCard({ connection, publicUsdc, lockNote, payNote, onSignIn }: SignInCardProps) {
   const [explainOpen, setExplainOpen] = useState(false)
   const explainId = useId()
   const buttonLabel =
@@ -100,29 +96,6 @@ export function SignInCard({ connection, publicUsdc, lockNote, payNote, onSignIn
         ) : null}
       </div>
 
-      <div className={cardStyles.actionRow}>
-        <div className={cardStyles.actionEnter}>
-          <BalanceActionButton
-            variant="primary"
-            label="Shield"
-            icon={<PlusIcon strokeWidth={1.5} />}
-            onClick={() => onAction('shield')}
-          />
-        </div>
-        <div className={cardStyles.actionEnter}>
-          <BalanceActionButton label="Send" icon={<ArrowRightIcon strokeWidth={1.5} />} onClick={() => onAction('payment')} />
-        </div>
-        <div className={cardStyles.actionEnter}>
-          <BalanceActionButton label="Request" icon={<ArrowDownIcon strokeWidth={1.5} />} onClick={() => onAction('request')} />
-        </div>
-        <div className={cardStyles.actionEnter}>
-          <BalanceActionButton
-            label="Earn"
-            icon={<ChartBarIcon strokeWidth={1.5} />}
-            onClick={() => onAction('yield-deposit')}
-          />
-        </div>
-      </div>
     </section>
   )
 }

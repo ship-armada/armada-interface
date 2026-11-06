@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { LockedDashboard } from './LockedDashboard'
 
-const card = { connection: 'connected' as const, onSignIn: vi.fn(), onAction: vi.fn() }
+const card = { connection: 'connected' as const, onSignIn: vi.fn() }
 
 describe('<LockedDashboard>', () => {
   it('shows the sign-in card and says activity appears once signed in', () => {

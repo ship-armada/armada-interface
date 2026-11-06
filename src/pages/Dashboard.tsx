@@ -295,7 +295,7 @@ export function Dashboard() {
   )
 
   // Before sign-in: the sign-in card in the balance spot and an activity placeholder
-  // (history is encrypted until sign-in). Every action signs in first, then continues (useOpenActionModal).
+  // (history is encrypted until sign-in). The card's one button connects and signs in (useOpenActionModal).
   if (shieldedWallet.status !== 'unlocked') {
     const publicUsdc = Object.values(publicUsdcByChain).reduce((sum, value) => sum + value, 0n)
     return (
@@ -313,7 +313,6 @@ export function Dashboard() {
               lockNote: lockNoteFor(lockReason, autoLockMinutes),
               payNote: payNoteFor(paymentIntent),
               onSignIn: () => openActionModal(),
-              onAction: (kind) => openActionModal(kind),
             }}
           />
         </div>
