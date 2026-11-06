@@ -1,4 +1,5 @@
-// ABOUTME: Tests for EarnInputStep — tab switching, amount validation against tab-specific maxInput, APY copy in each rate state.
+// ABOUTME: Tests for EarnInputStep — tab switching, amount validation against tab-specific maxInput, APY copy in each rate state,
+// ABOUTME: the rate's ⓘ (naming the vault fee), the deposit's estimated yearly yield, and the "How the shielded vault works" panel.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -48,6 +49,50 @@ function setup(extras?: {
   render(<EarnInputStep {...props} />)
   return props
 }
+
+/** Open a tooltip whichever way the trigger's Tooltip listens (hover on fine pointers, tap otherwise). */
+function openTip(trigger: HTMLElement) {
+  fireEvent.mouseEnter(trigger.closest('div') as HTMLElement)
+  if (!screen.queryByRole('tooltip')) fireEvent.click(trigger)
+}
+
+const RATE: YieldRate = { rate: 1_000_000n, apyBps: 420n, yieldFeeBps: 1_000n, fetchedAt: 0 }
+
+describe('<EarnInputStep> yield clarity (package 15)', () => {
+  it('the rate\'s ⓘ says it is current, after the vault\'s fee on earnings (12C)', () => {
+    setup({ rate: RATE })
+    openTip(screen.getByRole('button', { name: 'About the APY estimate' }))
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Current yearly rate after the vault\u2019s 10% fee on earnings.')
+  })
+
+  it('a deposit shows what it would earn in a year at today\'s rate (12E)', () => {
+    setup({ rate: RATE, amountStr: '100' })
+    expect(screen.getByText('Est. yearly yield')).toBeInTheDocument()
+    expect(screen.getByText('\u2248 4.20 USDC')).toBeInTheDocument()
+  })
+
+  it('no yearly yield on a withdrawal, without an amount, or before the rate loads', () => {
+    setup({ rate: RATE, amountStr: '100', tab: 'withdraw' })
+    expect(screen.queryByText('Est. yearly yield')).toBeNull()
+  })
+
+  it('no yearly yield without an amount or a rate', () => {
+    setup({ rate: RATE, amountStr: '' })
+    expect(screen.queryByText('Est. yearly yield')).toBeNull()
+  })
+
+  it('"How the shielded vault works" opens a short explainer naming the source, the fee and the risks (12F)', () => {
+    setup({ rate: RATE })
+    const toggle = screen.getByRole('button', { name: 'How the shielded vault works' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const panel = screen.getByRole('region', { name: 'How the shielded vault works' })
+    expect(panel).toHaveTextContent(/lends your USDC on Aave/)
+    expect(panel).toHaveTextContent(/keeps 10% of what you earn/)
+    expect(panel).toHaveTextContent(/Risks/)
+  })
+})
 
 describe('<EarnInputStep>', () => {
   it('renders Add to vault and Withdraw tabs', () => {

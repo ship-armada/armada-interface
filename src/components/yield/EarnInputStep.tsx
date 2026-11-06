@@ -1,5 +1,5 @@
 // ABOUTME: Earn amount step — APY intro banner (DepositTooltip) above a chain-less DepositAmountCard whose in-card header holds the Add/Withdraw SegmentedControl.
-// ABOUTME: The vault has no chain selection; the banner headline is driven by the live vault rate and shows on both tabs (matches the mockup).
+// ABOUTME: No chain selection; the rate banner (with its ⓘ) shows on both tabs, a deposit adds its est. yearly yield, and "How the shielded vault works" opens below.
 
 import { useRef, type Ref } from 'react'
 import { ChartBarIcon } from '@heroicons/react/24/solid'
@@ -12,8 +12,17 @@ import { useNudgeShake } from '@/hooks/useNudgeShake'
 import type { DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
-import { formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
-import { formatApyPercent, formatEarnApyHeadline, rateToApy } from '@/lib/yield'
+import { formatUsdcAmount, formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
+import {
+  PROJECTED_YIELD_EXPLANATION,
+  apyExplanation,
+  formatApyPercent,
+  formatEarnApyHeadline,
+  projectedYearlyYield,
+  rateToApy,
+} from '@/lib/yield'
+import { InfoTip } from '@/components/ui/InfoTip'
+import { VaultExplainer } from './VaultExplainer'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { hasActiveAmount } from '@/utils/amountInput'
 import styles from './EarnInputStep.module.css'
@@ -27,7 +36,6 @@ const TABS = [
 
 /** Static copy for the APY intro banner (the live rate fills the headline). */
 const EARN_APY_BANNER_BODY = "Add USDC to Armada's shielded vault and start earning now."
-const EARN_APY_BANNER_TOOLTIP = 'The APY is an estimate from recent shielded vault performance.'
 
 export interface EarnInputStepProps {
   tab: EarnTab
@@ -150,6 +158,10 @@ export function EarnInputStepContent({
 
   const question =
     tab === 'add' ? 'Add USDC to the shielded vault' : 'Withdraw USDC from the shielded vault'
+  const yearlyYield =
+    tab === 'add' && amount > 0n && !parseError && rate !== null && rate.apyBps > 0n
+      ? projectedYearlyYield(amount, rate.apyBps)
+      : null
 
   return (
     <div className={`${styles.root} ${modalStepBodyEnter}`}>
@@ -162,7 +174,7 @@ export function EarnInputStepContent({
         headline={apyBannerHeadline(rate)}
         ariaLabel={`Estimated yearly yield ${formatApy(rate)}`}
         body={EARN_APY_BANNER_BODY}
-        infoTooltip={EARN_APY_BANNER_TOOLTIP}
+        infoTooltip={apyExplanation(rate?.yieldFeeBps)}
       />
 
       <DepositAmountCard
@@ -198,12 +210,25 @@ export function EarnInputStepContent({
         onShakeAnimationEnd={onShakeAnimationEnd}
       />
 
+      {/* A deposit's rough yearly earnings at today's rate (12E) — not on a withdrawal, nor before an amount and rate. */}
+      {yearlyYield !== null ? (
+        <p className={styles.yearlyYield}>
+          <span className={styles.yearlyYieldLabel}>
+            Est. yearly yield
+            <InfoTip text={PROJECTED_YIELD_EXPLANATION} label="About the yearly yield estimate" />
+          </span>
+          <span className={styles.yearlyYieldValue}>{`\u2248 ${formatUsdcAmount(yearlyYield)} USDC`}</span>
+        </p>
+      ) : null}
+
       {showGasNotice ? (
         <GasBalanceNotice
           nativeSymbol={gasWarning.nativeSymbol}
           formattedBalance={gasWarning.formattedBalance}
         />
       ) : null}
+
+      <VaultExplainer yieldFeeBps={rate?.yieldFeeBps} />
     </div>
   )
 }
