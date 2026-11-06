@@ -86,7 +86,6 @@ export function SyncCard({ progress, failed, retried, firstSync, onRetry, onActi
             <BalanceActionButton label="Earn" icon={<ChartBarIcon strokeWidth={1.5} />} disabled />
           </div>
         </div>
-        <p className={styles.note}>Send and Earn open once your balance has loaded.</p>
       </div>
     </section>
   )

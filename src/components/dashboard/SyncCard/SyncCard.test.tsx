@@ -28,7 +28,7 @@ describe('<SyncCard>', () => {
     expect(screen.getByText('Scanning the chain from the start — this first sync takes longer.')).toBeInTheDocument()
   })
 
-  it('Shield and Request work meanwhile; Send and Earn wait for the balance, and say so', () => {
+  it('Shield and Request work meanwhile; Send and Earn wait for the balance', () => {
     const onAction = vi.fn()
     renderCard({ onAction })
     fireEvent.click(screen.getByRole('button', { name: 'Shield' }))
@@ -37,7 +37,6 @@ describe('<SyncCard>', () => {
     expect(onAction).toHaveBeenNthCalledWith(2, 'request')
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Earn' })).toBeDisabled()
-    expect(screen.getByText('Send and Earn open once your balance has loaded.')).toBeInTheDocument()
   })
 
   it('a failed sync says the funds are safe on chain, with Try again', () => {
