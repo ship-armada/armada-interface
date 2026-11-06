@@ -17,7 +17,7 @@ V2 redesign (Path C): deterministic sign-in is the primary path (same `signIn()`
 
 `App.tsx` tracks a local `mode` (`pre-migration` / `pre-init` / `app`). It runs the V2 schema migration on `pre-migration`; on `pre-init` it seeds the persisted walletId (if any) as a `locked` entry (an `unlocked` HMR re-mount is left alone), then renders the app. From then on the app shell always renders, whatever the wallet status:
 
-- **Locked or no wallet:** the dashboard shows `dashboard/LockedDashboard` — the sign-in card in the balance spot (connect / sign in / reconnecting, the lock reason, a pay-link's context, the wallet's public USDC), the public-APY earn banner, and an activity placeholder. First-run (no persisted id) is the same: signing in first-derives the wallet.
+- **Locked or no wallet:** the dashboard shows `dashboard/LockedDashboard` — the sign-in card in the balance spot (connect / sign in / reconnecting, the lock reason, a pay-link's context, the wallet's public USDC) and an activity placeholder. First-run (no persisted id) is the same: signing in first-derives the wallet.
 - **Every action while locked** goes through `hooks/useOpenActionModal`: disconnected → the RainbowKit connect modal, then sign-in; locked → the `SignInModal` with the action queued; unlocked → the action's modal.
 - **Locking** (auto-lock timer, account switch, tab unload, hidden-tab grace, Settings → Lock / Reset) flips the atom to `locked` / `missing`; `hooks/useCloseFlowsOnLock` closes any open flow, receipt or activity panel, and the dashboard swaps back to the sign-in card. Idle, hidden and manual locks record why (`state/ui::lockReasonAtom`) for the card's "Locked after…" line.
 

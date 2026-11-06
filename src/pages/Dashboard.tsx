@@ -294,7 +294,7 @@ export function Dashboard() {
     </>
   )
 
-  // Before sign-in: the sign-in card in the balance spot, the earn banner from the public APY, and an activity placeholder
+  // Before sign-in: the sign-in card in the balance spot and an activity placeholder
   // (history is encrypted until sign-in). Every action signs in first, then continues (useOpenActionModal).
   if (shieldedWallet.status !== 'unlocked') {
     const publicUsdc = Object.values(publicUsdcByChain).reduce((sum, value) => sum + value, 0n)
@@ -315,16 +315,6 @@ export function Dashboard() {
               onSignIn: () => openActionModal(),
               onAction: (kind) => openActionModal(kind),
             }}
-            earnBanner={
-              earnApyAvailable
-                ? {
-                    headline: formatEarnApyHeadline(vaultApy ?? 0),
-                    ariaLabel: `Estimated yearly yield ~${formatApyPercent(vaultApy ?? 0)}`,
-                    infoTooltip: apyExplanation(yieldRate?.yieldFeeBps),
-                    onDeposit: () => openActionModal('yield-deposit'),
-                  }
-                : null
-            }
           />
         </div>
       </div>
