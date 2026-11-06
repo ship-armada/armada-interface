@@ -6,6 +6,7 @@ import { Outlet } from 'react-router-dom'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { AppLayout } from '@/components/AppLayout'
 import { SignInFlow } from '@/components/onboarding'
+import { OnboardingLayout } from '@/components/OnboardingLayout/OnboardingLayout'
 import { ShieldModal } from '@/components/shield'
 import { SendModal } from '@/components/payments'
 import { MergeModal } from '@/components/consolidate/MergeModal'
@@ -208,7 +209,11 @@ export function App() {
     // One state-agnostic sign-in screen for first visit and returning users alike — signIn()
     // first-derives or re-derives the same shielded identity from the EVM signature. Restore
     // (backup file / recovery secret) is available behind a link for new-device / smart-account users.
-    return <SignInFlow onUnlocked={() => setMode('app')} />
+    return (
+      <OnboardingLayout>
+        <SignInFlow onUnlocked={() => setMode('app')} />
+      </OnboardingLayout>
+    )
   }
 
   return (

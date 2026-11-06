@@ -1,12 +1,11 @@
-// ABOUTME: Single state-agnostic Sign In — connect + sign derives (first visit) or re-derives (returning) the shielded wallet via the same signIn() path, so one screen serves everyone.
-// ABOUTME: Restore-from-backup (file + paste-secret) hides behind a quiet text link; a non-deterministic signer routes to the full-page compatibility screen. Replaces the former OnboardingFlowV2 + UnlockFlow split.
+// ABOUTME: Single state-agnostic Sign In — connect + sign derives (first visit) or re-derives (returning) the shielded wallet via the same signIn() path; with
+// ABOUTME: autoStart it asks for the signature as soon as a wallet is connected. Restore (file / paste secret) sits behind a link; a non-deterministic signer gets the compatibility screen.
 
-import { useId, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { InformationCircleIcon } from '@heroicons/react/24/outline'
 import { Button, Text } from '@/design'
-import { OnboardingLayout } from '@/components/OnboardingLayout/OnboardingLayout'
 import { FlowFooter } from '@/components/flow/FlowFooter'
 import { Tooltip } from '@/components/ui'
 import { useShieldedWallet } from '@/hooks/useShieldedWallet'
@@ -15,13 +14,18 @@ import {
   type NonDeterministicSignerErrorReason,
 } from '@/lib/crypto/determinism'
 import { normalizeEnrollmentError } from '@/lib/shielded/enrollmentErrors'
-import { readStoredWalletIdFor } from '@/lib/shielded/wallet'
+import { readStoredWalletId, readStoredWalletIdFor } from '@/lib/shielded/wallet'
 import { NonDeterministicSignerScreen } from './NonDeterministicSignerScreen'
 import styles from './SignInFlow.module.css'
 
 export interface SignInFlowProps {
-  /** Called when sign-in / restore succeeds. Parent flips App-level mode to "app". */
+  /** Called when sign-in / restore succeeds (the sign-in modal closes, continuing into any queued flow). */
   onUnlocked: () => void
+  /**
+   * Ask for the signature as soon as a wallet is connected — on open if it already is, else once it connects — so
+   * connecting and signing are one step. Once per wallet: a declined or failed attempt waits for "Sign in".
+   */
+  autoStart?: boolean
 }
 
 type View = 'sign-in' | 'restore' | 'signer-error'
@@ -37,7 +41,7 @@ const PASTE_HEADS_UP =
 const SIGNER_INCOMPATIBLE_BANNER =
   "Sign-in didn't work for this wallet. Use your encrypted backup file or your recovery secret instead."
 
-export function SignInFlow({ onUnlocked }: SignInFlowProps) {
+export function SignInFlow({ onUnlocked, autoStart = false }: SignInFlowProps) {
   const { signIn, unlockByPaste, unlockByBackup } = useShieldedWallet()
   const { isConnected, address } = useAccount()
   const { openConnectModal } = useConnectModal()
@@ -93,6 +97,22 @@ export function SignInFlow({ onUnlocked }: SignInFlowProps) {
 
   async function handleSignInSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    await startSignIn()
+  }
+
+  // The wallet the automatic attempt was made for — so it runs once per wallet (a decline doesn't re-prompt), and again
+  // after "Try a different wallet" connects another one.
+  const autoAttemptedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!autoStart || view !== 'sign-in' || !isConnected || !address || submitting) return
+    if (autoAttemptedFor.current === address) return
+    autoAttemptedFor.current = address
+    void startSignIn()
+    // startSignIn reads only state set by the user's own actions; re-running on its identity would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, view, isConnected, address, submitting])
+
+  async function startSignIn() {
     setError(null)
     setSignerIncompatible(false)
     setSubmitting(true)
@@ -167,250 +187,247 @@ export function SignInFlow({ onUnlocked }: SignInFlowProps) {
 
   // The double-signature determinism check runs only on the first sign-in for an EVM address on
   // this device (no cached walletId yet). Show the two-signature banner only then — returning
-  // sign-ins are a single signature.
+  // sign-ins are a single signature. Before a wallet connects, judge by the device: no wallet stored
+  // here at all means the first prompt will be one of two, so say so before it appears.
   const isFirstTimeOnDevice =
-    isConnected && !!address && readStoredWalletIdFor(address) === null
+    isConnected && !!address ? readStoredWalletIdFor(address) === null : readStoredWalletId() === null
 
   if (view === 'signer-error') {
     return (
-      <OnboardingLayout>
-        <NonDeterministicSignerScreen
-          reason={signerErrorReason}
-          onUseRecovery={() => {
-            setSignerIncompatible(true)
-            goRestore('backup')
-          }}
-          onTryDifferentWallet={() => {
-            disconnect()
-            goSignIn()
-          }}
-        />
-      </OnboardingLayout>
+      <NonDeterministicSignerScreen
+        reason={signerErrorReason}
+        onUseRecovery={() => {
+          setSignerIncompatible(true)
+          goRestore('backup')
+        }}
+        onTryDifferentWallet={() => {
+          disconnect()
+          goSignIn()
+        }}
+      />
     )
   }
 
   return (
-    <OnboardingLayout>
-      <div className={styles.flow}>
-        {view === 'sign-in' ? (
-          <section className={`${styles.shell} ${styles.shellSignIn}`} aria-label="Sign in to your account">
-            <form className={styles.modeForm} onSubmit={handleSignInSubmit}>
-              {isConnected ? (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  className={styles.signInButton}
-                  label={submitting ? 'Waiting for signature…' : 'Sign in'}
-                  type="submit"
-                  disabled={submitting}
-                  loading={submitting}
-                  showIcon={false}
-                />
-              ) : (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  className={styles.signInButton}
-                  label="Connect wallet"
-                  type="button"
-                  onClick={openConnectModal}
-                  disabled={!openConnectModal}
-                  showIcon={false}
-                />
-              )}
-              {error ? (
-                <div role="alert" className={styles.error}>
-                  {error}
-                </div>
-              ) : null}
-              {isConnected ? (
-                <p className={`${styles.bodyMuted} ${styles.connectedAs}`}>
-                  Connected as <code>{truncate(address)}</code>
-                </p>
-              ) : null}
-            </form>
-            <div className={styles.copy}>
-              <p className={styles.intro}>
-                Your shielded wallet is derived from a signature your EVM wallet produces — no
-                passphrase, no recovery phrase. Sign in from any device with the same wallet.
-              </p>
-              {isFirstTimeOnDevice ? (
-                <div className={styles.firstTimeBanner}>
-                  <span className={styles.firstTimeIconTile} aria-hidden>
-                    <InformationCircleIcon className={styles.firstTimeIcon} strokeWidth={1.5} />
-                  </span>
-                  <div className={styles.firstTimeText}>
-                    <p className={styles.firstTimeHeadline}>First time on this device?</p>
-                    <p className={`armada-text-ui-body-sm ${styles.firstTimeBody}`}>
-                      We&rsquo;ll ask for two signatures to confirm your wallet is compatible. After
-                      that it&rsquo;s a single signature.
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <button type="button" className={styles.textLink} onClick={() => goRestore('backup')}>
-              Restore wallet from backup instead
-            </button>
-          </section>
-        ) : (
-          <section className={styles.shell} aria-label="Restore your account">
-            <Text variant="display-xl" as="h1" className={styles.title}>
-              Restore wallet
-            </Text>
-            {signerIncompatible ? (
-              <div role="status" className={styles.banner}>
-                {SIGNER_INCOMPATIBLE_BANNER}
+    <div className={styles.flow}>
+      {view === 'sign-in' ? (
+        <section className={`${styles.shell} ${styles.shellSignIn}`} aria-label="Sign in to your account">
+          <form className={styles.modeForm} onSubmit={handleSignInSubmit}>
+            {isConnected ? (
+              <Button
+                variant="primary"
+                size="lg"
+                className={styles.signInButton}
+                label={submitting ? 'Waiting for signature…' : 'Sign in'}
+                type="submit"
+                disabled={submitting}
+                loading={submitting}
+                showIcon={false}
+              />
+            ) : (
+              <Button
+                variant="primary"
+                size="lg"
+                className={styles.signInButton}
+                label="Connect wallet"
+                type="button"
+                onClick={openConnectModal}
+                disabled={!openConnectModal}
+                showIcon={false}
+              />
+            )}
+            {error ? (
+              <div role="alert" className={styles.error}>
+                {error}
               </div>
             ) : null}
-
-            {restoreMode === 'backup' ? (
-              <form className={styles.modeForm} onSubmit={handleBackupSubmit}>
-                <div className={styles.modeFormFields}>
-                  <p className={styles.body}>
-                    Choose a backup file you exported from Settings → Export and enter its passphrase.
+            {isConnected ? (
+              <p className={`${styles.bodyMuted} ${styles.connectedAs}`}>
+                Connected as <code>{truncate(address)}</code>
+              </p>
+            ) : null}
+          </form>
+          <div className={styles.copy}>
+            <p className={styles.intro}>
+              Your shielded wallet is derived from a signature your EVM wallet produces — no
+              passphrase, no recovery phrase. Sign in from any device with the same wallet.
+            </p>
+            {isFirstTimeOnDevice ? (
+              <div className={styles.firstTimeBanner}>
+                <span className={styles.firstTimeIconTile} aria-hidden>
+                  <InformationCircleIcon className={styles.firstTimeIcon} strokeWidth={1.5} />
+                </span>
+                <div className={styles.firstTimeText}>
+                  <p className={styles.firstTimeHeadline}>First time on this device?</p>
+                  <p className={`armada-text-ui-body-sm ${styles.firstTimeBody}`}>
+                    We&rsquo;ll ask for two signatures to confirm your wallet is compatible. After
+                    that it&rsquo;s a single signature.
                   </p>
-                  <div className={styles.field}>
-                    <label htmlFor={backupFileId} className={styles.label}>
-                      Backup file
-                    </label>
-                    <div className={styles.fileInputArea}>
-                      <input
-                        id={backupFileId}
-                        type="file"
-                        accept="application/json,.json"
-                        className={styles.fileInput}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                          setBackupFile(e.target.files?.[0] ?? null)
-                          setError(null)
-                        }}
-                      />
-                      <span className={styles.fileInputDisplay}>{backupFile?.name ?? ''}</span>
-                    </div>
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor={backupPassphraseId} className={styles.label}>
-                      Passphrase
-                    </label>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <button type="button" className={styles.textLink} onClick={() => goRestore('backup')}>
+            Restore wallet from backup instead
+          </button>
+        </section>
+      ) : (
+        <section className={styles.shell} aria-label="Restore your account">
+          <Text variant="display-xl" as="h1" className={styles.title}>
+            Restore wallet
+          </Text>
+          {signerIncompatible ? (
+            <div role="status" className={styles.banner}>
+              {SIGNER_INCOMPATIBLE_BANNER}
+            </div>
+          ) : null}
+
+          {restoreMode === 'backup' ? (
+            <form className={styles.modeForm} onSubmit={handleBackupSubmit}>
+              <div className={styles.modeFormFields}>
+                <p className={styles.body}>
+                  Choose a backup file you exported from Settings → Export and enter its passphrase.
+                </p>
+                <div className={styles.field}>
+                  <label htmlFor={backupFileId} className={styles.label}>
+                    Backup file
+                  </label>
+                  <div className={styles.fileInputArea}>
                     <input
-                      id={backupPassphraseId}
-                      type="password"
-                      autoComplete="current-password"
-                      className={styles.input}
-                      value={backupPassphrase}
+                      id={backupFileId}
+                      type="file"
+                      accept="application/json,.json"
+                      className={styles.fileInput}
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                        setBackupPassphrase(e.target.value)
+                        setBackupFile(e.target.files?.[0] ?? null)
                         setError(null)
                       }}
                     />
+                    <span className={styles.fileInputDisplay}>{backupFile?.name ?? ''}</span>
                   </div>
-                  {error ? (
-                    <div role="alert" className={styles.error}>
-                      {error}
-                    </div>
-                  ) : null}
                 </div>
-                <FlowFooter
-                  className={styles.footer}
-                  layout="stack"
-                  primary={{
-                    label: submitting ? 'Restoring…' : 'Restore',
-                    type: 'submit',
-                    // Backup passphrases are always ≥8 (export floor); a shorter entry can't be valid.
-                    disabled: !backupFile || backupPassphrase.length < 8,
-                    loading: submitting,
-                    showIcon: false,
-                  }}
-                />
-              </form>
-            ) : (
-              <form className={styles.modeForm} onSubmit={handlePasteSubmit}>
-                <div className={styles.modeFormFields}>
-                  <p className={styles.body}>
-                    Paste your 64-character recovery secret.{' '}
-                    <Tooltip
-                      variant="rich"
-                      title="About pasting your recovery secret"
-                      description={PASTE_HEADS_UP}
+                <div className={styles.field}>
+                  <label htmlFor={backupPassphraseId} className={styles.label}>
+                    Passphrase
+                  </label>
+                  <input
+                    id={backupPassphraseId}
+                    type="password"
+                    autoComplete="current-password"
+                    className={styles.input}
+                    value={backupPassphrase}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                      setBackupPassphrase(e.target.value)
+                      setError(null)
+                    }}
+                  />
+                </div>
+                {error ? (
+                  <div role="alert" className={styles.error}>
+                    {error}
+                  </div>
+                ) : null}
+              </div>
+              <FlowFooter
+                className={styles.footer}
+                layout="stack"
+                primary={{
+                  label: submitting ? 'Restoring…' : 'Restore',
+                  type: 'submit',
+                  // Backup passphrases are always ≥8 (export floor); a shorter entry can't be valid.
+                  disabled: !backupFile || backupPassphrase.length < 8,
+                  loading: submitting,
+                  showIcon: false,
+                }}
+              />
+            </form>
+          ) : (
+            <form className={styles.modeForm} onSubmit={handlePasteSubmit}>
+              <div className={styles.modeFormFields}>
+                <p className={styles.body}>
+                  Paste your 64-character recovery secret.{' '}
+                  <Tooltip
+                    variant="rich"
+                    title="About pasting your recovery secret"
+                    description={PASTE_HEADS_UP}
+                  >
+                    <button
+                      type="button"
+                      className={styles.infoTrigger}
+                      aria-label="About pasting your recovery secret"
                     >
-                      <button
-                        type="button"
-                        className={styles.infoTrigger}
-                        aria-label="About pasting your recovery secret"
-                      >
-                        <svg className={styles.infoIcon} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
-                          />
-                        </svg>
-                      </button>
-                    </Tooltip>
-                  </p>
-                  <div className={styles.secretField}>
-                    <textarea
-                      id={pasteInputId}
-                      rows={2}
-                      autoComplete="off"
-                      autoFocus
-                      spellCheck={false}
-                      className={styles.secretInput}
-                      placeholder={PASTE_SECRET_PLACEHOLDER}
-                      aria-label="Recovery secret (64 hexadecimal characters)"
-                      value={pasteValue}
+                      <svg className={styles.infoIcon} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z"
+                        />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                </p>
+                <div className={styles.secretField}>
+                  <textarea
+                    id={pasteInputId}
+                    rows={2}
+                    autoComplete="off"
+                    autoFocus
+                    spellCheck={false}
+                    className={styles.secretInput}
+                    placeholder={PASTE_SECRET_PLACEHOLDER}
+                    aria-label="Recovery secret (64 hexadecimal characters)"
+                    value={pasteValue}
+                    disabled={submitting}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+                      setPasteValue(e.target.value)
+                      setError(null)
+                    }}
+                  />
+                  <div className={styles.pasteBtnWrap}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      label={pasteFromClipboard ? 'Pasted' : 'Paste'}
+                      showIcon={false}
                       disabled={submitting}
-                      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
-                        setPasteValue(e.target.value)
-                        setError(null)
-                      }}
+                      onClick={handlePasteFromClipboard}
                     />
-                    <div className={styles.pasteBtnWrap}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        label={pasteFromClipboard ? 'Pasted' : 'Paste'}
-                        showIcon={false}
-                        disabled={submitting}
-                        onClick={handlePasteFromClipboard}
-                      />
-                    </div>
                   </div>
-                  {error ? (
-                    <div role="alert" className={styles.error}>
-                      {error}
-                    </div>
-                  ) : null}
                 </div>
-                <FlowFooter
-                  className={styles.footer}
-                  layout="stack"
-                  primary={{
-                    label: submitting ? 'Restoring…' : 'Restore',
-                    type: 'submit',
-                    disabled: !pasteValue,
-                    loading: submitting,
-                    showIcon: false,
-                  }}
-                />
-              </form>
-            )}
+                {error ? (
+                  <div role="alert" className={styles.error}>
+                    {error}
+                  </div>
+                ) : null}
+              </div>
+              <FlowFooter
+                className={styles.footer}
+                layout="stack"
+                primary={{
+                  label: submitting ? 'Restoring…' : 'Restore',
+                  type: 'submit',
+                  disabled: !pasteValue,
+                  loading: submitting,
+                  showIcon: false,
+                }}
+              />
+            </form>
+          )}
 
-            <button
-              type="button"
-              className={styles.textLink}
-              onClick={() => switchRestoreMode(restoreMode === 'backup' ? 'paste' : 'backup')}
-            >
-              {restoreMode === 'backup'
-                ? 'Paste a recovery secret instead'
-                : 'Use a backup file instead'}
-            </button>
-            <button type="button" className={styles.textLink} onClick={goSignIn}>
-              Back to sign in
-            </button>
-          </section>
-        )}
-      </div>
-    </OnboardingLayout>
+          <button
+            type="button"
+            className={styles.textLink}
+            onClick={() => switchRestoreMode(restoreMode === 'backup' ? 'paste' : 'backup')}
+          >
+            {restoreMode === 'backup'
+              ? 'Paste a recovery secret instead'
+              : 'Use a backup file instead'}
+          </button>
+          <button type="button" className={styles.textLink} onClick={goSignIn}>
+            Back to sign in
+          </button>
+        </section>
+      )}
+    </div>
   )
 }

@@ -1,4 +1,4 @@
-// ABOUTME: Tests for SignInFlow — single state-agnostic sign-in + restore-behind-a-link (backup file / paste secret) + the signer-incompatible → full-page screen route.
+// ABOUTME: Tests for SignInFlow — single state-agnostic sign-in (auto-started once connected) + restore-behind-a-link (backup file / paste secret) + the signer-incompatible screen.
 // ABOUTME: useShieldedWallet + wagmi + RainbowKit are mocked at the import boundary so no live engine/provider tree is needed.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -42,17 +42,18 @@ vi.mock('@rainbow-me/rainbowkit', () => ({
 
 import { SignInFlow } from './SignInFlow'
 
-function renderWith(opts?: { isConnected?: boolean; address?: string }) {
+function renderWith(opts?: { isConnected?: boolean; address?: string; autoStart?: boolean }) {
   wagmiState.isConnected = opts?.isConnected ?? false
   wagmiState.address = opts?.address
   const store = createStore()
   const onUnlocked = vi.fn()
-  render(
+  const ui = () => (
     <Provider store={store}>
-      <SignInFlow onUnlocked={onUnlocked} />
-    </Provider>,
+      <SignInFlow onUnlocked={onUnlocked} autoStart={opts?.autoStart} />
+    </Provider>
   )
-  return { onUnlocked }
+  const { rerender } = render(ui())
+  return { onUnlocked, rerender: () => rerender(ui()) }
 }
 
 /** Reveal the restore view (backup form is the default restore mode). */
@@ -76,9 +77,16 @@ describe('<SignInFlow> — sign-in (default, state-agnostic)', () => {
     expect(screen.queryByText(/create.*account/i)).not.toBeInTheDocument()
   })
 
-  it('hides the first-time banner when disconnected (first-time is unknown)', () => {
+  it('before connecting, shows the first-time note when this device has no wallet yet — ahead of the first prompt', () => {
+    renderWith({ isConnected: false })
+    expect(screen.getByText(/two signatures to confirm your wallet is compatible/i)).toBeInTheDocument()
+  })
+
+  it('before connecting, hides it when this device already has a wallet (a returning visit is one signature)', () => {
+    window.localStorage.setItem('armada.shielded.walletIds', JSON.stringify({ '0xabc': { '0': 'w1' } }))
     renderWith({ isConnected: false })
     expect(screen.queryByText(/two signatures to confirm your wallet is compatible/i)).toBeNull()
+    window.localStorage.removeItem('armada.shielded.walletIds')
   })
 
   it('shows the first-time two-signature banner when connected with no cached wallet', () => {
@@ -113,6 +121,35 @@ describe('<SignInFlow> — sign-in (default, state-agnostic)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/Connect an EVM wallet/))
     expect(screen.getByRole('region', { name: 'Sign in to your account' })).toBeInTheDocument()
+  })
+})
+
+describe('<SignInFlow> — started automatically (the sign-in modal)', () => {
+  it('asks for the signature as soon as a wallet is connected — no second click', async () => {
+    mockSignIn.mockResolvedValueOnce(undefined)
+    const { onUnlocked } = renderWith({ isConnected: true, address: '0xabcd1234', autoStart: true })
+    await waitFor(() => expect(mockSignIn).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(onUnlocked).toHaveBeenCalledTimes(1))
+  })
+
+  it('opened before connecting, it asks once the wallet connects', async () => {
+    mockSignIn.mockResolvedValueOnce(undefined)
+    const { rerender } = renderWith({ isConnected: false, autoStart: true })
+    expect(mockSignIn).not.toHaveBeenCalled()
+    wagmiState.isConnected = true
+    wagmiState.address = '0xabcd1234'
+    rerender()
+    await waitFor(() => expect(mockSignIn).toHaveBeenCalledTimes(1))
+  })
+
+  it('a declined signature says so and waits for "Sign in" — it never re-prompts by itself', async () => {
+    mockSignIn.mockRejectedValueOnce(new Error('User rejected the request.'))
+    renderWith({ isConnected: true, address: '0xabcd1234', autoStart: true })
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    expect(mockSignIn).toHaveBeenCalledTimes(1)
+    mockSignIn.mockResolvedValueOnce(undefined)
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    await waitFor(() => expect(mockSignIn).toHaveBeenCalledTimes(2))
   })
 })
 
