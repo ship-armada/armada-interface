@@ -1,5 +1,5 @@
-// ABOUTME: Dashboard page — centered Private-USDC BalanceCard + deposit tooltip + recent activity; before sign-in, the LockedDashboard
-// ABOUTME: (sign-in card in the balance spot). Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
+// ABOUTME: Dashboard page — centered Private-USDC BalanceCard + deposit tooltip + recent activity; before sign-in, only the
+// ABOUTME: sign-in card (in the balance spot). Presentation from the armada-app mockup; wired to real shielded balance, yield, and tx history.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
@@ -12,8 +12,7 @@ import {
   dashboardActivityEnterDelayMs,
 } from '@/components/dashboard/BalanceCard/balanceRevealMotion'
 import { DashboardScrollTopFade } from '@/components/dashboard/DashboardScrollTopFade'
-import { LockedDashboard } from '@/components/dashboard/LockedDashboard'
-import { lockNoteFor, payNoteFor } from '@/components/dashboard/SignInCard'
+import { SignInCard, lockNoteFor, payNoteFor } from '@/components/dashboard/SignInCard'
 import { formatUsdcAmount as formatUsdcRaw } from '@/lib/format'
 import { preferencesAtom } from '@/state/preferences'
 import { RecentActivityList, ActivityAllPanel } from '@/components/dashboard/RecentActivityList'
@@ -294,26 +293,25 @@ export function Dashboard() {
     </>
   )
 
-  // Before sign-in: the sign-in card in the balance spot and an activity placeholder
-  // (history is encrypted until sign-in). The card's one button connects and signs in (useOpenActionModal).
+  // Before sign-in: only the sign-in card, in the balance spot — no activity (history is encrypted until sign-in) and no
+  // banners. The card's one button connects and signs in (useOpenActionModal).
   if (shieldedWallet.status !== 'unlocked') {
     const publicUsdc = Object.values(publicUsdcByChain).reduce((sum, value) => sum + value, 0n)
     return (
       <div className={styles.page}>
         <div className={styles.cardStack}>
-          <LockedDashboard
-            card={{
-              connection:
-                connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
-                  ? 'reconnecting'
-                  : connectionStatus === 'connected'
-                    ? 'connected'
-                    : 'disconnected',
-              publicUsdc: publicUsdc > 0n ? formatUsdcRaw(publicUsdc) : null,
-              lockNote: lockNoteFor(lockReason, autoLockMinutes),
-              payNote: payNoteFor(paymentIntent),
-              onSignIn: () => openActionModal(),
-            }}
+          <SignInCard
+            connection={
+              connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+                ? 'reconnecting'
+                : connectionStatus === 'connected'
+                  ? 'connected'
+                  : 'disconnected'
+            }
+            publicUsdc={publicUsdc > 0n ? formatUsdcRaw(publicUsdc) : null}
+            lockNote={lockNoteFor(lockReason, autoLockMinutes)}
+            payNote={payNoteFor(paymentIntent)}
+            onSignIn={() => openActionModal()}
           />
         </div>
       </div>

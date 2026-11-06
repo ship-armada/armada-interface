@@ -103,7 +103,7 @@ export function useWallet(): UseWalletResult {
 
         // Flip the active wallet's status to 'locked' (keep the entry + the activeId) so the
         // derived `shieldedWalletAtom` reports `{ status: 'locked', ... }` and the dashboard swaps
-        // to its sign-in card (`dashboard/LockedDashboard`). Keeping the entry, together with the cached
+        // to its sign-in card (`dashboard/SignInCard`). Keeping the entry, together with the cached
         // walletId in localStorage, means re-signing with the original EVM restores the same
         // identity (no re-enroll).
         if (lockedWalletId) {

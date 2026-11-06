@@ -1,5 +1,5 @@
-// ABOUTME: Dashboard recent-activity preview — icon-badge rows with scrambled amounts + a "View all" link (before sign-in, a
-// ABOUTME: sign-in message instead); the full list (All activity) sections rows by date. Presentation ported from the armada-app mockup; driven by DashboardActivityItem.
+// ABOUTME: Dashboard recent-activity preview — icon-badge rows with scrambled amounts + a "View all" link; the full list
+// ABOUTME: (All activity) sections rows by date. Presentation ported from the armada-app mockup; driven by DashboardActivityItem.
 
 import {
   useCallback,
@@ -100,8 +100,6 @@ export interface RecentActivityListProps {
   variant?: RecentActivityListVariant
   onViewAll?: () => void
   onItemClick?: (item: DashboardActivityItem) => void
-  /** Before sign-in: the heading over a "Sign in to view" line — no rows, no "View all" (history is encrypted). */
-  locked?: boolean
 }
 
 function ActivityListItems({
@@ -196,7 +194,6 @@ export function RecentActivityList({
   variant = 'preview',
   onViewAll,
   onItemClick,
-  locked = false,
 }: RecentActivityListProps) {
   const [showBottomFade, setShowBottomFade] = useState(false)
   const listScrollRef = useRef<HTMLDivElement>(null)
@@ -250,7 +247,7 @@ export function RecentActivityList({
       {isPreview ? (
         <div className={styles.headerRow}>
           <h2 className={styles.heading}>Recent activity</h2>
-          {onViewAll && !locked ? (
+          {onViewAll ? (
             <button type="button" className={styles.viewAllButton} onClick={onViewAll}>
               View all
             </button>
@@ -258,12 +255,7 @@ export function RecentActivityList({
         </div>
       ) : null}
 
-      {locked ? (
-        <div className={styles.lockedState}>
-          <ClockIcon className={styles.lockedIcon} strokeWidth={1.5} aria-hidden />
-          <p className={styles.lockedText}>Sign in to view</p>
-        </div>
-      ) : items.length === 0 ? (
+      {items.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIconBadge} aria-hidden>
             <ClockIcon className={styles.emptyIcon} strokeWidth={1.5} />

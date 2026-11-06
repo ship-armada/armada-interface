@@ -1,5 +1,5 @@
-// ABOUTME: Render tests for the dashboard RecentActivityList — empty state, the locked (pre-sign-in) state, rows, pending subtitle,
-// ABOUTME: view-all + row clicks, and the full list's date sections (Pending / Today / …) that the flat preview doesn't have.
+// ABOUTME: Render tests for the dashboard RecentActivityList — empty state, rows, pending subtitle, view-all + row clicks,
+// ABOUTME: and the full list's date sections (Pending / Today / …) that the flat preview doesn't have.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -15,15 +15,6 @@ describe('RecentActivityList', () => {
   it('shows the empty state when there are no items', () => {
     render(<RecentActivityList items={[]} />)
     expect(screen.getByText('No activity yet')).toBeInTheDocument()
-  })
-
-  it('locked: the same heading, no "View all", and a sign-in message in place of the list', () => {
-    render(<RecentActivityList items={items} locked onViewAll={vi.fn()} />)
-    expect(screen.getByRole('heading', { name: 'Recent activity' })).toBeInTheDocument()
-    expect(screen.getByText('Sign in to view')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'View all' })).not.toBeInTheDocument()
-    expect(screen.queryByText('Deposit')).not.toBeInTheDocument()
-    expect(screen.queryByText('No activity yet')).not.toBeInTheDocument()
   })
 
   it('renders a row per item with its label', () => {
