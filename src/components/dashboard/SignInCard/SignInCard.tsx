@@ -1,8 +1,8 @@
-// ABOUTME: SignInCard — the locked dashboard's balance spot and its inline sign-in: the Connect / Sign in button (waiting for the
-// ABOUTME: signature, errors), "Connected as", the signature-derived wallet line, the restore link, and a first-visit banner below.
+// ABOUTME: SignInCard — the locked dashboard's balance spot and its inline sign-in: the gradient Armada mark, the Connect / Sign in button
+// ABOUTME: (waiting for the signature, errors), "Connected as", the signature-derived wallet line, the restore link, a first-visit banner below.
 
 import { InformationCircleIcon } from '@heroicons/react/24/outline'
-import { Button } from '@/design'
+import { ArmadaSymbol, Button } from '@/design'
 import type { LockReason, PaymentIntent } from '@/state/ui'
 import { shortAddress } from '@/lib/address'
 import { formatUsdcAmount, parseUsdcInput } from '@/lib/format'
@@ -76,6 +76,9 @@ export function SignInCard({
   return (
     <>
       <section className={`${cardStyles.card} ${styles.card}`} aria-label="Sign in">
+        <div className={styles.brandMark} aria-hidden>
+          <ArmadaSymbol size={108} />
+        </div>
         {contextNote ? <p className={styles.note}>{contextNote}</p> : null}
         <div className={styles.actions}>
           <Button
