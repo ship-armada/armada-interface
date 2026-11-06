@@ -2,8 +2,10 @@
    ABOUTME: the balance: the Armada tick ring + percent over its caption, or the failure's title + copy, Try again, then help. */
 
 .card {
-  /* The status sits in the middle of the card's height. */
+  /* The status sits in the middle of the card's height (the failure); the syncing state is pinned to the top (.cardSyncing). */
   justify-content: center;
+  /* No entrance: the card replaces the sign-in card in place, its ring growing around the mark already there. */
+  animation: none;
   /* At least the signed-in BalanceCard's height (no vault bar), like the sign-in card, so the balance spot doesn't jump
      between sign-in, syncing and the balance; a failure's help lines can grow it. Measured from the rendered BalanceCard —
      update with SignInCard.module.css if its layout changes. */
@@ -14,6 +16,12 @@
   .card {
     min-height: 260px;
   }
+}
+
+/* Syncing: the ring sits at the top of the card, where the sign-in card holds the same mark in a ring-sized box
+   (SignInCard.module.css .brandMark) — so on sign-in the mark stays put and the ring appears around it. */
+.cardSyncing {
+  justify-content: flex-start;
 }
 
 /* Centred stack. The wider gap separates the groups — the headline, its copy, the action, the help — and each group keeps
@@ -41,7 +49,8 @@
 }
 
 /* Rotating tick ring around the Armada mark — mirrors the tx-processing ticker, retinted to the theme lavender. Sized to sit
-   in the card's height with the caption under it (RING_LOGO_SIZE in SyncCard.tsx keeps the mark in proportion). */
+   in the card's height with the caption under it (RING_LOGO_SIZE in SyncCard.tsx keeps the mark in proportion). The sign-in
+   card's .brandMark box matches --ring-size and the mark's size — change them together. */
 .tickRing {
   --ring-size: 152px;
   position: relative;

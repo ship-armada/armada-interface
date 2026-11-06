@@ -56,7 +56,10 @@ export function SyncCard({ progress, failed, retried, firstSync, onRetry }: Sync
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100)
 
   return (
-    <section className={`${cardStyles.card} ${styles.card}`} aria-label="Private USDC">
+    <section
+      className={[cardStyles.card, styles.card, failed ? '' : styles.cardSyncing].filter(Boolean).join(' ')}
+      aria-label="Private USDC"
+    >
       {failed ? (
         <div className={styles.status} role="status" aria-live="polite">
           <div className={styles.text}>

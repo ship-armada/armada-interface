@@ -18,10 +18,14 @@
   }
 }
 
-/* Decorative brand mark at the top of the card — the gradient Armada mark the syncing card's ring holds, at the same size. */
+/* Decorative brand mark at the top of the card — the gradient Armada mark the syncing card's ring holds, at the same size, in a
+   box the ring's size (SyncCard.module.css .tickRing --ring-size), so after sign-in the mark stays exactly where it is and the
+   ring appears around it. Change them together. */
 .brandMark {
   display: flex;
+  align-items: center;
   justify-content: center;
+  height: 152px;
 }
 
 .note {
