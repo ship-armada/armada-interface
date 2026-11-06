@@ -19,7 +19,7 @@ describe('<SyncCard>', () => {
     renderCard()
     const meter = screen.getByRole('progressbar', { name: 'Loading your private balance' })
     expect(meter).toHaveAttribute('aria-valuenow', '42')
-    expect(screen.getByText('Syncing… 42%')).toBeInTheDocument()
+    expect(meter).toHaveTextContent('42%')
     expect(screen.getByText('Scanning the chain to load your private balance and history.')).toBeInTheDocument()
   })
 

@@ -1,5 +1,5 @@
 /* ABOUTME: SyncCard styling — the balance card's surface (BalanceCard.module.css) with the sync status centred in place of
-   ABOUTME: the balance: spinner + "Syncing… N%" over its caption, or the failure's title + copy, Try again, then help. */
+   ABOUTME: the balance: the Armada tick ring + percent over its caption, or the failure's title + copy, Try again, then help. */
 
 .card {
   /* The status sits in the middle of the card's height. */
@@ -40,27 +40,85 @@
   gap: var(--primitives-spacing-1);
 }
 
-.progress {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--primitives-spacing-3);
+/* Rotating tick ring around the Armada mark — mirrors the tx-processing ticker, retinted to the theme lavender. Sized to sit
+   in the card's height with the caption under it (RING_LOGO_SIZE in SyncCard.tsx keeps the mark in proportion). */
+.tickRing {
+  --ring-size: 152px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--ring-size);
+  height: var(--ring-size);
 }
 
-.spinner {
-  width: var(--primitives-spacing-6);
-  height: var(--primitives-spacing-6);
-  border-radius: 50%;
-  border: 2px solid var(--semantic-color-border-default);
-  border-top-color: var(--semantic-color-brand-lavender);
-  animation: syncCardSpin 900ms linear infinite;
+.ringLogo {
+  position: relative;
+  z-index: 1;
 }
 
-.progressText {
+.tick {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.5px;
+  height: var(--primitives-spacing-2);
+  border-radius: calc(var(--primitives-borderRadius-sm) * 0.5px);
+  background: var(--semantic-color-text-lavender);
+  transform-origin: 50% calc(var(--ring-size) / 2);
+  transform: translate(-50%, calc(var(--ring-size) / -2)) rotate(calc(var(--i) * 6deg));
+  opacity: 0.4;
+  animation: tickSweep 2.1s linear infinite;
+  animation-delay: calc(var(--i) * 0.035s);
+}
+
+@keyframes tickSweep {
+  0% {
+    opacity: 1;
+    width: 3px;
+  }
+
+  12% {
+    opacity: 0.7;
+    width: 2.25px;
+  }
+
+  30% {
+    opacity: 0.45;
+    width: 1.5px;
+  }
+
+  100% {
+    opacity: 0.4;
+    width: 1.5px;
+  }
+}
+
+/* Dead-centred over the logo, on top of the ring. */
+.pct {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 2;
   font-family: var(--primitives-fontFamily-ui), sans-serif;
-  font-size: calc(var(--primitives-fontSize-xl) * 1px);
-  font-weight: var(--primitives-fontWeight-semibold);
-  line-height: var(--primitives-lineHeight-tight);
-  color: var(--semantic-color-text-primary);
+  font-size: calc(var(--primitives-fontSize-md) * 1px);
+  font-weight: var(--primitives-fontWeight-medium);
+  color: var(--semantic-color-text-lavender);
+}
+
+/* Keeps the number + "%" inline on a shared baseline (the .pct grid centres this as one item). */
+.pctValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  transform: translateX(2px);
+}
+
+/* The trailing "%" — a touch smaller + muted so the number reads as the focus. */
+.pctSymbol {
+  font-size: 0.8em;
+  color: var(--semantic-color-text-muted);
 }
 
 .title {
@@ -95,14 +153,10 @@
   color: var(--semantic-color-text-primary);
 }
 
-@keyframes syncCardSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .spinner {
+  .tick {
     animation: none;
+    opacity: 0.55;
+    width: 1.5px;
   }
 }
