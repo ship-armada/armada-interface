@@ -1,55 +1,44 @@
-// ABOUTME: Tests for preloadArtifactsFromOrigin / preloadArtifactsAfterSdk / warmPlannedCircuits — warm circuit shapes via the
-// ABOUTME: verified circuitFetch loader (the common ones once the SDK is in; a plan's own once known); failures are swallowed.
+// ABOUTME: Tests for preloadArtifactsFromOrigin / warmPlannedCircuits — warm circuit shapes via the verified circuitFetch
+// ABOUTME: loader (the two common ones after sign-in, one at a time; a plan's own once known); failures are swallowed.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const ensureCircuitLoadedMock = vi.hoisted(() => vi.fn())
 vi.mock('./circuitFetch', () => ({ ensureCircuitLoaded: ensureCircuitLoadedMock }))
 
-// The SDK's load, controlled per test: whenSdkLoaded resolves when the test says the SDK is in.
-const sdk = vi.hoisted(() => ({ markLoaded: () => {}, loaded: Promise.resolve() }))
-vi.mock('./sdk-loader', () => ({ whenSdkLoaded: () => sdk.loaded }))
-
-import { preloadArtifactsFromOrigin, preloadArtifactsAfterSdk, warmPlannedCircuits } from './artifacts'
+import { preloadArtifactsFromOrigin, warmPlannedCircuits } from './artifacts'
 
 describe('preloadArtifactsFromOrigin', () => {
   beforeEach(() => {
     ensureCircuitLoadedMock.mockReset()
   })
 
-  it('warms each common variant by its padded NNxMM key', async () => {
+  it('warms only the shapes a typical spend uses — 1 or 2 inputs, with change and the relayer fee', async () => {
+    // WHY: the x2 shapes (whole-balance sends, merges) are warmed by the spend's own plan when it needs them; preloading
+    // all four cost a first-time visitor ~65 MB instead of ~33 MB.
     ensureCircuitLoadedMock.mockResolvedValue(undefined)
     await preloadArtifactsFromOrigin()
-    expect(ensureCircuitLoadedMock.mock.calls.map((c) => c[0])).toEqual(['01x02', '01x03', '02x02', '02x03'])
+    expect(ensureCircuitLoadedMock.mock.calls.map((c) => c[0])).toEqual(['01x03', '02x03'])
   })
 
-  it('swallows a per-variant failure without aborting the rest or throwing', async () => {
+  it('downloads them one at a time, so the first is ready sooner than if they shared the connection', async () => {
+    let finishFirst: () => void = () => {}
+    ensureCircuitLoadedMock.mockImplementationOnce(() => new Promise<void>((resolve) => { finishFirst = resolve }))
+    ensureCircuitLoadedMock.mockResolvedValue(undefined)
+    const preload = preloadArtifactsFromOrigin()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(ensureCircuitLoadedMock.mock.calls.map((c) => c[0])).toEqual(['01x03'])
+    finishFirst()
+    await preload
+    expect(ensureCircuitLoadedMock.mock.calls.map((c) => c[0])).toEqual(['01x03', '02x03'])
+  })
+
+  it('swallows a failed shape and still warms the next, without throwing', async () => {
     ensureCircuitLoadedMock.mockImplementation(async (key: string) => {
-      if (key === '02x02') throw new Error('host 500')
+      if (key === '01x03') throw new Error('host 500')
     })
     await expect(preloadArtifactsFromOrigin()).resolves.toBeUndefined()
-    // All four are still attempted (fire-and-forget, independent).
-    expect(ensureCircuitLoadedMock).toHaveBeenCalledTimes(4)
-  })
-})
-
-describe('preloadArtifactsAfterSdk', () => {
-  beforeEach(() => {
-    ensureCircuitLoadedMock.mockReset()
-    ensureCircuitLoadedMock.mockResolvedValue(undefined)
-    sdk.loaded = new Promise<void>((resolve) => {
-      sdk.markLoaded = resolve
-    })
-  })
-
-  it('starts the circuit downloads only once the SDK has loaded', async () => {
-    // WHY: the circuits are ~65 MB; downloading them alongside the SDK on a slow phone held sign-in back ~24s.
-    const preload = preloadArtifactsAfterSdk()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(ensureCircuitLoadedMock).not.toHaveBeenCalled()
-    sdk.markLoaded()
-    await preload
-    expect(ensureCircuitLoadedMock.mock.calls.map((c) => c[0])).toEqual(['01x02', '01x03', '02x02', '02x03'])
+    expect(ensureCircuitLoadedMock.mock.calls.map((c) => c[0])).toEqual(['01x03', '02x03'])
   })
 })
 
