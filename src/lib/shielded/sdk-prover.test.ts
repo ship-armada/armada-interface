@@ -8,7 +8,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const createWorkerProverMock = vi.hoisted(() =>
   vi.fn((_spawn: () => unknown) => ({ prove: async () => ({}), verify: async () => false, close: async () => {} })),
 )
-vi.mock('@armada/sdk', () => ({ createWorkerProver: createWorkerProverMock, webWorkerChannel: vi.fn() }))
+// The prover takes the loaded SDK module (sdk-loader.ts); this stands in for it.
+const armada = { createWorkerProver: createWorkerProverMock, webWorkerChannel: vi.fn() } as unknown as ArmadaSdkModule
 
 // Stub the lazy loader — the ArtifactSource under test should delegate a registry miss to it.
 const ensureCircuitLoadedMock = vi.hoisted(() => vi.fn())
@@ -20,6 +21,7 @@ vi.mock('@/lib/telemetry', () => ({ track: trackMock }))
 
 import { createInterfaceArtifactSource, createInterfaceProver, __resetProofSessionForTests } from './sdk-prover'
 import { setArmadaArtifact, clearArmadaArtifacts, type ArmadaArtifact } from './artifactGetter'
+import type { ArmadaSdkModule } from './sdk-loader'
 
 const artifact = (wasm: Uint8Array): ArmadaArtifact =>
   ({ zkey: new Uint8Array([2]), wasm, vkey: { protocol: 'groth16' } })
@@ -66,7 +68,7 @@ describe('createInterfaceProver', () => {
     // WHY: the SDK's worker prover starts the worker on the first request and starts a fresh one after
     // a crash or a cancelled proof — so it needs a factory, and read-only sessions never spawn a worker.
     createWorkerProverMock.mockClear()
-    const prover = createInterfaceProver()
+    const prover = createInterfaceProver(armada)
     expect(createWorkerProverMock).toHaveBeenCalledTimes(1)
     expect(typeof createWorkerProverMock.mock.calls[0]?.[0]).toBe('function')
     expect(typeof prover.prove).toBe('function')
@@ -95,7 +97,7 @@ describe('timing telemetry', () => {
   })
 
   it('reports each proof\'s duration, flagging the first of the session (it also pays the worker start-up)', async () => {
-    const prover = createInterfaceProver()
+    const prover = createInterfaceProver(armada)
     const artifacts = { wasm: new Uint8Array(), zkey: new Uint8Array(), vkey: {} }
     await prover.prove({}, artifacts)
     await prover.prove({}, artifacts)

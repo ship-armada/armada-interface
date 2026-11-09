@@ -1,7 +1,8 @@
 // ABOUTME: Pre-proof spend gate — runs wallet.preflight(plan) and throws the matching ArmadaError on a
 // ABOUTME: failed finding, so a stale root / already-spent note fails in <1s instead of after a 30s proof+revert.
 
-import { assertPreflight, type Plan, type PreflightResult } from '@armada/sdk'
+import type { Plan, PreflightResult } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 
 /**
  * Run `wallet.preflight` over a planned spend BEFORE proving. On any failed finding, throw the matching
@@ -24,5 +25,6 @@ export async function assertSpendPreflight(
   // (`lib/tx/errors.ts::classifySdkError`) already understands: root-freshness → RootMismatchError,
   // nullifier-unspent → NoteAlreadySpentError, balance-sufficiency → InsufficientBalanceError, others →
   // InvalidRequestError. So a failed check reads the same pre-proof as it would thrown later by `prove`.
+  const { assertPreflight } = await loadSdk()
   assertPreflight(await wallet.preflight(plan))
 }

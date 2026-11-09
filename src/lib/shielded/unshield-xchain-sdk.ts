@@ -2,7 +2,7 @@
 // ABOUTME: → prove → toTransactionData → transactionToTuple → encode atomicCrossChainUnshield calldata.
 
 import { encodeFunctionData } from 'viem'
-import { transactionToTuple, encodeCctpBinding } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
@@ -112,6 +112,7 @@ export async function buildXchainUnshieldSdk(
   const wallet = await getSdkWallet()
   const fee = spendFeeFor(inputs.broadcasterFee)
 
+  const { encodeCctpBinding, transactionToTuple } = await loadSdk()
   const adaptParams = encodeCctpBinding(inputs.finalRecipient, inputs.destinationDomain, inputs.maxFee)
   // The decoded binding goes with it: the SDK requires it for a cross-chain unshield, to reject a maxFee that
   // isn't below the amount (the pool would revert) and to show the signer the destination it authorizes.

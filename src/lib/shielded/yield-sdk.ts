@@ -2,13 +2,7 @@
 // ABOUTME: → prove → transactionToTuple → encode lendAndShield / redeemAndShield calldata for the yield adapter.
 
 import { ethers } from 'ethers'
-import {
-  buildShieldRequest,
-  generateShieldPrivateKey,
-  encodeYieldDepositBinding,
-  encodeYieldRedeemBinding,
-  transactionToTuple,
-} from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
@@ -48,6 +42,7 @@ interface ReshieldBundle {
  * runtime); only npk/encryptedBundle/shieldKey are bound into adaptParams, all value-independent.
  */
 async function buildReshieldBundle(shieldedAddress: string, tokenAddress: `0x${string}`): Promise<ReshieldBundle> {
+  const { buildShieldRequest, generateShieldPrivateKey } = await loadSdk()
   const { shieldRequest, random } = await buildShieldRequest(
     { shieldedAddress, amount: 0n, tokenAddress },
     generateShieldPrivateKey(),
@@ -107,6 +102,7 @@ export async function buildYieldAdaptSdk(
 ): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint; returnsToSelf: bigint; feeShieldRandom?: string }> {
   const isRedeem = inputs.mode === 'redeem'
   const wallet = await getSdkWallet()
+  const { encodeYieldDepositBinding, encodeYieldRedeemBinding, transactionToTuple } = await loadSdk()
 
   // The user's re-shield destination + the deposit/redeem binding.
   const user = await buildReshieldBundle(inputs.shieldedAddress, inputs.shieldOutputToken)

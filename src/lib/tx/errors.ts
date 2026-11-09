@@ -1,7 +1,7 @@
 // ABOUTME: Shared handler-side error classification — converts any thrown value into a typed TxError so markFailed can carry an honest code + optional txHash for the UI to render category-appropriate copy.
 // ABOUTME: Handlers' outer try/catch funnels everything through `classifyHandlerError(err)` instead of `err.message` strings, so we never lose the distinction between "tx reverted" / "we lost track" / "user rejected" / "unexpected".
 
-import { ArmadaError } from '@armada/sdk'
+import type { ErrorCode } from '@armada/sdk'
 import { extractTxError } from './receipt'
 import { decodeRevertData, extractRevertHex } from './revertSelectors'
 import { isUserRejection, isChainMismatchError } from '../errors'
@@ -73,11 +73,50 @@ function classifyRelayerError(err: unknown): TxError | null {
  * error class is surfaced honestly rather than swallowed.
  */
 function classifySdkError(err: unknown): TxError | null {
-  if (!(err instanceof ArmadaError)) return null
+  if (!isSdkError(err)) return null
   return { ...sdkErrorToTxError(err), sdkCode: err.code }
 }
 
-function sdkErrorToTxError(err: ArmadaError): TxError {
+/**
+ * Every `@armada/sdk` error code (the SDK's `ERROR_CODES`). An SDK error is recognised by its code, as the SDK's own
+ * `isArmadaError` does — not by class, since the SDK loads lazily (`lib/shielded/sdk-loader.ts`) and this file must not
+ * import it at runtime. `errors.test.ts` checks this list against the SDK's, so a code added in an SDK bump fails there.
+ */
+export const SDK_ERROR_CODES: ReadonlySet<string> = new Set<ErrorCode>([
+  'ROOT_MISMATCH',
+  'NOTE_ALREADY_SPENT',
+  'FEE_QUOTE_EXPIRED',
+  'ARTIFACT_INTEGRITY',
+  'ARTIFACT_FETCH',
+  'STORAGE_CONFLICT',
+  'STORAGE_UNAVAILABLE',
+  'NO_SPEND_CAPABILITY',
+  'INSUFFICIENT_BALANCE',
+  'RPC',
+  'QUICK_SYNC_SCHEMA',
+  'INDEXER_HTTP',
+  'POSITION_GAP',
+  'INVALID_KEY_MATERIAL',
+  'PROOF_VERIFICATION',
+  'UNSUPPORTED_CIRCUIT_SHAPE',
+  'TOO_FRAGMENTED',
+  'NOTHING_TO_CONSOLIDATE',
+  'ABORTED',
+  'INSTANCE_CLOSED',
+  'PROVER_WORKER',
+  'PROOF_HANDLE_INVALIDATED',
+  'PROOF_EXPIRED',
+  'INVALID_REQUEST',
+  'INVALID_CONFIG',
+  'SIGNER_CONTRACT_VIOLATION',
+  'INTERNAL',
+])
+
+function isSdkError(err: unknown): err is Error & { code: ErrorCode } {
+  return err instanceof Error && SDK_ERROR_CODES.has((err as { code?: unknown }).code as string)
+}
+
+function sdkErrorToTxError(err: Error & { code: ErrorCode }): TxError {
   switch (err.code) {
     case 'ROOT_MISMATCH':
       return {

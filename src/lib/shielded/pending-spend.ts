@@ -1,7 +1,7 @@
 // ABOUTME: Optimistic in-flight spend bridge (armada-sdk #55) — stashes a spend's Plan at build time
 // ABOUTME: and marks its inputs pending after broadcast so a rapid follow-up spend won't reselect them.
 
-import { type Plan } from '@armada/sdk'
+import type { Plan } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
 import { emitBalanceChange } from './balance-bus'
 import { trackError } from '../telemetry'

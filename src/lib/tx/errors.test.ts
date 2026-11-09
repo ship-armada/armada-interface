@@ -21,8 +21,9 @@ import {
   ArtifactFetchError,
   StorageUnavailableError,
   InternalError,
+  ERROR_CODES,
 } from '@armada/sdk'
-import { classifyHandlerError } from './errors'
+import { classifyHandlerError, SDK_ERROR_CODES } from './errors'
 import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
 import { asTxError } from './receipt'
 
@@ -161,6 +162,19 @@ describe('classifyHandlerError — RelayerError branch (S-H2)', () => {
     const r = classifyHandlerError(relayerError('UNKNOWN_ERROR', 'weird relayer state'), 'fallback')
     expect(r.code).toBe('OTHER')
     expect(r.message).toBe('weird relayer state')
+  })
+})
+
+describe('SDK_ERROR_CODES', () => {
+  it("matches the SDK's own list exactly, so recognising an SDK error never needs the SDK loaded", () => {
+    // WHY: the SDK loads lazily (lib/shielded/sdk-loader.ts), so errors.ts can't import its classes or isArmadaError —
+    // it recognises an SDK error by its code, as the SDK does. A code added in an SDK bump must be added here too.
+    expect([...SDK_ERROR_CODES].sort()).toEqual([...ERROR_CODES].sort())
+  })
+
+  it("doesn't take another library's coded error for an SDK one (e.g. a wallet's ACTION_REJECTED)", () => {
+    const rejected = Object.assign(new Error('user rejected'), { code: 'ACTION_REJECTED' })
+    expect(classifyHandlerError(rejected, 'fallback').sdkCode).toBeUndefined()
   })
 })
 
