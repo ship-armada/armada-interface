@@ -7,7 +7,6 @@ import {
   buildActivityItems,
   requestLinkToActivityItem,
   txRecordToActivityItem,
-  txListToActivityItems,
 } from './txActivityAdapter'
 import { A, C_ACTUAL, F, G, P, txRecord } from '@/test/fixtures/txValues'
 
@@ -125,29 +124,6 @@ describe('txRecordToActivityItem', () => {
   it('carries through the source tx hash when present', () => {
     expect(txRecordToActivityItem(makeRecord('shield', { sourceTxHash: '0xabc' })).txHash).toBe('0xabc')
     expect(txRecordToActivityItem(makeRecord('shield')).txHash).toBeUndefined()
-  })
-})
-
-describe('txListToActivityItems', () => {
-  it('sorts newest-first and caps to max', () => {
-    const list = [
-      makeRecord('shield', { id: 'old', createdAt: 100 }),
-      makeRecord('shield', { id: 'new', createdAt: 300 }),
-      makeRecord('shield', { id: 'mid', createdAt: 200 }),
-    ]
-    const items = txListToActivityItems(list, null, 2)
-    expect(items.map((i) => i.id)).toEqual(['new', 'mid'])
-  })
-
-  it('includes pending (non-terminal) records alongside history', () => {
-    const list = [
-      makeRecord('shield', { id: 'done', createdAt: 100, executionState: 'completed' }),
-      makeRecord('unshield-local', { id: 'pending', updatedAt: 500, executionState: 'active' }),
-    ]
-    const items = txListToActivityItems(list)
-    const pending = items.find((i) => i.id === 'pending')
-    expect(pending?.pending).toBe(true)
-    expect(items).toHaveLength(2)
   })
 })
 

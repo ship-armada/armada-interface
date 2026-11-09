@@ -8,9 +8,6 @@ export const THEME_TRANSITION_MS = 320
 
 export type Theme = 'light' | 'dark'
 
-/** Default when the user has not chosen. */
-export const DEFAULT_THEME: Theme = 'light'
-
 export function isTheme(value: string | null): value is Theme {
   return value === 'light' || value === 'dark'
 }
@@ -23,10 +20,6 @@ export function getSavedTheme(): Theme | null {
   } catch {
     return null
   }
-}
-
-export function getSystemTheme(): Theme {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 /** Current applied theme on <html data-theme>. */

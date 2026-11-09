@@ -45,11 +45,6 @@ export function circuitHashes(paddedShape: string): CircuitHashes | undefined {
   return MANIFEST.shapes[paddedShape]
 }
 
-/** The circuits release the committed manifest was generated from. */
-export function circuitsRelease(): string {
-  return MANIFEST.release
-}
-
 /**
  * The supported circuit shapes in the `@armada/sdk` shape-key format (`<nullifiers>x<commitments>`,
  * UNPADDED — e.g. `"5x2"`), derived from the committed manifest. Fed to the SDK's `pool.supportedShapes`

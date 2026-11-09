@@ -157,8 +157,3 @@ export function computeDisplayFees(
     feeInclusive,
   }
 }
-
-/** @deprecated Use maxSpendableAmount from useDisplayFees.ts */
-export function maxInputAmount(balance: bigint, totalFee: bigint): bigint {
-  return balance > totalFee ? balance - totalFee : 0n
-}

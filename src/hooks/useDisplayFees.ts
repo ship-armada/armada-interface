@@ -109,14 +109,3 @@ export function useDisplayFees(
 
   return { fees, isLoading, protocolFeeStatus: shieldProtocol?.status ?? 'exact' }
 }
-
-/** Net USDC credited after inclusive protocol fees (deposit / CCTP). */
-export function netAmountAfterFees(amount: bigint, fees: DisplayFees): bigint {
-  return amount > fees.protocolFee ? amount - fees.protocolFee : 0n
-}
-
-/** Max amount the user can enter in the amount field. */
-export function maxSpendableAmount(balance: bigint, fees: DisplayFees): bigint {
-  if (fees.feeInclusive) return balance
-  return balance > fees.totalFee ? balance - fees.totalFee : 0n
-}

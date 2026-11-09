@@ -10,7 +10,6 @@ import { MODAL_EXIT_TIMING_VARS } from './modalExitMotion'
 import styles from './ModalShell.module.css'
 
 export const modalActionRowEnter = styles.actionRowEnter
-export const modalStepShell = styles.stepShell
 export const modalStepBodyEnter = styles.stepBodyEnter
 
 export type ModalShellChrome = 'default' | 'simple'

@@ -2,8 +2,6 @@
 
 export type TypographyVariant = 'display-hero-lg' | 'display-hero-md' | 'display-hero-sm' | 'display-xl' | 'display-lg' | 'display-md' | 'ui-heading-lg' | 'ui-heading-xl' | 'ui-heading-sm' | 'ui-body-lg' | 'ui-body-sm' | 'ui-label-md' | 'ui-label-sm' | 'ui-label-xs' | 'ui-label-tag' | 'ui-button' | 'mono-lg' | 'mono-md' | 'mono-sm' | 'mono-xs' | 'title' | 'body' | 'detail'
 
-export const TYPOGRAPHY_VARIANTS = ['display-hero-lg', 'display-hero-md', 'display-hero-sm', 'display-xl', 'display-lg', 'display-md', 'ui-heading-lg', 'ui-heading-xl', 'ui-heading-sm', 'ui-body-lg', 'ui-body-sm', 'ui-label-md', 'ui-label-sm', 'ui-label-xs', 'ui-label-tag', 'ui-button', 'mono-lg', 'mono-md', 'mono-sm', 'mono-xs', 'title', 'body', 'detail'] as const satisfies readonly TypographyVariant[]
-
 export function typographyClassName(variant: TypographyVariant): string {
   return `armada-text-${variant}`
 }
