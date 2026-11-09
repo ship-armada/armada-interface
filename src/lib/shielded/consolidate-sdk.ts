@@ -1,7 +1,8 @@
 // ABOUTME: SDK-backed consolidation builder — wallet.consolidate → reviewed-fee cap → batched preflight → proveAll
 // ABOUTME: → one transact([...]) merging a fragmented token's notes; plus the no-proving review preview + spend dry runs.
 
-import { ArmadaError, buildTransactCalldata, type Plan, type PlanTransferRequest } from '@armada/sdk'
+import type { Plan, PlanTransferRequest } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
@@ -63,6 +64,7 @@ export async function buildConsolidateSdk(
     ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
   })
+  const { buildTransactCalldata } = await loadSdk()
   const { to, data } = buildTransactCalldata(handles.map((h) => h.toTransactionData()), inputs.poolAddress)
   return { to, data, totalFee, notesMerged, notesCreated, returnsToSelf: returnsToSelfOf(plans, wallet.shieldedAddress) }
 }
@@ -89,7 +91,7 @@ export async function previewConsolidation(inputs: {
   } catch (err) {
     // A planner refusal (shape / fragmentation / balance) means one merge isn't enough; anything else is a
     // real failure the caller should see.
-    if (err instanceof ArmadaError) return { ...summary, blockedWillWork: false }
+    if ((await loadSdk()).isArmadaError(err)) return { ...summary, blockedWillWork: false }
     throw err
   }
 }

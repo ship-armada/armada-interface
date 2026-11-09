@@ -1,7 +1,7 @@
 // ABOUTME: The shield-request builder — builds the on-chain ShieldRequest via @armada/sdk in the
 // ABOUTME: interface's ShieldRequestData shape. Consumed by both shield handlers (hub + cross-chain).
 
-import { buildShieldRequest, initPoseidonPromise } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import type { ShieldRequestData } from './shield'
 
 function hexToBytes(hex: string): Uint8Array {
@@ -36,6 +36,7 @@ export async function createShieldRequestSdk(
   if (amount <= 0n) {
     throw new Error('createShieldRequestSdk: amount must be positive')
   }
+  const { buildShieldRequest, initPoseidonPromise } = await loadSdk()
   await initPoseidonPromise
   const { shieldRequest, random } = await buildShieldRequest(
     { shieldedAddress, amount, tokenAddress },

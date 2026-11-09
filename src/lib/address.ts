@@ -2,6 +2,7 @@
 // ABOUTME: display split (fixed prefix + verifiable head/tail). No React. Uses ethers for EIP-55 checksum verification.
 
 import { getAddress } from 'ethers'
+import { loadSdk } from '@/lib/shielded/sdk-loader'
 
 const EVM_SHAPE = /^0x[a-fA-F0-9]{40}$/
 
@@ -63,7 +64,7 @@ export async function validateShieldedAddressStrict(value: string): Promise<bool
   const v = value.trim()
   // Fast pre-filter: avoid the decode path for obviously-malformed input.
   if (!isShieldedAddress(v)) return false
-  const { decodeAddress } = await import('@armada/sdk')
+  const { decodeAddress } = await loadSdk()
   try {
     decodeAddress(v)
     return true

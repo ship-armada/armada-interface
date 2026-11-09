@@ -1,7 +1,7 @@
 // ABOUTME: SDK-backed unshield builder — planTransfer(unshield) → prove → toTransactionData → buildTransactCalldata,
 // ABOUTME: returning the raw { to, data } the handler submits; plus the unshield flows' Max (maxUnshieldAmount).
 
-import { buildTransactCalldata } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
@@ -67,6 +67,7 @@ export async function buildUnshieldSdk(
     ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
   })
+  const { buildTransactCalldata } = await loadSdk()
   const { to, data } = buildTransactCalldata([handle.toTransactionData()], inputs.poolAddress)
   return { to, data, totalFee, returnsToSelf: returnsToSelfOf(plans, wallet.shieldedAddress) }
 }

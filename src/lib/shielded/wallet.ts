@@ -1,7 +1,7 @@
 // ABOUTME: Signature-derived shielded wallet lifecycle per specs/TX_SIGNING.md + TX_SIGNING_V2_AMENDMENT.md.
 // ABOUTME: enrollFromSignature / unlockFromRootSecret / unlockFromBackup / lockWallet / resetWallet route through a shared applyRootSecret helper. Internal mnemonic shim hidden inside this module.
 
-import { deriveKeyset } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import {
   antiPhishChecksumBytes,
   assertEntropyFloor,
@@ -303,7 +303,7 @@ async function applyRootSecret(
   // what the read instance derives via `fromRootSecret`). The actual wallet is the persistent
   // @armada/sdk read instance, created lazily on first balance read (sdk-read.ts).
   const walletId = deriveWalletId(rootSecret)
-  const shieldedAddress = (await deriveKeyset(rootSecret)).shieldedAddress
+  const shieldedAddress = (await (await loadSdk()).deriveKeyset(rootSecret)).shieldedAddress
   // "Newly created" (telemetry) = first sign-in on this device for the tuple (no cached id). It no
   // longer implies an engine wallet was created; the identity is purely derived.
   const newlyCreated = cachedWalletId === null

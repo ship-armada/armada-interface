@@ -51,3 +51,7 @@ jobs:
       # One @armada/sdk engine copy in the bundle (#92): its inlined WASM must appear exactly once.
       - name: Check SDK bundled once
         run: node scripts/check-sdk-bundle.mjs
+      # The first screen's chunk stays small (13C): the SDK loads lazily via sdk-loader.ts. Also writes a chunk report to
+      # the job summary.
+      - name: Check entry chunk size
+        run: node scripts/check-entry-size.mjs

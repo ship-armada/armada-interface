@@ -1,7 +1,8 @@
 // ABOUTME: SDK-backed shielded-transfer builder — planTransfer → proveAll → buildTransactCalldata([...]), plus the
 // ABOUTME: review-time fee planning (planTransferFee / maxTransferAmount) that prices a split transfer before proving.
 
-import { buildTransactCalldata, type SpendFee } from '@armada/sdk'
+import type { SpendFee } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
@@ -69,6 +70,7 @@ export async function buildTransferSdk(
     ...(inputs.onProgress ? { onProgress: (p) => inputs.onProgress?.(p.fraction) } : {}),
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
   })
+  const { buildTransactCalldata } = await loadSdk()
   const { to, data } = buildTransactCalldata(handles.map((h) => h.toTransactionData()), inputs.poolAddress)
   return { to, data, totalFee, returnsToSelf: returnsToSelfOf(plans, wallet.shieldedAddress) }
 }

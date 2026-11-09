@@ -26,6 +26,7 @@ import { useShieldedSyncPoll } from '@/hooks/useShieldedSyncPoll'
 import { useShieldedWatch } from '@/hooks/useShieldedWatch'
 import { useNullifierCrossCheck } from '@/hooks/useNullifierCrossCheck'
 import { useTabVisible } from '@/hooks/useTabVisible'
+import { usePrefetchSdk } from '@/hooks/usePrefetchSdk'
 import { useDebugSync } from '@/hooks/useDebugSync'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { useTxNotices } from '@/hooks/useTxNotices'
@@ -124,6 +125,9 @@ export function App() {
   const setActiveWalletId = useSetAtom(activeShieldedWalletIdAtom)
   // Boot phases before the app renders: the v2 schema migration, then seeding the persisted wallet.
   const [mode, setMode] = useState<'pre-migration' | 'pre-init' | 'app'>('pre-migration')
+  // Load the SDK chunk in the background once the app shell is up (13C), so it doesn't compete with the first screen and
+  // is usually ready by sign-in.
+  usePrefetchSdk(mode === 'app')
 
   // v2 schema migration: drops legacy localStorage keys + IndexedDB databases on first run of
   // the v2 schema. Synchronous portion (localStorage) is done by the time the awaited promise

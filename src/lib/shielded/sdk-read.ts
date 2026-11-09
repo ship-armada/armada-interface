@@ -1,14 +1,8 @@
 // ABOUTME: The persistent @armada/sdk instance — IndexedDB-backed, syncs the unlocked wallet and reports
 // ABOUTME: its 0zk address / balances / history (reads), and is write-capable (real prover + artifacts) for proving.
 
-import {
-  createArmadaSdk,
-  IndexedDBStorageAdapter,
-  getTokenDataERC20,
-  getTokenDataHash,
-  type ArmadaSdk,
-  type HistoryEntry,
-} from '@armada/sdk'
+import type { ArmadaSdk, HistoryEntry } from '@armada/sdk'
+import { loadSdk } from './sdk-loader'
 import { getDefaultStore } from 'jotai'
 import { anotherTabActiveAtom } from '@/state/ui'
 import { getCachedDeployments, getUsdcAddress, loadYieldDeployment } from '../../config/deployments'
@@ -175,14 +169,15 @@ async function createInstance(engineAddress: string): Promise<SdkInstance> {
   // Retire prior read DBs for this (chain, pool) so no stale plaintext / wrong-key note data lingers
   // at rest. Fire-and-forget; the fresh `-e2` DB re-scans from deploy. (§4.3.)
   for (const name of legacyDbNames(cfg)) void deleteDatabaseByName(name)
-  const sdk = await createArmadaSdk({
+  const armada = await loadSdk()
+  const sdk = await armada.createArmadaSdk({
     ...cfg,
     // Raw adapter — the SDK owns at-rest encryption (§4.3): it auto-wraps this in an `EncryptedStore`
     // keyed per-wallet from the viewing key, so decrypted note data is AES-256-GCM-encrypted at rest
     // without us wrapping it (wrapping here would double-encrypt under a mismatched key). Locking tears
     // the instance down (`closeSdkRead`) → the SDK's key is dropped; the DB then holds only ciphertext.
-    storage: new IndexedDBStorageAdapter(dbNameFor(cfg)),
-    prover: createInterfaceProver(),
+    storage: new armada.IndexedDBStorageAdapter(dbNameFor(cfg)),
+    prover: createInterfaceProver(armada),
     artifacts: createInterfaceArtifactSource(),
     // Quick-sync observability: the SDK emits its `sync.quicksync` outcome (served / tail-covered /
     // root-mismatch-fallback) through this sink, which the interface surfaces as `sdk.quicksync`.
@@ -289,9 +284,9 @@ export async function refreshShieldedBalances(_walletId?: string): Promise<void>
  * the fee-on-top guard; `pending` is display-only.
  */
 export async function readSdkUsdcBalance(): Promise<{ spendable: bigint; pending: bigint }> {
-  const { wallet } = await ensureInstance()
+  const [{ wallet }, armada] = await Promise.all([ensureInstance(), loadSdk()])
   const cfg = await readPathConfig()
-  const usdcHash = getTokenDataHash(getTokenDataERC20(cfg.pool.usdcAddress))
+  const usdcHash = armada.getTokenDataHash(armada.getTokenDataERC20(cfg.pool.usdcAddress))
   const usdc = (await wallet.balances()).find(b => b.tokenHash === usdcHash)
   return usdc
     ? { spendable: usdc.spendable, pending: usdc.pending }
@@ -305,8 +300,8 @@ export async function readSdkUsdcBalance(): Promise<{ spendable: bigint; pending
 export async function readSdkYieldShares(): Promise<{ position: bigint }> {
   const vault = await vaultTokenAddress()
   if (vault === undefined) return { position: 0n }
-  const { wallet } = await ensureInstance()
-  const vaultHash = getTokenDataHash(getTokenDataERC20(vault))
+  const [{ wallet }, armada] = await Promise.all([ensureInstance(), loadSdk()])
+  const vaultHash = armada.getTokenDataHash(armada.getTokenDataERC20(vault))
   const shares = (await wallet.balances()).find(b => b.tokenHash === vaultHash)
   return shares
     ? { position: shares.spendable + shares.pending }
@@ -334,11 +329,16 @@ export async function mergeTokenAddress(token: MergeToken): Promise<`0x${string}
 
 /** How many spendable notes back each mergeable token's balance — the cue to offer a merge. Does not sync. */
 export async function readSdkNoteCounts(): Promise<Record<MergeToken, number>> {
-  const [{ wallet }, usdc, shares] = await Promise.all([ensureInstance(), mergeTokenAddress('usdc'), mergeTokenAddress('shares')])
+  const [{ wallet }, usdc, shares, armada] = await Promise.all([
+    ensureInstance(),
+    mergeTokenAddress('usdc'),
+    mergeTokenAddress('shares'),
+    loadSdk(),
+  ])
   const balances = await wallet.balances()
   const notesOf = (address: `0x${string}` | undefined): number => {
     if (address === undefined) return 0
-    const hash = getTokenDataHash(getTokenDataERC20(address))
+    const hash = armada.getTokenDataHash(armada.getTokenDataERC20(address))
     return balances.find(b => b.tokenHash === hash)?.spendableNotes ?? 0
   }
   return { usdc: notesOf(usdc), shares: notesOf(shares) }
