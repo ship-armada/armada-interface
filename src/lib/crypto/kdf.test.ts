@@ -1,4 +1,5 @@
-// ABOUTME: Tests for lib/crypto/kdf — HKDF derivation determinism, anti-phish checksum, AES-GCM backup round-trip, IC-2 canary.
+// ABOUTME: Tests for lib/crypto/kdf — known-answer vectors for every identity derivation (computed independently from the spec),
+// ABOUTME: anti-phish checksum, AES-GCM backup round-trip, IC-2 canary.
 
 import { describe, it, expect } from 'vitest'
 import {
@@ -7,6 +8,7 @@ import {
   deriveViewingKeyBytes,
   deriveSdkEncryptionKeyHex,
   deriveHistoryEncryptionKey,
+  deriveWalletId,
   antiPhishChecksumBytes,
   formatChecksumDisplay,
   assertEntropyFloor,
@@ -35,13 +37,39 @@ function fixedSignature(seed: number = 0): Uint8Array {
   return out
 }
 
+const hex = (bytes: Uint8Array): string => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+
+describe('known-answer vectors (specs/TX_SIGNING.md, IC-4 until official vectors are published)', () => {
+  // WHY: these derivations ARE every user's identity — root_secret, the subkeys, the SDK and history keys, the wallet id and
+  // the anti-phish checksum. Changing a salt or info string (even its formatting) would silently fork every wallet, and a
+  // "same input twice" test can't see it. The expected values were computed independently with node:crypto (hkdfSync /
+  // createHmac / createHash) from the spec's formulas and labels, not from this implementation.
+  const ROOT = '7a70a67228791ab3b54294cc31157e080d45142d0abbcbbc60a530b775ffec6f'
+  const root = deriveRootSecret(fixedSignature(0)) // signature bytes 0x00..0x3f, v = 27
+
+  it('root_secret = HKDF-SHA-256(salt "armada-v1", IKM signature, info "root", 32)', () => {
+    expect(hex(root)).toBe(ROOT)
+  })
+
+  it('subkeys = HKDF-Expand(root_secret, info "spend:v1" / "view:v1", 32)', () => {
+    expect(hex(deriveSpendingKeyBytes(root))).toBe('1c2c82e82cdb6f5a5d9ff38167120849affcbf37aec4f2c1bbb08cc1ccd0bff5')
+    expect(hex(deriveViewingKeyBytes(root))).toBe('29d5f4da49a8b3d0c2e1cc65ecfb964238809a50ac512fdce8656ee4d5656c48')
+  })
+
+  it('SDK, history and wallet-id keys = HKDF-Expand(root_secret, their versioned info strings)', () => {
+    expect(deriveSdkEncryptionKeyHex(root)).toBe('f20d813656c56a3da5f9b993386fed6722d26a144e4d7fa0eb3bfaa4a07556e3')
+    expect(hex(deriveHistoryEncryptionKey(root))).toBe('9b1a7d1812541522cf501fc325b8d70645c2efc78ac8c2c837ed08255e246eac')
+    expect(deriveWalletId(root)).toBe('5bba98931a10acb9e51d77fae0493c5c')
+  })
+
+  it('anti-phish checksum = first 6 bytes of SHA-256(root_secret || "armada-check")', () => {
+    expect(hex(antiPhishChecksumBytes(root))).toBe('ac4b54e5b53f')
+  })
+})
+
 describe('deriveRootSecret', () => {
   it('returns 32 bytes', () => {
     expect(deriveRootSecret(fixedSignature()).length).toBe(32)
-  })
-
-  it('is deterministic for the same signature', () => {
-    expect(deriveRootSecret(fixedSignature(0))).toEqual(deriveRootSecret(fixedSignature(0)))
   })
 
   it('produces different output for different signatures', () => {
@@ -66,12 +94,6 @@ describe('subkey derivation', () => {
     expect(view.length).toBe(32)
   })
 
-  it('subkey derivation is deterministic and pure', () => {
-    const root = deriveRootSecret(fixedSignature())
-    expect(deriveSpendingKeyBytes(root)).toEqual(deriveSpendingKeyBytes(root))
-    expect(deriveViewingKeyBytes(root)).toEqual(deriveViewingKeyBytes(root))
-  })
-
   it('rejects non-32-byte root', () => {
     expect(() => deriveSpendingKeyBytes(new Uint8Array(16))).toThrow()
     expect(() => deriveViewingKeyBytes(new Uint8Array(64))).toThrow()
@@ -85,26 +107,12 @@ describe('deriveSdkEncryptionKeyHex', () => {
     expect(key.length).toBe(64)
     expect(key).toMatch(/^[0-9a-f]{64}$/)
   })
-
-  it('is deterministic and distinct from spend/view key bytes', () => {
-    const root = deriveRootSecret(fixedSignature())
-    const enc = deriveSdkEncryptionKeyHex(root)
-    expect(enc).toBe(deriveSdkEncryptionKeyHex(root))
-    const spend = deriveSpendingKeyBytes(root)
-    const spendHex = Array.from(spend, b => b.toString(16).padStart(2, '0')).join('')
-    expect(enc).not.toBe(spendHex)
-  })
 })
 
 describe('deriveHistoryEncryptionKey', () => {
   it('returns 32 bytes', () => {
     const root = deriveRootSecret(fixedSignature())
     expect(deriveHistoryEncryptionKey(root).length).toBe(32)
-  })
-
-  it('is deterministic for the same root_secret', () => {
-    const root = deriveRootSecret(fixedSignature())
-    expect(deriveHistoryEncryptionKey(root)).toEqual(deriveHistoryEncryptionKey(root))
   })
 
   it('is distinct from the SDK encryption key (different HKDF info string)', () => {
@@ -131,11 +139,6 @@ describe('antiPhishChecksum', () => {
   it('returns exactly 6 bytes', () => {
     const root = deriveRootSecret(fixedSignature())
     expect(antiPhishChecksumBytes(root).length).toBe(6)
-  })
-
-  it('is deterministic for the same root', () => {
-    const root = deriveRootSecret(fixedSignature())
-    expect(antiPhishChecksumBytes(root)).toEqual(antiPhishChecksumBytes(root))
   })
 
   it('differs for different roots', () => {
