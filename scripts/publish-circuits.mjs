@@ -1,5 +1,5 @@
-// ABOUTME: Normalizes an armada-circuits release into the interface's per-shape layout
-// ABOUTME: (NNxMM/{zkey,circuit.wasm,vkey.json}), integrity-verifies it, and deploys it (local dir or rsync).
+// ABOUTME: Normalizes an armada-circuits release into the interface's per-shape layout (NNxMM/{zkey,circuit.wasm,vkey.json}
+// ABOUTME: + gzip copies for nginx gzip_static), integrity-verifies it, and deploys it (local dir or rsync).
 
 // Usage:
 //   node scripts/publish-circuits.mjs --tag <release> --dest <dir | user@host:/path> [--from <dir>]
@@ -14,13 +14,17 @@
 // The release ships one .tgz of `NxM/final.zkey`, `NxM/main_NxM_js/main_NxM.wasm`, `NxM/vkey.json`
 // (+ r1cs/witness helpers we drop) and a `SHA256SUMS`. We verify every served file against it, so a
 // corrupt download can never reach a deploy. `--from <dir>` uses an already-extracted tree (skips gh).
+//
+// Each zkey / circuit.wasm also gets a `.gz` copy beside it, so nginx's `gzip_static on` can serve it compressed (zkeys
+// shrink to ~54%, WASMs to ~25%; #147). The app hashes the decoded bytes, so the manifest is unchanged.
 
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gzipSync } from 'node:zlib'
 
 const CIRCUITS_REPO = 'ship-armada/armada-circuits'
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -88,8 +92,10 @@ function parseSums(sumsText) {
 }
 
 const OUT_NAME = { zkey: 'zkey', wasm: 'circuit.wasm', vkey: 'vkey.json' }
+// The files worth compressing; vkey.json is a few KB.
+const GZIP_KEYS = new Set(['zkey', 'wasm'])
 
-/** Copy the 3 runtime files per shape into staging/NNxMM/, verifying each against SHA256SUMS. */
+/** Copy the 3 runtime files per shape into staging/NNxMM/, verifying each against SHA256SUMS, plus the gzip copies. */
 function normalize(extractedDir, byShape, staging) {
   let shapes = 0
   for (const [shape, entry] of byShape) {
@@ -107,6 +113,8 @@ function normalize(extractedDir, byShape, staging) {
       const actual = sha256File(srcPath)
       if (actual !== hash) throw new Error(`Integrity check failed for ${src}: expected ${hash}, got ${actual}`)
       cpSync(srcPath, join(outDir, OUT_NAME[key]))
+      // Always regenerated from the verified file, so a .gz can never be staler than the file beside it.
+      if (GZIP_KEYS.has(key)) writeFileSync(join(outDir, `${OUT_NAME[key]}.gz`), gzipSync(readFileSync(srcPath), { level: 9 }))
     }
     shapes += 1
   }
