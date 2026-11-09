@@ -6,6 +6,7 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import {
   activeShieldedWalletAtom,
   heldSpendTxidsAtom,
+  scannedThroughAtom,
   shieldedUsdcAtom,
   shieldedUsdcSpendableAtom,
   syncRetryEpochAtom,
@@ -17,7 +18,13 @@ import {
   subscribeBalanceUpdates,
   subscribeScanStatus,
 } from '@/lib/shielded/sync'
-import { closeSdkRead, readSdkHeldSpendTxids, readSdkUsdcBalance, readSdkYieldShares } from '@/lib/shielded/sdk-read'
+import {
+  closeSdkRead,
+  readSdkHeldSpendTxids,
+  readSdkSyncedThrough,
+  readSdkUsdcBalance,
+  readSdkYieldShares,
+} from '@/lib/shielded/sdk-read'
 import { trackError } from '@/lib/telemetry'
 
 /**
@@ -40,6 +47,7 @@ export function useShieldedBalanceSync(): void {
   const setShieldedUsdcSpendable = useSetAtom(shieldedUsdcSpendableAtom)
   const setYieldShares = useSetAtom(yieldSharesAtom)
   const setHeldSpendTxids = useSetAtom(heldSpendTxidsAtom)
+  const setScannedThrough = useSetAtom(scannedThroughAtom)
   const setSyncState = useSetAtom(syncStateAtom)
   // Bumped by useSyncRetry ("Try Again"). Included in the effect deps so a bump re-runs the
   // subscribe + initial-scan path below.
@@ -57,6 +65,7 @@ export function useShieldedBalanceSync(): void {
       setShieldedUsdcSpendable(null)
       setYieldShares(null)
       setHeldSpendTxids([])
+      setScannedThrough(null)
       setSyncState({ status: 'idle', progress: 0 })
       // This hook owns the @armada/sdk read instance — tear it down on lock.
       void closeSdkRead()
@@ -91,12 +100,14 @@ export function useShieldedBalanceSync(): void {
         // completed; re-syncing here would be circular (a sync emits scan:complete → this read →
         // another sync → …). Syncing is driven only by the poll + post-tx refresh + initial scan.
         // Promise.allSettled so one chain hiccup doesn't blank the other atom.
-        // The held spends are read with the balances, so the projected headline (state/balanceProjection) always adds
-        // the change of exactly the spends these balances leave out — no gap and no double count when one confirms.
-        const [usdcResult, sharesResult, heldResult] = await Promise.allSettled([
+        // The held spends and the scan position are read with the balances, so the projected headline
+        // (state/balanceProjection) adds exactly what these balances leave out — a held spend's change, an unscanned
+        // shield's note — with no gap and no double count when one confirms.
+        const [usdcResult, sharesResult, heldResult, scannedResult] = await Promise.allSettled([
           readSdkUsdcBalance(),
           readSdkYieldShares(),
           readSdkHeldSpendTxids(),
+          readSdkSyncedThrough(),
         ])
 
         if (cancelled || latestWalletIdRef.current !== walletId) return
@@ -113,6 +124,9 @@ export function useShieldedBalanceSync(): void {
         }
         if (heldResult.status === 'fulfilled') {
           setHeldSpendTxids(heldResult.value)
+        }
+        if (scannedResult.status === 'fulfilled') {
+          setScannedThrough(scannedResult.value)
         }
       } catch (err) {
         trackError('useShieldedBalanceSync.refreshAll', err, {

@@ -320,6 +320,12 @@ export async function readSdkHeldSpendTxids(): Promise<string[]> {
   return wallet.pendingSpendTxids()
 }
 
+/** The block the SDK's scan has reached — a same-chain shield's note is projected until it reaches the shield's (3B). Does not sync. */
+export async function readSdkSyncedThrough(): Promise<number> {
+  const { wallet } = await ensureInstance()
+  return (await wallet.syncStatus()).syncedThrough
+}
+
 /** The token address a note merge targets: the hub USDC, or the yield-vault share token (undefined with
  *  no yield deployment). */
 export async function mergeTokenAddress(token: MergeToken): Promise<`0x${string}` | undefined> {

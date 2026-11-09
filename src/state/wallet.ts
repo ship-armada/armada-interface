@@ -63,6 +63,10 @@ export const yieldSharesAtom = atom<bigint | null>(null)
  */
 export const heldSpendTxidsAtom = atom<readonly string[]>([])
 
+/** The block the SDK's scan has reached (`syncStatus().syncedThrough`), read with the balances — a same-chain shield's note is
+ *  projected until the scan reaches its block. null while locked or before the first read. */
+export const scannedThroughAtom = atom<number | null>(null)
+
 /**
  * Absolute timestamp (ms since epoch) at which the shielded wallet will auto-lock if no further
  * user activity occurs. Null when no lock timer is armed (wallet missing or already locked).

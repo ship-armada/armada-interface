@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   readSdkUsdcBalance: vi.fn(async () => ({ spendable: 0n, pending: 0n, pendingSpent: 0n })),
   readSdkYieldShares: vi.fn(async () => ({ position: 0n, pendingSpent: 0n })),
   readSdkHeldSpendTxids: vi.fn(async (): Promise<string[]> => []),
+  readSdkSyncedThrough: vi.fn(async () => 0),
 }))
 
 // Mock the SDK boundary so importing the hook doesn't pull the SDK into jsdom, and so we can
@@ -33,6 +34,7 @@ vi.mock('@/lib/shielded/sdk-read', () => ({
   readSdkUsdcBalance: h.readSdkUsdcBalance,
   readSdkYieldShares: h.readSdkYieldShares,
   readSdkHeldSpendTxids: h.readSdkHeldSpendTxids,
+  readSdkSyncedThrough: h.readSdkSyncedThrough,
 }))
 
 import { useShieldedBalanceSync } from './useShieldedBalanceSync'
@@ -40,6 +42,7 @@ import {
   shieldedWalletsAtom,
   activeShieldedWalletIdAtom,
   heldSpendTxidsAtom,
+  scannedThroughAtom,
   shieldedUsdcAtom,
   shieldedUsdcSpendableAtom,
   syncStateAtom,
@@ -77,6 +80,7 @@ describe('useShieldedBalanceSync — W-1 sync reset', () => {
     store.set(syncStateAtom, { status: 'complete', progress: 1 })
     store.set(shieldedUsdcAtom, 5_000_000n)
     store.set(heldSpendTxidsAtom, ['0xheld'])
+    store.set(scannedThroughAtom, 120)
     store.set(shieldedWalletsAtom, {})
     store.set(activeShieldedWalletIdAtom, null)
 
@@ -91,6 +95,7 @@ describe('useShieldedBalanceSync — W-1 sync reset', () => {
     expect(store.get(shieldedUsdcHeadlineAtom)).toBeNull()
     expect(store.get(yieldSharesHeadlineAtom)).toBeNull()
     expect(store.get(heldSpendTxidsAtom)).toEqual([])
+    expect(store.get(scannedThroughAtom)).toBeNull()
   })
 })
 
@@ -158,6 +163,7 @@ describe('useShieldedBalanceSync — the projected headline (3B)', () => {
     h.readSdkUsdcBalance.mockResolvedValue({ spendable: 20n, pending: 5n, pendingSpent: 100n })
     h.readSdkYieldShares.mockResolvedValue({ position: 40n, pendingSpent: 0n })
     h.readSdkHeldSpendTxids.mockResolvedValue(['0xsend'])
+    h.readSdkSyncedThrough.mockResolvedValue(321)
     const store = unlockedStore()
     store.set(txListAtom, [
       {
@@ -177,6 +183,7 @@ describe('useShieldedBalanceSync — the projected headline (3B)', () => {
 
     await waitFor(() => expect(store.get(shieldedUsdcHeadlineAtom)).toBe(41n)) // 25 scanned + 16 change
     expect(store.get(heldSpendTxidsAtom)).toEqual(['0xsend'])
+    expect(store.get(scannedThroughAtom)).toBe(321)
     expect(store.get(shieldedUsdcAtom)).toBe(25n)
     expect(store.get(shieldedUsdcSpendableAtom)).toBe(20n)
     expect(store.get(yieldSharesHeadlineAtom)).toBe(40n)

@@ -537,6 +537,12 @@ export interface ArtifactsXchain extends ArtifactsCommon {
  * shield key or re-building the ShieldRequest. `value` is stringified for IDB serializability.
  */
 export interface ArtifactsShield extends ArtifactsCommon {
+  /**
+   * The hub block the shield confirmed in, recorded as soon as it's known (before the sync that scans it). The dashboard
+   * counts the shield's note in the balance from broadcast until the SDK's scan reaches this block (3B,
+   * `lib/tx/projectedBalance`) — the same read in which the note joins the scanned balance.
+   */
+  hubBlock?: number
   privacyPoolAddress?: string
   usdcAddress?: string
   shieldRequest?: {
