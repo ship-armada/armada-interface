@@ -6,9 +6,9 @@
 import { appendFileSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Set from the entry chunk's size once the SDK loads lazily (sdk-loader.ts), with headroom for normal growth. Raise it
+// The entry chunk was 2.82 MB once the SDK loaded lazily (sdk-loader.ts); this leaves ~17% for normal growth. Raise it
 // deliberately, with a reason, rather than to make CI pass.
-const ENTRY_BUDGET_BYTES = 6_000_000
+const ENTRY_BUDGET_BYTES = 3_300_000
 const REPORT_TOP = 12
 
 const dist = process.argv[2] ?? 'dist'
