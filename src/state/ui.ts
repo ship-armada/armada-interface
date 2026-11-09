@@ -12,7 +12,6 @@ export type ModalKind =
   | 'yield-deposit'
   | 'yield-withdraw'
   | 'payment'
-  | 'receive'
   | 'request'
   | 'settings'
   | 'wallet-unlock'
@@ -23,7 +22,7 @@ export type ModalKind =
 /** Dashboard / action flows that require a connected EVM wallet before opening. */
 export type ActionModalKind = Exclude<
   ModalKind,
-  null | 'wallet-unlock' | 'wallet-reset' | 'receive' | 'settings' | 'merge' | 'restore'
+  null | 'wallet-unlock' | 'wallet-reset' | 'settings' | 'merge' | 'restore'
 >
 
 export const openModalAtom = atom<ModalKind>(null)

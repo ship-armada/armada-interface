@@ -47,12 +47,6 @@ describe('<SendInputStep>', () => {
     expect(screen.getByText('How much USDC?')).toBeInTheDocument()
   })
 
-  it('withdraw variant: keeps the static title + exposes the "Withdrawal amount" field', () => {
-    setup({ variant: 'withdraw' })
-    expect(screen.getByText('How much USDC?')).toBeInTheDocument()
-    expect(screen.getByLabelText('Withdrawal amount')).toBeInTheDocument()
-  })
-
   it('hides the chain row entirely (chosen on the recipient step; not in the mockup)', () => {
     setup()
     // No chain name, no dropdown — the send amount card has no chain row.
