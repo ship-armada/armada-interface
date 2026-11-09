@@ -1,8 +1,9 @@
-// ABOUTME: Warms ZK circuit shapes into the in-memory registry so a proof doesn't wait on a fetch: the common ones on
-// ABOUTME: app mount, and each spend's own planned shapes as soon as review plans it. Anything else lazy-loads on demand.
+// ABOUTME: Warms ZK circuit shapes into the in-memory registry so a proof doesn't wait on a fetch: the common ones once the
+// ABOUTME: SDK has loaded, and each spend's own planned shapes as soon as review plans it. Anything else lazy-loads on demand.
 
 import { armadaVariantKey } from './artifactGetter'
 import { ensureCircuitLoaded } from './circuitFetch'
+import { whenSdkLoaded } from './sdk-loader'
 
 // The shapes the common flows hit first: 1–2 input spends, with or without the broadcaster-fee output
 // (the extra output makes M=3). Heavy/rare shapes (e.g. 08x04, ~43 MB) are intentionally NOT warmed —
@@ -29,6 +30,16 @@ export async function preloadArtifactsFromOrigin(): Promise<void> {
       }),
     ),
   )
+}
+
+/**
+ * Warm the common shapes (`preloadArtifactsFromOrigin`) once the SDK has loaded, never alongside it. They're ~65 MB
+ * (four zkeys + WASMs); sharing a slow connection with the SDK chunk held sign-in back ~24s on a 9 Mbps phone, and no
+ * proof can run before sign-in and sync anyway. Doesn't start the SDK load itself (`usePrefetchSdk` does).
+ */
+export async function preloadArtifactsAfterSdk(): Promise<void> {
+  await whenSdkLoaded()
+  await preloadArtifactsFromOrigin()
 }
 
 /**

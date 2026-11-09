@@ -13,7 +13,8 @@ to publish them. Fixes the coverage gap in issue #6.
   404 or a hash mismatch is a hard error — there is **no** IPFS fallback. Because of this, the host does
   **not** need to be trusted, only available: a compromised/misconfigured host can't feed a bad zkey.
 - **All shapes, lazily.** The SDK `ArtifactSource` (`lib/shielded/sdk-prover.ts`) lazy-loads any shape on
-  first proof; common small shapes are warmed on mount (`lib/shielded/artifacts.ts`). Heavy/rare shapes
+  first proof; common small shapes are warmed once the SDK chunk has loaded (`lib/shielded/artifacts.ts`), so the two
+  downloads don't share a slow connection. Heavy/rare shapes
   (e.g. `08x04`, ~43 MB) load only when actually used.
 - **Binaries are not committed.** `public/artifacts/**` is gitignored; only the tiny manifest is
   committed (the integrity anchor).
