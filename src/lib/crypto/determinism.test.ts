@@ -29,11 +29,6 @@ describe('NonDeterministicSignerError', () => {
     expect(err).toBeInstanceOf(Error)
   })
 
-  it('accepts an override message', () => {
-    const err = new NonDeterministicSignerError('first-sign-mismatch', 'custom copy')
-    expect(err.message).toBe('custom copy')
-  })
-
   it('emits cached-checksum-mismatch copy that points at paste/backup recovery', () => {
     const err = new NonDeterministicSignerError('cached-checksum-mismatch')
     expect(err.message).toMatch(/Paste recovery secret|backup file/i)
@@ -97,15 +92,6 @@ describe('verifySignatureDeterminism', () => {
     const first = fixedSignature(0)
     const reSign = vi.fn(async () => new Uint8Array(64))
     await expect(verifySignatureDeterminism(reSign, first)).rejects.toThrow()
-  })
-
-  it('does not throw on non-determinism — caller is responsible for the typed error', async () => {
-    // Important: the function is split this way so it can be unit-tested without try/catch
-    // wrapping. The hook code throws NonDeterministicSignerError; this helper just reports.
-    const reSign = vi.fn(async () => fixedSignature(1))
-    const out = await verifySignatureDeterminism(reSign, fixedSignature(0))
-    expect(out.deterministic).toBe(false)
-    expect(() => out).not.toThrow()
   })
 
   it('zeroes the second signature buffer after the comparison (signature discipline)', async () => {

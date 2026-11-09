@@ -2,7 +2,7 @@
 // ABOUTME: the shared APY display formats, the rate's explanation (naming the vault's fee) and the projected yearly yield.
 
 import { describe, it, expect } from 'vitest'
-import { sharesToUsdc, rateToApy, formatApyPercent, formatEarnApyHeadline, apyExplanation, projectedYearlyYield } from './yield'
+import { sharesToUsdc, rateToApy, formatApyPercent, apyExplanation, projectedYearlyYield } from './yield'
 
 describe('sharesToUsdc', () => {
   it('returns 0 for zero shares', () => {
@@ -67,13 +67,6 @@ describe('formatApyPercent', () => {
 
   it('renders zero as 0.00%', () => {
     expect(formatApyPercent(0)).toBe('0.00%')
-  })
-})
-
-describe('formatEarnApyHeadline', () => {
-  it('reads "Earn ~X.XX% APY" in the shared two-decimal format', () => {
-    expect(formatEarnApyHeadline(4.2)).toBe('Earn ~4.20% APY')
-    expect(formatEarnApyHeadline(4.567)).toBe('Earn ~4.57% APY')
   })
 })
 

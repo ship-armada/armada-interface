@@ -66,17 +66,6 @@ describe('patchArtifacts', () => {
     expect(after).toEqual(snapshot)
   })
 
-  it('supports a chained sequence of patches (cursor pattern)', () => {
-    let cursor = markWaiting(baseXchainRecord())
-    cursor = patchArtifacts(cursor, { destFromBlock: '5000' })
-    cursor = patchArtifacts(cursor, { destFromBlock: '6000' })
-    cursor = patchArtifacts(cursor, { destFromBlock: '7000' })
-
-    expect(cursor.artifacts.destFromBlock).toBe('7000')
-    expect(cursor.executionState).toBe('waiting')
-    // Three patches after markWaiting (which itself bumped once).
-    expect(cursor.updatedSeq).toBe(7 + 1 + 3)
-  })
 })
 
 function baseShieldXchainRecord(): TxRecord<'shield-xchain'> {

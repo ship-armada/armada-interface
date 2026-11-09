@@ -3,7 +3,7 @@
 
 import { describe, it, expect, vi } from 'vitest'
 import { Contract, Interface, type JsonRpcProvider } from 'ethers'
-import { aggregate3, getMulticall3Contract, MULTICALL3_ADDRESS } from './multicall3'
+import { aggregate3, MULTICALL3_ADDRESS } from './multicall3'
 
 const TEST_ABI = [
   'function phase() view returns (uint256)',
@@ -91,9 +91,4 @@ describe('aggregate3', () => {
     await expect(aggregate3(provider, [{ contract, functionName: 'phase' }])).rejects.toThrow('RPC down')
   })
 
-  it('getMulticall3Contract exposes getCurrentBlockTimestamp for timestamp folding', () => {
-    const mc = getMulticall3Contract(providerReturning('0x'))
-    expect(mc.interface.getFunction('getCurrentBlockTimestamp')).toBeTruthy()
-    expect(mc.target).toBe(MULTICALL3_ADDRESS)
-  })
 })

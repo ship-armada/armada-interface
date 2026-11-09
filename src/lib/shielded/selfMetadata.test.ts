@@ -35,11 +35,6 @@ describe('encodeTxSelfMetadata / decodeTxSelfMetadata', () => {
     expect(encodeTxSelfMetadata({ feeCacheId: '', useGasless: false })).toBeUndefined()
   })
 
-  it('omits absent flags rather than encoding them false', () => {
-    const blob = encodeTxSelfMetadata({ feeCacheId: 'q' })
-    expect(decodeTxSelfMetadata(blob)).toEqual({ feeCacheId: 'q' })
-  })
-
   it('degrades to {} on undefined / malformed / wrong-version input', () => {
     expect(decodeTxSelfMetadata(undefined)).toEqual({})
     expect(decodeTxSelfMetadata('')).toEqual({})

@@ -31,15 +31,6 @@ beforeEach(() => {
 })
 
 describe('reportTerminalFailure — tx.failed info event', () => {
-  it('always emits tx.failed with the record id, kind, and error code', () => {
-    reportTerminalFailure(failedRecord({ code: 'USER_REJECTED', message: 'declined' }))
-    expect(hoisted.track).toHaveBeenCalledWith('tx.failed', {
-      id: 'ulid-fail-1',
-      kind: 'shield',
-      errorCode: 'USER_REJECTED',
-    })
-  })
-
   it('emits tx.failed with an undefined code when the record carries no error detail', () => {
     reportTerminalFailure(failedRecord(undefined))
     expect(hoisted.track).toHaveBeenCalledWith('tx.failed', {

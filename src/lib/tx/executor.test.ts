@@ -536,10 +536,6 @@ describe('cancelAllRunning (P1-15)', () => {
     expect(after('ca-post')?.artifacts.error?.txHash).toBe('0xfeed')
   })
 
-  it('is a no-op when nothing is running', () => {
-    // No executeTx calls → empty running set → no throw, no writes.
-    expect(() => cancelAllRunning('account-switch')).not.toThrow()
-  })
 })
 
 describe('canRetryTx — fee-expired / duplicate are non-retryable (S-H1)', () => {

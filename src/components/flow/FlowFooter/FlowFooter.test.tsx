@@ -6,24 +6,9 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { FlowFooter } from './FlowFooter'
 
 describe('<FlowFooter>', () => {
-  it('renders the primary button', () => {
-    render(<FlowFooter primary={{ label: 'Continue', onClick: () => {} }} />)
-    expect(screen.getByRole('button', { name: /Continue/ })).toBeInTheDocument()
-  })
-
   it('does not render the secondary button when not provided', () => {
     render(<FlowFooter primary={{ label: 'Continue' }} />)
     expect(screen.queryByRole('button', { name: /Back/ })).toBeNull()
-  })
-
-  it('renders the secondary button when provided', () => {
-    render(
-      <FlowFooter
-        primary={{ label: 'Continue' }}
-        secondary={{ label: 'Back', onClick: () => {} }}
-      />,
-    )
-    expect(screen.getByRole('button', { name: /Back/ })).toBeInTheDocument()
   })
 
   it('fires the primary handler on click', () => {

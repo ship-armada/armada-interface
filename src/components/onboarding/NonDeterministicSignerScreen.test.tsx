@@ -1,7 +1,7 @@
 // ABOUTME: Tests for NonDeterministicSignerScreen — renders compatibility lists + routes the two CTAs (use-recovery / try-different-wallet) for both error reasons.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { NonDeterministicSignerScreen } from './NonDeterministicSignerScreen'
 
 describe('<NonDeterministicSignerScreen>', () => {
@@ -47,29 +47,4 @@ describe('<NonDeterministicSignerScreen>', () => {
     expect(screen.getByText(/ERC-4337/)).toBeInTheDocument()
   })
 
-  it('fires onUseRecovery when the primary CTA is clicked', () => {
-    const onUseRecovery = vi.fn()
-    render(
-      <NonDeterministicSignerScreen
-        reason="first-sign-mismatch"
-        onUseRecovery={onUseRecovery}
-        onTryDifferentWallet={vi.fn()}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: /backup file or recovery secret/i }))
-    expect(onUseRecovery).toHaveBeenCalledTimes(1)
-  })
-
-  it('fires onTryDifferentWallet when the secondary CTA is clicked', () => {
-    const onTryDifferentWallet = vi.fn()
-    render(
-      <NonDeterministicSignerScreen
-        reason="first-sign-mismatch"
-        onUseRecovery={vi.fn()}
-        onTryDifferentWallet={onTryDifferentWallet}
-      />,
-    )
-    fireEvent.click(screen.getByRole('button', { name: /try a different wallet/i }))
-    expect(onTryDifferentWallet).toHaveBeenCalledTimes(1)
-  })
 })

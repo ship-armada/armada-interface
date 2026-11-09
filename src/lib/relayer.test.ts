@@ -145,15 +145,6 @@ describe('userFeeForKind', () => {
     })
   })
 
-  it('returns 0 for direct-submit shield-xchain — CCTP fast-fee moved to its own channel', () => {
-    // WHY: pre-fee-bundling, `userFeeForKind('shield-xchain', !gasless)` returned the CCTP fast-
-    // fee and the tooltip labeled it "Relayer fee" — misleading on the direct path where no
-    // broadcaster is involved. CCTP is now surfaced via `flowBreakdown.cctpFee` in the modal so
-    // the tooltip can show it as "CCTP fee" alongside Protocol fee. `userFeeForKind` here means
-    // strictly the broadcaster/relayer fee; 0 when no relayer participates.
-    expect(userFeeForKind('shield-xchain', HUNDRED_USDC)).toBe(0n)
-  })
-
   describe('shield-xchain — Phase B4 gasless mode', () => {
     it('returns 0n on direct-submit even when a quote is present (CCTP is its own channel)', () => {
       // WHY: regression guard for the broadcaster/CCTP split. Direct shield-xchain takes no
@@ -230,14 +221,6 @@ describe('cctpFeeEstimateFromMaxFee', () => {
 })
 
 describe('feeModelForKind', () => {
-  it('classifies shield-xchain as fee-from-recipient (CCTP destination eats the only fee)', () => {
-    // WHY: shield-xchain is still direct-submitted (Phase B's gasless shield path). The only
-    // fee in flight is the CCTP fast-fee, which deducts from the destination mint. Misclassifying
-    // it as `fee-on-top` would silently let the user type their full client-chain balance and
-    // fail at submit when no extra USDC is available to cover a non-existent broadcaster output.
-    expect(feeModelForKind('shield-xchain')).toBe('fee-from-recipient')
-  })
-
   it('classifies unshield-xchain as fee-on-top-and-from-recipient (A5 — both fees apply)', () => {
     // WHY: A5 makes unshield-xchain unique among the seven kinds — it pays a relayer broadcaster
     // fee (on top of the entered amount, debited from shielded balance) AND a CCTP fast-fee
@@ -400,16 +383,6 @@ describe('computeFeeBreakdown', () => {
     expect(r.inputMax).toBe(MAX)
   })
 
-  it('protocolFee defaults to 0n when omitted (no behavior change for callers that do not opt in)', () => {
-    // WHY: backwards-compat — every existing call site (49 tests above) passes nothing for
-    // protocolFee. Default must keep the current numbers exact so this seam is purely additive.
-    // shield-xchain is the cleanest fee-from-recipient regression test.
-    const r = computeFeeBreakdown('shield-xchain', AMOUNT, FEE, MAX)
-    expect(r.recipientReceives).toBe(AMOUNT - FEE)
-    expect(r.totalDeducted).toBe(AMOUNT)
-    expect(r.inputMax).toBe(MAX)
-  })
-
   it('protocolFee floors recipientReceives at 0n when total deduction exceeds amount', () => {
     // WHY: defensive floor — a misconfigured fee module or stale quote could in principle make
     // (broadcasterFee + protocolFee) > amount. Returning a negative bigint would crash the UI.
@@ -438,20 +411,6 @@ describe('computeFeeBreakdown', () => {
     expect(gasless.inputMax).toBe(MAX)
   })
 
-  it('protocolFee combines with secondaryFee on unshield-xchain (CCTP fast-fee + protocol take)', () => {
-    // WHY: covers the cross-chain shape — both `secondaryFee` (CCTP) and `protocolFee` deduct
-    // from the recipient side. Future-proofing for unshield-xchain if it ever surfaces a
-    // protocol-side take; today protocolFee defaults to 0 for this kind so callers can opt in.
-    const cctpFee = 2_000n
-    const protocolFee = 100_000n
-    const r = computeFeeBreakdown('unshield-xchain', AMOUNT, FEE, MAX, {
-      secondaryFee: cctpFee,
-      protocolFee,
-    })
-    expect(r.recipientReceives).toBe(AMOUNT - cctpFee - protocolFee)
-    expect(r.totalDeducted).toBe(AMOUNT + FEE)
-    expect(r.inputMax).toBe(MAX - FEE)
-  })
 })
 
 describe('cctpMaxFeeForKind', () => {

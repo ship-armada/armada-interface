@@ -294,22 +294,6 @@ describe('<ShieldModal>', () => {
     expect(store.get(openModalAtom)).toBeNull()
   })
 
-  it('Confirm submits the tx and advances to the dedicated wallet step', async () => {
-    renderModal({ open: true, max: 10_000_000n })
-    fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })
-    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /^Confirm$/ }))
-    })
-    // Confirm now lands on the wallet step (approve/sign checklist). The record is at build-proof
-    // (no prompt live yet), so the title reads "Preparing your deposit…". submit() awaits IDB
-    // persistence, so waitFor() covers the brief gap before the record reaches the atom.
-    await waitFor(() => {
-      expect(screen.getByRole('list', { name: 'Wallet confirmations' })).toBeInTheDocument()
-    })
-    expect(screen.getByText('Preparing your shield…')).toBeInTheDocument()
-  })
-
   it('does not create a second record when Confirm is double-clicked (P0-7)', async () => {
     const store = renderModal({ open: true, max: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })

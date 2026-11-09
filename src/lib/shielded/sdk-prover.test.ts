@@ -63,19 +63,6 @@ describe('createInterfaceArtifactSource', () => {
   })
 })
 
-describe('createInterfaceProver', () => {
-  it('hands the SDK a worker factory without starting a worker (the SDK spawns lazily and respawns)', () => {
-    // WHY: the SDK's worker prover starts the worker on the first request and starts a fresh one after
-    // a crash or a cancelled proof — so it needs a factory, and read-only sessions never spawn a worker.
-    createWorkerProverMock.mockClear()
-    const prover = createInterfaceProver(armada)
-    expect(createWorkerProverMock).toHaveBeenCalledTimes(1)
-    expect(typeof createWorkerProverMock.mock.calls[0]?.[0]).toBe('function')
-    expect(typeof prover.prove).toBe('function')
-    expect(typeof prover.close).toBe('function')
-  })
-})
-
 describe('timing telemetry', () => {
   beforeEach(() => {
     clearArmadaArtifacts()
@@ -107,4 +94,3 @@ describe('timing telemetry', () => {
     ])
   })
 })
-

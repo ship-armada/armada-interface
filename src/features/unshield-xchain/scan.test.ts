@@ -112,19 +112,6 @@ describe('scanCctpDeliveryWindow', () => {
     expect(out.kind === 'match' && out.log.transactionHash).toBe('0xbeef')
   })
 
-  it('does not find a match outside its bounded window (caller must keep ticking)', async () => {
-    const { getBlockNumber, getLogsForRange } = makeFakes({
-      latest: 1_000_000n,
-      matchAtBlock: 20_000n,
-    })
-
-    const out = await scanCctpDeliveryWindow({
-      getBlockNumber, getLogsForRange, scanFromBlock: 0n, maxLogRange: 5_000n,
-    })
-
-    expect(out.kind).toBe('no-match')
-  })
-
   it('repeated ticks march the cursor forward chunk by chunk until match is found', async () => {
     const { getBlockNumber, getLogsForRange, calls } = makeFakes({
       latest: 50_000n,

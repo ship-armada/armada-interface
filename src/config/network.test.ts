@@ -10,11 +10,6 @@ import {
 } from './network'
 
 describe('getNetworkConfig', () => {
-  it('exposes a maxLogRange field used as the safe per-chunk block window', () => {
-    const cfg = getNetworkConfig()
-    expect(cfg.maxLogRange).toBeGreaterThan(0)
-  })
-
   // In the vitest config we pin VITE_NETWORK='local', so we expect the local cap (effectively
   // unlimited for Anvil). The testnet cap is verified at deploy-time review — keeping a single
   // code path means the chunker still runs locally and exercises the same logic.

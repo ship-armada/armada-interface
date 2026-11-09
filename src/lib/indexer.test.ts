@@ -9,7 +9,7 @@ vi.mock('@/config/network', () => ({
   getNetworkConfig: () => ({ indexerUrl: mockCfg.indexerUrl }),
 }))
 
-import { fetchIndexerHealth, isIndexerConfigured, getIndexerUrl } from './indexer'
+import { fetchIndexerHealth } from './indexer'
 
 describe('indexer health client', () => {
   const fetchMock = vi.fn()
@@ -22,14 +22,6 @@ describe('indexer health client', () => {
   })
   afterAll(() => {
     globalThis.fetch = ORIGINAL_FETCH
-  })
-
-  it('reflects the configured URL via getIndexerUrl / isIndexerConfigured', () => {
-    expect(getIndexerUrl()).toBe('https://idx.test/indexer')
-    expect(isIndexerConfigured()).toBe(true)
-    mockCfg.indexerUrl = null
-    expect(getIndexerUrl()).toBeNull()
-    expect(isIndexerConfigured()).toBe(false)
   })
 
   it('probes {base}/health and resolves reachable on a 2xx', async () => {

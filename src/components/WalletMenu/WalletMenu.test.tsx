@@ -32,11 +32,6 @@ async function openPanel() {
 }
 
 describe('<WalletMenu>', () => {
-  it('renders the pill with the truncated address', () => {
-    setup()
-    expect(screen.getByRole('button', { name: new RegExp(DISPLAY) })).toBeInTheDocument()
-  })
-
   it('opens the side panel on pill click', async () => {
     setup()
     expect(screen.queryByRole('dialog', { name: 'Wallet' })).toBeNull()

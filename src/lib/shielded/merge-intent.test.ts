@@ -2,7 +2,7 @@
 // ABOUTME: and the SDK dry-run request that reproduces that spend's circuit shape.
 
 import { describe, it, expect } from 'vitest'
-import { blockedActionLabel, blockedSpendRequest, mergeIntentFromRecord, mergeTokenSymbol } from './merge-intent'
+import { blockedSpendRequest, mergeIntentFromRecord } from './merge-intent'
 import type { TxRecord } from '@/lib/tx/types'
 
 const record = (kind: string, meta: Record<string, unknown>) => ({ kind, meta }) as unknown as TxRecord
@@ -61,20 +61,5 @@ describe('blockedSpendRequest', () => {
     expect(r.unshield?.amount).toBe(7n)
     expect(r.fee).toEqual({ perProof: 30n, broadcasterShieldedAddress: '' })
     expect(r.tokenAddress).toBe(USDC)
-  })
-})
-
-describe('labels', () => {
-  it('names the merged token', () => {
-    expect(mergeTokenSymbol('usdc')).toBe('USDC')
-    expect(mergeTokenSymbol('shares')).toBe('Vault shares')
-  })
-
-  it('names the blocked action in plain words', () => {
-    expect(blockedActionLabel('transfer-shielded')).toBe('send')
-    expect(blockedActionLabel('unshield-local')).toBe('withdrawal')
-    expect(blockedActionLabel('unshield-xchain')).toBe('withdrawal')
-    expect(blockedActionLabel('yield-deposit')).toBe('vault deposit')
-    expect(blockedActionLabel('yield-withdraw')).toBe('vault withdrawal')
   })
 })

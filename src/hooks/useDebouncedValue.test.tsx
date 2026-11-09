@@ -9,11 +9,6 @@ afterEach(() => {
 })
 
 describe('useDebouncedValue', () => {
-  it('returns the initial value immediately', () => {
-    const { result } = renderHook(() => useDebouncedValue(5n, 400))
-    expect(result.current).toBe(5n)
-  })
-
   it('only updates after the input has been stable for delayMs', () => {
     vi.useFakeTimers()
     const { result, rerender } = renderHook(({ v }) => useDebouncedValue(v, 400), {

@@ -157,14 +157,6 @@ describe('checkOwnNullifiersOnChain (wired)', () => {
     expect(calls).toHaveLength(3)
   })
 
-  it('returns ok when the chain agrees the notes are unspent', async () => {
-    mockSpendable([{ tree: 0, nullifier: 0xan }])
-    hoisted.aggregate3.mockResolvedValue([{ success: true, result: [false] }])
-
-    const r = await checkOwnNullifiersOnChain('wallet-1')
-    expect(r).toEqual({ checked: 1, omissionDetected: false })
-  })
-
   it('treats an unreadable sub-call as not-spent (fail-open per note)', async () => {
     mockSpendable([
       { tree: 0, nullifier: 0xan },

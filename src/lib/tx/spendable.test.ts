@@ -4,10 +4,6 @@ import { describe, it, expect } from 'vitest'
 import { assertSpendableForFeeOnTop } from './spendable'
 
 describe('assertSpendableForFeeOnTop (S-M5)', () => {
-  it('passes when amount + fee fits within balance', () => {
-    expect(() => assertSpendableForFeeOnTop({ amount: 8_000_000n, fee: 2_000_000n, balance: 10_000_000n })).not.toThrow()
-  })
-
   it('passes at the exact boundary (amount + fee === balance)', () => {
     expect(() => assertSpendableForFeeOnTop({ amount: 8_000_000n, fee: 2_000_000n, balance: 10_000_000n })).not.toThrow()
     expect(() => assertSpendableForFeeOnTop({ amount: 9_000_000n, fee: 1_000_000n, balance: 10_000_000n })).not.toThrow()

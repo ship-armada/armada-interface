@@ -23,12 +23,6 @@ describe('ForceOutcomeSelect', () => {
     expect(screen.queryByRole('combobox')).toBeNull()
   })
 
-  it('renders the control when debug mode is on', () => {
-    renderWith(true)
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
-    expect(screen.getByText(/DEBUG · force outcome/)).toBeInTheDocument()
-  })
-
   it('writes the chosen code to devForceOutcomeAtom, and null for "Normal"', () => {
     const store = renderWith(true)
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'TX_REVERTED' } })

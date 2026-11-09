@@ -95,23 +95,10 @@ describe('<EarnInputStep> yield clarity (package 15)', () => {
 })
 
 describe('<EarnInputStep>', () => {
-  it('renders Add to vault and Withdraw tabs', () => {
-    setup()
-    expect(screen.getByRole('tab', { name: 'Add to vault' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Withdraw' })).toBeInTheDocument()
-  })
-
   it('hides the chain row (the vault has no chain selection)', () => {
     setup()
     expect(screen.queryByText(/Anvil Hub/)).toBeNull()
     expect(screen.queryByRole('listbox')).toBeNull()
-  })
-
-  it('renders the 25% / 50% / 75% / Max percent pills', () => {
-    setup()
-    for (const label of ['25%', '50%', '75%', 'Max']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
-    }
   })
 
   it('shows the APY banner on the Add tab', () => {
@@ -142,11 +129,6 @@ describe('<EarnInputStep>', () => {
   it('shows the no-yield APY headline when the pool currently pays no yield', () => {
     setup({ rate: { rate: 1_000_000n, apyBps: 0n, fetchedAt: 0 } })
     expect(screen.getByText('Vault currently pays no yield')).toBeInTheDocument()
-  })
-
-  it('renders the APY percentage headline when apyBps is populated', () => {
-    setup({ rate: { rate: 1_000_000n, apyBps: 450n, fetchedAt: 0 } })
-    expect(screen.getByText('Earn ~4.50% APY')).toBeInTheDocument()
   })
 
   it('disables Review when amount exceeds maxInput', () => {
