@@ -94,7 +94,9 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
     scan reaches the block it confirmed in (`artifacts.hubBlock`), not after it failed, was cancelled or expired.
     Cross-chain shields and a vault deposit's incoming shares aren't projected (the vault bar waits for them).
 
-  While anything is projected the balance card says "· Confirming…". The spend flows' amount card keeps the spendable
+  While a projected transaction hasn't confirmed yet (its record isn't complete, or it failed in a way that may still
+  land) the balance card says "· Confirming…"; once it confirms the mark clears with its notice, while its amount keeps
+  counting until the scan (a block behind the tip on Sepolia) reaches it. The spend flows' amount card keeps the spendable
   balance (and Max) and adds "· X arriving" for the projected amount (Send, Unshield, Earn — on Earn's Withdraw tab, a
   withdrawal's change in shares at the current rate).
 

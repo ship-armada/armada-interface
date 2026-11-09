@@ -103,3 +103,30 @@ describe('projectedBalance — incoming same-chain shields', () => {
     expect(projectedBalance({ records: [shield('completed', 100)], heldTxids: [], syncedThrough: null }).usdc).toBe(98_500_000n)
   })
 })
+
+describe('projectedBalance — confirming', () => {
+  // WHY: the SDK scans a block behind the tip (confirmationDepth), so a transaction confirms — its record completes and
+  // the "Shielded" / "Sent" notice shows — a block or so before the scan finds it. The amount keeps counting until then
+  // (the balance mustn't drop back), but "Confirming…" beside it would contradict the notice.
+  it('a confirmed spend still held by the SDK keeps counting, but is no longer confirming', () => {
+    const confirmed = { ...spend('transfer-shielded', 16n), executionState: 'completed' } as TxRecord
+    expect(projectedBalance({ records: [confirmed], heldTxids: [HASH], syncedThrough: 0 })).toEqual({
+      usdc: 16n,
+      shares: 0n,
+      confirming: false,
+    })
+  })
+
+  it('a confirmed shield the scan has not reached yet keeps counting, but is no longer confirming', () => {
+    expect(projectedBalance({ records: [shield('completed', 100)], heldTxids: [], syncedThrough: 99 })).toEqual({
+      usdc: 98_500_000n,
+      shares: 0n,
+      confirming: false,
+    })
+  })
+
+  it('a held spend whose outcome is unknown (it may still land) is still confirming', () => {
+    const unknown = { ...spend('unshield-local', 5n), executionState: 'failed' } as TxRecord
+    expect(projectedBalance({ records: [unknown], heldTxids: [HASH], syncedThrough: 0 }).confirming).toBe(true)
+  })
+})

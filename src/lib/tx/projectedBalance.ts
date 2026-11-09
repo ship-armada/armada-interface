@@ -10,7 +10,11 @@ export interface BalanceProjection {
   usdc: bigint
   /** Raw vault shares to add to the scanned position. */
   shares: bigint
-  /** Something is projected (even a spend that returns nothing): the balance shows a figure the chain hasn't confirmed. */
+  /**
+   * A projected transaction hasn't confirmed yet (its record isn't complete — or it failed in a way that may still
+   * land): the balance shows a figure the chain hasn't confirmed. A confirmed one the scan hasn't reached yet (the SDK
+   * scans `confirmationDepth` behind the tip) still counts in the amounts, but isn't confirming — its notice has shown.
+   */
   confirming: boolean
 }
 
@@ -67,9 +71,10 @@ export function projectedBalance({ records, heldTxids, syncedThrough }: Projecti
   const held = new Set(heldTxids.map((txid) => txid.toLowerCase()))
   const projection: BalanceProjection = { usdc: 0n, shares: 0n, confirming: false }
   for (const record of records) {
+    const unconfirmed = record.executionState !== 'completed'
     const note = shieldNote(record, syncedThrough)
     if (note !== null) {
-      projection.confirming = true
+      projection.confirming ||= unconfirmed
       projection.usdc += note
       continue
     }
@@ -77,7 +82,7 @@ export function projectedBalance({ records, heldTxids, syncedThrough }: Projecti
     if (hash === undefined || !held.has(hash.toLowerCase())) continue
     const token = spentToken(record)
     if (token === null) continue
-    projection.confirming = true
+    projection.confirming ||= unconfirmed
     projection[token] += record.artifacts.returnsToSelf ?? 0n
   }
   return projection

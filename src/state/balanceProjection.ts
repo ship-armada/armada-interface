@@ -34,5 +34,5 @@ export const yieldSharesHeadlineAtom = atom((get) => {
   return scanned === null ? null : scanned + get(balanceProjectionAtom).shares
 })
 
-/** The headline includes an unconfirmed figure — the balance spot says "Confirming…". */
+/** The dashboard balance includes a transaction that hasn't confirmed yet — the card says "Confirming…" (until its notice). */
 export const balanceConfirmingAtom = atom((get) => get(balanceProjectionAtom).confirming)
