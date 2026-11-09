@@ -1,4 +1,4 @@
-// ABOUTME: The one runtime door to @armada/sdk — a memoized dynamic import, so the SDK (~10 MB with its inlined WASM) loads in
+// ABOUTME: The one runtime door to @armada/sdk — a memoized dynamic import, so the SDK (~8 MB with its inlined WASM) loads in
 // ABOUTME: its own chunk when first needed instead of with the first screen; prefetchSdk() starts it early, whenSdkLoaded() waits.
 
 /** The SDK module's runtime surface. Type-only imports (`import type … from '@armada/sdk'`) don't load it. */

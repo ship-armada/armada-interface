@@ -27,7 +27,7 @@ export function __resetProofSessionForTests(): void {
  *
  * `@armada/sdk/prover/worker` is the SDK-maintained, self-wiring worker module — it installs its own
  * `onmessage` handler around `createProverWorkerHandler` and imports ONLY the lean `@armada/sdk/prover`
- * subpath (snarkjs, no 13MB wasm-inlined root), so Vite bundles a small worker chunk. Pairing it with
+ * subpath (snarkjs, no ~8 MB wasm-inlined root), so Vite bundles a small worker chunk. Pairing it with
  * `webWorkerChannel` keeps the two-phase `proof:progress` (witness → proving) flowing to the main thread.
  */
 function createProverWorkerChannel(armada: ArmadaSdkModule): WorkerChannel {
