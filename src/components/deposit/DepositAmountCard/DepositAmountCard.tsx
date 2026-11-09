@@ -36,6 +36,9 @@ export interface DepositAmountCardProps {
   /** Not-yet-spendable ("pending") amount, pre-formatted. Shown as a "· X pending" suffix on the
    *  balance row when set — notes still inside the finality buffer, excluded from `balance`/Max. */
   pendingBalance?: string
+  /** Value on its way to the private balance, pre-formatted — an in-flight spend's change, an unscanned shield (3B). Shown
+   *  as a "· X arriving" suffix: it's in the dashboard headline already, but not spendable (nor in `balance`/Max) yet. */
+  arrivingBalance?: string
   /** When set, fee row shows total + breakdown tooltip. */
   displayFees?: DisplayFees
   feeLoading?: boolean
@@ -99,6 +102,7 @@ export function DepositAmountCard({
   onAmountChange,
   balance = '0.00',
   pendingBalance,
+  arrivingBalance,
   displayFees,
   feeLoading = false,
   feeResolving = false,
@@ -346,6 +350,7 @@ export function DepositAmountCard({
             >
               {balance}
               {pendingBalance ? ` · ${pendingBalance} pending` : ''}
+              {arrivingBalance ? ` · ${arrivingBalance} arriving` : ''}
             </span>
           </div>
           {maxInput !== undefined ? (

@@ -56,7 +56,7 @@ import {
   syncRetryEpochAtom,
 } from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
-import { shieldedUsdcHeadlineAtom, yieldSharesHeadlineAtom } from '@/state/balanceProjection'
+import { balanceConfirmingAtom, shieldedUsdcHeadlineAtom, yieldSharesHeadlineAtom } from '@/state/balanceProjection'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
 import styles from './Dashboard.module.css'
 
@@ -74,10 +74,12 @@ export function Dashboard() {
   // Data (all hooks run unconditionally).
   const shielded = useAtomValue(shieldedUsdcAtom)
   const yieldShares = useAtomValue(yieldSharesAtom)
-  // Headline figures also count a broadcast spend's held inputs, so a send / vault withdrawal doesn't
-  // dip the numbers before its change note is scanned. Gating stays on the base atoms above.
+  // Headline figures add what in-flight transactions bring back — a send's change, an incoming shield's note (3B,
+  // state/balanceProjection) — so the balance after a send shows at broadcast. Gating stays on the base atoms above.
   const shieldedHeadline = useAtomValue(shieldedUsdcHeadlineAtom)
   const yieldSharesHeadline = useAtomValue(yieldSharesHeadlineAtom)
+  // The headline includes a figure the chain hasn't confirmed (a send's change, an incoming shield) — "Confirming…".
+  const balanceConfirming = useAtomValue(balanceConfirmingAtom)
   const { rate: yieldRate } = useYieldRate()
   const shieldedWallet = useAtomValue(shieldedWalletAtom)
   const txList = useAtomValue(activeTxListAtom)
@@ -370,6 +372,7 @@ export function Dashboard() {
               vaultApy={vaultApy}
               vaultEarned={vaultEarned}
               armadaAddress={shieldedWallet.shieldedAddress}
+              confirming={balanceConfirming}
               balanceHidden={balanceHidden}
               onBalanceHiddenChange={setBalanceHidden}
               onSend={() => openActionModal('payment')}

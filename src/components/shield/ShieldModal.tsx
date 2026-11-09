@@ -2,7 +2,8 @@
 // ABOUTME: Shield = public → private; Unshield = private → your own EVM wallet (to-chain picker). The typed amount carries across the tab toggle.
 
 import { useEffect, useRef, useState } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
+import { balanceProjectionAtom } from '@/state/balanceProjection'
 import { openModalAtom, repeatIntentAtom } from '@/state/ui'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
@@ -59,6 +60,7 @@ export function ShieldModal() {
 
   const shieldFlow = useShieldFlow(isOpen)
   const unshieldFlow = useUnshieldFlow(isOpen)
+  const arrivingUsdc = useAtomValue(balanceProjectionAtom).usdc
 
   // "Shield again" / "Unshield again" from a receipt: seed the tab's chain + amount (still editable), then consume it.
   // The tab itself comes from the modal kind the receipt opened.
@@ -170,6 +172,8 @@ export function ShieldModal() {
                 ? formatUsdcPlain(unshieldFlow.pendingUsdc)
                 : undefined
             }
+            // On its way back — an in-flight spend's change, an unscanned shield (3B).
+            arrivingBalance={!isShield && arrivingUsdc > 0n ? formatUsdcPlain(arrivingUsdc) : undefined}
             maxInput={active.inputMax}
             minAmount={isShield ? shieldFlow.minAmount : 0n}
             displayFees={active.displayFees}

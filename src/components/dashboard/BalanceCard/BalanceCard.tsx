@@ -55,6 +55,9 @@ export interface BalanceCardProps {
   onBalanceHiddenChange?: (hidden: boolean) => void
   /** User's shielded Armada address — shown above the balance label when set. */
   armadaAddress?: string
+  /** The balance includes a figure the chain hasn't confirmed yet (a send's change, an incoming shield — 3B): "Confirming…"
+   *  beside the label until it has. */
+  confirming?: boolean
 }
 
 function prefersReducedMotion(): boolean {
@@ -92,6 +95,7 @@ export function BalanceCard({
   balanceHidden: balanceHiddenProp,
   onBalanceHiddenChange,
   armadaAddress,
+  confirming = false,
 }: BalanceCardProps) {
   const isMobileLayout = useMobileLayout()
   const [internalBalanceHidden, setInternalBalanceHidden] = useState(false)
@@ -361,7 +365,12 @@ export function BalanceCard({
                 </button>
               ) : null}
               <div className={styles.balanceStack}>
-                <span className={`armada-text-ui-label-md ${styles.label}`}>USDC shielded balance</span>
+                <span className={`armada-text-ui-label-md ${styles.label}`}>
+                  USDC shielded balance
+                  <span className={styles.confirming} role="status" aria-live="polite">
+                    {confirming ? ' · Confirming…' : ''}
+                  </span>
+                </span>
                 <div className={styles.balanceRow} ref={balanceRowRef}>
                   {balanceIntroPlaying ? (
                     <div

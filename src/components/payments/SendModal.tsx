@@ -5,6 +5,7 @@ import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useAtom, useAtomValue } from 'jotai'
+import { balanceProjectionAtom } from '@/state/balanceProjection'
 import { openModalAtom, paymentIntentAtom, repeatIntentAtom } from '@/state/ui'
 import { clearPendingPayViaLink } from '@/lib/payViaLink'
 import {
@@ -156,6 +157,8 @@ export function SendModal() {
   const forcedOutcome = useAtomValue(devForceOutcomeAtom)
   const max = shieldedUsdcSpendable ?? 0n
   const pendingUsdc = (shieldedUsdc ?? 0n) - max
+  // On its way back — an in-flight spend's change, an unscanned shield (3B): in the headline already, not spendable yet.
+  const arrivingUsdc = useAtomValue(balanceProjectionAtom).usdc
   const { value: amount } = parseUsdcInput(amountStr)
   const { quote, refresh } = useFees()
   // The reviewed fee is recomputed on every amount change, so clear any prior fee-changed flag.
@@ -555,6 +558,7 @@ export function SendModal() {
             max={max}
             maxInput={sendMax}
             pending={pendingUsdc}
+            arriving={arrivingUsdc}
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
             feeLoading={feeLoading || planPending}
