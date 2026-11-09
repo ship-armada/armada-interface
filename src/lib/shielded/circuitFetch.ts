@@ -69,7 +69,7 @@ export function fetchCircuitShape(paddedShape: string): Promise<FetchedCircuit> 
 
 /**
  * Ensure a shape is present in the in-memory artifact registry: no-op if already loaded, else
- * fetch + verify + store. Shared by the mount preload (common shapes) and the ArtifactSource's
+ * fetch + verify + store. Shared by the post-sign-in preload (common shapes) and the ArtifactSource's
  * lazy resolve (any shape on first proof).
  */
 export async function ensureCircuitLoaded(paddedShape: string): Promise<void> {

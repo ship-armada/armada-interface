@@ -27,6 +27,7 @@ import { useShieldedWatch } from '@/hooks/useShieldedWatch'
 import { useNullifierCrossCheck } from '@/hooks/useNullifierCrossCheck'
 import { useTabVisible } from '@/hooks/useTabVisible'
 import { usePrefetchSdk } from '@/hooks/usePrefetchSdk'
+import { usePreloadCircuits } from '@/hooks/usePreloadCircuits'
 import { useDebugSync } from '@/hooks/useDebugSync'
 import { useTxHistory } from '@/hooks/useTxHistory'
 import { useTxNotices } from '@/hooks/useTxNotices'
@@ -50,7 +51,6 @@ import '@/features/yield-deposit'
 import '@/features/yield-withdraw'
 import { startEngine } from '@/lib/tx/executor'
 import { trackError } from '@/lib/telemetry'
-import { preloadArtifactsAfterSdk } from '@/lib/shielded/artifacts'
 import { runSchemaMigrationIfNeeded } from '@/lib/shielded/schema-migration'
 import { readStoredWalletId } from '@/lib/shielded/wallet'
 import { isLocalMode } from '@/config/network'
@@ -128,6 +128,8 @@ export function App() {
   // Load the SDK chunk in the background once the app shell is up (13C), so it doesn't compete with the first screen and
   // is usually ready by sign-in.
   usePrefetchSdk(mode === 'app')
+  // Download the common ZK circuits once signed in, so a typical spend's proof doesn't wait on them (#144).
+  usePreloadCircuits(wallet.status === 'unlocked')
 
   // v2 schema migration: drops legacy localStorage keys + IndexedDB databases on first run of
   // the v2 schema. Synchronous portion (localStorage) is done by the time the awaited promise
@@ -153,13 +155,6 @@ export function App() {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
     // safely under StrictMode's double-mount and never spawns a second engine.
     startEngine()
-    // Preload the common circuit artifacts from the artifact host into the @armada/sdk artifact registry
-    // (P0-12) so the first proof doesn't fetch them at click time. They wait for the SDK chunk so the two
-    // don't share a slow connection. Fire-and-forget, off the critical path — a shape that fails here
-    // lazy-loads at proof time (circuitFetch).
-    void preloadArtifactsAfterSdk().catch((err) =>
-      trackError('shielded.artifacts.preload', err),
-    )
   }, [mode])
   // Cold-boot hydration, in one pass so the app never renders before the wallet entry is seeded. Source of truth on cold
   // boot is localStorage — the SDK persists wallet IDB and we persist the walletId on sign-in, but Jotai atoms reset to
