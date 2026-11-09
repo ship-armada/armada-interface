@@ -1,6 +1,6 @@
 # components/ui/
 
-App-local UI primitives. Layered **above** the vendored design system in `src/design` (imported as `@/design` — Button, Text, NavBar, WalletButton, WalletPillMenu, ArmadaLogo, ArmadaSymbol) and **below** feature components (BalanceHero, ShieldModal, etc.).
+App-local UI primitives. Layered **above** the vendored design system in `src/design` (imported as `@/design` — Button, Text, WalletButton, WalletPillMenu, ArmadaLogo, ArmadaSymbol) and **below** feature components (BalanceHero, ShieldModal, etc.).
 
 These primitives are NOT in `src/design` because they aren't yet stable enough to fold into the design layer. Move a primitive into `src/design` once its shape is settled.
 
@@ -14,21 +14,16 @@ These primitives are NOT in `src/design` because they aren't yet stable enough t
 | `CopyAddressButton` | Icon button that copies the FULL address (`hooks/useCopyToClipboard`) and shows a check briefly ("Copy address" / "Address copied"; `label` / `copiedLabel` override them when a view has more than one). In `AddressReveal` and `CopyableAddress`. |
 | `CopyableAddress` | `AddressText` + a `CopyAddressButton` on one line — every summary row that shows an address without a reveal: the send summary's "From your private account", the shield summary's "From your wallet" / "To Armada", a received payment's "From", and the pay-via-link landing's "To". |
 | `FullAddress` | The full address as a wrapping block of monospace 4-character groups (`lib/address::groupAddress`), `role="group"` labelled "Full address". Spans the card width under the row that opened it, so a long 0zk wraps inside the card instead of overflowing a one-line value cell. |
-| `AmountInput` | USDC amount input. `display` variant (big serif numeral) and `compact` variant. MAX button + AVAILABLE caption when `max` is supplied. **Not rendered by any screen at present** — the transaction flows use `deposit/DepositAmountCard` and the request screen a plain input, both sanitised by `src/utils/amountInput.ts` (which reads a typed comma as the decimal point). |
 | `AmountFieldWarning` | Action-style tooltip shown above an amount field for any amount validation error (`role="alert"`, wired to the input's `aria-describedby`). Used by `deposit/DepositAmountCard`. |
 | `Card` | Surface — bordered, rounded, padded body. `default` and `raised` variants. |
 | `ChainSelect` | Native `<select>` dropdown over `getAllChainIdentities()`; restrict via `chains` prop. |
-| `EmptyState` | Centered icon + title + optional description + optional action. |
-| `FeeSummary` | Two-row "Estimated fee" + "You'll receive" panel. Loading state when `fee === null`. |
 | `Modal` | Centered modal with backdrop, focus trap, ESC dismissal, portal mount. (See Modal/) |
-| `RecipientInput` | Labelled address input with optional Paste-from-clipboard shortcut + inline error. Validation lives in `lib/address`. |
 | `SectionHeader` | Heading with optional trailing slot (link, chip, action). |
 | `Tabs` | Horizontal segmented control with ARIA tablist semantics. Generic over a string-id union. |
 | `SegmentedControl` | Pill track with a sliding indicator + roving-tabindex arrow-key nav (redesign primitive; used by the Earn Add/Withdraw toggle + request-link expiry). Generic over a string-id union. |
 | `Tooltip` | Portalled hover/focus tooltip. |
 | `InfoTip` | A small muted ⓘ button (named by `label`) showing a short `text` in a rich `Tooltip` — the general form of `tx/FeeInfo`'s trigger. On the Earn yearly-yield line and the deposit Review row. |
 | `FeeBreakdownTooltip` | Tooltip exposing the fee split (protocol + broadcaster + CCTP) behind the under-amount "+ $X FEE" caption ("incl. $X FEE" when the fee comes out of the amount — `feesFromAmount` / `feeFromProceeds`). |
-| `EstimatedFeeValue` | Formatted fee value with loading state. |
 | `GasBalanceNotice` | Low-native-gas warning shown on the direct-submit (non-gasless) shield path — the wallet holds less than the estimated gas (`hooks/useGasBalanceWarning`; a fixed floor until the estimate loads), with "You have X; about Y is needed". |
 | `WalletProviderIcon` | Brand glyph for a wagmi connector (used on "From your wallet" rows). |
 

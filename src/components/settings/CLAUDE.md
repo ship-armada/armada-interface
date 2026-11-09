@@ -16,7 +16,7 @@ The Settings modal also shows a **Notes** card when a shielded token is spread a
 
 ## Conventions
 
-- Dialogs use the `Modal` primitive directly (not `ActionFlowShell`) since they're single-screen, not multi-step flows.
+- Dialogs use the `Modal` primitive directly (not `FlowShell`) since they're single-screen, not multi-step flows.
 - Open/close is controlled by Settings page-local state (not `openModalAtom`); these dialogs are Settings-internal.
 - Secret-handling rules from `lib/shielded/CLAUDE.md` apply here: never `console.log` the mnemonic, never store it outside the dialog's local state, clear on close.
 

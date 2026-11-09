@@ -58,7 +58,7 @@
 }
 
 .footer {
-  /* Span the dialog edges; cancel the ActionFlowShell body's 24px padding. */
+  /* Pull the footer out by spacing-6 (24px) on both sides and the bottom so it spans the body's edges. */
   align-self: stretch;
   margin: var(--primitives-spacing-6) calc(var(--primitives-spacing-6) * -1) calc(var(--primitives-spacing-6) * -1);
 }

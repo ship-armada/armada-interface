@@ -1,9 +1,14 @@
-// ABOUTME: Shared 3-step overlay flow mapping — Amount / Review / Confirm (progress + complete = step 3).
+// ABOUTME: The flow modals' step types and the shared 3-step indicator mapping — Amount / Review / Confirm (progress +
+// ABOUTME: complete = step 3) — plus which steps show the submitted tx.
 
-import type { FlowStep } from './ActionFlowShell/ActionFlowShell'
-import type { FlowStepIndicatorStatus } from './FlowStepIndicator'
+/** A flow modal's step. `error` is shown in place of the step that failed and never counted in the indicator. */
+export type FlowStep = 'input' | 'review' | 'progress' | 'complete' | 'error'
 
-export const OVERLAY_STEP_LABELS = ['Amount', 'Review', 'Confirm'] as const
+/** The steps the indicator counts (error is overlaid on whichever step failed). */
+export type FlowVisibleStep = Exclude<FlowStep, 'error'>
+
+/** The indicator's colour: lavender while in progress, red on an error, green once confirmed. */
+export type FlowStepIndicatorStatus = 'default' | 'error' | 'confirmed'
 
 /** Map flow step to 1-based index for the 3-segment bar (Confirm covers progress + complete). */
 export function overlayIndicatorStep(step: FlowStep): number {

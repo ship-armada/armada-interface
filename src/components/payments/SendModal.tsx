@@ -236,8 +236,8 @@ export function SendModal() {
   //                       displayed fee is the planned total below. 0n pre-quote-load
   //   unshield-local    → relayer's `unshield` tier from the quote (A3+); 0n pre-quote-load
   //   unshield-xchain   → relayer's `crossChainUnshield` tier (A5). A separate CCTP fast-fee
-  //                       (~2 bps) applies on top — surfaced via `cctpFee` below as the secondary
-  //                       FeeSummary line so the user sees both deductions.
+  //                       (~2 bps) applies on top — surfaced via `cctpFee` below as its own
+  //                       fee line so the user sees both deductions.
   const quotedFee: bigint = userFeeForKind(computedKind, amount, quote)
   // A private (0zk) send is priced by planning it: a wallet of many small notes splits into several
   // proofs, each paying the quoted `transfer` fee, so its real fee can be a multiple of the quote. The

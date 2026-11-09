@@ -1,5 +1,5 @@
 // ABOUTME: FlowShell — action-flow modal chrome wrapping the vendored FlowModalOverlay + ModalShell.
-// ABOUTME: Replaces DepositOverlayShell for the redesigned flows; renders the logo + Steps progress + close + backdrop/focus-trap.
+// ABOUTME: Every feature flow renders it: the logo + Steps progress + close + backdrop/focus-trap.
 
 import type { ReactNode } from 'react'
 import { FlowModalOverlay, ModalShell, ModalStepSwitch } from '@/design'

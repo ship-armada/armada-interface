@@ -61,8 +61,8 @@ export interface UsdcInputResult {
  * `{ value: 0n, error: 'too-many-decimals' }`). UI surfaces the error via a dedicated inline
  * message instead of silently rounding.
  *
- * `AmountInput`'s keystroke sanitizer should prevent invalid input from reaching here in the
- * normal flow; this parser is the defence-in-depth layer (programmatic submission, malformed
+ * The amount field's keystroke sanitizer (`utils/amountInput::sanitizeAmountEdit`, in
+ * `DepositAmountCard`) should prevent invalid input from reaching here in the normal flow; this parser is the defence-in-depth layer (programmatic submission, malformed
  * paste, future API surfaces).
  */
 export function parseUsdcInput(input: string): UsdcInputResult {
@@ -96,12 +96,13 @@ export function parseUsdcInput(input: string): UsdcInputResult {
 }
 
 /**
- * Map a {@link UsdcInputError} to the user-visible copy we surface in AmountInput. Armada-local
- * helper — copy may differ across apps so this isn't part of the lockstep contract with
- * crowdfund-shared. Returns undefined when no error so the caller can pass it through to
- * AmountInput.error without an extra conditional.
+ * Map a {@link UsdcInputError} to the user-visible copy the amount steps (Shield / Send / Earn) show
+ * under the amount field. Armada-local helper — copy may differ across apps so this isn't part of
+ * the lockstep contract with crowdfund-shared. Returns undefined when no error so the caller can
+ * pass it straight through without an extra conditional.
  *
- * Defensive: AmountInput's keystroke sanitizer prevents these errors in the normal flow. Users
+ * Defensive: the keystroke sanitizer (`utils/amountInput::sanitizeAmountEdit`) prevents these
+ * errors in the normal flow. Users
  * see this copy only when bypassing the sanitizer (programmatic state injection, future surfaces).
  */
 export function usdcInputErrorMessage(error: UsdcInputError | undefined): string | undefined {

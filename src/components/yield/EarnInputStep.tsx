@@ -5,7 +5,7 @@ import { useRef, type Ref } from 'react'
 import { ChartBarIcon } from '@heroicons/react/24/solid'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { DepositAmountCard } from '@/components/deposit/DepositAmountCard/DepositAmountCard'
-import { depositOverlayShellStyles } from '@/components/deposit/DepositOverlayShell/DepositOverlayShell'
+import flowButtonRow from '@/components/flow/flowButtonRow.module.css'
 import { DepositTooltip } from '@/components/dashboard/DepositTooltip'
 import { GasBalanceNotice, SegmentedControl } from '@/components/ui'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
@@ -262,7 +262,7 @@ export function EarnInputStepFooter({
     hasActiveAmount(amountStr) && amount > 0n && !tooMuch && !parseError && !continueBlockedReason
 
   return (
-    <div className={`${depositOverlayShellStyles.buttonRow} ${modalActionRowEnter}`}>
+    <div className={`${flowButtonRow.buttonRow} ${modalActionRowEnter}`}>
       <Button
         variant="secondary"
         size="lg"

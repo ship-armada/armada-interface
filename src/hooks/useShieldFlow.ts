@@ -245,7 +245,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     gasless: useGasless,
   })
   // Tooltip-ready breakdown — surfaces broadcaster fee + "You'll shield" + "Total deducted"
-  // bullets inside FeeBreakdownTooltip so the input UI stays clean (no inline FeeSummary rows).
+  // bullets inside FeeBreakdownTooltip so the input UI stays clean (no inline fee rows).
   const flowBreakdown: FlowFeeBreakdown = {
     broadcasterFee: fee,
     cctpFee: cctpFee > 0n ? cctpFee : undefined,

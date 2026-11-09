@@ -32,11 +32,7 @@ export type { TextAreaProps, TextAreaSurface } from './components/TextArea'
 export { ConfirmedScreenLayout } from './components/ConfirmedScreenLayout'
 export type { ConfirmedScreenLayoutProps } from './components/ConfirmedScreenLayout'
 
-export { NavItem } from './components/NavItem'
-export type { NavItemProps } from './components/NavItem'
 
-export { NavBar } from './components/NavBar'
-export type { NavBarProps, NavBarItem } from './components/NavBar'
 
 export { WalletButton } from './components/WalletButton'
 export type { WalletButtonProps } from './components/WalletButton'

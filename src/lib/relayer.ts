@@ -202,7 +202,7 @@ export function feeModelForKind(kind: TxKind, opts?: UserFeeOpts): FeeModel {
  *  - `totalDeducted`     — what's debited from the user's shielded balance. Shown as the
  *                          "Total deducted" line on the fee-on-top path; equals
  *                          `recipientReceives` on the other two.
- *  - `inputMax`          — the cap the AmountInput should accept so `totalDeducted ≤ max` always
+ *  - `inputMax`          — the cap the amount field should accept so `totalDeducted ≤ max` always
  *                          holds. Differs from `max` only on `fee-on-top` (must reserve fee).
  *
  * Single source of truth. ShieldModal + SendModal (the shared Send/Withdraw flow) call this; the

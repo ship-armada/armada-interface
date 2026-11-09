@@ -1,4 +1,4 @@
-// ABOUTME: ActionFlowShell footer — primary CTA on the right, optional secondary (Back/Cancel) on the left.
+// ABOUTME: Dialog / step footer — primary CTA on the right, optional secondary (Back/Cancel) on the left.
 // ABOUTME: Wraps @armada/ui Button; consumers describe actions via label/onClick/disabled, footer composes the layout.
 
 import { Button, type ButtonVariant } from '@/design'

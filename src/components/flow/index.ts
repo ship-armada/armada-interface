@@ -1,18 +1,5 @@
-// ABOUTME: Barrel export for flow primitives — ActionFlowShell, FlowStepIndicator, FlowHeader, FlowFooter, ProgressStep, ErrorStep.
+// ABOUTME: Barrel export for flow primitives — FlowFooter, ProgressStep, ErrorStep, and the overlay step helpers / types.
 // ABOUTME: Re-exports each component plus its prop types. Add a line here when a new flow primitive lands.
-
-export { ActionFlowShell } from './ActionFlowShell'
-export type {
-  ActionFlowShellProps,
-  FlowStep,
-  FlowVisibleStep,
-} from './ActionFlowShell'
-
-export { FlowStepIndicator } from './FlowStepIndicator'
-export type { FlowStepIndicatorProps } from './FlowStepIndicator'
-
-export { FlowHeader } from './FlowHeader'
-export type { FlowHeaderProps } from './FlowHeader'
 
 export { FlowFooter } from './FlowFooter'
 export type { FlowFooterProps, FlowAction } from './FlowFooter'
@@ -23,8 +10,8 @@ export type { ProgressStepProps } from './ProgressStep'
 export { ErrorStep } from './ErrorStep'
 export type { ErrorStepProps } from './ErrorStep'
 
+export type { FlowStep, FlowVisibleStep, FlowStepIndicatorStatus } from './overlayFlow'
 export {
-  OVERLAY_STEP_LABELS,
   overlayIndicatorStep,
   overlayIndicatorStatus,
   showsSubmittedTx,
