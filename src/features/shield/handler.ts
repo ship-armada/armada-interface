@@ -34,7 +34,7 @@ import { submitRelay } from '@/lib/relayer'
 import { handleRelaySubmitError } from '@/lib/tx/relaySubmit'
 import { poll, pollBudgetMs, pollRelayStatusOnce, RELAYER_STATUS_POLL_INTERVAL_MS } from '@/lib/tx/poller'
 import { ensureChain } from '@/lib/network-switch'
-import { advance, markFailed, markWaiting, patchMeta } from '@/lib/tx/reducer'
+import { advance, markFailed, markWaiting, patchArtifacts, patchMeta } from '@/lib/tx/reducer'
 import { recordBroadcastHash } from '@/lib/tx/broadcast'
 import { ensureExactAllowance } from './approve'
 import { track } from '@/lib/telemetry'
@@ -107,6 +107,31 @@ const PRIVACY_POOL_SHIELD_ABI = [
  * the user's wallet, not the relayer. Same stage name regardless of path keeps the lifecycle +
  * UI uniform.
  */
+/**
+ * Record the block the shield confirmed in, before the sync that scans it (recordedShieldFees), so the dashboard's
+ * projection of the shield's note (3B) hands over to the scanned balance in that sync. Unknown (undefined) skips it —
+ * the projection then ends when the record completes.
+ */
+async function recordHubBlock(
+  record: TxRecord<'shield'>,
+  hubBlock: number | undefined,
+  ctx: Parameters<typeof shieldHandler.run>[1],
+): Promise<TxRecord<'shield'>> {
+  if (hubBlock === undefined || !Number.isFinite(hubBlock)) return record
+  const patched = patchArtifacts(record, { hubBlock })
+  await ctx.upsert(patched)
+  return patched
+}
+
+/** A relayer-confirmed shield's block, from its receipt when the relayer's status didn't carry it. Best-effort. */
+async function confirmedBlock(hash: `0x${string}`, signal: AbortSignal, chainId: number): Promise<number | undefined> {
+  try {
+    return Number((await waitForReceiptOrFail({ hash, signal, chainId })).blockNumber)
+  } catch {
+    return undefined
+  }
+}
+
 export const shieldHandler: StageHandler<'shield'> = {
   kind: 'shield',
   resumableFrom: ['submit-relayer', 'hub-pending'],
@@ -457,7 +482,8 @@ async function runDirectSubmit(
   //    onBalanceUpdate callback — but we also kick a refresh explicitly so the UI doesn't have
   //    to wait for the SDK's poll interval. Timeout-and-signal-aware so a wedged RPC doesn't
   //    pin this handler for the full 10-min lifecycle cap.
-  await waitForReceiptOrFail({ hash: shieldHash, signal: ctx.signal, chainId: record.meta.fromChainId })
+  const receipt = await waitForReceiptOrFail({ hash: shieldHash, signal: ctx.signal, chainId: record.meta.fromChainId })
+  broadcastRecord = await recordHubBlock(broadcastRecord, Number(receipt.blockNumber), ctx)
 
   // Sync, then read the pool's actual protocol fee off the confirmed shield — the review figure can be an estimate
   // (#74) — folded into the write that completes the record, so the Complete screen shows it directly.
@@ -625,6 +651,7 @@ async function runGaslessSubmit(
   }
 
   track('tx.relayer.confirmed', { id: record.id, kind: record.kind })
+  broadcastRecord = await recordHubBlock(broadcastRecord, final.blockNumber ?? (await confirmedBlock(txHash, ctx.signal, record.meta.fromChainId)), ctx)
 
   // Sync, then read the pool's actual protocol + relayer fees off the confirmed shield (#74), folded into the write
   // that completes the record.

@@ -35,7 +35,7 @@ const BINDING = `0x${'cd'.repeat(32)}` as const
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: {} }]) // unsplittable → single group, no fee note
+  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: { changeValue: 0n, outputs: [] } }]) // unsplittable → single group, no fee note
   hoisted.prove.mockResolvedValue({ toTransactionData: () => ({ tx: 'data' }) })
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.transactionToTuple.mockReturnValue(['TUPLE'])
@@ -76,7 +76,7 @@ describe('buildXchainUnshieldSdk', () => {
         args: [['TUPLE'], 6, FINAL, 1_000n, NONCE],
       }),
     )
-    expect(r).toEqual({ to: POOL, data: '0xcalldata', totalFee: 0n })
+    expect(r).toEqual({ to: POOL, data: '0xcalldata', totalFee: 0n, returnsToSelf: 0n })
   })
 
   it('emits a zero fee (no broadcaster output) for direct submission', async () => {
@@ -115,7 +115,7 @@ describe('buildXchainUnshieldSdk — split guard', () => {
 
 describe('buildXchainUnshieldSdk — fee actually charged', () => {
   const FEE = { amount: 20_000n, recipientAddress: '0zk_relayer' }
-  const planCharging = (fee: bigint) => [{ plan: true, summary: { feeOutput: { value: fee } } }]
+  const planCharging = (fee: bigint) => [{ plan: true, summary: { changeValue: 0n, outputs: [], feeOutput: { value: fee } } }]
 
   it('returns the fee the plan charges (more than the quote when small change is folded into it)', async () => {
     hoisted.planTransfer.mockResolvedValue(planCharging(27_000n))

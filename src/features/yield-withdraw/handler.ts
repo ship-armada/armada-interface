@@ -156,7 +156,7 @@ async function runBuildProof(
     // Persist the reviewed net APY (Tier 4) so the recovered receipt can show the APY row.
     yieldApyBps: record.meta.apyBps,
   })
-  const { to, data, feeShieldRandom } = await buildYieldAdaptSdk({
+  const { to, data, feeShieldRandom, returnsToSelf } = await buildYieldAdaptSdk({
     mode: 'redeem',
     amount: record.meta.shares,
     // Redeem flips the token roles: unshield SHARES (ayUSDC, the vault token) and receive USDC
@@ -175,6 +175,7 @@ async function runBuildProof(
 
   await ctx.upsert(advance(progress.latest(), 'submit-relayer', {
     yieldTx: { to, data, value: '0' },
+    returnsToSelf,
     // Persisted so submit-relayer can hand the relayer the fee note's random to verify the fee is
     // shielded to it (#312). Undefined on the fee-less path (no broadcaster fee).
     feeShieldRandom,

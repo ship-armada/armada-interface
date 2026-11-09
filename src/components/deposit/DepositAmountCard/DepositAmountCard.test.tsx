@@ -54,6 +54,11 @@ describe('DepositAmountCard — pendingBalance', () => {
     expect(screen.getByText('12.00')).toBeInTheDocument()
     expect(screen.queryByText(/pending/)).not.toBeInTheDocument()
   })
+
+  it('adds "· X arriving" for value on its way back (a send\'s change, a shield) — not part of the balance or Max yet (3B)', () => {
+    renderCard({ pendingBalance: '4.00', arrivingBalance: '16.00' })
+    expect(screen.getByText(/12\.00 · 4\.00 pending · 16\.00 arriving/)).toBeInTheDocument()
+  })
 })
 
 describe('DepositAmountCard — amount typing', () => {

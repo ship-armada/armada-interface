@@ -330,6 +330,12 @@
   padding-left: var(--primitives-spacing-1);
 }
 
+/* "· Confirming…" after the label while the balance includes an unconfirmed figure (3B). Always mounted (empty when not),
+   so screen readers announce it as it appears. */
+.confirming {
+  color: var(--semantic-color-text-muted);
+}
+
 .armadaAddress {
   box-sizing: border-box;
   display: inline-flex;

@@ -42,7 +42,9 @@ export function useIncomingTransferDetector(): void {
 
     void (async () => {
       try {
-        unsubscribe = await subscribeBalanceUpdates(() => {
+        unsubscribe = await subscribeBalanceUpdates((event) => {
+          // A spend hold changing isn't a chain event — nothing new to recover from history.
+          if (event.reason === 'hold') return
           // Every event on the bus is already scoped to the unlocked wallet (the SDK read instance
           // is that wallet), so no per-wallet filtering is needed.
           // Trailing-debounce the trigger bump: each event resets the timer, so a burst of SDK

@@ -96,6 +96,7 @@ async function runBuildProof(
   if (ctx.signal.aborted) throw new Error('cancelled')
   const advanced = advance(progress.latest(), 'submit-relayer', {
     consolidateTx: { to: built.to, data: built.data, value: '0' },
+    returnsToSelf: built.returnsToSelf,
   })
   // Record what the merge actually does (fee ≤ the reviewed fee; the notes may have moved since review).
   await ctx.upsert({

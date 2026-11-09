@@ -1,5 +1,5 @@
-// ABOUTME: A spend's fee as its plans charge it (the sum of their broadcaster fee notes), and the reviewed-fee cap
-// ABOUTME: every spend builder applies before proving — SpendFeeIncreasedError when the plan charges more.
+// ABOUTME: A spend's fee as its plans charge it (the sum of their broadcaster fee notes), the reviewed-fee cap every spend
+// ABOUTME: builder applies before proving (SpendFeeIncreasedError), and what the plans return to the wallet (returnsToSelfOf).
 
 import type { Plan } from '@armada/sdk'
 import { SpendFeeIncreasedError } from './spend-fee-error'
@@ -11,6 +11,21 @@ import { SpendFeeIncreasedError } from './spend-fee-error'
  */
 export function totalFeeOf(plans: readonly Pick<Plan, 'summary'>[]): bigint {
   return plans.reduce((sum, p) => sum + (p.summary.feeOutput?.value ?? 0n), 0n)
+}
+
+/**
+ * What a spend's groups return to the wallet: each plan's change plus any output to the wallet's own 0zk (a send to
+ * yourself, a merge), in the spent token. Exact at build — the dashboard shows it as part of the balance while the SDK
+ * holds the spend's inputs (3B), so the balance after a send shows at broadcast rather than once it's scanned.
+ */
+export function returnsToSelfOf(plans: readonly Pick<Plan, 'summary'>[], ownShieldedAddress: string): bigint {
+  return plans.reduce(
+    (sum, p) =>
+      sum +
+      p.summary.changeValue +
+      p.summary.outputs.filter((o) => o.toShieldedAddress === ownShieldedAddress).reduce((s, o) => s + o.value, 0n),
+    0n,
+  )
 }
 
 /**

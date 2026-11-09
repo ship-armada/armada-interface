@@ -11,7 +11,7 @@ import {
 import { historyRecoveryTriggerAtom } from '@/state/history'
 
 const hoisted = vi.hoisted(() => {
-  let captured: ((event: { chain: { type: 0; id: number }; shieldedWalletID: string }) => void) | null = null
+  let captured: ((event: { chain?: { type: 0; id: number }; shieldedWalletID?: string; reason?: string }) => void) | null = null
   const subscribe = vi.fn(async (listener: typeof captured) => {
     captured = listener
     return () => {
@@ -20,7 +20,7 @@ const hoisted = vi.hoisted(() => {
   })
   return {
     subscribe,
-    fire(event: { chain: { type: 0; id: number }; shieldedWalletID: string }) {
+    fire(event: { chain?: { type: 0; id: number }; shieldedWalletID?: string; reason?: string }) {
       if (captured) captured(event)
     },
     isSubscribed: () => captured !== null,
@@ -112,6 +112,29 @@ describe('useIncomingTransferDetector', () => {
         vi.advanceTimersByTime(2_000)
       })
       expect(store.get(historyRecoveryTriggerAtom).id).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('ignores a spend hold changing — not a chain event, nothing to recover', async () => {
+    vi.useFakeTimers()
+    try {
+      const store = makeStore({ unlocked: true })
+      render(
+        <Provider store={store}>
+          <Harness />
+        </Provider>,
+      )
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      act(() => {
+        hoisted.fire({ reason: 'hold' })
+        vi.advanceTimersByTime(2_000)
+      })
+      expect(store.get(historyRecoveryTriggerAtom).id).toBe(0)
     } finally {
       vi.useRealTimers()
     }

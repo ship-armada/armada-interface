@@ -91,6 +91,13 @@ describe('transferShieldedHandler — build-proof fee', () => {
     expect(built.meta.broadcasterFeeAmount).toBe(20_000n)
   })
 
+  it('records what the spend returns to the wallet, for the balance shown at broadcast (3B)', async () => {
+    hoisted.buildTransferSdk.mockResolvedValue({ to: '0xpool', data: '0xdead', totalFee: 40_000n, returnsToSelf: 16_000_000n })
+    const { ctx, upserts } = makeCtx()
+    await transferShieldedHandler.run(buildRecord(), ctx)
+    expect(upserts.at(-1)!.artifacts.returnsToSelf).toBe(16_000_000n)
+  })
+
   it('plans a record without a per-proof fee at its stored fee (single-proof records)', async () => {
     const { ctx } = makeCtx()
     await transferShieldedHandler.run(buildRecord({ broadcasterFeeAmount: 20_000n, broadcasterFeePerProof: undefined }), ctx)

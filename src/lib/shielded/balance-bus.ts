@@ -4,17 +4,19 @@
 /**
  * Shape passed to listeners — purely a "something changed, refresh your view" ping. `reason` names the
  * @armada/sdk event that triggered it (`scan` = scan:complete, `balance` = balance:updated, `note` =
- * note:received). Consumers re-query balances/history via the SDK read path; the payload carries no
- * amounts or addresses (those live on the typed SDK events, but the app treats this as a trigger).
+ * note:received), or `hold` — a spend hold was placed or released (pending-spend.ts), which changes the
+ * balances and the held spends without a chain event. Consumers re-query balances/history via the SDK read
+ * path; the payload carries no amounts or addresses (those live on the typed SDK events, but the app treats
+ * this as a trigger).
  */
 export interface BalanceUpdateEvent {
-  readonly reason: 'scan' | 'balance' | 'note'
+  readonly reason: 'scan' | 'balance' | 'note' | 'hold'
 }
 
 type Listener = (event: BalanceUpdateEvent) => void
 const listeners = new Set<Listener>()
 
-/** Fan a wallet event out to every listener. Called by sdk-read's `wallet.on(...)` forwarders. */
+/** Fan a wallet event out to every listener. Called by sdk-read's `wallet.on(...)` forwarders and pending-spend. */
 export function emitBalanceChange(event: BalanceUpdateEvent): void {
   for (const listener of listeners) {
     try {

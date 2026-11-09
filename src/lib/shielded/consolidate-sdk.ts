@@ -6,7 +6,7 @@ import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { spendFeeFor, type BroadcasterFee } from './transfer-sdk'
-import { assertReviewedFee, totalFeeOf } from './spend-fee'
+import { assertReviewedFee, returnsToSelfOf, totalFeeOf } from './spend-fee'
 import { warmPlannedCircuits } from './artifacts'
 
 // The SDK consolidate request for one token, at the per-proof fee (none for direct submission).
@@ -50,7 +50,7 @@ export interface ConsolidationSummary {
  */
 export async function buildConsolidateSdk(
   inputs: SdkConsolidateInputs,
-): Promise<{ to: `0x${string}`; data: `0x${string}` } & Omit<ConsolidationSummary, 'proofs'>> {
+): Promise<{ to: `0x${string}`; data: `0x${string}`; returnsToSelf: bigint } & Omit<ConsolidationSummary, 'proofs'>> {
   const wallet = await getSdkWallet()
   const plans = await wallet.consolidate(consolidateRequest(inputs.tokenAddress, inputs.broadcasterFee))
   const { totalFee, notesMerged, notesCreated } = summarize(plans, inputs.tokenAddress)
@@ -64,7 +64,7 @@ export async function buildConsolidateSdk(
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
   })
   const { to, data } = buildTransactCalldata(handles.map((h) => h.toTransactionData()), inputs.poolAddress)
-  return { to, data, totalFee, notesMerged, notesCreated }
+  return { to, data, totalFee, notesMerged, notesCreated, returnsToSelf: returnsToSelfOf(plans, wallet.shieldedAddress) }
 }
 
 /**

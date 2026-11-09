@@ -18,7 +18,7 @@ vi.mock('@/config/wagmi', () => ({ wagmiConfig: {} }))
 const ensureChainMock = vi.hoisted(() => vi.fn(() => { throw new Error('ensureChain must not be called on idempotent re-entry') }))
 vi.mock('@/lib/network-switch', () => ({ ensureChain: ensureChainMock }))
 
-const waitForReceiptMock = vi.hoisted(() => vi.fn(async () => ({ status: 'success' })))
+const waitForReceiptMock = vi.hoisted(() => vi.fn(async () => ({ status: 'success', blockNumber: 1234n })))
 vi.mock('@/lib/tx/receipt', async (importActual) => {
   const actual = await importActual<typeof import('@/lib/tx/receipt')>()
   return { ...actual, waitForReceiptOrFail: waitForReceiptMock }
@@ -94,6 +94,15 @@ describe('shieldHandler submit idempotency (P0-1 direct path)', () => {
     expect(last?.stage).toBe('hub-confirmed')
     expect(last?.executionState).toBe('completed')
     expect(last?.artifacts.sourceTxHash).toBe('0xfeed')
+  })
+
+  it('records the block the shield confirmed in before completing — the projected balance hands over there (3B)', async () => {
+    const { ctx, upserts } = makeCtx()
+    await shieldHandler.run(shieldRecordWithHash(), ctx)
+    const withBlock = upserts.findIndex((r) => (r.artifacts as { hubBlock?: number }).hubBlock === 1234)
+    const completed = upserts.findIndex((r) => r.executionState === 'completed')
+    expect(withBlock).toBeGreaterThanOrEqual(0)
+    expect(withBlock).toBeLessThan(completed)
   })
 
   it('resumes from hub-pending (already broadcast) without re-broadcasting and finalizes', async () => {

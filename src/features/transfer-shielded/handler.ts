@@ -102,7 +102,7 @@ async function runBuildProof(
   // lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
   // `maxTotalFee` is the fee the user reviewed: the build refuses to charge more (the wallet may have
   // fragmented into more proofs since review).
-  const { to, data, totalFee } = await buildTransferSdk({
+  const { to, data, totalFee, returnsToSelf } = await buildTransferSdk({
     recipient: record.meta.recipient,
     amount: record.meta.amount,
     broadcasterFee: bf,
@@ -113,7 +113,7 @@ async function runBuildProof(
     ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
-  const built = advance(progress.latest(), 'submit-relayer', { transferTx: { to, data, value: '0' } })
+  const built = advance(progress.latest(), 'submit-relayer', { transferTx: { to, data, value: '0' }, returnsToSelf })
   // Record the fee actually charged (≤ the reviewed fee) so the receipt shows what was paid.
   await ctx.upsert(
     totalFee === record.meta.broadcasterFeeAmount

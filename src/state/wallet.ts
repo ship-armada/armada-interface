@@ -57,16 +57,15 @@ export const shieldedUsdcSpendableAtom = atom<bigint | null>(null)
 export const yieldSharesAtom = atom<bigint | null>(null)
 
 /**
- * The dashboard headline's shielded USDC: `shieldedUsdcAtom` plus the inputs of any broadcast-but-
- * unconfirmed spend (the SDK's `pendingSpent` hold). Those inputs are neither spendable nor pending,
- * and the spend's change note isn't visible until its block is scanned, so leaving them out made the
- * headline dip (100 → 0 → 89.9) for about a block after a send. Display-only — MAX, guards and the
- * "pending" suffix keep reading `shieldedUsdcAtom` / `shieldedUsdcSpendableAtom`. null until sync.
+ * The spends whose inputs the SDK still holds (their broadcast txids, `wallet.pendingSpendTxids()`), read with the
+ * balances so the two always agree. Drives the dashboard's projected balance (`state/balanceProjection`). Empty while
+ * locked or before the first read.
  */
-export const shieldedUsdcHeadlineAtom = atom<bigint | null>(null)
+export const heldSpendTxidsAtom = atom<readonly string[]>([])
 
-/** The dashboard vault position's shares: `yieldSharesAtom` plus held (in-flight) share inputs — same reason as `shieldedUsdcHeadlineAtom`. null until sync. */
-export const yieldSharesHeadlineAtom = atom<bigint | null>(null)
+/** The block the SDK's scan has reached (`syncStatus().syncedThrough`), read with the balances — a same-chain shield's note is
+ *  projected until the scan reaches its block. null while locked or before the first read. */
+export const scannedThroughAtom = atom<number | null>(null)
 
 /**
  * Absolute timestamp (ms since epoch) at which the shielded wallet will auto-lock if no further

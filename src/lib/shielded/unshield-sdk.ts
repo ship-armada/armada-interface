@@ -6,7 +6,7 @@ import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { spendFeeFor } from './transfer-sdk'
-import { assertReviewedFee, totalFeeOf } from './spend-fee'
+import { assertReviewedFee, returnsToSelfOf, totalFeeOf } from './spend-fee'
 
 export interface SdkUnshieldInputs {
   /** EVM recipient of the unshielded USDC — funds leave the pool to this address. */
@@ -42,7 +42,7 @@ export interface SdkUnshieldInputs {
  */
 export async function buildUnshieldSdk(
   inputs: SdkUnshieldInputs,
-): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint }> {
+): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint; returnsToSelf: bigint }> {
   const wallet = await getSdkWallet()
   const fee = spendFeeFor(inputs.broadcasterFee)
 
@@ -68,7 +68,7 @@ export async function buildUnshieldSdk(
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
   })
   const { to, data } = buildTransactCalldata([handle.toTransactionData()], inputs.poolAddress)
-  return { to, data, totalFee }
+  return { to, data, totalFee, returnsToSelf: returnsToSelfOf(plans, wallet.shieldedAddress) }
 }
 
 /**

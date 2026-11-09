@@ -4,6 +4,7 @@
 import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
+import { balanceProjectionAtom } from '@/state/balanceProjection'
 import { openModalAtom, repeatIntentAtom, type ModalKind } from '@/state/ui'
 import { RelayerStatusBanner } from '@/components/RelayerStatusBanner'
 import { shieldedUsdcAtom, shieldedUsdcSpendableAtom, yieldSharesAtom } from '@/state/wallet'
@@ -93,6 +94,11 @@ export function EarnModal() {
   const max = tab === 'add' ? spendableUsdc : earningUsdc ?? 0n
   // Pending only applies to the USDC deposit leg; the withdraw tab's max is share-derived (`inputMax`, below).
   const pendingUsdc = tab === 'add' ? (shieldedUsdc ?? 0n) - spendableUsdc : 0n
+  // On its way back (3B): USDC (an in-flight spend's change, an unscanned shield) on the Add tab; on the Withdraw tab, a
+  // vault withdrawal's change in shares, at the current rate.
+  const projection = useAtomValue(balanceProjectionAtom)
+  const arrivingUsdc =
+    tab === 'add' ? projection.usdc : yieldRate !== null ? sharesToUsdc(projection.shares, yieldRate.rate) : 0n
 
   const { value: amount } = parseUsdcInput(amountStr)
   // Set when a submit-time fee refetch changed the fee — keeps the flow on Review with the banner.
@@ -438,6 +444,7 @@ export function EarnModal() {
             max={max}
             maxInput={inputMax}
             pending={pendingUsdc}
+            arriving={arrivingUsdc}
             displayFees={displayFees}
             flowBreakdown={flowBreakdown}
             feeLoading={feeLoading || quotePending || (isDeposit && spendCheck.pending)}

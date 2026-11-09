@@ -32,6 +32,8 @@ interface ShieldAmountStepContentProps {
   balance: string
   /** Not-yet-spendable ("pending") shielded USDC (unshield only). */
   pendingBalance?: string
+  /** Shielded USDC on its way back — an in-flight spend's change or an unscanned shield (unshield only, 3B). */
+  arrivingBalance?: string
   /** Raw 6-decimal cap the amount input accepts (drives the % pills). */
   maxInput: bigint
   /** Minimum valid amount (shield's relayer-fee floor); 0n for unshield. Drives the inline error. */
@@ -68,6 +70,7 @@ export function ShieldAmountStepContent({
   onAmountChange,
   balance,
   pendingBalance,
+  arrivingBalance,
   maxInput,
   minAmount,
   displayFees,
@@ -121,6 +124,7 @@ export function ShieldAmountStepContent({
         onAmountChange={onAmountChange}
         balance={balance}
         pendingBalance={pendingBalance}
+        arrivingBalance={arrivingBalance}
         displayFees={displayFees}
         flowBreakdown={flowBreakdown}
         feeLoading={feeLoading}

@@ -53,6 +53,15 @@ function startReRoll(before: BalanceCardProps, after: BalanceCardProps) {
   return container
 }
 
+describe('BalanceCard — confirming (3B)', () => {
+  it('says "Confirming…" beside the label while the balance includes an unconfirmed figure, and not otherwise', () => {
+    const { getByRole, rerender } = render(<BalanceCard balance={25} confirming />)
+    expect(getByRole('status')).toHaveTextContent('Confirming…')
+    rerender(<BalanceCard balance={25} />)
+    expect(getByRole('status')).toBeEmptyDOMElement()
+  })
+})
+
 describe('BalanceCard — re-roll lifetime', () => {
   it('keeps the balance odometer until a roll to a shorter value has settled (12.345678 → 12.5)', () => {
     // "12.345678" → "12.5" rolls as 8 columns: it settles ~1.57s in. Counting only the 3 digits of
