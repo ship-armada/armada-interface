@@ -147,8 +147,22 @@ function sdkErrorToTxError(err: ArmadaError): TxError {
         message:
           'Your fee quote expired before the transaction was built. Start a new transaction to get a fresh quote.',
       }
+    case 'ARTIFACT_FETCH':
+      return {
+        code: 'PRE_FLIGHT_REVERT',
+        message: "The proving files didn't download, so nothing was sent. Check your connection and try again.",
+      }
+    case 'RPC':
+      // The SDK's own chain calls (sync, preflight) run while the spend is still being built, so the outcome rules
+      // read this as failed before sending unless the record already has a hash (outcome.ts::failedBeforeSending).
+      return { code: 'RPC_ERROR', message: "Couldn't reach the network. Check your connection and try again." }
     case 'STORAGE_CONFLICT':
       return { code: 'RPC_ERROR', message: 'A local storage conflict interrupted the operation. Please try again.' }
+    case 'STORAGE_UNAVAILABLE':
+      return {
+        code: 'OTHER',
+        message: "This browser can't run Armada's wallet storage (it doesn't support Web Locks). Try an up-to-date browser.",
+      }
     case 'QUICK_SYNC_SCHEMA':
       return {
         code: 'RPC_ERROR',
@@ -161,8 +175,8 @@ function sdkErrorToTxError(err: ArmadaError): TxError {
       // Locking (or switching accounts) closes the SDK instance; an in-flight plan/prove/sync rejects with this.
       return { code: 'CANCELLED', message: 'Your wallet was locked, so the operation stopped.' }
     default:
-      // INVALID_KEY_MATERIAL / NON_DETERMINISTIC_SIGNER / CLAIM_SEED_COUNTER / SIGNER_CONTRACT_VIOLATION
-      // and any future ArmadaError — surface the SDK message honestly rather than swallow it.
+      // INVALID_KEY_MATERIAL / SIGNER_CONTRACT_VIOLATION / INTERNAL (a broken SDK invariant — OTHER reaches Sentry
+      // via failureReport) and any future ArmadaError — surface the SDK message honestly rather than swallow it.
       return { code: 'OTHER', message: mapRevertToMessage(err.message) }
   }
 }

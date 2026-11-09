@@ -17,6 +17,10 @@ import {
   ProofVerificationError,
   ProverWorkerError,
   InstanceClosedError,
+  RpcError,
+  ArtifactFetchError,
+  StorageUnavailableError,
+  InternalError,
 } from '@armada/sdk'
 import { classifyHandlerError } from './errors'
 import { SpendFeeIncreasedError } from '@/lib/shielded/spend-fee-error'
@@ -221,6 +225,37 @@ describe('classifyHandlerError — @armada/sdk ArmadaError branch', () => {
     expect(r.code).toBe('CANCELLED')
     expect(r.sdkCode).toBe('INSTANCE_CLOSED')
     expect(r.message).toMatch(/locked/i)
+  })
+
+  it('maps an RpcError (the SDK could not complete a chain call) to RPC_ERROR, so the outcome rules apply', () => {
+    // WHY: the SDK's own chain calls (sync, preflight) run while a spend is still being built, so the record's
+    // outcome reads "failed before sending — try again" (outcome.ts::failedBeforeSending), not a generic failure.
+    const r = classifyHandlerError(new RpcError('eth_call', new Error('ECONNREFUSED')), 'fallback')
+    expect(r.code).toBe('RPC_ERROR')
+    expect(r.sdkCode).toBe('RPC')
+    expect(r.message).toMatch(/network/i)
+    expect(r.message).not.toMatch(/ECONNREFUSED/)
+  })
+
+  it('maps an ArtifactFetchError to a retryable PRE_FLIGHT_REVERT: the proving files did not download', () => {
+    const r = classifyHandlerError(new ArtifactFetchError('artifact 2x2 zkey: HTTP 503', { status: 503 }), 'fallback')
+    expect(r.code).toBe('PRE_FLIGHT_REVERT')
+    expect(r.message).toMatch(/download/i)
+    expect(r.message).toMatch(/try again/i)
+  })
+
+  it('maps StorageUnavailableError to OTHER with copy about the browser, not "another tab"', () => {
+    // WHY: before the SDK split it out, a browser without the Web Locks API reported STORAGE_CONFLICT, which read as
+    // a retryable conflict. Retrying can't help; the browser can't run the wallet's storage.
+    const r = classifyHandlerError(new StorageUnavailableError('no Web Locks API'), 'fallback')
+    expect(r.code).toBe('OTHER')
+    expect(r.message).toMatch(/browser/i)
+  })
+
+  it('an InternalError (a broken SDK invariant) is OTHER, which failure reporting sends to Sentry', () => {
+    const r = classifyHandlerError(new InternalError('tree length went backwards'), 'fallback')
+    expect(r.code).toBe('OTHER')
+    expect(r.sdkCode).toBe('INTERNAL')
   })
 
   it('falls through to OTHER for an unmapped SDK code, surfacing the (truncated) SDK message', () => {
