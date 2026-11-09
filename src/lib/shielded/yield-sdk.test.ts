@@ -51,7 +51,7 @@ function shieldReqReturning(npk: string, random: string) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: {} }]) // unsplittable → single group, no fee note
+  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: { changeValue: 0n, outputs: [] } }]) // unsplittable → single group, no fee note
   hoisted.prove.mockResolvedValue({ toTransactionData: () => ({ tx: 'data' }) })
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.transactionToTuple.mockReturnValue(['TUPLE'])
@@ -84,7 +84,7 @@ describe('buildYieldAdaptSdk', () => {
     })
     // lendAndShield(transaction tuple, npk, shieldCiphertext).
     expect(hoisted.encodeFunctionData).toHaveBeenCalledWith('lendAndShield', [['TUPLE'], NPK, { encryptedBundle: BUNDLE, shieldKey: SHIELD_KEY }])
-    expect(r).toEqual({ to: ADAPTER, data: '0xcalldata', totalFee: 0n })
+    expect(r).toEqual({ to: ADAPTER, data: '0xcalldata', totalFee: 0n, returnsToSelf: 0n })
     expect(r.feeShieldRandom).toBeUndefined() // deposit has no contract-side fee note
   })
 
@@ -150,7 +150,7 @@ describe('buildYieldAdaptSdk — split guard', () => {
 
 describe('buildYieldAdaptSdk (deposit) — fee actually charged', () => {
   const FEE = { amount: 20_000n, recipientAddress: '0zk_relayer' }
-  const planCharging = (fee: bigint) => [{ plan: true, summary: { feeOutput: { value: fee } } }]
+  const planCharging = (fee: bigint) => [{ plan: true, summary: { changeValue: 0n, outputs: [], feeOutput: { value: fee } } }]
   beforeEach(() => { hoisted.buildShieldRequest.mockResolvedValue(shieldReqReturning(NPK, 'r-user')) })
 
   it('returns the fee the plan charges (more than the quote when small change is folded into it)', async () => {

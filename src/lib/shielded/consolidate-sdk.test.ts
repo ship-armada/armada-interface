@@ -39,7 +39,7 @@ const FEE = { amount: 20_000n, recipientAddress: '0zk_relayer' }
 // A consolidation group spending `inputs` notes of `token`, returning `change`, paying `fee`.
 const group = (token: string, inputs: number, change: bigint, fee = 0n) => ({
   selectedInputs: Array.from({ length: inputs }, () => ({})),
-  summary: { tokenAddress: token, changeValue: change, ...(fee > 0n ? { feeOutput: { value: fee } } : {}) },
+  summary: { tokenAddress: token, changeValue: change, outputs: [], ...(fee > 0n ? { feeOutput: { value: fee } } : {}) },
 })
 
 beforeEach(() => {
@@ -67,7 +67,8 @@ describe('buildConsolidateSdk', () => {
     expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-c', plans)
     expect(hoisted.proveAll).toHaveBeenCalledWith(plans, { selfMetadata: '{"v":1}' })
     expect(hoisted.buildTransactCalldata).toHaveBeenCalledWith([{ tx: 't0' }, { tx: 't1' }], POOL)
-    expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 40_000n, notesMerged: 11, notesCreated: 2 })
+    // The merged notes come back to the wallet as each group's change: 100 + 80.
+    expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 40_000n, notesMerged: 11, notesCreated: 2, returnsToSelf: 180n })
   })
 
   it('counts only the consolidated token\'s notes (not a USDC fee group\'s)', async () => {
@@ -136,7 +137,7 @@ describe('checkSpendPlans', () => {
 
   it('dry-runs the spend against the current notes (no merge, no proving) and returns the fee it plans', async () => {
     // One fee note of 27: a per-proof fee plus small change the SDK folded into it.
-    hoisted.planTransferAfter.mockResolvedValue([{ summary: { feeOutput: { value: 27n } } }])
+    hoisted.planTransferAfter.mockResolvedValue([{ summary: { changeValue: 0n, outputs: [], feeOutput: { value: 27n } } }])
     await expect(checkSpendPlans(SPEND)).resolves.toEqual({ totalFee: 27n })
     expect(hoisted.planTransferAfter).toHaveBeenCalledWith([], SPEND)
     expect(hoisted.consolidate).not.toHaveBeenCalled()
@@ -144,7 +145,7 @@ describe('checkSpendPlans', () => {
   })
 
   it('starts loading the circuits the spend will prove', async () => {
-    const plans = [{ summary: {}, shape: { nullifiers: 5, commitments: 2 } }]
+    const plans = [{ summary: { changeValue: 0n, outputs: [] }, shape: { nullifiers: 5, commitments: 2 } }]
     hoisted.planTransferAfter.mockResolvedValue(plans)
     await checkSpendPlans(SPEND)
     expect(hoisted.warmPlannedCircuits).toHaveBeenCalledWith(plans)

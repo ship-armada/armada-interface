@@ -13,7 +13,7 @@ import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { spendFeeFor } from './transfer-sdk'
-import { assertReviewedFee, totalFeeOf } from './spend-fee'
+import { assertReviewedFee, returnsToSelfOf, totalFeeOf } from './spend-fee'
 
 const ZERO_BYTES32 = `0x${'00'.repeat(32)}` as const
 
@@ -104,7 +104,7 @@ export interface SdkYieldInputs {
  */
 export async function buildYieldAdaptSdk(
   inputs: SdkYieldInputs,
-): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint; feeShieldRandom?: string }> {
+): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint; returnsToSelf: bigint; feeShieldRandom?: string }> {
   const isRedeem = inputs.mode === 'redeem'
   const wallet = await getSdkWallet()
 
@@ -172,5 +172,11 @@ export async function buildYieldAdaptSdk(
       : iface.encodeFunctionData('lendAndShield', [tuple, user.npk, { encryptedBundle: user.encryptedBundle, shieldKey: user.shieldKey }])
   ) as `0x${string}`
 
-  return { to: inputs.adapterAddress, data, totalFee, ...(feeShieldRandom !== undefined ? { feeShieldRandom } : {}) }
+  return {
+    to: inputs.adapterAddress,
+    data,
+    totalFee,
+    returnsToSelf: returnsToSelfOf(plans, inputs.shieldedAddress),
+    ...(feeShieldRandom !== undefined ? { feeShieldRandom } : {}),
+  }
 }

@@ -6,7 +6,7 @@ import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { SpendFeeIncreasedError } from './spend-fee-error'
-import { assertReviewedFee, totalFeeOf } from './spend-fee'
+import { assertReviewedFee, returnsToSelfOf, totalFeeOf } from './spend-fee'
 import { warmPlannedCircuits } from './artifacts'
 
 export { SpendFeeIncreasedError }
@@ -46,7 +46,7 @@ export interface SdkTransferInputs {
  */
 export async function buildTransferSdk(
   inputs: SdkTransferInputs,
-): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint }> {
+): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint; returnsToSelf: bigint }> {
   const wallet = await getSdkWallet()
   // A fragmented wallet plans as MORE THAN ONE group (the SDK splits a transfer no single supported
   // circuit shape can cover); the recipient receives multiple notes and every group is submitted in one
@@ -70,7 +70,7 @@ export async function buildTransferSdk(
     ...(inputs.selfMetadata ? { selfMetadata: inputs.selfMetadata } : {}),
   })
   const { to, data } = buildTransactCalldata(handles.map((h) => h.toTransactionData()), inputs.poolAddress)
-  return { to, data, totalFee }
+  return { to, data, totalFee, returnsToSelf: returnsToSelfOf(plans, wallet.shieldedAddress) }
 }
 
 /**

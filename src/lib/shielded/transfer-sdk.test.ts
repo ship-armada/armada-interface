@@ -32,7 +32,7 @@ const POOL = '0xpool000000000000000000000000000000000000' as const
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: {} }]) // one group (the common, unfragmented case)
+  hoisted.planTransfer.mockResolvedValue([{ plan: true, summary: { changeValue: 16n, outputs: [] } }]) // one group (the common, unfragmented case)
   hoisted.proveAll.mockResolvedValue([{ toTransactionData: () => ({ tx: 'data' }) }])
   hoisted.preflight.mockResolvedValue({ ok: true, findings: [] })
   hoisted.buildTransactCalldata.mockReturnValue({ to: POOL, data: '0xdeadbeef', value: 0n })
@@ -51,7 +51,8 @@ describe('buildTransferSdk', () => {
       fee: { perProof: 20000n, broadcasterShieldedAddress: '0zk_relayer' },
     })
     expect(hoisted.buildTransactCalldata).toHaveBeenCalledWith([{ tx: 'data' }], POOL)
-    expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 0n })
+    // The change coming back to the sender (16) — what the dashboard shows as part of the balance until it's scanned.
+    expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 0n, returnsToSelf: 16n })
   })
 
   it('emits a zero fee (no broadcaster output) for direct submission', async () => {
@@ -66,8 +67,8 @@ describe('buildTransferSdk', () => {
       recipient: '0zk_bob', amount: 1n, broadcasterFee: null, poolAddress: POOL,
       recordId: 'rec-9', selfMetadata: '{"v":1,"c":"q"}',
     })
-    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-9', [{ plan: true, summary: {} }])
-    expect(hoisted.proveAll).toHaveBeenCalledWith([{ plan: true, summary: {} }], { selfMetadata: '{"v":1,"c":"q"}' })
+    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-9', [{ plan: true, summary: { changeValue: 16n, outputs: [] } }])
+    expect(hoisted.proveAll).toHaveBeenCalledWith([{ plan: true, summary: { changeValue: 16n, outputs: [] } }], { selfMetadata: '{"v":1,"c":"q"}' })
   })
 
   it('does not stash a plan when no recordId is supplied', async () => {
@@ -76,7 +77,7 @@ describe('buildTransferSdk', () => {
   })
 
   it('proves EVERY group of a split (fragmented) transfer via proveAll and combines them into one transact([...])', async () => {
-    hoisted.planTransfer.mockResolvedValue([{ plan: 'a', summary: {} }, { plan: 'b', summary: {} }])
+    hoisted.planTransfer.mockResolvedValue([{ plan: 'a', summary: { changeValue: 0n, outputs: [] } }, { plan: 'b', summary: { changeValue: 0n, outputs: [] } }])
     hoisted.proveAll.mockResolvedValue([
       { toTransactionData: () => ({ tx: 't0' }) },
       { toTransactionData: () => ({ tx: 't1' }) },
@@ -86,19 +87,19 @@ describe('buildTransferSdk', () => {
     })
     // ONE batched preflight over all groups, and ONE proveAll (one signing ceremony for the whole batch).
     expect(hoisted.preflight).toHaveBeenCalledTimes(1)
-    expect(hoisted.preflight).toHaveBeenCalledWith([{ plan: 'a', summary: {} }, { plan: 'b', summary: {} }])
+    expect(hoisted.preflight).toHaveBeenCalledWith([{ plan: 'a', summary: { changeValue: 0n, outputs: [] } }, { plan: 'b', summary: { changeValue: 0n, outputs: [] } }])
     expect(hoisted.proveAll).toHaveBeenCalledTimes(1)
-    expect(hoisted.proveAll).toHaveBeenCalledWith([{ plan: 'a', summary: {} }, { plan: 'b', summary: {} }], {})
+    expect(hoisted.proveAll).toHaveBeenCalledWith([{ plan: 'a', summary: { changeValue: 0n, outputs: [] } }, { plan: 'b', summary: { changeValue: 0n, outputs: [] } }], {})
     // All groups' inputs stashed under the one record (one atomic tx).
-    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-multi', [{ plan: 'a', summary: {} }, { plan: 'b', summary: {} }])
+    expect(hoisted.stashSpendPlan).toHaveBeenCalledWith('rec-multi', [{ plan: 'a', summary: { changeValue: 0n, outputs: [] } }, { plan: 'b', summary: { changeValue: 0n, outputs: [] } }])
     // Both proved transactions combined into a single transact([...]) calldata, in group order.
     expect(hoisted.buildTransactCalldata).toHaveBeenCalledWith([{ tx: 't0' }, { tx: 't1' }], POOL)
-    expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 0n })
+    expect(r).toEqual({ to: POOL, data: '0xdeadbeef', totalFee: 0n, returnsToSelf: 0n })
   })
 })
 
 // A planner group carrying `fee` to the broadcaster (0n → no fee note).
-const group = (fee: bigint) => ({ summary: fee > 0n ? { feeOutput: { value: fee } } : {} })
+const group = (fee: bigint) => ({ summary: { changeValue: 0n, outputs: [], ...(fee > 0n ? { feeOutput: { value: fee } } : {}) } })
 const FEE = { amount: 20_000n, recipientAddress: '0zk_relayer' }
 
 describe('buildTransferSdk — actual fee', () => {

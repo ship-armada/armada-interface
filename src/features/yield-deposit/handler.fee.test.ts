@@ -86,6 +86,13 @@ describe('yieldDepositHandler — build-proof fee', () => {
     expect(built.meta.broadcasterFeeAmount).toBe(20_000n)
   })
 
+  it('records what the spend returns to the wallet, for the balance shown at broadcast (3B)', async () => {
+    hoisted.build.mockResolvedValue({ to: '0xto', data: '0xdead', totalFee: 27_000n, returnsToSelf: 16_000_000n })
+    const { ctx, upserts } = makeCtx()
+    await yieldDepositHandler.run(buildRecord(), ctx)
+    expect(upserts.at(-1)!.artifacts.returnsToSelf).toBe(16_000_000n)
+  })
+
   it('plans a record without a per-proof fee at its stored fee (records from before review-time planning)', async () => {
     const { ctx } = makeCtx()
     await yieldDepositHandler.run(buildRecord({ broadcasterFeeAmount: 20_000n, broadcasterFeePerProof: undefined }), ctx)

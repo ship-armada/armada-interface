@@ -489,6 +489,13 @@ export interface ArtifactsCommon {
    * write (no IDB) because progress is ephemeral — a reload restarts proof gen from scratch.
    */
   proofProgress?: number
+  /**
+   * A spend's value coming back to the wallet (3B): its plans' change plus any outputs to the wallet's own 0zk, in the
+   * spent token — USDC, or vault shares for a vault withdrawal or a shares merge. Recorded at build. The dashboard counts
+   * it in the balance while the SDK holds the spend's inputs (`pendingSpendTxids`), so the balance after a send shows at
+   * broadcast. Absent on shields, received payments and records built before it existed.
+   */
+  returnsToSelf?: bigint
 }
 
 export interface ArtifactsXchain extends ArtifactsCommon {

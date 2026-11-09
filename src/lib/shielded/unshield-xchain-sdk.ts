@@ -7,7 +7,7 @@ import { getSdkWallet } from './sdk-read'
 import { assertSpendPreflight } from './preflight'
 import { stashSpendPlan } from './pending-spend'
 import { spendFeeFor } from './transfer-sdk'
-import { assertReviewedFee, totalFeeOf } from './spend-fee'
+import { assertReviewedFee, returnsToSelfOf, totalFeeOf } from './spend-fee'
 
 /**
  * PrivacyPool.atomicCrossChainUnshield ABI — the proved Transaction struct wrapped with the CCTP
@@ -108,7 +108,7 @@ export interface SdkXchainUnshieldInputs {
  */
 export async function buildXchainUnshieldSdk(
   inputs: SdkXchainUnshieldInputs,
-): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint }> {
+): Promise<{ to: `0x${string}`; data: `0x${string}`; totalFee: bigint; returnsToSelf: bigint }> {
   const wallet = await getSdkWallet()
   const fee = spendFeeFor(inputs.broadcasterFee)
 
@@ -149,5 +149,5 @@ export async function buildXchainUnshieldSdk(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args: [transactionToTuple(handle.toTransactionData()) as any, inputs.destinationDomain, inputs.finalRecipient, inputs.maxFee, inputs.uniqueNonce],
   })
-  return { to: inputs.privacyPoolAddress, data, totalFee }
+  return { to: inputs.privacyPoolAddress, data, totalFee, returnsToSelf: returnsToSelfOf(plans, wallet.shieldedAddress) }
 }

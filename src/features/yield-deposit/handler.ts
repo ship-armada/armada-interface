@@ -112,7 +112,7 @@ async function runBuildProof(
   })
   // `maxTotalFee` is the fee the user reviewed: the build refuses to charge more (the wallet's notes may
   // have changed since review, so the change can no longer be folded into the fee).
-  const { to, data, totalFee } = await buildYieldAdaptSdk({
+  const { to, data, totalFee, returnsToSelf } = await buildYieldAdaptSdk({
     mode: 'lend',
     amount: record.meta.amount,
     unshieldToken: usdcAddress as `0x${string}`,
@@ -133,6 +133,7 @@ async function runBuildProof(
   // would pay that cost again.
   const built = advance(progress.latest(), 'submit-relayer', {
     yieldTx: { to, data, value: '0' },
+    returnsToSelf,
   })
   // Record the fee actually charged (≤ the reviewed fee) so the receipt shows what was paid.
   const charged = totalFee === record.meta.broadcasterFeeAmount

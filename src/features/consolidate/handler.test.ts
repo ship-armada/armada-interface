@@ -108,6 +108,13 @@ describe('consolidateHandler — build-proof', () => {
     expect(upserts.at(-1)!.meta).toMatchObject({ broadcasterFeeAmount: 20_000n, notesMerged: 6, notesCreated: 1 })
   })
 
+  it('records what the spend returns to the wallet, for the balance shown at broadcast (3B)', async () => {
+    hoisted.buildConsolidateSdk.mockResolvedValue({ to: '0xpool', data: '0xmerge', totalFee: 40_000n, notesMerged: 11, notesCreated: 2, returnsToSelf: 16_000_000n })
+    const { ctx, upserts } = makeCtx()
+    await consolidateHandler.run(mergeRecord(), ctx)
+    expect(upserts.at(-1)!.artifacts.returnsToSelf).toBe(16_000_000n)
+  })
+
   it('fails with FEE_EXPIRED (start over) when the fee rose since review', async () => {
     hoisted.buildConsolidateSdk.mockRejectedValue(new SpendFeeIncreasedError(40_000n, 60_000n))
     const { ctx, upserts } = makeCtx()

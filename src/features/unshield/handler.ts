@@ -111,7 +111,7 @@ async function runBuildProof(
   // lets the builder stash the plan so submit can mark its inputs pending after broadcast (#55).
   // `maxTotalFee` is the fee the user reviewed: the build refuses to charge more (the wallet's notes may
   // have changed since review, so the change can no longer be folded into the fee).
-  const { to, data, totalFee } = await buildUnshieldSdk({
+  const { to, data, totalFee, returnsToSelf } = await buildUnshieldSdk({
     recipient: record.meta.recipient as `0x${string}`,
     amount: record.meta.amount,
     broadcasterFee: bf,
@@ -122,7 +122,7 @@ async function runBuildProof(
     ...(selfMetadata ? { selfMetadata } : {}),
   })
   if (ctx.signal.aborted) throw new Error('cancelled')
-  const built = advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' } })
+  const built = advance(progress.latest(), 'submit-relayer', { unshieldTx: { to, data, value: '0' }, returnsToSelf })
   // Record the fee actually charged (≤ the reviewed fee) so the receipt shows what was paid.
   const charged = totalFee === record.meta.broadcasterFeeAmount
     ? built
