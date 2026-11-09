@@ -102,7 +102,7 @@ The abort-check-before-markFailed pattern is invariant across every handler. If 
 
 ## Polling adapters
 
-`poller.ts` exports a generic `poll(pollOnce, opts)`. Stage-specific adapters (one per polling type) call into `lib/cctp.ts`, `lib/relayer.ts`, or RPC directly via `lib/events`. Convention: the adapter function is named `poll<Source>Once(...)` (e.g. `pollRelayStatusOnce`) and returns `Promise<T | null>` — null means "no result yet, keep polling".
+`poller.ts` exports a generic `poll(pollOnce, opts)`. Stage-specific adapters (one per polling type) call into `lib/cctp.ts`, `lib/relayer.ts`, or RPC directly (bounded windows — see the root `eth_getLogs` rule). Convention: the adapter function is named `poll<Source>Once(...)` (e.g. `pollRelayStatusOnce`) and returns `Promise<T | null>` — null means "no result yet, keep polling".
 
 ## Resume policy
 
