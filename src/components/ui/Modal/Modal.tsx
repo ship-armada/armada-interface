@@ -38,7 +38,7 @@ export interface ModalProps {
   /**
    * Whether to render the default padded scroll-aware body wrapper around children. Default true.
    * Set false when the consumer composes its own header/body/footer layout that must touch the dialog edges
-   * (e.g. ActionFlowShell with FlowHeader's full-width bottom border).
+   * (e.g. a full-width header border).
    */
   wrapBody?: boolean
   children: ReactNode

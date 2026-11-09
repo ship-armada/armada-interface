@@ -22,7 +22,6 @@ export const BALANCE_ACTION_BUTTON_STAGGER_MS = 70
 /** First action after the hero card (incl. balance) has landed. */
 export const BALANCE_ACTION_BUTTON_FIRST_DELAY_MS =
   DASHBOARD_CARD_ENTER_DELAY_MS + DASHBOARD_CARD_ENTER_DURATION_MS
-export const BALANCE_DEPOSIT_BUTTON_ENTER_DELAY_MS = BALANCE_ACTION_BUTTON_FIRST_DELAY_MS
 export const BALANCE_ACTION_BUTTON_LAST_DELAY_MS =
   BALANCE_ACTION_BUTTON_FIRST_DELAY_MS + BALANCE_ACTION_BUTTON_STAGGER_MS * 3
 
@@ -42,8 +41,6 @@ export const SHIELD_TO_EARN_PAUSE_MS = 280
 /** Keep in sync with BalanceCard.module.css `.vaultPositionEnter`. */
 export const VAULT_POSITION_ENTER_DELAY_MS = BALANCE_ACTION_BUTTON_FIRST_DELAY_MS
 export const VAULT_POSITION_ENTER_DURATION_MS = 420
-export const VAULT_POSITION_ENTER_SETTLE_MS =
-  VAULT_POSITION_ENTER_DELAY_MS + VAULT_POSITION_ENTER_DURATION_MS
 
 /** Keep in sync with BalanceCard.module.css `.vaultPositionEnterSync`. */
 export const VAULT_POSITION_SYNC_ENTER_MS = 520
@@ -53,9 +50,6 @@ export const VAULT_POSITION_EXIT_DURATION_MS = 360
 
 /** Pause after the vault row has finished hiding before the earn banner returns. */
 export const VAULT_BANNER_AFTER_EXIT_MS = 560
-
-/** Beat after the earn modal closes so the dashboard can paint before balances roll. */
-export const VAULT_WITHDRAW_DASHBOARD_HOLD_MS = 640
 
 /** Pause after balance motion before the activity panel enters. */
 export const ACTIVITY_REVEAL_BUFFER_MS = 240
@@ -73,16 +67,8 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-export function vaultPositionEnterSettleMs(): number {
-  return prefersReducedMotion() ? 0 : VAULT_POSITION_ENTER_SETTLE_MS
-}
-
 export function vaultPositionExitDurationMs(): number {
   return prefersReducedMotion() ? 0 : VAULT_POSITION_EXIT_DURATION_MS
-}
-
-export function vaultWithdrawDashboardHoldMs(): number {
-  return prefersReducedMotion() ? 0 : VAULT_WITHDRAW_DASHBOARD_HOLD_MS
 }
 
 /**
@@ -151,28 +137,4 @@ export function dashboardActivityEnterDelayMs(
 export function shieldBannerExitSettleMs(): number {
   if (prefersReducedMotion()) return 0
   return PROMO_BANNER_HANDOFF_MS + SHIELD_TO_EARN_PAUSE_MS
-}
-
-export function activityRevealDelayAfterFirstShieldMs(formattedBalance: string): number {
-  if (prefersReducedMotion()) return 80
-  return (
-    vaultBannerAfterDepositMs(formattedBalance) +
-    shieldBannerExitSettleMs() +
-    PROMO_BANNER_HANDOFF_MS +
-    ACTIVITY_REVEAL_BUFFER_MS
-  )
-}
-
-/** After a vault deposit: wait for the earn banner to collapse, then reveal the new activity row. */
-export function activityRevealDelayAfterVaultDepositMs(formattedBalance: string): number {
-  if (prefersReducedMotion()) return 80
-  return (
-    vaultBannerAfterDepositMs(formattedBalance) +
-    PROMO_BANNER_HANDOFF_MS +
-    ACTIVITY_REVEAL_BUFFER_MS
-  )
-}
-
-export function activityRevealDelayAfterRollMs(formattedBalance: string): number {
-  return balanceRollSettleMs(formattedBalance) + ACTIVITY_REVEAL_BUFFER_MS
 }

@@ -1,0 +1,13 @@
+/* ABOUTME: The button row at the bottom of a flow step body (Shield / Send / Earn amount steps): equal-width buttons side by
+   ABOUTME: side. Steps add `modalActionRowEnter` from @/design for the entrance motion. */
+
+.buttonRow {
+  display: flex;
+  gap: var(--primitives-spacing-3);
+  width: 100%;
+}
+
+.buttonRow > button {
+  flex: 1;
+  width: 100%;
+}

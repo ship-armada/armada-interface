@@ -1,5 +1,5 @@
 /* ABOUTME: AppLayout-local chrome — network badge + settings gear in the header, plus the status-strip overlay. */
-/* ABOUTME: The center NavBar was removed (not in the mockup); Settings moved to a gear that opens the Settings overlay. */
+/* ABOUTME: The header has no center nav (not in the mockup); Settings is a gear that opens the Settings overlay. */
 
 /* Network badge — surface-main fill matching the mockup wallet pill, so the badge / gear / wallet
    pill read as a set in the header. */

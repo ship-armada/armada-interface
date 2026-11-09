@@ -5,7 +5,7 @@ import type { Ref } from 'react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { ChainSelect, GasBalanceNotice, SegmentedControl } from '@/components/ui'
 import { DepositAmountCard } from '@/components/deposit/DepositAmountCard/DepositAmountCard'
-import { depositOverlayShellStyles } from '@/components/deposit/DepositOverlayShell/DepositOverlayShell'
+import flowButtonRow from '@/components/flow/flowButtonRow.module.css'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { DisplayFees } from '@/lib/fees/displayFees'
 import { formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
@@ -177,7 +177,7 @@ export function ShieldAmountStepFooter({
   const canReview = hasActiveAmount(amountStr) && !tooMuch && !tooSmall && !parseError
 
   return (
-    <div className={`${depositOverlayShellStyles.buttonRow} ${modalActionRowEnter}`}>
+    <div className={`${flowButtonRow.buttonRow} ${modalActionRowEnter}`}>
       <Button variant="secondary" size="lg" label="Cancel" showIcon={false} onClick={onCancel} />
       <Button
         variant="primary"

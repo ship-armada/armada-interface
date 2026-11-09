@@ -8,7 +8,7 @@ import type { TxRecord } from '@/lib/tx/types'
 import styles from './TxCancelButton.module.css'
 
 export function TxCancelButton({ record }: { record: TxRecord }) {
-  // Follower tabs don't run txs — a cancel there would race the leader (see TxActions).
+  // Follower tabs don't run txs — a cancel there would race the leader (executor.ts::cancelTx).
   if (!getIsLeader() || !canCancelBeforeBroadcast(record)) return null
   return (
     <div className={styles.row}>

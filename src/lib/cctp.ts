@@ -203,28 +203,3 @@ export function readCctpFromLogs(opts: {
   }
   return out
 }
-
-/**
- * Test whether a destination-chain log batch contains a `MessageReceived` event matching the
- * given nonce. Used by handlers polling for cross-chain delivery — match on the indexed nonce
- * topic, which uniquely identifies the message envelope (no false positives from unrelated
- * USDC mints, unlike polling the recipient's balance).
- */
-export function findMessageReceivedByNonce(opts: {
-  logs: ReadonlyArray<Log>
-  messageTransmitterAddress: `0x${string}`
-  nonce: `0x${string}`
-}): Log | null {
-  const expectedAddress = opts.messageTransmitterAddress.toLowerCase()
-  const expectedNonceTopic = opts.nonce.toLowerCase() as `0x${string}`
-  for (const log of opts.logs) {
-    if (log.address.toLowerCase() !== expectedAddress) continue
-    if (log.topics[0] !== MESSAGE_RECEIVED_TOPIC) continue
-    // `nonce` is the SECOND indexed topic (after `caller`). topics[0] = event sig, topics[1] = caller,
-    // topics[2] = nonce, topics[3] = finalityThresholdExecuted.
-    if (log.topics[2]?.toLowerCase() === expectedNonceTopic) {
-      return log
-    }
-  }
-  return null
-}

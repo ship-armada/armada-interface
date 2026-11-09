@@ -199,8 +199,8 @@ export function retryTx(id: string): boolean {
   if (!getIsLeader()) {
     // Follower tab: executeTx is a no-op here, so marking the record `retrying` would wedge it in
     // a non-terminal state forever — counted by pendingTxsAtom, which makes useAutoLock defer the
-    // security lock and keep keys in memory. Refuse before markRetrying. The UI also hides Retry
-    // on follower tabs (TxActions); this is the belt-and-suspenders guard. (T-H3)
+    // security lock and keep keys in memory. Refuse before markRetrying. The UI also never offers
+    // Retry on a follower tab (it can't run at all: SingleTabGate); this is the belt-and-suspenders guard. (T-H3)
     trackError('tx.executor.retry', new Error('not leader'), {
       scope: 'tx.executor',
       message: `retry refused on follower tab for ${id}`,
@@ -230,7 +230,7 @@ export function retryTx(id: string): boolean {
  * txHash for explorer linking, and uses honest copy ("Stopped tracking" not "Cancelled").
  *
  * Internal cleanup paths (auto-lock, tab teardown) can use either depending on whether the record
- * has broadcast. The UI's TxActions component picks the right one based on `sourceTxHash` presence.
+ * has broadcast (`sourceTxHash` presence).
  */
 export function cancelTx(id: string): void {
   abortAndMark(id, 'cancel')

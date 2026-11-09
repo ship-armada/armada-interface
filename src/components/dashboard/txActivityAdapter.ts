@@ -121,21 +121,6 @@ export function txRecordToActivityItem(
   }
 }
 
-/**
- * Adapt the active-wallet tx list to dashboard activity items — newest first, capped.
- * Includes both terminal history and in-flight (pending) txs (fold-in per the dashboard redesign).
- */
-export function txListToActivityItems(
-  list: readonly TxRecord[],
-  ownWallet?: string | null,
-  max = 8,
-): DashboardActivityItem[] {
-  return [...list]
-    .sort((a, b) => historySortTime(b) - historySortTime(a))
-    .slice(0, max)
-    .map((record) => txRecordToActivityItem(record, ownWallet))
-}
-
 /** A created payment-request link as an activity row. Neutral amount; clicking re-opens the link. */
 export function requestLinkToActivityItem(link: RequestLinkRecord): DashboardActivityItem {
   const amount = Number(link.amount)

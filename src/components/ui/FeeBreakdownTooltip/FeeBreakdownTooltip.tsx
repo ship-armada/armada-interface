@@ -29,7 +29,7 @@ function formatGasLine(fees: DisplayFees): string {
  * shape our relayer-mediated / gasless flows need: the broadcaster fee that reimburses the
  * relayer's on-chain gas (paid in USDC), plus the resolved recipient-side and user-side totals
  * from `computeFeeBreakdown`. Pure presentational — DepositAmountCard forwards this in modals
- * where the user benefits from seeing the post-fee numbers without inline FeeSummary rows.
+ * where the user benefits from seeing the post-fee numbers without inline fee rows.
  */
 export interface FlowFeeBreakdown {
   /** USDC broadcaster fee — reimburses relayer for submitting on-chain. 0n on direct flows. */
@@ -60,7 +60,7 @@ export interface FeeBreakdownTooltipProps {
   /**
    * True when the user pays native gas themselves (direct shield). Explicit signal for the
    * network-gas line + description. When omitted, falls back to the legacy "no broadcaster fee ⇒
-   * direct" inference for callers that don't thread it (e.g. EstimatedFeeValue).
+   * direct" inference for callers that don't thread it.
    */
   userPaysNativeGas?: boolean
 }

@@ -4,7 +4,7 @@
 import { useRef, type Ref } from 'react'
 import { Button, modalStepBodyEnter, modalActionRowEnter } from '@/design'
 import { DepositAmountCard } from '@/components/deposit/DepositAmountCard/DepositAmountCard'
-import { depositOverlayShellStyles } from '@/components/deposit/DepositOverlayShell/DepositOverlayShell'
+import flowButtonRow from '@/components/flow/flowButtonRow.module.css'
 import { GasBalanceNotice } from '@/components/ui'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
 import type { DisplayFees } from '@/lib/fees/displayFees'
@@ -155,7 +155,7 @@ export function SendInputStepFooter({
   const canReview = hasActiveAmount(amountStr) && amount > 0n && !tooMuch && !parseError
 
   return (
-    <div className={`${depositOverlayShellStyles.buttonRow} ${modalActionRowEnter}`}>
+    <div className={`${flowButtonRow.buttonRow} ${modalActionRowEnter}`}>
       <Button
         variant="secondary"
         size="lg"

@@ -255,30 +255,3 @@ export function patchMeta<K extends TxKind>(
     meta: { ...record.meta, ...metaPatch },
   }
 }
-
-/** Is the current stage one the user/executor can retry from (vs starting over)? */
-export function isRetryable<K extends TxKind>(record: TxRecord<K>): boolean {
-  const lifecycle = lifecycleFor(record.kind)
-  return (lifecycle.retryableStages as readonly string[]).includes(record.stage)
-}
-
-/**
- * Should this record be polled on app resume? Plan §7 + reviewer #7:
- *   non-terminal AND (Date.now() - createdAt) < lifecycle.maxDurationMs → resume
- *   else → caller marks it expired
- *
- * Using createdAt rather than updatedAt because the lifecycle cap is wall-clock total,
- * not idle time. A long pause in updates while waiting on Iris is normal.
- */
-export function shouldResume<K extends TxKind>(record: TxRecord<K>): boolean {
-  if (
-    record.executionState === 'completed' ||
-    record.executionState === 'failed' ||
-    record.executionState === 'expired' ||
-    record.executionState === 'cancelled'
-  ) {
-    return false
-  }
-  const lifecycle = lifecycleFor(record.kind)
-  return Date.now() - record.createdAt < lifecycle.maxDurationMs
-}

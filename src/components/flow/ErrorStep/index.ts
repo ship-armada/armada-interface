@@ -1,4 +1,4 @@
-// ABOUTME: ErrorStep barrel export — shared error overlay used by ActionFlowShell when step === 'error'.
+// ABOUTME: ErrorStep barrel export — the shared error step every flow modal shows in place of the step that failed.
 // ABOUTME: Re-exports the component and its prop types.
 
 export { ErrorStep } from './ErrorStep'

@@ -184,13 +184,6 @@ export function findDeploymentForChain(
   return deployments.clients.find(c => c.chainId === chainId)
 }
 
-/** Type guard. */
-export function isHubDeployment(
-  d: PrivacyPoolHubDeployment | PrivacyPoolClientDeployment,
-): d is PrivacyPoolHubDeployment {
-  return 'privacyPool' in d.contracts
-}
-
 /** Helper: get the USDC address on a given chain. */
 export function getUsdcAddress(deployments: ResolvedDeployments, chain: ChainIdentity): string | undefined {
   return findDeploymentForChain(deployments, chain.chainId)?.cctp.usdc

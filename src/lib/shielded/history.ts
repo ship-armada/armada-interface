@@ -36,10 +36,6 @@ export interface HistoryMapContext {
   consolidationTxids?: ReadonlySet<string>
 }
 
-/** Empty default — convenient for tests + the no-yield-detection path. Empty `usdcAddress` makes the
- *  USDC gate fail open (keep everything), so a mis-wired context never wipes recovered history. */
-export const EMPTY_HISTORY_CONTEXT: HistoryMapContext = { hubChainId: 0, usdcAddress: '' }
-
 /**
  * Deterministic synthetic-record id. Encoded as `synth:${txid}:${category}` so re-running the
  * scan produces the same id and `putTxIfFresh` is a no-op (OCC sees `updatedSeq` 0 ≤ 0). Two

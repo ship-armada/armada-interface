@@ -56,7 +56,8 @@ export interface NetworkConfig {
    * 5_000 is half the common ceiling. The headroom covers (a) stricter-tier providers, (b)
    * filter complexity overhead some providers apply when topics/addresses match many logs, and
    * (c) future tightening without code change. Local Anvil has no cap, so we set a generous
-   * value rather than disabling the chunker — keeps one code path for both environments.
+   * value — the cross-chain handlers' per-tick scan (`features/unshield-xchain/scan.ts`) keeps one
+   * code path for both environments.
    */
   readonly maxLogRange: number
   /**

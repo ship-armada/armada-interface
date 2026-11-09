@@ -1,7 +1,7 @@
 // ABOUTME: Persistence for created payment-request links — encrypted at rest under the per-wallet historyEncryptionKey.
 // ABOUTME: Mirrors tx-history storage (AES-256-GCM envelopes in IDB, foreign-wallet records skipped on decrypt).
 
-import { cacheAll, cacheDelete, cachePut } from '@/lib/cache'
+import { cacheAll, cachePut } from '@/lib/cache'
 import { isEncryptedBlob, unwrap, wrap } from '@/lib/crypto/cache-cipher'
 import { getHistoryEncryptionKey, isUnlocked } from '@/lib/shielded/keyManager'
 import { trackError } from '@/lib/telemetry'
@@ -52,12 +52,4 @@ export async function loadRequestLinks(walletId?: string): Promise<RequestLinkRe
     }
   }
   return out
-}
-
-/** Delete this wallet's links (e.g. Clear-history / Reset). Requires an unlocked wallet to scope. */
-export async function clearRequestLinks(walletId?: string): Promise<void> {
-  const links = await loadRequestLinks(walletId)
-  for (const link of links) {
-    await cacheDelete(STORE, link.requestId)
-  }
 }

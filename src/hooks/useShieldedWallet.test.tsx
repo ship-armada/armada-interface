@@ -134,7 +134,7 @@ describe('enroll', () => {
 
     let result: { rootSecret: Uint8Array; state: ShieldedWalletState } | undefined
     await act(async () => {
-      result = await capture.current!.enroll()
+      result = await capture.current!.signIn(0n)
     })
 
     expect(mockEnroll).toHaveBeenCalledTimes(1)
@@ -148,7 +148,7 @@ describe('enroll', () => {
     store.set(evmAddressAtom, null)
     const capture = renderWithStore(store)
 
-    await expect(capture.current!.enroll()).rejects.toThrow(/Connect an EVM wallet/)
+    await expect(capture.current!.signIn(0n)).rejects.toThrow(/Connect an EVM wallet/)
     expect(mockEnroll).not.toHaveBeenCalled()
   })
 
@@ -158,7 +158,7 @@ describe('enroll', () => {
     mockSignTypedData.mockRejectedValueOnce(new Error('User rejected the request.'))
     const capture = renderWithStore(store)
 
-    await expect(capture.current!.enroll()).rejects.toThrow(/rejected/)
+    await expect(capture.current!.signIn(0n)).rejects.toThrow(/rejected/)
     expect(mockEnroll).not.toHaveBeenCalled()
   })
 })
@@ -219,20 +219,6 @@ describe('signIn (v2 primary)', () => {
 
     await expect(capture.current!.signIn()).rejects.toThrow(/Connect an EVM wallet/)
     expect(mockSignTypedData).not.toHaveBeenCalled()
-  })
-
-  it('enroll() is a thin alias for signIn(0n) — same behaviour, same outputs', async () => {
-    const store = createStore()
-    store.set(evmAddressAtom, '0xabc')
-    mockEnroll.mockResolvedValue({ rootSecret: new Uint8Array(32), state: SAMPLE_STATE })
-    const capture = renderWithStore(store)
-
-    await act(async () => {
-      await capture.current!.enroll()
-    })
-
-    const args = mockSignTypedData.mock.calls[0]?.[1] as { message: { account: string } } | undefined
-    expect(args?.message.account).toBe('0')
   })
 
   it('first-ever sign-in double-signs and proceeds when the wallet is deterministic', async () => {

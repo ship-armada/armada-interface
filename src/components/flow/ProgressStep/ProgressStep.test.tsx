@@ -1,4 +1,4 @@
-// ABOUTME: Tests for ProgressStep — pre-record placeholder vs. delegating to TxLifecycleStepper once a record exists.
+// ABOUTME: Tests for ProgressStep — pre-record placeholder vs. the processing layout once a record exists.
 // ABOUTME: We assert via well-known stage copy ("Preparing transaction") that it rendered, and its live timing note.
 
 import { describe, it, expect, vi, afterEach } from 'vitest'

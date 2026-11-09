@@ -102,8 +102,8 @@ export function RecoverySecretExportDialog({ open, onClose }: RecoverySecretExpo
     setVerified(false)
     try {
       const text = await verifyFile.text()
-      // Shared round-trip verifier (parse → decrypt → checksum match → zeroize) — same helper as
-      // onboarding's ConfirmBackupStep so the two verification paths can't drift.
+      // Round-trip verifier (parse → decrypt → checksum match → zeroize), kept in lib/crypto/kdf so it's
+      // tested on its own.
       await verifyBackupFileText(text, verifyPassphrase, state.checksum)
       setVerified(true)
     } catch (err) {

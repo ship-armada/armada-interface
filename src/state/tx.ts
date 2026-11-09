@@ -2,7 +2,7 @@
 // ABOUTME: Hydration from IDB happens in a top-level effect (see hooks/useTxHistory). Writes go through upsertTxAtom which enforces OCC via updatedSeq.
 
 import { atom } from 'jotai'
-import type { TxExecutionState, TxKind, TxRecord } from '@/lib/tx/types'
+import type { TxExecutionState, TxRecord } from '@/lib/tx/types'
 import { NON_TERMINAL_STATES, isTerminalState } from '@/lib/tx/types'
 import { activeShieldedWalletIdAtom } from './wallet'
 
@@ -53,16 +53,6 @@ export const pendingTxsAtom = atom((get) => {
 /** Look up a single record by id. */
 export const txByIdAtom = (id: string) => atom((get) => {
   return get(txListAtom).find(t => t.id === id)
-})
-
-/** Filter list by kind. */
-export const txsForKindAtom = <K extends TxKind>(kind: K) => atom((get) => {
-  return get(txListAtom).filter(t => t.kind === kind) as TxRecord<K>[]
-})
-
-/** Filter by execution state. Useful for History page tabs (All / In progress / Failed). */
-export const txsForStateAtom = (state: TxExecutionState) => atom((get) => {
-  return get(txListAtom).filter(t => t.executionState === state)
 })
 
 /**

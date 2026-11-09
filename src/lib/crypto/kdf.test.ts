@@ -366,8 +366,8 @@ describe('backup encryption round-trip (v2)', { timeout: 30_000 }, () => {
 
 describe('verifyBackupFileText', { timeout: 30_000 }, () => {
   it('resolves when the file decrypts and its checksum matches the expected one', async () => {
-    // WHY: the shared round-trip verifier behind both onboarding's ConfirmBackupStep and
-    // Settings → Export recovery's verify step. A genuine export must verify clean.
+    // WHY: the round-trip verifier behind Settings → Export recovery's verify step. A genuine export
+    // must verify clean.
     const rootSecret = deriveRootSecret(fixedSignature())
     const blob = await encryptBackup({ rootSecret, creationBlock: 0 }, 'pw-here-now', TEST_OPTS)
     const checksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))

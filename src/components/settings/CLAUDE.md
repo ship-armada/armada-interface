@@ -16,11 +16,11 @@ The Settings modal also shows a **Notes** card when a shielded token is spread a
 
 ## Conventions
 
-- Dialogs use the `Modal` primitive directly (not `ActionFlowShell`) since they're single-screen, not multi-step flows.
+- Dialogs use the `Modal` primitive directly (not `FlowShell`) since they're single-screen, not multi-step flows.
 - Open/close is controlled by Settings page-local state (not `openModalAtom`); these dialogs are Settings-internal.
 - Secret-handling rules from `lib/shielded/CLAUDE.md` apply here: never `console.log` the mnemonic, never store it outside the dialog's local state, clear on close.
 
 ## Wired
 
-- `useShieldedWallet().exportBackup` produces an `armada-backup-v1` blob via `lib/crypto/kdf::encryptRootSecret`. The dialog JSON-stringifies + downloads it.
+- `useShieldedWallet().exportBackup` produces an `armada-backup-v2` blob (root secret + `creationBlock`) via `lib/crypto/kdf::encryptBackup`. The dialog JSON-stringifies + downloads it, then offers to verify the file (`kdf::verifyBackupFileText`).
 - `useShieldedWallet().reset` deletes the SDK wallet entry, clears the keyManager + the cached walletId, and drops the active atom entry. The dialog surfaces any error inline.
