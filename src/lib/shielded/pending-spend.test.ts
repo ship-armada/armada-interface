@@ -1,5 +1,5 @@
 // ABOUTME: Unit tests for the optimistic in-flight spend bridge — stash→mark, no-op, and clear paths, and that
-// ABOUTME: the SDK's async hold/release writes are awaited (durable on resolve) with failures reported, not thrown.
+// ABOUTME: the SDK's async hold/release writes are awaited (durable on resolve) with failures reported, not thrown; each change pings the balance.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -8,8 +8,10 @@ const hoisted = vi.hoisted(() => ({
   clearSpendPending: vi.fn(),
   getSdkWallet: vi.fn(),
   trackError: vi.fn(),
+  emitBalanceChange: vi.fn(),
 }))
 vi.mock('./sdk-read', () => ({ getSdkWallet: hoisted.getSdkWallet }))
+vi.mock('./balance-bus', () => ({ emitBalanceChange: hoisted.emitBalanceChange }))
 vi.mock('../telemetry', () => ({ trackError: hoisted.trackError }))
 
 import {
@@ -26,6 +28,7 @@ beforeEach(() => {
   hoisted.clearSpendPending.mockReset()
   hoisted.getSdkWallet.mockReset()
   hoisted.trackError.mockReset()
+  hoisted.emitBalanceChange.mockReset()
   hoisted.getSdkWallet.mockResolvedValue({
     markSpendPending: hoisted.markSpendPending,
     clearSpendPending: hoisted.clearSpendPending,
@@ -40,6 +43,12 @@ describe('markSpendPendingForRecord', () => {
     // A second call is a no-op (the plan was consumed) — no double-mark.
     await markSpendPendingForRecord('rec-1', '0xhash')
     expect(hoisted.markSpendPending).toHaveBeenCalledTimes(1)
+  })
+
+  it('pings the balance once the hold is written, so the balance after the spend shows at broadcast (3B)', async () => {
+    stashSpendPlan('rec-p', [PLAN])
+    await markSpendPendingForRecord('rec-p', '0xhash')
+    expect(hoisted.emitBalanceChange).toHaveBeenCalledWith({ reason: 'hold' })
   })
 
   it('is a no-op when no plan was stashed (resumed / non-spend tx)', async () => {
@@ -87,9 +96,10 @@ describe('forgetSpendPlan', () => {
 })
 
 describe('clearSpendPendingForTx', () => {
-  it('clears the SDK holds for a dropped/reverted txid', async () => {
+  it('clears the SDK holds for a dropped/reverted txid, then pings the balance (the projection drops it)', async () => {
     await clearSpendPendingForTx('0xdead')
     expect(hoisted.clearSpendPending).toHaveBeenCalledWith('0xdead')
+    expect(hoisted.emitBalanceChange).toHaveBeenCalledWith({ reason: 'hold' })
   })
 
   it('never throws if the SDK clear fails', async () => {

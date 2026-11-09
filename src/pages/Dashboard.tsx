@@ -48,9 +48,7 @@ import { repeatModalFor } from '@/components/dashboard/repeatIntent'
 import { useTxInView } from '@/hooks/useTxInView'
 import {
   shieldedUsdcAtom,
-  shieldedUsdcHeadlineAtom,
   yieldSharesAtom,
-  yieldSharesHeadlineAtom,
   shieldedWalletAtom,
   evmAddressAtom,
   activeShieldedWalletIdAtom,
@@ -58,6 +56,7 @@ import {
   syncRetryEpochAtom,
 } from '@/state/wallet'
 import { activeTxListAtom } from '@/state/tx'
+import { shieldedUsdcHeadlineAtom, yieldSharesHeadlineAtom } from '@/state/balanceProjection'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
 import styles from './Dashboard.module.css'
 

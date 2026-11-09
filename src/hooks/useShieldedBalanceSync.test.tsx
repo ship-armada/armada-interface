@@ -1,5 +1,5 @@
 // ABOUTME: Tests for useShieldedBalanceSync — lock-reset (W-1), initial-load-only sync UI (no flicker),
-// ABOUTME: read-not-sync on balance events (no sync amplification), and the no-dip headline totals.
+// ABOUTME: read-not-sync on balance events (no sync amplification), and the held spends read with the balances (projected headline).
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act, waitFor } from '@testing-library/react'
@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   refreshShieldedBalances: vi.fn(async () => {}),
   readSdkUsdcBalance: vi.fn(async () => ({ spendable: 0n, pending: 0n, pendingSpent: 0n })),
   readSdkYieldShares: vi.fn(async () => ({ position: 0n, pendingSpent: 0n })),
+  readSdkHeldSpendTxids: vi.fn(async (): Promise<string[]> => []),
 }))
 
 // Mock the SDK boundary so importing the hook doesn't pull the SDK into jsdom, and so we can
@@ -31,19 +32,22 @@ vi.mock('@/lib/shielded/sdk-read', () => ({
   closeSdkRead: vi.fn(async () => {}),
   readSdkUsdcBalance: h.readSdkUsdcBalance,
   readSdkYieldShares: h.readSdkYieldShares,
+  readSdkHeldSpendTxids: h.readSdkHeldSpendTxids,
 }))
 
 import { useShieldedBalanceSync } from './useShieldedBalanceSync'
 import {
   shieldedWalletsAtom,
   activeShieldedWalletIdAtom,
+  heldSpendTxidsAtom,
   shieldedUsdcAtom,
-  shieldedUsdcHeadlineAtom,
   shieldedUsdcSpendableAtom,
   syncStateAtom,
   yieldSharesAtom,
-  yieldSharesHeadlineAtom,
 } from '@/state/wallet'
+import { shieldedUsdcHeadlineAtom, yieldSharesHeadlineAtom } from '@/state/balanceProjection'
+import { txListAtom } from '@/state/tx'
+import type { TxRecord } from '@/lib/tx/types'
 
 function Harness() {
   useShieldedBalanceSync()
@@ -72,8 +76,7 @@ describe('useShieldedBalanceSync — W-1 sync reset', () => {
     const store = createStore()
     store.set(syncStateAtom, { status: 'complete', progress: 1 })
     store.set(shieldedUsdcAtom, 5_000_000n)
-    store.set(shieldedUsdcHeadlineAtom, 5_000_000n)
-    store.set(yieldSharesHeadlineAtom, 3n)
+    store.set(heldSpendTxidsAtom, ['0xheld'])
     store.set(shieldedWalletsAtom, {})
     store.set(activeShieldedWalletIdAtom, null)
 
@@ -87,6 +90,7 @@ describe('useShieldedBalanceSync — W-1 sync reset', () => {
     expect(store.get(shieldedUsdcAtom)).toBeNull()
     expect(store.get(shieldedUsdcHeadlineAtom)).toBeNull()
     expect(store.get(yieldSharesHeadlineAtom)).toBeNull()
+    expect(store.get(heldSpendTxidsAtom)).toEqual([])
   })
 })
 
@@ -145,25 +149,37 @@ describe('useShieldedBalanceSync — read-not-sync on balance events (amplificat
   })
 })
 
-describe('useShieldedBalanceSync — headline totals count in-flight spend inputs (no dip)', () => {
-  it('adds the SDK pendingSpent to the headline atoms only, leaving the spend-context atoms unchanged', async () => {
-    // WHY: once a spend broadcasts, the SDK holds its input notes (pendingSpent) until the Nullified
-    // event is scanned — and the change note isn't visible until then either. Counting only
-    // spendable + pending made the headline dip (100 → 0 → 89.9) for about a block. The headline
-    // keeps the held inputs; MAX / the "pending" suffix keep reading the unchanged atoms.
+describe('useShieldedBalanceSync — the projected headline (3B)', () => {
+  it("reads the held spends with the balances; the headline adds a held send's change, the spend atoms don't", async () => {
+    // WHY: once a spend broadcasts, the SDK holds its input notes until the Nullified event is scanned, and its change
+    // note isn't visible until then either — so spendable + pending alone dips below what the user will have. The
+    // headline adds the held spend's recorded change (the balance after the send); Max / the "pending" suffix keep
+    // reading the unchanged atoms.
     h.readSdkUsdcBalance.mockResolvedValue({ spendable: 20n, pending: 5n, pendingSpent: 100n })
-    h.readSdkYieldShares.mockResolvedValue({ position: 40n, pendingSpent: 60n })
+    h.readSdkYieldShares.mockResolvedValue({ position: 40n, pendingSpent: 0n })
+    h.readSdkHeldSpendTxids.mockResolvedValue(['0xsend'])
     const store = unlockedStore()
+    store.set(txListAtom, [
+      {
+        id: 'send',
+        kind: 'transfer-shielded',
+        executionState: 'active',
+        meta: {},
+        artifacts: { sourceTxHash: '0xsend', returnsToSelf: 16n },
+        walletContext: { shieldedWalletId: 'w1' },
+      } as unknown as TxRecord,
+    ])
     render(
       <Provider store={store}>
         <Harness />
       </Provider>,
     )
 
-    await waitFor(() => expect(store.get(shieldedUsdcHeadlineAtom)).toBe(125n))
+    await waitFor(() => expect(store.get(shieldedUsdcHeadlineAtom)).toBe(41n)) // 25 scanned + 16 change
+    expect(store.get(heldSpendTxidsAtom)).toEqual(['0xsend'])
     expect(store.get(shieldedUsdcAtom)).toBe(25n)
     expect(store.get(shieldedUsdcSpendableAtom)).toBe(20n)
-    expect(store.get(yieldSharesHeadlineAtom)).toBe(100n)
+    expect(store.get(yieldSharesHeadlineAtom)).toBe(40n)
     expect(store.get(yieldSharesAtom)).toBe(40n)
   })
 })

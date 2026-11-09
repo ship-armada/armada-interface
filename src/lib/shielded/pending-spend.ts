@@ -3,6 +3,7 @@
 
 import { type Plan } from '@armada/sdk'
 import { getSdkWallet } from './sdk-read'
+import { emitBalanceChange } from './balance-bus'
 import { trackError } from '../telemetry'
 
 // Module-scope stash of the in-flight Plan, keyed by the tx `record.id`. Deliberately NOT persisted:
@@ -39,6 +40,8 @@ export async function markSpendPendingForRecord(recordId: string, txid: string):
     const wallet = await getSdkWallet()
     // Hold every group's inputs in one call so a split spend can't leave later groups' notes unheld.
     await wallet.markSpendPending(plans, txid)
+    // The balance after the spend shows from now (3B): its inputs left the balance and its change is projected.
+    emitBalanceChange({ reason: 'hold' })
   } catch (err) {
     trackError('shielded.pendingSpend.mark', err)
   }
@@ -53,6 +56,7 @@ export async function clearSpendPendingForTx(txid: string): Promise<void> {
   try {
     const wallet = await getSdkWallet()
     await wallet.clearSpendPending(txid)
+    emitBalanceChange({ reason: 'hold' })
   } catch (err) {
     trackError('shielded.pendingSpend.clear', err)
   }

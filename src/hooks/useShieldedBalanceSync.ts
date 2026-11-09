@@ -1,24 +1,23 @@
-// ABOUTME: Bridges lib/shielded/sync's SDK balance events into the shielded USDC / yield-share atoms (incl. the no-dip headline atoms); drives an initial scan on unlock.
+// ABOUTME: Bridges lib/shielded/sync's SDK balance events into the shielded USDC / yield-share atoms and the held spends (for the projected headline); drives an initial scan on unlock.
 // ABOUTME: Mount once at App root. No-op when locked; auto-resubscribes on unlock.
 
 import { useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   activeShieldedWalletAtom,
+  heldSpendTxidsAtom,
   shieldedUsdcAtom,
-  shieldedUsdcHeadlineAtom,
   shieldedUsdcSpendableAtom,
   syncRetryEpochAtom,
   syncStateAtom,
   yieldSharesAtom,
-  yieldSharesHeadlineAtom,
 } from '@/state/wallet'
 import {
   refreshShieldedBalances,
   subscribeBalanceUpdates,
   subscribeScanStatus,
 } from '@/lib/shielded/sync'
-import { closeSdkRead, readSdkUsdcBalance, readSdkYieldShares } from '@/lib/shielded/sdk-read'
+import { closeSdkRead, readSdkHeldSpendTxids, readSdkUsdcBalance, readSdkYieldShares } from '@/lib/shielded/sdk-read'
 import { trackError } from '@/lib/telemetry'
 
 /**
@@ -40,8 +39,7 @@ export function useShieldedBalanceSync(): void {
   const setShieldedUsdc = useSetAtom(shieldedUsdcAtom)
   const setShieldedUsdcSpendable = useSetAtom(shieldedUsdcSpendableAtom)
   const setYieldShares = useSetAtom(yieldSharesAtom)
-  const setShieldedUsdcHeadline = useSetAtom(shieldedUsdcHeadlineAtom)
-  const setYieldSharesHeadline = useSetAtom(yieldSharesHeadlineAtom)
+  const setHeldSpendTxids = useSetAtom(heldSpendTxidsAtom)
   const setSyncState = useSetAtom(syncStateAtom)
   // Bumped by useSyncRetry ("Try Again"). Included in the effect deps so a bump re-runs the
   // subscribe + initial-scan path below.
@@ -58,8 +56,7 @@ export function useShieldedBalanceSync(): void {
       setShieldedUsdc(null)
       setShieldedUsdcSpendable(null)
       setYieldShares(null)
-      setShieldedUsdcHeadline(null)
-      setYieldSharesHeadline(null)
+      setHeldSpendTxids([])
       setSyncState({ status: 'idle', progress: 0 })
       // This hook owns the @armada/sdk read instance — tear it down on lock.
       void closeSdkRead()
@@ -94,26 +91,28 @@ export function useShieldedBalanceSync(): void {
         // completed; re-syncing here would be circular (a sync emits scan:complete → this read →
         // another sync → …). Syncing is driven only by the poll + post-tx refresh + initial scan.
         // Promise.allSettled so one chain hiccup doesn't blank the other atom.
-        const [usdcResult, sharesResult] = await Promise.allSettled([
+        // The held spends are read with the balances, so the projected headline (state/balanceProjection) always adds
+        // the change of exactly the spends these balances leave out — no gap and no double count when one confirms.
+        const [usdcResult, sharesResult, heldResult] = await Promise.allSettled([
           readSdkUsdcBalance(),
           readSdkYieldShares(),
+          readSdkHeldSpendTxids(),
         ])
 
         if (cancelled || latestWalletIdRef.current !== walletId) return
 
         if (usdcResult.status === 'fulfilled') {
-          // `shieldedUsdcAtom` is the TOTAL (headline/hero); `shieldedUsdcSpendableAtom` is what MAX +
-          // the fee-on-top guard draw from, so a pending (not-yet-final) note can't be spent.
-          // The dashboard headline also counts a broadcast spend's held inputs (`pendingSpent`), so
-          // it doesn't dip before the spend's change note is scanned (see `shieldedUsdcHeadlineAtom`).
-          const total = usdcResult.value.spendable + usdcResult.value.pending
-          setShieldedUsdc(total)
+          // `shieldedUsdcAtom` is the TOTAL (the headline adds held spends' change — state/balanceProjection);
+          // `shieldedUsdcSpendableAtom` is what MAX + the fee-on-top guard draw from, so a pending (not-yet-final)
+          // note can't be spent.
+          setShieldedUsdc(usdcResult.value.spendable + usdcResult.value.pending)
           setShieldedUsdcSpendable(usdcResult.value.spendable)
-          setShieldedUsdcHeadline(total + usdcResult.value.pendingSpent)
         }
         if (sharesResult.status === 'fulfilled') {
           setYieldShares(sharesResult.value.position)
-          setYieldSharesHeadline(sharesResult.value.position + sharesResult.value.pendingSpent)
+        }
+        if (heldResult.status === 'fulfilled') {
+          setHeldSpendTxids(heldResult.value)
         }
       } catch (err) {
         trackError('useShieldedBalanceSync.refreshAll', err, {

@@ -314,6 +314,12 @@ export async function readSdkYieldShares(): Promise<{ position: bigint; pendingS
     : { position: 0n, pendingSpent: 0n }
 }
 
+/** The spends whose inputs the SDK still holds (their broadcast txids) — what the dashboard projects (3B). Does not sync. */
+export async function readSdkHeldSpendTxids(): Promise<string[]> {
+  const { wallet } = await ensureInstance()
+  return wallet.pendingSpendTxids()
+}
+
 /** The token address a note merge targets: the hub USDC, or the yield-vault share token (undefined with
  *  no yield deployment). */
 export async function mergeTokenAddress(token: MergeToken): Promise<`0x${string}` | undefined> {
