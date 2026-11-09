@@ -1,4 +1,5 @@
-/* ABOUTME: Styling for NonDeterministicSignerScreen — mirrors SignEnrollmentStep + AntiPhishChecksumStep visual rhythm so the error screen feels native to the onboarding flow. */
+/* ABOUTME: Styling for NonDeterministicSignerScreen — the compatibility screen inside the restore modal: headline, body,
+   ABOUTME: the supported / unsupported wallet lists and the two actions. */
 
 .root {
   display: flex;

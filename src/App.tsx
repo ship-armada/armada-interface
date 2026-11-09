@@ -82,8 +82,8 @@ export function App() {
   useSignInBalanceProbe() // sign-in → first known balance, first sync vs returning (Debug → Tx timings; console telemetry)
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
   usePayViaLinkIntent() // pick up a pending pay-via-link hand-off + open the prefilled Send on unlock
-  // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (OnboardingFlow's
-  // SignEnrollment step, SendModal's withdraw-variant recipient pre-fill, useShieldedWallet.enroll). Mounted
+  // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (useShieldedWallet.signIn,
+  // SendModal's withdraw-variant recipient pre-fill). Mounted
   // before the onboarding/unlock guard so the atom is correct even before the user reaches /app.
   useWallet()
   // Subscribe to SDK balance-update events + drive initial scan whenever the wallet unlocks;

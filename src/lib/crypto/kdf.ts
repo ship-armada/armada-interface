@@ -385,8 +385,7 @@ export async function decryptBackup(blob: BackupBlob, passphrase: string): Promi
  * Round-trip-verify a backup file's text: parse + decrypt with `passphrase`, then confirm the
  * recovered secret's anti-phish checksum equals `expectedChecksum` (the live wallet's). Throws a
  * user-facing error on parse / decrypt / mismatch. The recovered rootSecret is a local
- * verification copy and is zeroized before returning. Shared by onboarding's ConfirmBackupStep and
- * Settings → Export recovery's verify step so the two verification paths can't drift.
+ * verification copy and is zeroized before returning. Used by Settings → Export recovery's verify step.
  */
 export async function verifyBackupFileText(
   text: string,

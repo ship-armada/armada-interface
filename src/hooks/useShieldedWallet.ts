@@ -166,15 +166,6 @@ export function useShieldedWallet() {
   }, [evmAddress, setWallets, setActiveId])
 
   /**
-   * Deprecated alias for `signIn(0n)`. Retained so the Phase 3 UI rewrite can flip callers
-   * over in one place without a separate Phase 2 sweep through OnboardingFlow* + tests. New
-   * code should call `signIn` directly.
-   *
-   * @deprecated Use `signIn(account?: bigint)` instead.
-   */
-  const enroll = useCallback(() => signIn(0n), [signIn])
-
-  /**
    * Unlock from a pasted hex-encoded root_secret. Strips an optional `0x` prefix. The 64-hex-char
    * input → 32 bytes → `unlockFromRootSecret`. Hex parsing errors propagate.
    */
@@ -305,7 +296,6 @@ export function useShieldedWallet() {
   return {
     state: active,
     signIn,
-    enroll, // deprecated alias for signIn(0n); retained for the Phase 3 UI sweep
     unlockByPaste,
     unlockByBackup,
     exportBackup,

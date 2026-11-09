@@ -8,11 +8,10 @@ V2 redesign (Path C): deterministic sign-in is the primary path (same `signIn()`
 
 | Component | Purpose |
 |---|---|
-| `OnboardingShell` | Non-dismissible `Modal` + `FlowHeader` wrapper. Owns the body padding; step content + footer flow inside. |
 | `RestoreModal` | Opened over the dashboard as `openModalAtom = 'restore'` (FlowShell chrome, titled "Restore wallet") — by the sign-in card's "Restore wallet from backup instead" link (the restore form), or by `useSignIn` when the wallet fails the determinism check (the compatibility screen; `state/ui::restoreEntryAtom` says which). A restore clears the lock reason and closes onto the flow queued in `signInResumeAtom` (if any), unless the user closed the modal first. Closing it goes back to the sign-in card. |
 | `RestoreFlow` | Views: `restore` (backup file [default] ⇄ paste secret, toggled by a text link; "Back to sign in" closes) and `signer-error` (renders `NonDeterministicSignerScreen`; "Use a backup file or recovery secret" → the restore view with a banner, "Try a different wallet" → disconnect + close). Once a restored wallet's first sync lands, a "Your balance is up to date" toast confirms it (`hooks/useRestoreSyncedToast`). |
-| `OnboardingFlow` | Legacy 6-step flow (Welcome → Sign → Checksum → Backup → ConfirmBackup → Complete). **Dead** — not rendered by the app; still compiles + owns the `steps/*` components. Tests are `describe.skip`'d; kept until a deletion pass. |
 | `NonDeterministicSignerScreen` | Error view rendered by `RestoreFlow` (inside the restore modal) when the determinism check fails on sign-in. Headline + body + supported/unsupported wallet compatibility lists + two CTAs (use backup/paste recovery → restore view; try a different wallet → disconnect + back to the sign-in card). |
+
 ## How sign-in fits the app
 
 `App.tsx` tracks a local `mode` (`pre-migration` / `pre-init` / `app`). It runs the V2 schema migration on `pre-migration`; on `pre-init` it seeds the persisted walletId (if any) as a `locked` entry (an `unlocked` HMR re-mount is left alone), then renders the app. From then on the app shell always renders, whatever the wallet status:
@@ -25,7 +24,7 @@ There is no create/unlock fork and no "clear this browser's saved login" afforda
 
 ## Key handling
 
-- Keys are derived deterministically from an EIP-712 signature, not a generated mnemonic. The signature is captured at the Sign step; HKDF-SHA-256 produces a 32-byte `root_secret` held by `lib/shielded/keyManager` (module-scope, not in atoms, not in component state).
+- Keys are derived deterministically from an EIP-712 signature, not a generated mnemonic. The signature is captured at sign-in (`useShieldedWallet.signIn`); HKDF-SHA-256 produces a 32-byte `root_secret` held by `lib/shielded/keyManager` (module-scope, not in atoms, not in component state).
 - The recovery export format is an encrypted JSON blob (`armada-backup-v2`), produced via Settings → Export recovery. The plaintext root_secret never enters component state or atoms.
 - The anti-phish checksum (12 hex chars) IS exposed via `state.checksum` — it's a non-secret display value used to recognize an authentic unlock screen.
 - All secret-handling rules from `lib/shielded/CLAUDE.md` apply: no `console.log`, no clipboard persistence beyond what the user pastes themselves, no atom storage of keys.
