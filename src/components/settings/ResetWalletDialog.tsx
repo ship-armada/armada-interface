@@ -1,5 +1,5 @@
 // ABOUTME: Reset wallet dialog — destructive double-confirm (typed acknowledgement + explicit button), then calls useShieldedWallet().reset().
-// ABOUTME: After a successful reset, the wallet atoms clear and the App.tsx guard will route the user to onboarding on next mount.
+// ABOUTME: After a successful reset, the wallet atoms clear and the dashboard shows the sign-in card.
 
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { AlertTriangle } from 'lucide-react'

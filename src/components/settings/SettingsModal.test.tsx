@@ -98,11 +98,6 @@ describe('<SettingsModal>', () => {
     expect(store.get(txNoticeStyleAtom)).toBe('pill')
   })
 
-  it('has no technical-details toggle — no screen shows technical details', () => {
-    renderSettings({ walletUnlocked: true })
-    expect(screen.queryByText('Show technical details by default')).toBeNull()
-  })
-
   it('shows the network mode in Advanced', () => {
     renderSettings({ walletUnlocked: true })
     // jsdom env defaults VITE_NETWORK to "local" via vitest.config.

@@ -172,11 +172,10 @@ describe('patchArtifacts → advance OCC chaining', () => {
     expect(advancedCorrectly.executionState).toBe('completed')
   })
 
-  it('patchArtifacts → advance(record, …) [the BUG pattern] produces equal updatedSeq — OCC would silently drop the advance', () => {
-    // This test demonstrates the regression that motivated the suite. If a future change
-    // reverts a handler back to passing the STALE record into the final advance, this test
-    // documents what happens: both reducer outputs share updatedSeq=6, and upsertTxAtom /
-    // putTxIfFresh would silently drop the advance — leaving the executor stuck.
+  it('advancing from the stale record collides on updatedSeq with the patch it missed (why handlers chain from the latest)', () => {
+    // Pins the reducer property behind #288: both outputs carry updatedSeq=6, so upsertTxAtom / putTxIfFresh would drop
+    // whichever lands second and the executor would stall. This documents the reducer contract; it can't catch a
+    // handler that regresses to the stale pattern — each handler's own tests cover its sequence.
     const base: TxRecord<'shield'> = {
       id: '01TESTSHIELD0000000001',
       kind: 'shield',
