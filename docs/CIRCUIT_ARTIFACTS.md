@@ -16,6 +16,9 @@ to publish them. Fixes the coverage gap in issue #6.
   first proof; the two shapes a typical spend uses (`01x03`, `02x03`) are warmed one at a time once the wallet is signed in
   (`lib/shielded/artifacts.ts`), and each spend warms its own planned shapes at review. Heavy/rare shapes
   (e.g. `08x04`, ~43 MB) load only when actually used.
+- **Served compressed.** Each `zkey` / `circuit.wasm` has a `.gz` copy beside it, and nginx's `gzip_static` serves
+  it to clients that accept gzip, roughly halving every circuit download (zkeys ~54%, WASMs ~25%; #147). `fetch()`
+  decompresses transparently and the integrity check hashes the decoded bytes, so the manifest is unchanged.
 - **Binaries are not committed.** `public/artifacts/**` is gitignored; only the tiny manifest is
   committed (the integrity anchor).
 
@@ -32,6 +35,8 @@ Populate `public/artifacts` from the pinned release (the tag in the committed ma
 ```bash
 npm run circuits:fetch          # downloads + verifies + normalizes into public/artifacts
 ```
+
+It writes the `.gz` copies too; Vite's dev server ignores them and serves the originals.
 
 Then run the app with `VITE_ARTIFACTS_BASE_URL` unset (same-origin). Alternatively, point
 `VITE_ARTIFACTS_BASE_URL` at a running host and skip the local copy entirely.
@@ -66,6 +71,8 @@ for d in */ ; do
   cp "$shape/final.zkey"                          "$DEST/$padded/zkey"
   cp "$shape/main_${shape}_js/main_${shape}.wasm" "$DEST/$padded/circuit.wasm"
   cp "$shape/vkey.json"                           "$DEST/$padded/vkey.json"
+  # gzip copies for nginx gzip_static (-k keeps the original, -f overwrites a stale .gz)
+  gzip -9 -k -f "$DEST/$padded/zkey" "$DEST/$padded/circuit.wasm"
 done
 chmod -R a+rX "$DEST"
 cd /tmp && rm -rf extracted armada-circuits.tgz SHA256SUMS
@@ -77,7 +84,7 @@ cd /tmp && rm -rf extracted armada-circuits.tgz SHA256SUMS
 npm run circuits:publish -- --dest <ssh-user>@circuits.knowable.run:/var/www/circuits/v0.1.0-dev
 ```
 
-Same result (download → verify → normalize → deploy), transported over rsync. Handy in CI where auth
+Same result (download → verify → normalize + gzip copies → deploy), transported over rsync. Handy in CI where auth
 is already configured.
 
 ### nginx (dedicated `circuits.knowable.run` server block)
@@ -101,13 +108,22 @@ server {
         add_header Cache-Control "public, max-age=31536000, immutable" always;
         types { application/wasm wasm; application/json json; }
         default_type application/octet-stream;   # the extensionless `zkey` file
+        # Serve the pre-compressed <file>.gz written at publish time to clients that accept gzip (no runtime CPU);
+        # others get the original. Don't use on-the-fly `gzip on` here: 10–43 MB files, on the relayer's box.
+        gzip_static on;
+        gzip_vary   on;
     }
 }
 ```
 
 Then set `VITE_ARTIFACTS_BASE_URL=https://circuits.knowable.run/v0.1.0-dev` in the deploy env (Netlify)
 and redeploy. Smoke-test: `curl -I https://circuits.knowable.run/v0.1.0-dev/08x04/zkey` → `200` +
-`access-control-allow-origin: *`.
+`access-control-allow-origin: *`, and `curl -sI -H 'Accept-Encoding: gzip' …/01x03/zkey` → `content-encoding: gzip`
+with a `content-length` of ~5.9 MB (vs 10.7 MB without the header).
+
+`gzip_static` needs nginx's `--with-http_gzip_static_module` (stock Debian/Ubuntu builds have it:
+`nginx -V 2>&1 | tr ' ' '\n' | grep gzip_static`). To add the `.gz` copies to a release published before them:
+`cd /var/www/circuits/<tag> && find . -type f \( -name zkey -o -name circuit.wasm \) -exec gzip -9 -k -f {} \; && chmod -R a+rX .`
 
 ## Bumping to a new release (incl. the mainnet ceremony)
 
@@ -137,4 +153,4 @@ ceremony circuits are just a different release tag + base path.
 | `src/lib/shielded/sdk-prover.ts` | SDK `ArtifactSource` — lazy `resolve()`. |
 | `src/lib/shielded/artifacts.ts` | Mount preload of common shapes. |
 | `scripts/gen-circuits-manifest.mjs` | Manifest generator (from a release `SHA256SUMS`). |
-| `scripts/publish-circuits.mjs` | Normalize a release → per-shape layout → local dir or rsync (Option B). Option A is a host-side `curl`+`bash` equivalent. |
+| `scripts/publish-circuits.mjs` | Normalize a release → per-shape layout + `.gz` copies of each zkey / WASM → local dir or rsync (Option B). Option A is a host-side `curl`+`bash` equivalent. |
