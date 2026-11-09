@@ -34,7 +34,7 @@ describe('@armada/sdk imports (#92)', () => {
   })
 
   it('only sdk-loader.ts loads @armada/sdk at runtime; everything else imports types or calls loadSdk()', () => {
-    // WHY: the SDK is ~10 MB (its engine + inlined WASM). Any runtime import of it in the app's graph pulls it into the
+    // WHY: the SDK is ~8 MB (its engine + inlined WASM). Any runtime import of it in the app's graph pulls it into the
     // entry chunk, which every page — the sign-in card, a payment link — has to download and run before it shows. Through
     // loadSdk() it's a separate chunk, fetched in the background once the first screen is up (13C).
     const offenders = Object.entries(sources)
