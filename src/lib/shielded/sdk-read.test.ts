@@ -181,35 +181,12 @@ describe('note consolidation readers', () => {
     expect(await readSdkNoteCounts()).toEqual({ usdc: 23, shares: 0 })
   })
 
-  it('reads the USDC balance split into spendable, pending, and the in-flight spend inputs (pendingSpent)', async () => {
-    // pendingSpent = inputs of a broadcast-but-unconfirmed spend (the SDK's #55 hold). They are neither
-    // spendable nor pending, but still the user's until the spend's Nullified event is scanned.
-    expect(await readSdkUsdcBalance()).toEqual({ spendable: 50n, pending: 4n, pendingSpent: 7n })
+  it('reads the USDC balance split into spendable and pending (held spend inputs are in neither)', async () => {
+    expect(await readSdkUsdcBalance()).toEqual({ spendable: 50n, pending: 4n })
   })
 
   it('resolves a merge target to its token address (undefined when the token has no deployment)', async () => {
     expect(await mergeTokenAddress('usdc')).toBe(USDC)
     expect(await mergeTokenAddress('shares')).toBeUndefined()
-  })
-})
-
-describe('readSdkUsdcBalance — no in-flight spend', () => {
-  const USDC = '0x0000000000000000000000000000000000000002'
-  beforeEach(async () => {
-    await closeSdkRead()
-    vi.mocked(getTokenDataERC20).mockImplementation(((address: string) => address) as never)
-    vi.mocked(getTokenDataHash).mockImplementation(((data: string) => `hash:${data}`) as never)
-    // The SDK omits `pendingSpent` when no spend is held.
-    const fakeWallet = {
-      on: vi.fn(),
-      balances: vi.fn(async () => [{ tokenHash: `hash:${USDC}`, spendable: 50n, pending: 0n, spendableNotes: 1 }]),
-    }
-    const fakeSdk = { wallet: { fromRootSecret: vi.fn(async () => fakeWallet) }, close: vi.fn(async () => {}) }
-    vi.mocked(createArmadaSdk).mockReset()
-    vi.mocked(createArmadaSdk).mockResolvedValue(fakeSdk as unknown as Awaited<ReturnType<typeof createArmadaSdk>>)
-  })
-
-  it('reports pendingSpent as 0 when the SDK omits it', async () => {
-    expect(await readSdkUsdcBalance()).toEqual({ spendable: 50n, pending: 0n, pendingSpent: 0n })
   })
 })

@@ -10,8 +10,8 @@ const h = vi.hoisted(() => ({
   scanListener: null as ((s: { status: 'idle' | 'syncing' | 'complete' | 'failed'; progress: number }) => void) | null,
   balanceListener: null as (() => void) | null,
   refreshShieldedBalances: vi.fn(async () => {}),
-  readSdkUsdcBalance: vi.fn(async () => ({ spendable: 0n, pending: 0n, pendingSpent: 0n })),
-  readSdkYieldShares: vi.fn(async () => ({ position: 0n, pendingSpent: 0n })),
+  readSdkUsdcBalance: vi.fn(async () => ({ spendable: 0n, pending: 0n })),
+  readSdkYieldShares: vi.fn(async () => ({ position: 0n })),
   readSdkHeldSpendTxids: vi.fn(async (): Promise<string[]> => []),
   readSdkSyncedThrough: vi.fn(async () => 0),
 }))
@@ -160,8 +160,8 @@ describe('useShieldedBalanceSync — the projected headline (3B)', () => {
     // note isn't visible until then either — so spendable + pending alone dips below what the user will have. The
     // headline adds the held spend's recorded change (the balance after the send); Max / the "pending" suffix keep
     // reading the unchanged atoms.
-    h.readSdkUsdcBalance.mockResolvedValue({ spendable: 20n, pending: 5n, pendingSpent: 100n })
-    h.readSdkYieldShares.mockResolvedValue({ position: 40n, pendingSpent: 0n })
+    h.readSdkUsdcBalance.mockResolvedValue({ spendable: 20n, pending: 5n })
+    h.readSdkYieldShares.mockResolvedValue({ position: 40n })
     h.readSdkHeldSpendTxids.mockResolvedValue(['0xsend'])
     h.readSdkSyncedThrough.mockResolvedValue(321)
     const store = unlockedStore()

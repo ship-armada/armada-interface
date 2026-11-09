@@ -78,9 +78,25 @@ Reference fixture used in the examples (distinct, non-zero so any mis-sum is vis
 - **G-10 Every flow that builds the same kind renders the same figures** (Send-modal public path and the
   Unshield tab both build `unshield-*` records with one builder, `lib/tx/spendDraft.ts`).
 - **G-11 Balances are the real balance only.** The private balance shown anywhere is the SDK's scanned
-  balance; until it is known the balance spot shows a syncing state with no figure (`dashboard/SyncCard`,
-  `isInitialSyncGated` — including after the scan completes, until its balance is read) — never a figure derived
-  from local history. A locked wallet shows no private balance at all (neither cached nor derived).
+  balance, plus — on the dashboard headline only — what in-flight transactions are known exactly to bring back
+  (G-12); until the scanned balance is known the balance spot shows a syncing state with no figure
+  (`dashboard/SyncCard`, `isInitialSyncGated` — including after the scan completes, until its balance is read) —
+  never a figure derived from local history. A locked wallet shows no private balance at all (neither cached nor
+  derived).
+- **G-12 The headline shows the balance after a transaction from broadcast** (3B; `lib/tx/projectedBalance`,
+  `state/balanceProjection`). It is the scanned balance plus:
+  - each spend's change — `artifacts.returnsToSelf`, its plans' change plus outputs to the wallet's own 0zk, in the
+    spent token (USDC; shares for a vault withdrawal or a shares merge) — for exactly as long as the SDK holds the
+    spend's inputs (`wallet.pendingSpendTxids()`, read with the balances). The SDK releases the hold in the sync that
+    scans the change note, so there's no gap and no double count; a dropped spend (released at once) or one past the
+    hold TTL stops counting;
+  - a same-chain shield's note (its receipt's "you'll receive", `txFigures.netAmount`) from broadcast until the SDK's
+    scan reaches the block it confirmed in (`artifacts.hubBlock`), not after it failed, was cancelled or expired.
+    Cross-chain shields and a vault deposit's incoming shares aren't projected (the vault bar waits for them).
+
+  While anything is projected the balance card says "· Confirming…". The spend flows' amount card keeps the spendable
+  balance (and Max) and adds "· X arriving" for the projected amount (Send, Unshield, Earn — on Earn's Withdraw tab, a
+  withdrawal's change in shares at the current rate).
 
 ## 4. Fee model per kind (what moves on chain)
 
