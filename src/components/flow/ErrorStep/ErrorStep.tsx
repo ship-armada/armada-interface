@@ -33,7 +33,7 @@ export interface ErrorStepProps {
    * a fresh transaction rather than re-running the dead stage. (S-M3)
    */
   primaryLabel?: string
-  /** View Details handler — typically expands the TechnicalDetailsDisclosure inside the body. */
+  /** View Details handler — shows a "View details" button when set. No flow passes one at present. */
   onViewDetails?: () => void
   /**
    * An in-app fix for this error (e.g. "Merge notes" for a too-fragmented wallet). When set it becomes the

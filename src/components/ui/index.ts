@@ -1,4 +1,4 @@
-// ABOUTME: Barrel export for app-local UI primitives — AddressText, AddressReveal, FullAddress, CopyAddressButton, CopyableAddress, AmountInput, Card, ChainSelect, EmptyState, FeeSummary, Modal, RecipientInput, SectionHeader, StatusChip, TechnicalDetailsDisclosure.
+// ABOUTME: Barrel export for app-local UI primitives — AddressText, AddressReveal, FullAddress, CopyAddressButton, CopyableAddress, AmountInput, Card, ChainSelect, EmptyState, FeeSummary, Modal, RecipientInput, SectionHeader.
 // ABOUTME: Re-exports each primitive plus its prop/variant types. Add a line here when a new primitive lands.
 
 export { AddressText } from './AddressText'
@@ -48,16 +48,12 @@ export type { RecipientInputProps } from './RecipientInput'
 export { SectionHeader } from './SectionHeader'
 export type { SectionHeaderProps } from './SectionHeader'
 
-export { StatusChip } from './StatusChip'
-export type { StatusChipProps, StatusChipVariant } from './StatusChip'
 
 export { Tabs } from './Tabs'
 export type { TabsProps, TabItem } from './Tabs'
 
 export { ThemeToggle } from './ThemeToggle'
 
-export { TechnicalDetailsDisclosure } from './TechnicalDetailsDisclosure'
-export type { TechnicalDetailsDisclosureProps } from './TechnicalDetailsDisclosure'
 
 export { Tooltip } from './Tooltip'
 export type { TooltipProps } from './Tooltip'

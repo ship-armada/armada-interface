@@ -23,9 +23,7 @@ These primitives are NOT in `src/design` because they aren't yet stable enough t
 | `Modal` | Centered modal with backdrop, focus trap, ESC dismissal, portal mount. (See Modal/) |
 | `RecipientInput` | Labelled address input with optional Paste-from-clipboard shortcut + inline error. Validation lives in `lib/address`. |
 | `SectionHeader` | Heading with optional trailing slot (link, chip, action). |
-| `StatusChip` | Color-coded status pill. Variants: `neutral`, `info`, `success`, `warning`, `error`. |
 | `Tabs` | Horizontal segmented control with ARIA tablist semantics. Generic over a string-id union. |
-| `TechnicalDetailsDisclosure` | Collapsible "Show technical details" wrapper built on native `<details>`. |
 | `SegmentedControl` | Pill track with a sliding indicator + roving-tabindex arrow-key nav (redesign primitive; used by the Earn Add/Withdraw toggle + request-link expiry). Generic over a string-id union. |
 | `Tooltip` | Portalled hover/focus tooltip. |
 | `InfoTip` | A small muted ⓘ button (named by `label`) showing a short `text` in a rich `Tooltip` — the general form of `tx/FeeInfo`'s trigger. On the Earn yearly-yield line and the deposit Review row. |

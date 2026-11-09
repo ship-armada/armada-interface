@@ -1,92 +1,9 @@
-// ABOUTME: Human-readable copy for every (TxKind, stage) combination, optionally varying by executionState.
-// ABOUTME: Row/stepper tx microcopy — TxRow, TxLifecycleStepper, and the activity adapter read from here. The in-flight processing view's copy lives in processing/processingView.ts.
+// ABOUTME: Tx titles for lists — kindTitle (per kind) and recordTitle (per record: source chain, recipient, vault op), read by
+// ABOUTME: the activity adapter. The in-flight processing view's copy lives in processing/processingView.ts.
 
-import type { TxKind, TxRecord, TxExecutionState } from '@/lib/tx/types'
+import type { TxKind, TxRecord } from '@/lib/tx/types'
 import { getChainById } from '@/config/network'
 import { truncateAddress } from '@/lib/format'
-
-/** Copy entry — either a static string or active/waiting variants keyed on executionState. */
-type CopyEntry = string | { active: string; waiting: string }
-
-/**
- * Per-kind stage copy map. Keys are stage strings; we deliberately use a loose `string` key
- * rather than `StageFor<K>` so the map is one cohesive table without per-kind generic plumbing.
- * The exported `stageCopy()` enforces `StageFor<K>` at the call site.
- */
-const COPY: Record<TxKind, Partial<Record<string, CopyEntry>>> = {
-  shield: {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': { waiting: 'Confirm in your wallet', active: 'Submitting transaction' },
-    'hub-pending': 'Shielding',
-    'hub-confirmed': 'Shielded',
-  },
-  'shield-xchain': {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': { waiting: 'Confirm in your wallet', active: 'Submitting on source chain' },
-    'client-burn-confirmed': 'Confirmed on source chain',
-    'iris-attestation-pending': 'Waiting for cross-chain confirmation',
-    'iris-attestation-ready': 'Cross-chain confirmation ready',
-    'hub-mint-pending': 'Delivering to private balance',
-    'hub-mint-confirmed': 'Shielded',
-  },
-  'unshield-local': {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': 'Submitting privately',
-    'hub-pending': 'Unshielding',
-    'hub-confirmed': 'Unshielded',
-  },
-  'unshield-xchain': {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': 'Submitting privately',
-    'hub-burn-confirmed': 'Confirmed on hub',
-    'iris-attestation-pending': 'Waiting for cross-chain confirmation',
-    'iris-attestation-ready': 'Cross-chain confirmation ready',
-    'client-mint-pending': 'Delivering on destination chain',
-    'client-mint-confirmed': 'Funds delivered',
-  },
-  'transfer-shielded': {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': 'Submitting privately',
-    'hub-pending': 'Sending',
-    'hub-confirmed': 'Sent',
-  },
-  'transfer-shielded-received': {
-    observed: 'Received',
-  },
-  'yield-deposit': {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': 'Submitting privately',
-    'hub-pending': 'Adding to shielded vault',
-    'hub-confirmed': 'Earning',
-  },
-  'yield-withdraw': {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': 'Submitting privately',
-    'hub-pending': 'Withdrawing',
-    'hub-confirmed': 'Returned to balance',
-  },
-  consolidate: {
-    'build-proof': 'Preparing transaction',
-    'submit-relayer': 'Submitting privately',
-    'hub-pending': 'Merging notes',
-    'hub-confirmed': 'Notes merged',
-  },
-}
-
-/**
- * Resolve human-readable copy for a stage. When the entry has active/waiting variants,
- * the `executionState` parameter picks which one to render (used by the shield wallet-prompt sub-state).
- */
-export function stageCopy(
-  kind: TxKind,
-  stage: string,
-  executionState?: TxExecutionState,
-): string {
-  const entry = COPY[kind]?.[stage]
-  if (entry === undefined) return stage
-  if (typeof entry === 'string') return entry
-  return executionState === 'waiting' ? entry.waiting : entry.active
-}
 
 /** Short title used in lists (Recent Activity, In Progress) and in modal headers. */
 const KIND_TITLES: Record<TxKind, string> = {

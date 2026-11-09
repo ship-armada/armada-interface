@@ -1,32 +1,9 @@
-// ABOUTME: Unit tests for stageCopy / kindTitle / recordTitle.
-// ABOUTME: Covers active/waiting executionState resolution (shield) and the mockup activity copy (deposit source chain, sent-to-recipient, vault ops).
+// ABOUTME: Unit tests for kindTitle / recordTitle — the mockup activity copy (deposit source chain, sent-to-recipient, vault
+// ABOUTME: ops).
 
 import { describe, it, expect } from 'vitest'
-import { stageCopy, kindTitle, recordTitle } from './stageCopy'
+import { kindTitle, recordTitle } from './stageCopy'
 import type { TxRecord } from '@/lib/tx/types'
-
-describe('stageCopy', () => {
-  it('returns plain strings for stages without active/waiting variants', () => {
-    expect(stageCopy('shield', 'build-proof')).toBe('Preparing transaction')
-    expect(stageCopy('unshield-xchain', 'client-mint-confirmed')).toBe('Funds delivered')
-  })
-
-  it("returns the 'waiting' variant when executionState is waiting (shield only today)", () => {
-    expect(stageCopy('shield', 'submit-relayer', 'waiting')).toBe('Confirm in your wallet')
-    expect(stageCopy('shield', 'submit-relayer', 'active')).toBe('Submitting transaction')
-    expect(stageCopy('shield', 'submit-relayer')).toBe('Submitting transaction')
-  })
-
-  it('falls back to the raw stage string for unknown stages', () => {
-    expect(stageCopy('shield', 'made-up-stage')).toBe('made-up-stage')
-  })
-
-  it("resolves the received kind's single 'observed' stage", () => {
-    // WHY: synthetic received-transfer records carry a single terminal 'observed' stage; the
-    // stepper/row read its copy via stageCopy. Guards against the new kind landing with no entry.
-    expect(stageCopy('transfer-shielded-received', 'observed')).toBe('Received')
-  })
-})
 
 describe('kindTitle', () => {
   it('returns the short title per kind', () => {

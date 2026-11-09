@@ -245,8 +245,8 @@ describe('markCancelled vs markDismissed', () => {
   })
 
   it('markDismissed handles a record without sourceTxHash by omitting txHash from the error', () => {
-    // Edge case: dismissing a pre-broadcast record (TxActions wouldn't render the dismiss
-    // button in this state, but the reducer is defensive). Should not synthesise a bogus hash.
+    // Edge case: dismissing a pre-broadcast record (dismissTx is meant for broadcast records, but
+    // the reducer is defensive). Should not synthesise a bogus hash.
     const r = baseXchainRecord()
     delete (r.artifacts as { sourceTxHash?: `0x${string}` }).sourceTxHash
     const dismissed = markDismissed(r)
