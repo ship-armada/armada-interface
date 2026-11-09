@@ -1,12 +1,16 @@
-// ABOUTME: Tests for preloadArtifactsFromOrigin / warmPlannedCircuits — warm circuit shapes into the registry via the
-// ABOUTME: verified circuitFetch loader (the common ones at mount; a plan's own once it's known); failures are swallowed.
+// ABOUTME: Tests for preloadArtifactsFromOrigin / preloadArtifactsAfterSdk / warmPlannedCircuits — warm circuit shapes via the
+// ABOUTME: verified circuitFetch loader (the common ones once the SDK is in; a plan's own once known); failures are swallowed.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const ensureCircuitLoadedMock = vi.hoisted(() => vi.fn())
 vi.mock('./circuitFetch', () => ({ ensureCircuitLoaded: ensureCircuitLoadedMock }))
 
-import { preloadArtifactsFromOrigin, warmPlannedCircuits } from './artifacts'
+// The SDK's load, controlled per test: whenSdkLoaded resolves when the test says the SDK is in.
+const sdk = vi.hoisted(() => ({ markLoaded: () => {}, loaded: Promise.resolve() }))
+vi.mock('./sdk-loader', () => ({ whenSdkLoaded: () => sdk.loaded }))
+
+import { preloadArtifactsFromOrigin, preloadArtifactsAfterSdk, warmPlannedCircuits } from './artifacts'
 
 describe('preloadArtifactsFromOrigin', () => {
   beforeEach(() => {
@@ -26,6 +30,26 @@ describe('preloadArtifactsFromOrigin', () => {
     await expect(preloadArtifactsFromOrigin()).resolves.toBeUndefined()
     // All four are still attempted (fire-and-forget, independent).
     expect(ensureCircuitLoadedMock).toHaveBeenCalledTimes(4)
+  })
+})
+
+describe('preloadArtifactsAfterSdk', () => {
+  beforeEach(() => {
+    ensureCircuitLoadedMock.mockReset()
+    ensureCircuitLoadedMock.mockResolvedValue(undefined)
+    sdk.loaded = new Promise<void>((resolve) => {
+      sdk.markLoaded = resolve
+    })
+  })
+
+  it('starts the circuit downloads only once the SDK has loaded', async () => {
+    // WHY: the circuits are ~65 MB; downloading them alongside the SDK on a slow phone held sign-in back ~24s.
+    const preload = preloadArtifactsAfterSdk()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(ensureCircuitLoadedMock).not.toHaveBeenCalled()
+    sdk.markLoaded()
+    await preload
+    expect(ensureCircuitLoadedMock.mock.calls.map((c) => c[0])).toEqual(['01x02', '01x03', '02x02', '02x03'])
   })
 })
 

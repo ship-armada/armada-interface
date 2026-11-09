@@ -50,7 +50,7 @@ import '@/features/yield-deposit'
 import '@/features/yield-withdraw'
 import { startEngine } from '@/lib/tx/executor'
 import { trackError } from '@/lib/telemetry'
-import { preloadArtifactsFromOrigin } from '@/lib/shielded/artifacts'
+import { preloadArtifactsAfterSdk } from '@/lib/shielded/artifacts'
 import { runSchemaMigrationIfNeeded } from '@/lib/shielded/schema-migration'
 import { readStoredWalletId } from '@/lib/shielded/wallet'
 import { isLocalMode } from '@/config/network'
@@ -153,10 +153,11 @@ export function App() {
     // Start the tx execution engine. Idempotent + module-scope, so this runs
     // safely under StrictMode's double-mount and never spawns a second engine.
     startEngine()
-    // Preload the demo-critical circuit artifacts from our own origin into the @armada/sdk artifact
-    // registry (P0-12) so the first proof doesn't fetch ~10 MB from IPFS at click time. Fire-and-forget,
-    // off the critical path — failures fall back to the SDK's default artifact fetch.
-    void preloadArtifactsFromOrigin().catch((err) =>
+    // Preload the common circuit artifacts from the artifact host into the @armada/sdk artifact registry
+    // (P0-12) so the first proof doesn't fetch them at click time. They wait for the SDK chunk so the two
+    // don't share a slow connection. Fire-and-forget, off the critical path — a shape that fails here
+    // lazy-loads at proof time (circuitFetch).
+    void preloadArtifactsAfterSdk().catch((err) =>
       trackError('shielded.artifacts.preload', err),
     )
   }, [mode])
