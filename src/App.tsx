@@ -52,11 +52,6 @@ import { startEngine } from '@/lib/tx/executor'
 import { trackError } from '@/lib/telemetry'
 import { runSchemaMigrationIfNeeded } from '@/lib/shielded/schema-migration'
 import { readStoredWalletId } from '@/lib/shielded/wallet'
-import { isLocalMode } from '@/config/network'
-import {
-  DEFAULT_DEV_MOCK_BALANCE,
-  devMockBalanceAtom,
-} from '@/state/devMockBalance'
 import {
   activeShieldedWalletIdAtom,
   shieldedWalletAtom,
@@ -107,16 +102,6 @@ export function App() {
   // (`useShieldFlow`, `useUnshieldFlow`, `SendModal`, `EarnModal`) mounts its own `useFees()`, so
   // `/fees` is only hit while such a modal is open — not on the sign-in screen or the idle
   // dashboard. React Query dedups across a flow's consumers.
-
-  const setDevMockBalance = useSetAtom(devMockBalanceAtom)
-
-  // First local boot: enable mock USDC unless opted out (VITE_DEV_MOCK_BALANCE=false) or Debug saved a preference.
-  useEffect(() => {
-    if (!isLocalMode()) return
-    if (import.meta.env.VITE_DEV_MOCK_BALANCE === 'false') return
-    if (localStorage.getItem('armada-interface.devMockBalance') != null) return
-    setDevMockBalance({ ...DEFAULT_DEV_MOCK_BALANCE, enabled: true })
-  }, [setDevMockBalance])
 
   const wallet = useAtomValue(shieldedWalletAtom)
   const anotherTabActive = useAtomValue(anotherTabActiveAtom)

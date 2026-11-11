@@ -14,7 +14,6 @@ The app has two environments. They must stay split in code and in hosting env va
 | **Relayer HTTP** | `fetchFees` hits localhost (or override) | No localhost; `isRelayerConfigured()` is false → **offline fee schedule** |
 | **Fee quote on submit** | Falls back to `offline-fees` if relayer down | Same offline id when no `VITE_RELAYER_URL` |
 | **Wallet submit** | User wallet (deposit, send, …) | Same — does not require relayer `/fees` today |
-| **Mock USDC** | `VITE_DEV_MOCK_BALANCE` / Debug drip | Off — real Sepolia USDC |
 | **Unlock “Start over”** | Shown (`isLocalMode()`) | Hidden on testnet |
 
 ## Code invariants (do not regress)

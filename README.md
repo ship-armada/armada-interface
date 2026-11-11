@@ -92,7 +92,6 @@ cp .env.example .env.development
 |---|---|---|
 | `VITE_NETWORK` | `local` | Selects the Anvil devnet |
 | `VITE_RELAYER_URL` | `http://localhost:3001` | Fee-quote + relay API from `armada-relayer` |
-| `VITE_DEV_MOCK_BALANCE` | `true` | Seeds a mock USDC balance for onboarding |
 
 A brand-new wallet can fund itself from the in-app faucet (local mode only).
 
