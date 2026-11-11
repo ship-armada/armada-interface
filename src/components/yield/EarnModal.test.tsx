@@ -272,6 +272,7 @@ describe('<EarnModal>', () => {
     await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
     expect(store.get(txListAtom).some((r) => r.kind === 'yield-deposit')).toBe(false)
     expect(screen.getByRole('button', { name: /Confirm deposit/ })).toBeInTheDocument()
+    expect(screen.getByText(/fee changed/)).toBeInTheDocument()
   }))
 
   it('a vault deposit offers its Max from the SDK (one proof, one tree), not balance minus a fee', () => {

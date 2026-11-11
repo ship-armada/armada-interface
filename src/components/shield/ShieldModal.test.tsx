@@ -468,6 +468,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
     expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(false)
     expect(screen.getByRole('button', { name: /^Confirm/ })).toBeInTheDocument()
+    expect(screen.getByText(/fee changed/)).toBeInTheDocument()
   }))
 
   it('an unshield holds Confirm while its notes are being checked', () => {

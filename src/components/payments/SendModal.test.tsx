@@ -520,6 +520,7 @@ describe('<SendModal>', () => {
       await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
       expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(false)
       expect(screen.getByRole('button', { name: /Confirm send/ })).toBeInTheDocument()
+      expect(screen.getByText(/fee changed/)).toBeInTheDocument()
     }))
   })
 
