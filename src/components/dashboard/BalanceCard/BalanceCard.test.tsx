@@ -1,5 +1,5 @@
-// ABOUTME: Tests for BalanceCard's re-roll lifetime — the balance and vault odometers stay mounted
-// ABOUTME: until their padded rolls settle, not just as long as the new value's own digits suggest.
+// ABOUTME: Tests for BalanceCard — a hidden balance never shows its figure (intro roll included), "Confirming…", and the
+// ABOUTME: re-roll lifetime (the odometers stay mounted until their padded rolls settle).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render } from '@testing-library/react'
@@ -52,6 +52,28 @@ function startReRoll(before: BalanceCardProps, after: BalanceCardProps) {
   advance(50)
   return container
 }
+
+/** Text the user can see — leaves only, minus the two invisible (visibility: hidden, aria-hidden) width-reserving copies. */
+function visibleBalanceText(container: HTMLElement): string {
+  return Array.from(container.querySelectorAll('*'))
+    .filter((el) => el.children.length === 0 && !el.closest('[class*="balanceValueSizer"], [class*="widthAnchor"]'))
+    .map((el) => el.textContent ?? '')
+    .join('')
+}
+
+describe('BalanceCard — hidden balance', () => {
+  it('never shows the figure while balances are hidden — not during the page-load intro roll, nor after it', () => {
+    // WHY: the intro odometer rendered the real digits even with balances hidden, so the balance rolled into view on
+    // every mount (sign-in → sync → balance remounts the card) before the mask took over.
+    const { container, getAllByLabelText } = render(<BalanceCard balance={12.34} balanceHidden />)
+    expect(getAllByLabelText('Balance hidden').length).toBeGreaterThan(0)
+    expect(container.querySelector('[class*="digitColumn"]')).toBeNull()
+    expect(visibleBalanceText(container)).not.toMatch(/\d/)
+    advance(2000)
+    expect(container.querySelector('[class*="digitColumn"]')).toBeNull()
+    expect(visibleBalanceText(container)).not.toMatch(/\d/)
+  })
+})
 
 describe('BalanceCard — confirming (3B)', () => {
   it('says "Confirming…" beside the label while the balance includes an unconfirmed figure, and not otherwise', () => {
