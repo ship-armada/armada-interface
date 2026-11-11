@@ -18,7 +18,11 @@
   background: var(--semantic-color-surface-raised);
   border: 1px solid var(--semantic-color-border-default);
   border-radius: calc(var(--semantic-borderRadius-item) * 1px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  box-shadow:
+    0 var(--primitives-spacing-1) var(--primitives-spacing-2)
+      color-mix(in srgb, var(--semantic-color-brand-deep) 6%, transparent),
+    0 var(--primitives-spacing-3) var(--primitives-spacing-8)
+      color-mix(in srgb, var(--semantic-color-brand-deep) 12%, transparent);
   pointer-events: none;
   white-space: normal;
 }

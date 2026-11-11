@@ -10,7 +10,7 @@ import {
   PlusIcon,
 } from '@heroicons/react/24/outline'
 import { ExternalLink } from 'lucide-react'
-import { Button } from '@/design'
+import { Button, Tooltip } from '@/design'
 import { SUPPORT_URL } from '@/config/support'
 import { BalanceActionButton } from '@/components/dashboard/BalanceActionButton'
 import {
@@ -379,25 +379,26 @@ export function BalanceCard({
           <div className={styles.headerBlock}>
             <div className={styles.headingStack}>
               {armadaAddress ? (
-                <button
-                  type="button"
-                  className={[
-                    'armada-text-ui-label-md',
-                    styles.armadaAddress,
-                    armadaAddressCopied && styles.armadaAddressCopied,
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  onClick={() => void copyArmadaAddress()}
-                  title={armadaAddressCopied ? undefined : armadaAddress}
-                  aria-label={
-                    armadaAddressCopied
-                      ? 'Address copied'
-                      : `Copy Armada address ${truncateArmadaAddress(armadaAddress)}`
-                  }
-                >
-                  {armadaAddressCopied ? 'Copied' : truncateArmadaAddress(armadaAddress)}
-                </button>
+                <Tooltip variant="centered" content="This is your private address.">
+                  <button
+                    type="button"
+                    className={[
+                      'armada-text-ui-label-md',
+                      styles.armadaAddress,
+                      armadaAddressCopied && styles.armadaAddressCopied,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => void copyArmadaAddress()}
+                    aria-label={
+                      armadaAddressCopied
+                        ? 'Address copied'
+                        : `Copy Armada address ${truncateArmadaAddress(armadaAddress)}`
+                    }
+                  >
+                    {armadaAddressCopied ? 'Copied' : truncateArmadaAddress(armadaAddress)}
+                  </button>
+                </Tooltip>
               ) : null}
               <div
                 className={[styles.balanceStack, balanceArriving && styles.balanceStackEnter]
