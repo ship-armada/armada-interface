@@ -62,10 +62,14 @@ describe('circuitFetch', () => {
     expect(out.vkey).toEqual(VKEY_OBJ)
   })
 
-  it('throws on a sha256 mismatch (tampered/corrupt artifact)', async () => {
-    circuitHashesMock.mockReturnValue({ ...(await correctHashes()), zkey: 'deadbeef'.repeat(8) })
+  it.each(['zkey', 'wasm', 'vkey'] as const)('rejects a tampered %s and keeps the shape out of the registry', async (file) => {
+    // WHY: each of the three files is checked on its own — the wasm runs on the user's private inputs, and the zkey /
+    // vkey decide what a proof means. A check dropped or mis-keyed for any one of them must fail here, and a shape that
+    // failed must never be handed to the prover.
+    circuitHashesMock.mockReturnValue({ ...(await correctHashes()), [file]: 'deadbeef'.repeat(8) })
     mockFetch()
-    await expect(fetchCircuitShape('08x04')).rejects.toThrow(/integrity check failed/i)
+    await expect(ensureCircuitLoaded('08x04')).rejects.toThrow(/integrity check failed/i)
+    expect(getArmadaArtifact('08x04')).toBeUndefined()
   })
 
   it('throws on a 404 (shape not served by this deployment)', async () => {
