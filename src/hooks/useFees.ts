@@ -17,11 +17,10 @@ import { trackError } from '@/lib/telemetry'
 
 export interface UseFeesOptions {
   /**
-   * Phase B2+ per-chain quoting — when set, fetches the FeeSchedule for THIS chain instead of
-   * the hub default. Used by B4's shield-xchain gasless path which needs the source client
-   * chain's `shieldXchain` tier (gas costs differ per chain). When omitted, returns the hub
-   * schedule and mirrors it into `feeQuoteAtom` for non-React consumers (existing Phase A
-   * behaviour, unchanged).
+   * Per-chain quoting — when set, fetches the FeeSchedule for THIS chain instead of the hub
+   * default. Used by the gasless cross-chain shield (`useShieldFlow`), which needs the source
+   * client chain's `shieldXchain` tier (gas costs differ per chain). When omitted, returns the hub
+   * schedule and mirrors it into `feeQuoteAtom` for non-React consumers.
    */
   chainId?: number
 }

@@ -1,5 +1,5 @@
-// ABOUTME: Single source of truth for `document.visibilityState`. All pollers gate on this atom.
-// ABOUTME: useTabVisible() (hooks/) attaches the listener exactly once; everywhere else only reads.
+// ABOUTME: The app's view of `document.visibilityState`. All pollers gate on this atom.
+// ABOUTME: Only useTabVisible() (hooks/) writes it; useAutoLock's hidden-tab grace timer keeps its own listener.
 
 import { atom } from 'jotai'
 

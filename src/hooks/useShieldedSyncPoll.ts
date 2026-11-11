@@ -1,5 +1,5 @@
-// ABOUTME: Periodic @armada/sdk wallet.sync() driver — replaces the stock engine's internal scan poller
-// ABOUTME: so live balance + incoming-transfer updates keep flowing. Visibility-gated. Mount once at App root.
+// ABOUTME: Periodic @armada/sdk wallet.sync() driver — the scan poller that keeps the shielded balance
+// ABOUTME: and incoming-transfer updates flowing. Visibility-gated. Mount once at App root.
 
 import { useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -46,7 +46,7 @@ export function nextSyncInterval(
  * Drive `wallet.sync()` on an interval while the wallet is unlocked and the tab is visible. Each sync
  * emits the SDK's scan/balance/note events, which the balance bus fans out to `useShieldedBalanceSync`
  * (re-reads balances) and `useIncomingTransferDetector` (re-runs history recovery). This is what keeps
- * the shielded view live now that the stock engine's continuous scan is being retired. The interval
+ * the shielded view live. The interval
  * tightens to `IN_FLIGHT_POLL_INTERVAL_MS` while a tx is running, to `CATCHUP_POLL_INTERVAL_MS` for
  * `CATCHUP_WINDOW_MS` after the most recent tx completes, then relaxes to `SYNC_POLL_INTERVAL_MS`.
  */

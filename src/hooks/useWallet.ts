@@ -73,8 +73,9 @@ export function useWallet(): UseWalletResult {
         // Capture the active walletId BEFORE `lockWallet` clears the keyManager — we need it
         // to flip the wallet's status from 'unlocked' to 'locked' in the atom (see below). If
         // the read fails we still proceed with the lock; we just can't preserve the locked
-        // record in the atom (downstream the app will route through onboarding instead of
-        // unlock — acceptable fallback for the rare "we couldn't read the walletId" branch).
+        // record in the atom (the atoms are cleared instead; the sign-in card shows either way and
+        // signing in again re-derives the same identity — acceptable for the rare "we couldn't read
+        // the walletId" branch).
         let lockedWalletId: string | null = null
         try {
           lockedWalletId = getWalletId()
@@ -91,8 +92,8 @@ export function useWallet(): UseWalletResult {
         // same session re-attaches watchers (resumeForWallet is idempotent per session). (T-M1)
         if (lockedWalletId) clearResumed(lockedWalletId)
 
-        // The mismatch is the trigger. Lock first (zeroizes keyManager + unloads SDK wallet
-        // best-effort). `lockWallet`'s `_id` parameter is API-consistency baggage; the
+        // The mismatch is the trigger. Lock first (zeroizes the keyManager; the SDK read instance is
+        // closed by `useShieldedBalanceSync` once the status flips below). `lockWallet`'s `_id` parameter is API-consistency baggage; the
         // implementation always locks whichever wallet the keyManager holds.
         lockWallet('').catch((err) => {
           trackError('useWallet.account-switch-lock', err, {

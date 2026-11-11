@@ -1,4 +1,4 @@
-// ABOUTME: Jotai atoms for the tx list + derived selectors. The list is the source of truth; UI reads activeTxListAtom (scoped to active walletId) — V2 Phase 6 scoping guarantee.
+// ABOUTME: Jotai atoms for the tx list + derived selectors. The list is the source of truth; UI reads activeTxListAtom (scoped to the active walletId) so one wallet's history never shows under another.
 // ABOUTME: Hydration from IDB happens in a top-level effect (see hooks/useTxHistory). Writes go through upsertTxAtom which enforces OCC via updatedSeq.
 
 import { atom } from 'jotai'
@@ -8,8 +8,8 @@ import { activeShieldedWalletIdAtom } from './wallet'
 
 /**
  * All tx records — pending and terminal — for every shielded wallet this device has ever
- * unlocked. Source of truth. UI surfaces (History page, RecentActivityCard, InProgressCard)
- * MUST read `activeTxListAtom` instead so a wallet-switch (or lock) doesn't leak prior
+ * unlocked. Source of truth. UI surfaces (the Dashboard's activity list and All activity
+ * panel, the header's pending pill) MUST read `activeTxListAtom` instead so a wallet-switch (or lock) doesn't leak prior
  * history into the new session. The executor + storage layer write here directly; they're
  * wallet-agnostic by design and walletContext on each record carries the binding.
  */
@@ -23,12 +23,13 @@ export const txListAtom = atom<TxRecord[]>([])
 export const txHistoryHydratedAtom = atom<string | null>(null)
 
 /**
- * Records scoped to the currently-active shielded wallet — drives all UI consumers. When the
- * active wallet is null (locked or never-unlocked), returns [] so leaking-prior-history is
- * structurally impossible.
+ * Records scoped to the currently-active shielded wallet — drives all UI consumers. When no
+ * wallet is active (never unlocked, reset, or the account-switch fallback that clears the id),
+ * returns [] so leaking-prior-history is structurally impossible. A plain lock keeps the active
+ * id; there hooks/useTxHistory empties `txListAtom` instead.
  *
- * Defense in depth: hooks/useTxHistory also clears + re-hydrates on activeId change, so the
- * atom rarely contains foreign records to begin with. This filter is the second perimeter.
+ * Defense in depth: hooks/useTxHistory also clears + re-hydrates on activeId change and on lock,
+ * so the atom rarely contains foreign records to begin with. This filter is the second perimeter.
  */
 export const activeTxListAtom = atom((get) => {
   const activeId = get(activeShieldedWalletIdAtom)
@@ -39,9 +40,9 @@ export const activeTxListAtom = atom((get) => {
 /**
  * In-flight txs (non-terminal) for the active wallet only.
  *
- * Note: sourced from `activeTxListAtom`, NOT `txListAtom`. This means InProgressCard +
+ * Note: sourced from `activeTxListAtom`, NOT `txListAtom`. This means the header's pending pill +
  * `useAutoLock`'s defer-on-inflight check see only the active wallet's pending operations.
- * If the user account-switches mid-flow (Phase 4 auto-locks the shielded wallet), the
+ * If the user account-switches mid-flow (`useWallet` auto-locks the shielded wallet), the
  * previous wallet's pending txs disappear from the dashboard — by design, they belong to a
  * locked identity the user is no longer operating.
  */

@@ -1,5 +1,5 @@
-// ABOUTME: Single visibilitychange listener that publishes to tabVisibleAtom. Mount once at app root.
-// ABOUTME: Pollers read tabVisibleAtom; this hook is the only place document.visibilityState is touched.
+// ABOUTME: The visibilitychange listener that publishes to tabVisibleAtom (and the tx hidden-clock). Mount once at app root.
+// ABOUTME: Pollers read tabVisibleAtom, never document.visibilityState; only useAutoLock's hidden-tab grace keeps its own listener.
 
 import { useSetAtom } from 'jotai'
 import { useEffect } from 'react'

@@ -1,5 +1,5 @@
 // ABOUTME: Per-tx hook — submit a transaction, track its lifecycle, retry on failure. Multi-instance safe.
-// ABOUTME: Each call generates a ulid; multiple calls = multiple concurrent tx records. Engine integration lands in Bundle 3 (executor).
+// ABOUTME: Each call generates a ulid; multiple calls = multiple concurrent tx records. Execution is the module-scope executor's (lib/tx/executor).
 
 import { useCallback, useMemo, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -53,8 +53,8 @@ export function useTx<K extends TxKind>(opts: UseTxOptions<K>): UseTxResult<K> {
 
   const submit = useCallback(async (meta: MetaFor<K>): Promise<string | null> => {
     // Hard guard: every tx record must be scoped to the active opaque walletId so
-    // `activeTxListAtom` and `loadTxsForWallet` can resolve it. Submitting without one
-    // would orphan the record (invisible in History, RecentActivityCard, balance derivation)
+    // `activeTxListAtom` and `loadAllTx` can resolve it. Submitting without one
+    // would orphan the record (invisible in every activity surface and the projected balance)
     // and rejected at reload. Submit() can't be reached from the UI before unlock, but the
     // guard makes the invariant explicit.
     if (!activeWalletId) throw new Error('useTx.submit: no active shielded walletId')
@@ -103,8 +103,8 @@ export function useTx<K extends TxKind>(opts: UseTxOptions<K>): UseTxResult<K> {
     await putTxIfFresh(initial)
     track('tx.submitted', { id: newId, kind: opts.kind })
 
-    // Dispatch to the executor. No-op until a stage handler is registered
-    // for this kind (feature passes do that at module load time).
+    // Dispatch to the executor, which runs the stage handlers each kind's `features/<area>`
+    // module registers at load time.
     executeTx(newId)
     return newId
   }, [opts.kind, upsert, evmAddress, activeWalletId])

@@ -1,5 +1,5 @@
 // ABOUTME: On unlock (leader tab only), resumes persisted non-terminal tx records for the active wallet — re-attaching watchers to already-broadcast txs and failing pre-broadcast interruptions honestly.
-// ABOUTME: Mirrors useTxHistory's (walletId, status) reactivity; resumeForWallet is idempotent per (walletId, session) so a re-render or lock/unlock cycle can't double-dispatch.
+// ABOUTME: Mirrors useTxHistory's (walletId, status) reactivity; resumeForWallet is idempotent per (walletId, session) so a re-render can't double-dispatch; a lock clears that guard (clearResumed), so unlocking again re-attaches.
 
 import { useEffect } from 'react'
 import { useAtomValue } from 'jotai'

@@ -1,5 +1,5 @@
 // ABOUTME: Drives chain-driven history recovery on wallet unlock — reconstructs history from the @armada/sdk scan, maps entries to TxRecord, persists via the existing OCC-protected storage, and advances a per-wallet checkpoint so subsequent scans only walk the delta.
-// ABOUTME: Mount once at App root. Idempotent across re-mounts (effect re-runs only on walletId / epoch change). Shares the scan path with useIncomingTransferDetector (Phase 9.4) via lib/shielded/history.ts::runHistoryScan.
+// ABOUTME: Mount once at App root. Idempotent across re-mounts (a scan runs once per walletId + trigger id while unlocked). Shares the scan path with useIncomingTransferDetector via lib/shielded/history.ts::runHistoryScan.
 
 import { useEffect, useRef } from 'react'
 import { useAtomValue, useSetAtom, useStore } from 'jotai'
@@ -195,7 +195,7 @@ async function resolveScanInputs(): Promise<{
     return {
       ctx: {
         hubChainId: deployments.hub.chainId,
-        // USDC gate for the mapper — keeps recovery USDC-only now that the SDK's history is
+        // USDC gate for the mapper — keeps recovery USDC-only, since the SDK's history is
         // ERC20-agnostic (armada-sdk #91). Read straight from the hub manifest (no SDK config round-trip
         // that could throw and skip the whole scan); '' when absent makes the gate fail open.
         usdcAddress: getUsdcAddress(deployments, getNetworkConfig().hub) ?? '',

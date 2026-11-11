@@ -1,4 +1,5 @@
-// ABOUTME: Resolves DisplayFees for action modals — on-chain shield protocol fee + native gas estimate.
+// ABOUTME: Resolves DisplayFees for the tx flows — the hub fee module's on-chain shield protocol fee (debounced) + native gas estimate.
+// ABOUTME: Until the read for the live amount lands the fee is `pending`; when the module can't be read it's the marked ~50 bps estimate.
 
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -20,8 +21,8 @@ import { useDebouncedValue } from './useDebouncedValue'
 const FEE_MODULE_QUERY_KEY = ['fee-module-address'] as const
 
 /**
- * Debounce window for the on-chain shield-fee read. The ShieldModal calls this hook on every
- * keystroke of the amount field; without debouncing, each keystroke fired a `calculateShieldFee`
+ * Debounce window for the on-chain shield-fee read. The shield flow (`useShieldFlow`) calls this hook on
+ * every keystroke of the amount field; without debouncing, each keystroke would fire a `calculateShieldFee`
  * `eth_call`. A 400ms trailing window collapses a typing burst into one read once the amount
  * settles; in the interim the fee is `pending` and the flow reads "Estimating fees…". (P2 perf)
  */
@@ -59,7 +60,7 @@ export function useDisplayFees(
   // `IArmadaFeeModule.calculateShieldFee` regardless of how the USDC reached hub — so the same
   // 50 bps armadaTake applies whether the user deposited directly on hub (`shield`) or arrived
   // via CCTP from a client chain (`shield-xchain`). The on-chain read must cover both kinds;
-  // gating on `shield` alone made the cross-chain Fee row miss the protocol component and
+  // gated on `shield` alone, the cross-chain Fee row would miss the protocol component and
   // surface only the much-smaller CCTP fast-fee ("<0.01 USDC" on a $10 client deposit).
   const isShieldKind = kind === 'shield' || kind === 'shield-xchain'
   // Debounce the amount the on-chain read keys off so a typing burst fires one eth_call, not one
