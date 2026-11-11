@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
-import { txHistoryHydratedAtom, txListAtom } from '@/state/tx'
+import { activeTxListAtom, txHistoryHydratedAtom, txListAtom } from '@/state/tx'
 import { activeShieldedWalletIdAtom, shieldedWalletsAtom } from '@/state/wallet'
 import type { TxRecord } from '@/lib/tx/types'
 
@@ -145,6 +145,19 @@ describe('useTxHistory', () => {
     })
     // Critical assertion: no spillover from rg-1.
     expect(store.get(txListAtom).every(r => r.walletContext.shieldedWalletId === 'rg-2')).toBe(true)
+  })
+
+  it('clears the decrypted history when the wallet locks — the status flips, the walletId stays (a real lock)', async () => {
+    // WHY: lock() and the account-switch lock flip the entry to 'locked' and KEEP the active id, so activeTxListAtom (which
+    // filters on the id only) would keep returning the decrypted records. Only this hook's reset on the status flip
+    // clears them — the walletId-null case below doesn't exercise that.
+    hoisted.mockLoadAllTx.mockResolvedValueOnce([fixture('a', 'rg-1')])
+    const { store } = mount('rg-1')
+    await waitFor(() => expect(store.get(txListAtom)).toHaveLength(1))
+    setActiveWallet(store, 'rg-1', 'locked')
+    await waitFor(() => expect(store.get(txListAtom)).toEqual([]))
+    expect(store.get(activeTxListAtom)).toEqual([])
+    expect(store.get(txHistoryHydratedAtom)).toBeNull()
   })
 
   it('clears txListAtom when the active walletId goes null (lock)', async () => {
