@@ -113,4 +113,17 @@ describe('<EarnReviewStep>', () => {
     )
     expect(screen.getByRole('note', { name: 'High fees for this amount' })).toHaveTextContent('Fees are 20% of this amount.')
   })
+
+  it('over 25%, holds Confirm until the user ticks "I understand" (5D, same gate as Send and Shield)', () => {
+    const onConfirm = vi.fn()
+    render(
+      <EarnReviewStep tab="add" amount={1_000_000n} rate={null} fee={300_000n} netAmount={1_300_000n} netLabel="Total deducted from balance" onBack={vi.fn()} onConfirm={onConfirm} />,
+    )
+    const confirm = screen.getByRole('button', { name: 'Confirm deposit' })
+    expect(confirm).toBeDisabled()
+    fireEvent.click(confirm)
+    expect(onConfirm).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'I understand the fees are more than a quarter of this amount' }))
+    expect(confirm).toBeEnabled()
+  })
 })
