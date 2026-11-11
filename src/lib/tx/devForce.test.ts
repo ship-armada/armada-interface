@@ -17,23 +17,13 @@ describe('throwIfForcedError', () => {
     expect(() => throwIfForcedError(rec())).not.toThrow()
   })
 
-  it('throws a branded TxError carrying the forced code', () => {
+  it.each(['TX_REVERTED', 'USER_REJECTED'] as const)('throws a branded TxError carrying the forced code (%s)', (code) => {
     let caught: unknown
     try {
-      throwIfForcedError(rec('TX_REVERTED'))
+      throwIfForcedError(rec(code))
     } catch (err) {
       caught = err
     }
-    expect(extractTxError(caught)?.code).toBe('TX_REVERTED')
-  })
-
-  it('preserves each code (e.g. USER_REJECTED → cancelled bucket downstream)', () => {
-    let caught: unknown
-    try {
-      throwIfForcedError(rec('USER_REJECTED'))
-    } catch (err) {
-      caught = err
-    }
-    expect(extractTxError(caught)?.code).toBe('USER_REJECTED')
+    expect(extractTxError(caught)?.code).toBe(code)
   })
 })

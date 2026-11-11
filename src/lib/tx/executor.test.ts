@@ -72,20 +72,8 @@ describe('cancelTx', () => {
     unlockForTest()
   })
 
-  it('does NOT clobber a record that is already in a terminal state', () => {
-    const store = getDefaultStore()
-    const completed = makeRecord({ executionState: 'completed', updatedSeq: 5 })
-    store.set(upsertTxAtom, completed)
-
-    cancelTx(completed.id)
-
-    const after = store.get(txListAtom).find(t => t.id === completed.id)
-    expect(after?.executionState).toBe('completed')
-    expect(after?.updatedSeq).toBe(5)
-  })
-
-  it.each(['failed', 'expired', 'cancelled'] as const)(
-    'leaves a %s record alone',
+  it.each(['completed', 'failed', 'expired', 'cancelled'] as const)(
+    'leaves a %s record alone (never clobbers a terminal state)',
     (state) => {
       const store = getDefaultStore()
       const rec = makeRecord({ id: `ulid-${state}`, executionState: state, updatedSeq: 7 })

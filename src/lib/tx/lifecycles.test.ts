@@ -6,6 +6,11 @@ import { lifecycleFor } from './lifecycles'
 import type { TxKind } from './types'
 
 // The same-chain kinds all share the build-proof → submit-relayer → hub-pending → hub-confirmed shape.
+const KINDS: readonly TxKind[] = [
+  'shield', 'shield-xchain', 'unshield-local', 'unshield-xchain', 'transfer-shielded', 'transfer-shielded-received',
+  'yield-deposit', 'yield-withdraw', 'consolidate',
+]
+
 const SAME_CHAIN_KINDS = [
   'shield',
   'unshield-local',
@@ -31,25 +36,14 @@ describe('same-chain lifecycles — hub-pending confirmation stage', () => {
 })
 
 describe('stage estimates — measured on Sepolia (package 7), with headroom for slower devices', () => {
-  it.each<[TxKind, string, number | undefined, number]>([
-    ['transfer-shielded', 'build-proof', undefined, 20_000],
-    ['unshield-local', 'build-proof', undefined, 20_000],
-    ['unshield-xchain', 'build-proof', undefined, 20_000],
-    ['yield-deposit', 'build-proof', undefined, 20_000],
-    ['yield-withdraw', 'build-proof', undefined, 20_000],
-    ['consolidate', 'build-proof', undefined, 20_000],
-    ['shield', 'hub-pending', 15_000, 45_000],
-    ['unshield-local', 'hub-pending', 15_000, 45_000],
-    ['transfer-shielded', 'hub-pending', 15_000, 45_000],
-    ['yield-deposit', 'hub-pending', 15_000, 45_000],
-    ['yield-withdraw', 'hub-pending', 15_000, 45_000],
-    ['consolidate', 'hub-pending', 15_000, 45_000],
-    ['unshield-xchain', 'submit-relayer', 10_000, 40_000],
-    ['shield-xchain', 'iris-attestation-pending', 20_000, 60_000],
-    ['unshield-xchain', 'iris-attestation-pending', 30_000, 75_000],
-  ])('%s / %s: usually %s, slow after %s', (kind, stage, usualMs, slowMs) => {
-    const estimates = lifecycleFor(kind).stageEstimates as Partial<Record<string, { usualMs?: number; slowMs: number }>>
-    expect(estimates[stage]).toEqual(usualMs === undefined ? { slowMs } : { usualMs, slowMs })
+  // The numbers are tuned config (Debug → Tx timings); pin what must hold for any tuning instead.
+  it.each(KINDS)('%s: every estimate names one of its stages and is usually-before-slow', (kind) => {
+    const lifecycle = lifecycleFor(kind)
+    for (const [stage, estimate] of Object.entries(lifecycle.stageEstimates ?? {}) as [string, { usualMs?: number; slowMs: number }][]) {
+      expect(lifecycle.stages as readonly string[]).toContain(stage)
+      expect(estimate.slowMs).toBeGreaterThan(0)
+      if (estimate.usualMs !== undefined) expect(estimate.usualMs).toBeLessThan(estimate.slowMs)
+    }
   })
 
   it('gives a shield\'s build-proof (its wallet prompts — the user\'s own time) no estimate', () => {

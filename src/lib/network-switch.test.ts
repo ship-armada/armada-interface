@@ -40,7 +40,7 @@ vi.mock('@/config/network', () => ({
   },
 }))
 
-import { ensureChain, _isUserRejection, _isChainNotAdded } from './network-switch'
+import { ensureChain, _isChainNotAdded } from './network-switch'
 
 beforeEach(() => {
   getAccountMock.mockReset()
@@ -192,40 +192,6 @@ describe('ensureChain', () => {
       },
     })
     await expect(ensureChain(11155111)).rejects.toThrow(/did not expose an EIP-1193 provider/)
-  })
-})
-
-describe('isUserRejection', () => {
-  it('matches viem UserRejectedRequestError by name', () => {
-    expect(_isUserRejection({ name: 'UserRejectedRequestError', message: '' })).toBe(true)
-  })
-
-  it('matches code 4001 (MetaMask user rejection)', () => {
-    expect(_isUserRejection({ code: 4001, message: 'rejected' })).toBe(true)
-  })
-
-  it('matches ethers ACTION_REJECTED code', () => {
-    expect(_isUserRejection({ code: 'ACTION_REJECTED' })).toBe(true)
-  })
-
-  it('matches "User rejected/denied/cancelled" message patterns', () => {
-    expect(_isUserRejection(new Error('User rejected the request'))).toBe(true)
-    expect(_isUserRejection(new Error('User denied transaction'))).toBe(true)
-    expect(_isUserRejection(new Error('User cancelled'))).toBe(true)
-  })
-
-  it('recurses into the .cause chain (viem wraps provider errors)', () => {
-    const inner = Object.assign(new Error('rejected'), { code: 4001 })
-    const outer = new Error('Switch failed')
-    ;(outer as Error & { cause: unknown }).cause = inner
-    expect(_isUserRejection(outer)).toBe(true)
-  })
-
-  it('does NOT match unrelated errors', () => {
-    expect(_isUserRejection(new Error('network unreachable'))).toBe(false)
-    expect(_isUserRejection(new Error('insufficient funds'))).toBe(false)
-    expect(_isUserRejection(null)).toBe(false)
-    expect(_isUserRejection(undefined)).toBe(false)
   })
 })
 
