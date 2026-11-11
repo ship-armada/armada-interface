@@ -1,15 +1,16 @@
-// ABOUTME: User-facing error messages for enrollment / unlock paths (Sign step, backup restore).
+// ABOUTME: User-facing error copy for a failed sign-in (shown on the dashboard's sign-in card via hooks/useSignIn).
+// ABOUTME: Maps a declined signature, missing deployment manifests, a circuit-download failure and an unreachable relayer to actionable text.
 
 import { isUserRejection } from '@/lib/errors'
 
 const DEPLOYMENT_SETUP_MSG =
   'Deployment manifests are missing. From the armada-poc repo root run `npm run setup` (local Anvil) ' +
-  'or set `VITE_NETWORK=sepolia` in apps/armada-interface/.env.development and restart the dev server.'
+  'or set `VITE_NETWORK=sepolia` in .env.development and restart the dev server.'
 
 const ARTIFACT_DOWNLOAD_MSG =
   'Could not load the ZK circuit files this app needs to prove your transaction. They are served from ' +
   'the configured artifact host and integrity-checked before use, so this usually means the host is ' +
-  'unreachable or a file failed its checksum. Reload the page, click Retry engine setup, then Sign again.'
+  'unreachable or a file failed its checksum. Reload the page, then sign in again.'
 
 const RELAYER_MSG =
   'The fee relayer is not reachable. Start it from armada-poc (`npm run relayer` or your team\'s relayer script) ' +
@@ -17,7 +18,8 @@ const RELAYER_MSG =
 
 /**
  * Turn low-level failures (JSON.parse SyntaxError, fetch 404 manifests, connection refused)
- * into actionable copy for the Sign enrollment step and backup unlock flows.
+ * into actionable copy for the sign-in card. (Backup-restore errors go through
+ * `lib/crypto/kdf.ts::normalizeBackupUnlockError` instead.)
  */
 export function normalizeEnrollmentError(err: unknown): Error {
   if (!(err instanceof Error)) {
