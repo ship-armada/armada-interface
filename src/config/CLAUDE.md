@@ -1,6 +1,6 @@
 # config/
 
-Env-driven configuration. **All env-var reads happen here.** Hooks and components import typed config objects, never `import.meta.env` directly.
+Env-driven configuration. **Env-var reads belong here.** Hooks and components import typed config objects, never `import.meta.env` directly. Known exceptions outside this folder: `lib/sentry.ts` (`VITE_SENTRY_*`, `MODE`), `lib/payViaLink.ts` (`VITE_PUBLIC_APP_ORIGIN`) and `components/settings/SettingsModal.tsx` (`VITE_APP_VERSION`).
 
 | File | Responsibility |
 |---|---|
@@ -18,7 +18,7 @@ The protocol is one hub + N client chains. The full set of known clients per mod
 `network.ts` **client registry**; an operator enables a subset at boot:
 
 ```
-VITE_ENABLED_CLIENTS="base-sepolia,arbitrum-sepolia"   # subset of ClientEntry.key; unset ⇒ all
+VITE_ENABLED_CLIENTS="base-sepolia,arbitrum-sepolia"   # subset of ClientEntry.key; unset ⇒ the default set
 ```
 
 `ClientEntry.key` is the human-friendly enable-list id. **`chainId` is the single stable identifier**
@@ -35,8 +35,8 @@ default set mirrors the canonical deployment instance (`demo3` = **Base + Optimi
 
 ## Conventions
 
-- Never read `import.meta.env.*` outside this folder.
-- Manifest loaders return `Promise<...>`; UI surfaces (App.tsx) handle the promise with `useQuery` so retries + error states are uniform.
+- Don't add `import.meta.env.*` reads outside this folder beyond the exceptions listed above.
+- Manifest loaders return `Promise<...>`; callers (feature handlers, hooks such as `useShieldFlow` / `useUsdcBalances`, `lib/shielded/*`, the Debug page) await `loadDeployments()` directly — it's single-flight and caches a success; a failed load is retried on the next call.
 - **Adding a new client chain:** add one `ClientEntry` to the mode's registry in `network.ts`
   (`key`, `identity`; set `enabledByDefault: false` if it isn't in every instance). That alone flows
   through `deployments.ts`, `wagmi.ts` (transport), and every consumer — binding is by embedded

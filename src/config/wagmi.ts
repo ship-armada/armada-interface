@@ -1,5 +1,5 @@
 // ABOUTME: wagmi + RainbowKit configuration — multi-chain (hub + clients) derived from network.ts.
-// ABOUTME: Local mode registers Anvil chains; sepolia mode registers Sepolia + Base/Arb Sepolia.
+// ABOUTME: Local mode registers Anvil chains; sepolia mode registers Sepolia + the enabled clients (default Base + Optimism Sepolia).
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { fallback, http } from 'viem'

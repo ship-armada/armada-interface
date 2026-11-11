@@ -151,6 +151,6 @@ ceremony circuits are just a different release tag + base path.
 | `src/config/circuits.manifest.json` | Committed shape → sha256 integrity manifest. |
 | `src/lib/shielded/circuitFetch.ts` | Fetch + verify + de-dupe + registry population. |
 | `src/lib/shielded/sdk-prover.ts` | SDK `ArtifactSource` — lazy `resolve()`. |
-| `src/lib/shielded/artifacts.ts` | Mount preload of common shapes. |
+| `src/lib/shielded/artifacts.ts` | Post-sign-in preload of the two common shapes (`hooks/usePreloadCircuits`) + each spend's planned shapes at review. |
 | `scripts/gen-circuits-manifest.mjs` | Manifest generator (from a release `SHA256SUMS`). |
 | `scripts/publish-circuits.mjs` | Normalize a release → per-shape layout + `.gz` copies of each zkey / WASM → local dir or rsync (Option B). Option A is a host-side `curl`+`bash` equivalent. |

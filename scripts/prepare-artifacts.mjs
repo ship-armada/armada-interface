@@ -17,7 +17,8 @@ if (process.env.VITE_ARTIFACTS_BASE_URL) {
   process.exit(0)
 }
 
-// Keep in sync with PRELOAD_VARIANTS in src/lib/shielded/artifacts.ts.
+// The common spend shapes. Must include every shape in PRELOAD_VARIANTS (src/lib/shielded/artifacts.ts, which
+// preloads 01x03 + 02x03 after sign-in); the two extra single-output shapes are checked too.
 const VARIANTS = ['01x02', '01x03', '02x02', '02x03']
 const REQUIRED_FILES = ['circuit.wasm', 'zkey', 'vkey.json']
 

@@ -5,7 +5,7 @@ Top-level route components. Each is a thin shell that composes header chrome (fr
 | Page | Route | Purpose |
 |---|---|---|
 | `Dashboard.tsx` | `/` | Balance overview + action triggers (shield/unshield/yield/pay modals); hosts the "all activity" panel + per-tx receipt overlay. The balance spot is one `BalanceSpot` card whose face follows the wallet: locked → `SignInCard` alone (no activity, no banners); first sync loading → `SyncCard`; then `BalanceCard` — cross-fading, with the card's height easing, rather than three separate cards |
-| `AddressBook.tsx` | `/address-book` | Parked placeholder — not in nav until built |
+| `AddressBook.tsx` | `/address-book` | Parked placeholder — linked from nowhere until built (the route still resolves) |
 | `Debug.tsx` | `/debug` | Developer panel — contract addresses, per-chain balances, Tx timings (`debug/TxTimings`: p50 / p90 per kind and stage from local history, plus this session's balance-lag and sign-in → balance samples), the tx-notice preview (`debug/TxNoticePreview`: the toast / header-pill style, same preference as Settings, + sample outcome notices). Faucet drip column appears only in local mode (no faucet contracts on Sepolia). |
 | `PayViaLinkLanding.tsx` | `/pay-via-link` | Payer's view of a shared payment-request link. Registered **outside** the `<App>` shell (no wallet gate) so an un-onboarded payer can view it. Validates the link (`parsePayViaLinkSearch`), shows the amount ("Any amount" when the request has none)/note/recipient (shortened with a copy button, `ui/CopyableAddress`) + a QR, then "Check this address with the person who sent you this link." (the link could have been altered on the way); "Continue to pay" writes a pending hand-off + navigates to `/`, where `usePayViaLinkIntent` opens the Send flow prefilled. |
 
@@ -18,6 +18,6 @@ Top-level route components. Each is a thin shell that composes header chrome (fr
 
 ## When you add a page
 
-1. Create the `.tsx` file with an ABOUTME header and a default export of a named function component.
+1. Create the `.tsx` file with an ABOUTME header and a named export of the function component (`export function NewPage()`; no default exports).
 2. Register the route in `src/main.tsx` (`<Route path="..." element={<NewPage />} />`).
-3. Add the nav entry in `components/AppLayout.tsx` (`NAV` array) if it should appear in the header.
+3. The header has no nav (just the logo link home), so a page is reached by URL or by a link you add yourself — e.g. `/debug` is linked from nowhere and `AddressBook` stays parked.

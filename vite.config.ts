@@ -139,7 +139,8 @@ function fundGasEndpoint() {
 }
 
 /**
- * Serves deployment JSON files from the project's `deployments/` directory.
+ * Dev server only: serves `/api/deployments/*` from `DEPLOYMENTS_DIR` (`../armada-poc/deployments`, or
+ * `ARMADA_DEPLOYMENTS_DIR`). Production builds serve the fetched copies statically from `public/api/deployments`.
  * Path-traversal guard prevents reads outside that directory.
  *
  * Copied from `crowdfund-ui/packages/committer/vite.config.ts`. When committer
@@ -178,7 +179,8 @@ function serveDeployments() {
 
 /**
  * Injects the static link-preview tags (`src/config/socialPreview.ts`) into index.html, with the card image on the
- * build's own domain — chosen by `VITE_NETWORK` (set in netlify.toml for hosted builds; absent locally → relative).
+ * build's own domain — chosen by `VITE_NETWORK` (set by the deploy workflow / vercel.json for hosted builds; absent
+ * locally → relative).
  */
 function socialPreview(): Plugin {
   return {
@@ -194,7 +196,7 @@ function socialPreview(): Plugin {
 
 export default defineConfig({
   plugins: [
-    // wasm + topLevelAwait MUST come before react() so the Railgun SDK's ZK WASM modules
+    // wasm + topLevelAwait MUST come before react() so the ZK WASM modules
     // (Poseidon hash, curve25519-scalarmult) load as ES modules at runtime instead of being
     // served through Vite's SPA HTML fallback (which manifests as `WebAssembly.instantiate:
     // expected magic word 00 61 73 6d, found 3c 21 64 6f` — i.e. the wasm fetch returned
@@ -204,7 +206,7 @@ export default defineConfig({
     topLevelAwait(),
     react(),
     tailwindcss(),
-    // Railgun SDK + transitive deps (level-js, circomlibjs, ethereum-cryptography, etc.) reach
+    // @armada/sdk + transitive deps (circomlibjs, ethereum-cryptography, snarkjs, etc.) reach
     // for Node built-ins at runtime. Polyfill the minimum set that the SDK actually touches —
     // expanding this list later is cheap, but each entry adds bundle weight.
     nodePolyfills({
@@ -240,7 +242,8 @@ export default defineConfig({
     }),
   ],
   worker: {
-    // The Groth16 prover Web Worker (lib/railgun/prover.worker.ts) runs snarkjs off the main thread.
+    // The Groth16 prover Web Worker (`@armada/sdk/prover/worker`, spawned by lib/shielded/sdk-prover.ts) runs snarkjs
+    // off the main thread.
     // snarkjs needs the same wasm + Node-polyfill treatment as the main bundle. `plugins` is a factory
     // (Vite instantiates fresh plugin instances per worker build); `format: 'es'` matches the module worker.
     format: 'es',
@@ -274,7 +277,7 @@ export default defineConfig({
   },
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
-    // level-js (used by the Railgun engine's LevelDB store) references Node's `global`.
+    // Node-flavoured dependencies reference Node's `global`.
     // Replace it with `globalThis` so the module evaluates in the browser. Mirrors the
     // legacy app's esbuild/define pattern; the heavier `vite-plugin-node-polyfills` isn't
     // required unless other Node-flavored deps surface at runtime (Buffer, process, etc.).
@@ -288,7 +291,7 @@ export default defineConfig({
   optimizeDeps: {
     esbuildOptions: {
       define: {
-        // Same replacement applied during dep pre-bundling — level-js gets compiled here.
+        // Same replacement applied during dep pre-bundling.
         global: 'globalThis',
       },
     },

@@ -28,23 +28,22 @@ The dev server runs on **http://localhost:5176**.
 
 ## Mode 1 — Local dev against Anvil
 
-Local mode talks to three Anvil chains and the contracts/relayer that `armada-poc` deploys, and reads the ZK proving artifacts from `armada-circuits`.
+Local mode talks to three Anvil chains and the contracts/relayer that `armada-poc` deploys. The ZK proving artifacts come from a hosted circuits release or a local copy in `public/artifacts` (step 3).
 
 ### 1. Clone the repos side by side
 
-The app auto-discovers its siblings, so the simplest layout is three checkouts in one parent directory:
+The dev server auto-discovers `armada-poc` as a sibling, so the simplest layout is both checkouts in one parent directory (`armada-poc`'s `fetch-circuits.sh` also creates `armada-circuits` beside them):
 
 ```
 armada/
 ├── armada-interface/   ← this repo
 ├── armada-poc/         ← contracts, deploy scripts, relayer, Anvil
-└── armada-circuits/    ← ZK circuit build artifacts (build/)
+└── armada-circuits/    ← fetched by armada-poc (below); the interface doesn't read it
 ```
 
 ```bash
 # from the parent directory
 git clone https://github.com/ship-armada/armada-poc.git
-git clone https://github.com/ship-armada/armada-circuits.git   # or let armada-poc fetch it (below)
 ```
 
 ### 2. Stand up the devnet (in `armada-poc`)
@@ -63,18 +62,22 @@ npm run armada-relayer          # HTTP fee API + CCTP relay on :3001 (keep runni
 
 ### 3. Start the interface (in `armada-interface`)
 
+The app fetches each ZK circuit at proof time from `VITE_ARTIFACTS_BASE_URL`, or from same-origin `/artifacts` (`public/artifacts`) when that's unset. Pick one:
+
 ```bash
 cd ../armada-interface
+npm run circuits:fetch    # download + verify the pinned release into public/artifacts (needs the gh CLI)
+# …or skip the local copy and use the hosted testnet release:
+#   VITE_ARTIFACTS_BASE_URL=https://circuits.knowable.run/v0.1.0-dev
 npm run dev
 ```
 
-Open **http://localhost:5176**. With the sibling layout above, the dev server automatically finds `armada-poc/deployments/` and `armada-circuits/build/` — no configuration needed.
+Open **http://localhost:5176**. With the sibling layout above, the dev server automatically finds `armada-poc/deployments/` — no configuration needed. See `docs/CIRCUIT_ARTIFACTS.md` for the circuits details.
 
-If your repos live elsewhere, point the app at them explicitly:
+If `armada-poc` lives elsewhere, point the app at it explicitly:
 
 ```bash
 ARMADA_POC_DIR=/path/to/armada-poc \
-ARMADA_CIRCUITS_DIR=/path/to/armada-circuits/build \
 npm run dev
 ```
 
@@ -92,6 +95,7 @@ cp .env.example .env.development
 |---|---|---|
 | `VITE_NETWORK` | `local` | Selects the Anvil devnet |
 | `VITE_RELAYER_URL` | `http://localhost:3001` | Fee-quote + relay API from `armada-relayer` |
+| `VITE_ARTIFACTS_BASE_URL` | unset → same-origin `/artifacts` | Host serving the ZK circuits (`<base>/NNxMM/{zkey,circuit.wasm,vkey.json}`) |
 
 A brand-new wallet can fund itself from the in-app faucet (local mode only).
 
@@ -99,7 +103,7 @@ A brand-new wallet can fund itself from the in-app faucet (local mode only).
 
 ## Mode 2 — Local dev against a Sepolia deployment
 
-Run the dev server against a live Sepolia deployment — no Anvil, no `armada-poc`, no `armada-circuits` needed. Deployments are published as named **instances** in [`armada-deployments`](https://github.com/ship-armada/armada-deployments/tree/main/testnet) (e.g. `demo3`, `demo2`, `medi1`…).
+Run the dev server against a live Sepolia deployment — no Anvil, no `armada-poc` needed. Deployments are published as named **instances** in [`armada-deployments`](https://github.com/ship-armada/armada-deployments/tree/main/testnet) (e.g. `demo3`, `demo2`, `medi1`…).
 
 ### 1. Fetch the instance's manifests
 
@@ -115,10 +119,11 @@ This downloads the instance's contract manifests into `public/api/deployments/`.
 ```bash
 ARMADA_DEPLOYMENTS_DIR="$PWD/public/api/deployments" \
 VITE_NETWORK=sepolia \
+VITE_ARTIFACTS_BASE_URL=https://circuits.knowable.run/v0.1.0-dev \
 npm run dev
 ```
 
-Open **http://localhost:5176**. The app talks to public Sepolia RPCs and reads the manifests you just fetched. (`ARMADA_DEPLOYMENTS_DIR` points the dev server's manifest endpoint at the fetched copies.)
+Open **http://localhost:5176**. The app talks to public Sepolia RPCs and reads the manifests you just fetched. (`ARMADA_DEPLOYMENTS_DIR` points the dev server's manifest endpoint at the fetched copies; `VITE_ARTIFACTS_BASE_URL` points the prover at the hosted circuits — or drop it and run `npm run circuits:fetch` first, as in Mode 1.)
 
 ### Sepolia env (optional)
 
@@ -136,7 +141,7 @@ To serve the exact static bundle that deploys to production:
 
 ```bash
 DEPLOYMENT_INSTANCE=demo3 node scripts/fetch-sepolia-deployments.mjs
-VITE_NETWORK=sepolia npm run build
+VITE_NETWORK=sepolia VITE_ARTIFACTS_BASE_URL=https://circuits.knowable.run/v0.1.0-dev npm run build
 npm run preview        # serves the built dist/ on :4173
 ```
 
@@ -147,17 +152,18 @@ npm run preview        # serves the built dist/ on :4173
 | Command | Description |
 |---|---|
 | `npm run dev` | Dev server with HMR (**:5176**) |
-| `npm run build` | Type-check + production bundle to `dist/` |
+| `npm run build` | ZK-artifact check (`prebuild`), type-check + production bundle to `dist/` |
 | `npm run preview` | Serve the built `dist/` |
 | `npm run typecheck` | `tsc -b --noEmit` (app + node configs), then `tsc -p tsconfig.vitest.json --noEmit` (test files — vitest itself transpiles without type-checking) |
 | `npm run test` | Unit tests (Vitest) |
-| `npm run prepare:artifacts` | Verify the committed ZK artifacts are present |
+| `npm run prepare:artifacts` | ZK-artifact check: a no-op when `VITE_ARTIFACTS_BASE_URL` is set, otherwise verifies the common shapes are in `public/artifacts` |
+| `npm run circuits:fetch` | Download + verify the pinned circuits release into `public/artifacts` (needs the `gh` CLI) |
 
 ---
 
 ## Deployment
 
-The app deploys as a static site on **Netlify** and **Vercel** via their git integrations; both configs (`netlify.toml`, `vercel.json`) are committed and build at the repo root. Production builds run in Sepolia mode and fetch their manifests from `armada-deployments` at build time. See `DEPLOYMENT.md` for the full env-var table and relayer notes, and `LOCAL_VS_DEPLOY.md` for the local-vs-hosted invariants.
+The app deploys as a static site. **Netlify:** the bundle is built in GitHub Actions (`.github/workflows/deploy.yml`, on every push to `main`) and the prebuilt `dist/` is pushed with the Netlify CLI, because the build runs out of memory in Netlify's container; `netlify.toml` still supplies the redirects + headers. **Vercel:** its git integration builds at the repo root from `vercel.json`. Production builds run in Sepolia mode and fetch their manifests from `armada-deployments` at build time. See `DEPLOYMENT.md` for the full env-var table and relayer notes, and `LOCAL_VS_DEPLOY.md` for the local-vs-hosted invariants.
 
 ---
 
@@ -173,7 +179,7 @@ src/
 ├── state/        Jotai atoms
 ├── hooks/        per-concern React hooks
 ├── components/   feature UIs (dashboard, shield, yield, payments, tx, settings)
-└── pages/        Dashboard, Debug, PayViaLinkLanding
+└── pages/        Dashboard, Debug, PayViaLinkLanding, AddressBook (parked)
 ```
 
 For architecture and per-module conventions, see `CLAUDE.md` and the per-folder `CLAUDE.md` files.
