@@ -2,11 +2,12 @@
 // ABOUTME: fee fixture from specs/TX_VALUES.md, row by row (headline, Fees, Total / You received / net).
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { ActivityReceipt } from './ActivityReceipt'
 import type { TxKind, TxRecord } from '@/lib/tx/types'
 import { A, C, C_ACTUAL, F, FOLD, G, P, txRecord } from '@/test/fixtures/txValues'
 import { headlineAmount, summaryRow } from '@/test/summaryRows'
+import styles from './ActivityReceipt.module.css'
 
 const RELAYER_0ZK = '0zk' + 'b'.repeat(64)
 const RECIPIENT_0ZK = '0zk' + 'c'.repeat(64)
@@ -219,6 +220,25 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
     it('an expired send may still have settled: its figures stay', () => {
       showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), { executionState: 'expired' })
       expect(summaryRow('Fees')).toBe('1.000003 USDC')
+    })
+
+    // The headline amount element (the classes carry the outcome, so the module's own keys are asserted).
+    const headline = () => screen.getByRole('heading', { level: 1 }).nextElementSibling!.firstElementChild as HTMLElement
+    const STRUCK_FAILED = styles.amountValueFailed ?? 'amountValueFailed'
+    const STRUCK_CANCELLED = styles.amountValueCancelled ?? 'amountValueCancelled'
+
+    it('a failed or cancelled receipt strikes its headline amount — nothing settled', () => {
+      showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), reverted)
+      expect(headline()).toHaveClass(STRUCK_FAILED)
+      cleanup()
+      showReceipt('shield', { amount: A, fromChainId: 31337, useGasless: true, feeAmount: F, protocolFee: P }, cancelled)
+      expect(headline()).toHaveClass(STRUCK_CANCELLED)
+    })
+
+    it('an expired (unknown-outcome) receipt does not strike its amount — it may still have gone through', () => {
+      showReceipt('transfer-shielded', spendMeta(F, { recipient: RECIPIENT_0ZK }), { executionState: 'expired' })
+      expect(headline()).not.toHaveClass(STRUCK_FAILED)
+      expect(headline()).not.toHaveClass(STRUCK_CANCELLED)
     })
   })
 })
