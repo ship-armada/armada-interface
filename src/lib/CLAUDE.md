@@ -48,4 +48,4 @@ The shielded-wallet and crypto folders have their own signposts with the full fi
 
 ## Duplicated-from-shared note
 
-`rpc.ts`, `format.ts`, `wagmi-adapter.ts`, `revert.ts`, `multicall3.ts` are duplicated from `@armada/crowdfund-shared/lib/*`. Don't evolve here without keeping the other in sync. When both apps need to diverge OR both need a new utility, extract to `@armada/eth-utils` (see root CLAUDE.md and Plan §19).
+`rpc.ts`, `format.ts`, `multicall3.ts` are duplicated from `@armada/crowdfund-shared/lib/*`, and `wagmi-adapter.ts`, `revert.ts` from the crowdfund committer. Don't evolve here without keeping the other in sync. When both apps need to diverge OR both need a new utility, extract to `@armada/eth-utils` (see root CLAUDE.md and `docs/ARCHITECTURE.md` §16).

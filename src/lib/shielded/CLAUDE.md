@@ -99,7 +99,7 @@ See `specs/TX_SIGNING_V2_AMENDMENT.md` §"Outstanding compliance gaps from this 
 
 ## WebAuthn (future, not now)
 
-V2 redesign accepted "deterministic re-sign from EVM wallet" as the primary recovery path. WebAuthn-wrapped key storage is the right v2 hardening (origin-bound, addresses the malicious-extension threat the current in-memory model doesn't fully cover). Future work; see plan §7 non-goals.
+V2 redesign accepted "deterministic re-sign from EVM wallet" as the primary recovery path. WebAuthn-wrapped key storage is the right v2 hardening (origin-bound, addresses the malicious-extension threat the current in-memory model doesn't fully cover). Future work; see `docs/ARCHITECTURE.md` decision 32.
 
 ## `creationBlock` invariant: always anchor at hub deploy block
 

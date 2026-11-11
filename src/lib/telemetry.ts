@@ -1,5 +1,5 @@
 // ABOUTME: Structured telemetry — typed event registry (compile-time privacy enforcement) + scoped error reporter.
-// ABOUTME: Console always; `trackError` also forwards to Sentry (no-op unless a DSN is configured). Plan §16 + reviewer #12. Never emit amounts, recipients, mnemonics, attestation bytes, addresses, memo fields.
+// ABOUTME: Console always; `trackError` also forwards to Sentry (no-op unless a DSN is configured). See docs/ARCHITECTURE.md §14. Never emit amounts, recipients, mnemonics, attestation bytes, addresses, memo fields.
 
 import type { TxKind, TxRecord, TxStage } from './tx/types'
 import { captureError } from './sentry'

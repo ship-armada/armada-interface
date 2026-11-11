@@ -1,7 +1,7 @@
 # armada-interface — security notes
 
 Security-relevant design decisions and residual risks for the user app. Companion to
-`DEPLOYMENT.md` (env/config) and `../../.claude/PLAN_ARMADA_INTERFACE.md` (§security boundary).
+`DEPLOYMENT.md` (env/config) and `docs/ARCHITECTURE.md` (§9, the key and security boundary).
 
 ## Shielded quick-sync trust model (F5)
 

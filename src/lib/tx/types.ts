@@ -1,5 +1,5 @@
 // ABOUTME: Transaction lifecycle model — discriminated unions defining each TxKind's stages, artifacts, and meta.
-// ABOUTME: Plan §7. All tx UX flows through these types; the same processing view (components/tx/processing) renders any kind.
+// ABOUTME: docs/ARCHITECTURE.md §6. All tx UX flows through these types; the same processing view (components/tx/processing) renders any kind.
 
 export type TxKind =
   | 'shield'

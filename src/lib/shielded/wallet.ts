@@ -27,7 +27,7 @@ import { deleteSdkReadStorage } from './sdk-read'
 
 /**
  * Public state shape exposed to React (atoms / hooks). No secrets — just identity + status.
- * `id` (walletId) is opaque per Plan §15. `shieldedAddress` is the 0zk… form.
+ * `id` (walletId) is an opaque identifier (`kdf.ts::deriveWalletId`). `shieldedAddress` is the 0zk… form.
  */
 export interface ShieldedWalletState {
   readonly id: string

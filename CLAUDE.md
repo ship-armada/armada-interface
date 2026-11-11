@@ -6,9 +6,9 @@ USDC user app on the Armada protocol — shield, unshield, yield, payments, cros
 
 **Chain history recovery (V1 Phase 9):** on unlock, `useHistoryRecovery` reconstructs history from the `@armada/sdk` wallet scan (`runHistoryScan` → `historyEntryToTxRecord`) and synthesizes terminal `TxRecord`s for shields / transacts / unshields / yield ops not already in local IDB. `useIncomingTransferDetector` re-fires the scan on every SDK balance event so received transfers (which the user didn't author) surface live. A per-wallet localStorage checkpoint makes subsequent scans incremental. Settings → "Re-scan history" / "Clear local history" let the user force a refresh or wipe locally. See `lib/shielded/history.ts`, `hooks/useHistoryRecovery.ts`, and `test/integration/history-recovery.test.tsx`.
 
-## Plan
+## Architecture
 
-Architectural decisions and rationale: `../../.claude/PLAN_ARMADA_INTERFACE.md`. **Read first.** It defines the tx lifecycle model, polling matrix, security boundary, and 19 locked decisions.
+Architectural decisions and rationale: `docs/ARCHITECTURE.md`. **Read first.** It covers the tx lifecycle model and execution engine, fees, the key and security boundary, the polling matrix, and the decision log.
 
 ## Stack
 
@@ -91,7 +91,7 @@ The README's "Mode 1" / "Mode 2" sections have the full setup for each network:
 
 ## Duplicated utilities
 
-`src/lib/rpc.ts`, `format.ts`, `wagmi-adapter.ts`, `revert.ts`, `multicall3.ts` are duplicates of files in `@armada/crowdfund-shared`. They live here so this app doesn't depend on a crowdfund-named package. When both apps need to evolve these, extract them to a new `@armada/eth-utils` package (Plan §19). Don't pre-extract.
+`src/lib/rpc.ts`, `format.ts`, `multicall3.ts` (from `@armada/crowdfund-shared`) and `wagmi-adapter.ts`, `revert.ts` (from the crowdfund committer) are duplicates of crowdfund-app files. They live here so this app doesn't depend on a crowdfund-named package. When both apps need to evolve these, extract them to a new `@armada/eth-utils` package (`docs/ARCHITECTURE.md` §16). Don't pre-extract.
 
 ## Tx lifecycle model — required reading
 
@@ -115,4 +115,4 @@ This model fixes the crowdfund-committer's `useTransactionFlow` single-tx limita
 - A remote telemetry sink beyond Sentry. Sentry error capture IS wired (`lib/sentry.ts`, DSN-gated via `VITE_SENTRY_DSN` — see DEPLOYMENT.md), but the structured `track()` info events remain console-only.
 - Service worker / offline support.
 - i18n.
-- Mnemonic import flow. Keys are derived from an EIP-712 signature at sign-in, not from a generated mnemonic; recovery is the backup file / pasted recovery secret in `RestoreModal` (Plan §15.7).
+- Mnemonic import flow. Keys are derived from an EIP-712 signature at sign-in, not from a generated mnemonic; recovery is the backup file / pasted recovery secret in `RestoreModal` (`docs/ARCHITECTURE.md` §9).

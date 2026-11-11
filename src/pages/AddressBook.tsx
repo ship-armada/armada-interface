@@ -1,5 +1,5 @@
 // ABOUTME: Address book page — parked placeholder. Linked from nowhere until built; the route is still reachable.
-// ABOUTME: Plan §12: "Renders an 'Address book' empty-state placeholder for now; not in the nav until built."
+// ABOUTME: Renders an "Address book" empty state; see docs/ARCHITECTURE.md §12 (pages and routes).
 
 export function AddressBook() {
   return (

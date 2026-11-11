@@ -1,5 +1,5 @@
 // ABOUTME: Module-scope transaction executor — runs stage handlers outside React lifecycle, owns AbortControllers, leader-elected via navigator.locks.
-// ABOUTME: Hooks (useTx) only trigger execution; they never orchestrate. Plan §7a; reviewer rec #2 + #9.
+// ABOUTME: Hooks (useTx) only trigger execution; they never orchestrate. See docs/ARCHITECTURE.md §7.
 
 import { getDefaultStore } from 'jotai'
 import { track, trackError, trackTxTransition } from '../telemetry'

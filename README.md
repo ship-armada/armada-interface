@@ -4,6 +4,8 @@ The user-facing web app for **Armada** — private USDC on-chain. Shield USDC in
 
 Built with React 19 + TypeScript, Vite, wagmi / RainbowKit / viem, Jotai, TanStack Query, and the [`@armada/sdk`](https://github.com/ship-armada/armada-sdk). The design system is vendored under `src/design`, so the app is fully self-contained.
 
+How it's built and why — the transaction lifecycle, keys and security boundary, polling, and the decision log — is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
 ---
 
 ## Prerequisites

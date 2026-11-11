@@ -1,6 +1,6 @@
 # lib/tx/
 
-Transaction lifecycle model. The most important architectural surface in this app — read `.claude/PLAN_ARMADA_INTERFACE.md` §7 + §7a before touching.
+Transaction lifecycle model. The most important architectural surface in this app — read `docs/ARCHITECTURE.md` §6 + §7 before touching.
 
 ## Files
 
