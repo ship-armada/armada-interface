@@ -48,16 +48,7 @@ describe('activeTxListAtom (Phase 6 scoping)', () => {
     expect(ids).toEqual(['a', 'c'])
   })
 
-  it('flips empty the moment the active walletId clears (account-switch lock)', () => {
-    const store = createStore()
-    store.set(txListAtom, [fixture('a', 'rg-1', 'completed')])
-    store.set(activeShieldedWalletIdAtom, 'rg-1')
-    expect(store.get(activeTxListAtom)).toHaveLength(1)
-    store.set(activeShieldedWalletIdAtom, null)
-    expect(store.get(activeTxListAtom)).toEqual([])
-  })
-
-  it('flips to the new wallet on account-switch (rg-1 → rg-2)', () => {
+  it('flips to the new wallet on account-switch (rg-1 → rg-2), and empties the moment the walletId clears (lock)', () => {
     const store = createStore()
     store.set(txListAtom, [
       fixture('a', 'rg-1', 'completed'),
@@ -67,6 +58,8 @@ describe('activeTxListAtom (Phase 6 scoping)', () => {
     expect(store.get(activeTxListAtom).map(r => r.id)).toEqual(['a'])
     store.set(activeShieldedWalletIdAtom, 'rg-2')
     expect(store.get(activeTxListAtom).map(r => r.id)).toEqual(['b'])
+    store.set(activeShieldedWalletIdAtom, null)
+    expect(store.get(activeTxListAtom)).toEqual([])
   })
 })
 

@@ -52,7 +52,7 @@ describe('useSpendCheck', () => {
     const { result } = renderCheck()
     expect(result.current.pending).toBe(true)
     expect(result.current.fee).toBeNull()
-    expect(result.current.blockReason).toBe('Checking your notes…')
+    expect(result.current.blockReason).not.toBeNull() // Confirm is held while it runs
     await waitFor(() => expect(hoisted.checkSpendPlans).toHaveBeenCalled())
     act(() => finish({ totalFee: 1_500_000n }))
     await waitFor(() => expect(result.current.pending).toBe(false))

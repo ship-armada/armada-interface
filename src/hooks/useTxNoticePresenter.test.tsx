@@ -58,7 +58,8 @@ describe('useTxNoticePresenter — pill style', () => {
     const { store, push } = setup('pill')
     push('success', 1)
     expect(sonner.custom).not.toHaveBeenCalled()
-    expect(store.get(txNoticeAnnouncementAtom)).toMatchObject({ tone: 'success', title: 'Sent 5.00 USDC', recordId: 'send-1' })
+    // The title is noticeCopy's (tested there); here, the wiring: this record's notice, in its tone.
+    expect(store.get(txNoticeAnnouncementAtom)).toMatchObject({ tone: 'success', recordId: 'send-1' })
     act(() => vi.advanceTimersByTime(PILL_ANNOUNCE_MS))
     expect(store.get(txNoticeAnnouncementAtom)).toBeNull()
   })
@@ -68,7 +69,7 @@ describe('useTxNoticePresenter — pill style', () => {
     const { store, push } = setup('pill')
     push('failure', 1)
     act(() => vi.advanceTimersByTime(PILL_ANNOUNCE_MS * 3))
-    expect(store.get(txNoticeAnnouncementAtom)).toMatchObject({ tone: 'failure', title: 'Send failed' })
+    expect(store.get(txNoticeAnnouncementAtom)).toMatchObject({ tone: 'failure', recordId: 'send-1' })
   })
 
   it('leaves the amount out while balances are hidden', () => {

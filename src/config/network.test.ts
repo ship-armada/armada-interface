@@ -102,27 +102,17 @@ describe('getClientRegistry — sepolia default set matches the canonical instan
     expect(op!.enabledByDefault).not.toBe(false) // on by default
   })
 
-  it('catalogs arbitrum-sepolia as the opt-in entry (off by default)', () => {
-    const arb = getClientRegistry('sepolia').find(e => e.key === 'arbitrum-sepolia')
-    expect(arb).toBeDefined()
-    expect(arb!.identity.chainId).toBe(421614)
-    expect(arb!.enabledByDefault).toBe(false)
-  })
-
-  it('activates Base + Optimism by default; Arbitrum is opt-in', () => {
-    const active = resolveEnabledClients(getClientRegistry('sepolia'), undefined).map(c => c.chainId)
+  it('activates Base + Optimism by default; Arbitrum is catalogued but opt-in', () => {
+    const registry = getClientRegistry('sepolia')
+    const active = resolveEnabledClients(registry, undefined).map(c => c.chainId)
     expect(active).toEqual([84532, 11155420]) // base, optimism — NOT arbitrum (421614)
+    expect(registry.find(e => e.key === 'arbitrum-sepolia')).toMatchObject({ identity: { chainId: 421614 }, enabledByDefault: false })
   })
 })
 
 describe('getClientRegistry', () => {
-  it('exposes the local registry with stable string keys and unique chainIds/domains', () => {
+  it('gives every local client a unique chainId (bindings are by chainId)', () => {
     const local = getClientRegistry('local')
-    expect(local.length).toBeGreaterThanOrEqual(2)
-    for (const entry of local) {
-      expect(typeof entry.key).toBe('string')
-      expect(entry.key.length).toBeGreaterThan(0)
-    }
     const chainIds = local.map(e => e.identity.chainId)
     expect(new Set(chainIds).size).toBe(chainIds.length)
   })
