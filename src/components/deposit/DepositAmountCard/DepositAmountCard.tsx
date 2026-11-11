@@ -249,8 +249,8 @@ export function DepositAmountCard({
       <div className={styles.amountStack}>
         <label className={styles.amountWrapper} htmlFor={amountInputId}>
           <span className={styles.visuallyHidden}>{amountAriaLabel}</span>
-          <AmountFieldWarning id={amountErrorId} visible={Boolean(error)} message={error ?? ''}>
           <span
+            data-amount-anchor=""
             className={[styles.amountField, showActiveAmount && styles.amountFieldHasValue]
               .filter(Boolean)
               .join(' ')}
@@ -311,7 +311,6 @@ export function DepositAmountCard({
               </span>
             ) : null}
           </span>
-          </AmountFieldWarning>
         </label>
 
         {/* Fee caption (mockup): "+ $X.XX FEE" ("incl. $X.XX FEE" when the fee comes out of the amount) directly
@@ -320,6 +319,12 @@ export function DepositAmountCard({
             two combine on a direct cross-chain shield). The line is always reserved (non-breaking
             space when there's no fee) so the card height stays stable. The breakdown tooltip is
             kept beside the value for the full protocol/broadcaster/gas split. */}
+        <AmountFieldWarning
+          id={amountErrorId}
+          visible={Boolean(error)}
+          message={error ?? ''}
+          placement="cover"
+        >
         <div className={`armada-text-ui-label-md ${styles.feeCaption}`} role="status">
           {showResolving ? (
             <span className={styles.feeResolving}>Estimating fees…</span>
@@ -340,6 +345,7 @@ export function DepositAmountCard({
             ' '
           )}
         </div>
+        </AmountFieldWarning>
       </div>
 
       </div>

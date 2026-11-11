@@ -104,9 +104,9 @@ describe('DepositAmountCard — amount typing', () => {
     expect(screen.getByLabelText('Deposit amount')).toHaveValue('1,000,000')
   })
 
-  it('surfaces the amount error as an above-field alert (tooltip), not inline below', () => {
+  it('surfaces the amount error on the fee line', () => {
     renderCard({ amount: '5', error: "That's more than you can deposit" })
-    expect(screen.getByRole('alert')).toHaveTextContent("That's more than you can deposit")
+    expect(screen.getByRole('alert', { hidden: true })).toHaveTextContent("That's more than you can deposit")
   })
 })
 
