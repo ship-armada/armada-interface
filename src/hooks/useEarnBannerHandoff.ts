@@ -23,7 +23,6 @@ type ShieldPromoPhase = 'idle' | 'keep' | 'exit' | 'done'
  * collapse it, then allow the earn banner to enter.
  */
 export function useDepositTooltipHandoff(
-  walletConnected: boolean,
   hasCompletedDeposit: boolean,
   dashboardBalance: number,
   ready: boolean,
@@ -64,7 +63,7 @@ export function useDepositTooltipHandoff(
     return () => window.clearTimeout(timer)
   }, [phase])
 
-  const natural = walletConnected && !hasCompletedDeposit && dashboardBalance <= 0
+  const natural = ready && !hasCompletedDeposit && dashboardBalance <= 0
   const showDepositTooltip = natural || phase === 'keep' || phase === 'exit'
 
   return {

@@ -16,6 +16,7 @@ import {
 } from '@/state/wallet'
 import { useTx } from '@/hooks/useTx'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
+import { useContinueWithWallet } from '@/hooks/useOpenActionModal'
 import { useSpendCheck } from '@/hooks/useSpendCheck'
 import type { BlockedSpend } from '@/lib/shielded/merge-intent'
 import { useRecentRecipients, useSendCountTo } from '@/hooks/useRecentRecipients'
@@ -104,6 +105,7 @@ export function SendModal() {
 
   // Flow state
   const [step, setStep] = useState<LocalStep>('recipient')
+  const continueToReview = useContinueWithWallet(() => setStep('review'))
   const [errorAtStep, setErrorAtStep] = useState<FlowVisibleStep | undefined>(undefined)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submittedKind, setSubmittedKind] = useState<SubmittedKind | null>(null)
@@ -581,7 +583,7 @@ export function SendModal() {
             amountStr={amountStr}
             maxInput={sendMax}
             onBack={() => setStep('recipient')}
-            onContinue={() => setStep('review')}
+            onContinue={continueToReview}
             onIncompleteContinue={nudgeIncomplete}
           />
         </>

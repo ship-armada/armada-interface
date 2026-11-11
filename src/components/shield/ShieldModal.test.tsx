@@ -12,6 +12,7 @@ import {
   evmAddressAtom,
   shieldedUsdcAtom,
   shieldedUsdcSpendableAtom,
+  shieldedWalletsAtom,
   usdcBalancesAtom,
 } from '@/state/wallet'
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
@@ -133,6 +134,11 @@ vi.mock('wagmi', async (importOriginal) => ({
   useAccount: () => ({ address: '0xabc' }),
 }))
 
+vi.mock('@rainbow-me/rainbowkit', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@rainbow-me/rainbowkit')>(),
+  useConnectModal: () => ({ openConnectModal: vi.fn() }),
+}))
+
 // useGasBalanceWarning calls wagmi's useAccount/useBalance — same provider requirement.
 // "No warning" keeps the GasBalanceNotice hidden; the amount-step gating is covered in ShieldAmountStep.test.tsx.
 // A test can make the wallet short of ETH for the direct shield's gas (4F); the default has enough.
@@ -220,6 +226,9 @@ function renderModal(opts?: {
   // Seed a placeholder id so the Confirm flow exercises the orchestration without tripping
   // the guard. The id value isn't asserted; it just satisfies the invariant.
   store.set(activeShieldedWalletIdAtom, 'rg-test')
+  store.set(shieldedWalletsAtom, {
+    'rg-test': { id: 'rg-test', status: 'unlocked', shieldedAddress: '0zk1test' },
+  } as never)
   store.set(feeQuoteAtom, FAKE_QUOTE)
   // staleAtom treats a quote with no fetch timestamp as stale (350e084), which would send
   // Confirm down the real refresh()/fetchFees path — unreachable in jsdom. A fresh

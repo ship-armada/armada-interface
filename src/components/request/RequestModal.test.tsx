@@ -1,7 +1,7 @@
 // ABOUTME: Tests for the Request-via-link flow — compose → generated link screen, with disabled revoke + copy-address hand-off.
 // ABOUTME: Seeds an unlocked shielded wallet so the link builder has a real 0zk recipient.
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Provider, createStore } from 'jotai'
 import { RequestModal } from './RequestModal'
@@ -9,6 +9,15 @@ import { openModalAtom } from '@/state/ui'
 import { activeShieldedWalletIdAtom, shieldedWalletsAtom } from '@/state/wallet'
 import { requestLinksAtom, requestShareIntentAtom } from '@/state/requestLinks'
 import type { RequestLinkRecord } from '@/lib/shielded/requestLinks'
+
+vi.mock('wagmi', () => ({
+  useAccount: () => ({ isConnected: true, address: '0xabc' }),
+}))
+
+vi.mock('@rainbow-me/rainbowkit', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@rainbow-me/rainbowkit')>(),
+  useConnectModal: () => ({ openConnectModal: vi.fn() }),
+}))
 
 const VALID_0ZK = '0zk' + 'a'.repeat(40)
 

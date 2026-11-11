@@ -7,12 +7,21 @@ import { EarnModal } from './EarnModal'
 import { mergeIntentAtom, openModalAtom, repeatIntentAtom, type RepeatIntent } from '@/state/ui'
 import { txListAtom } from '@/state/tx'
 import type { TxRecord } from '@/lib/tx/types'
-import { activeShieldedWalletIdAtom, shieldedUsdcAtom, shieldedUsdcSpendableAtom, yieldSharesAtom } from '@/state/wallet'
+import { activeShieldedWalletIdAtom, shieldedUsdcAtom, shieldedUsdcSpendableAtom, shieldedWalletsAtom, yieldSharesAtom } from '@/state/wallet'
 import { feeQuoteAtom, feeQuoteFetchedAtAtom } from '@/state/fees'
 import { withTestQueryClient } from '@/test-utils/queryClient'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { F, FOLD, G } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
+
+vi.mock('wagmi', () => ({
+  useAccount: () => ({ isConnected: true, address: '0xabc' }),
+}))
+
+vi.mock('@rainbow-me/rainbowkit', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@rainbow-me/rainbowkit')>(),
+  useConnectModal: () => ({ openConnectModal: vi.fn() }),
+}))
 import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
 
@@ -149,6 +158,9 @@ function renderModal(opts?: { open?: 'yield-deposit' | 'yield-withdraw' | false;
   // useTx.submit() refuses to write a record without an active shielded walletId (Phase 6
   // scoping invariant). Seed a placeholder so the Confirm flow doesn't trip the guard.
   store.set(activeShieldedWalletIdAtom, 'rg-test')
+  store.set(shieldedWalletsAtom, {
+    'rg-test': { id: 'rg-test', status: 'unlocked', shieldedAddress: '0zk1test' },
+  } as never)
   store.set(feeQuoteAtom, FAKE_QUOTE)
   // staleAtom treats a quote with no fetch timestamp as stale (350e084), which would send
   // Confirm down the real refresh()/fetchFees path — unreachable in jsdom. A fresh

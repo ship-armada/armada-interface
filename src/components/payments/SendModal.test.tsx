@@ -47,6 +47,11 @@ vi.mock('wagmi', async (importOriginal) => ({
   useAccount: () => ({ connector: { name: 'MetaMask' } }),
 }))
 
+vi.mock('@rainbow-me/rainbowkit', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@rainbow-me/rainbowkit')>(),
+  useConnectModal: () => ({ openConnectModal: vi.fn() }),
+}))
+
 vi.mock('@/hooks/useDisplayFees', () => ({
   useDisplayFees: () => ({
     fees: {
@@ -183,6 +188,9 @@ function renderModal(opts?: {
   // useTx.submit() refuses to write a record without an active shielded walletId (Phase 6
   // scoping invariant). Seed a placeholder so the Confirm flow doesn't trip the guard.
   store.set(activeShieldedWalletIdAtom, 'rg-test')
+  store.set(shieldedWalletsAtom, {
+    'rg-test': { id: 'rg-test', status: 'unlocked', shieldedAddress: '0zk1test' },
+  } as never)
   store.set(feeQuoteAtom, FAKE_QUOTE)
   // staleAtom treats a quote with no fetch timestamp as stale (350e084), which would send
   // Confirm down the real refresh()/fetchFees path — unreachable in jsdom. A fresh

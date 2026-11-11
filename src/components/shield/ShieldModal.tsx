@@ -7,6 +7,7 @@ import { balanceProjectionAtom } from '@/state/balanceProjection'
 import { openModalAtom, repeatIntentAtom } from '@/state/ui'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
+import { useContinueWithWallet } from '@/hooks/useOpenActionModal'
 import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
 import { QUOTE_PENDING_REASON } from '@/lib/tx/submitQuote'
 import { getNetworkConfig } from '@/config/network'
@@ -60,6 +61,9 @@ export function ShieldModal() {
 
   const shieldFlow = useShieldFlow(isOpen)
   const unshieldFlow = useUnshieldFlow(isOpen)
+  const continueToReview = useContinueWithWallet(() => {
+    ;(tab === 'shield' ? shieldFlow : unshieldFlow).onContinueToReview()
+  })
   const arrivingUsdc = useAtomValue(balanceProjectionAtom).usdc
 
   // "Shield again" / "Unshield again" from a receipt: seed the tab's chain + amount (still editable), then consume it.
@@ -193,7 +197,7 @@ export function ShieldModal() {
             maxInput={active.inputMax}
             minAmount={isShield ? shieldFlow.minAmount : 0n}
             onCancel={close}
-            onContinue={active.onContinueToReview}
+            onContinue={continueToReview}
             onIncompleteContinue={nudgeIncomplete}
           />
         </>

@@ -11,6 +11,7 @@ import { shieldedUsdcAtom, shieldedUsdcSpendableAtom, yieldSharesAtom } from '@/
 import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
+import { useContinueWithWallet } from '@/hooks/useOpenActionModal'
 import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
 import { frozenApyRate, useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
@@ -62,6 +63,7 @@ export function EarnModal() {
 
   // Flow state
   const [step, setStep] = useState<LocalStep>('input')
+  const continueToReview = useContinueWithWallet(() => setStep('review'))
   const [errorAtStep, setErrorAtStep] = useState<FlowVisibleStep | undefined>(undefined)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submittedKind, setSubmittedKind] = useState<'yield-deposit' | 'yield-withdraw' | null>(null)
@@ -464,7 +466,7 @@ export function EarnModal() {
             maxInput={inputMax}
             continueBlockedReason={withdrawFeeBlockedReason}
             onCancel={close}
-            onContinue={() => setStep('review')}
+            onContinue={continueToReview}
             onIncompleteContinue={nudgeIncomplete}
           />
         </>

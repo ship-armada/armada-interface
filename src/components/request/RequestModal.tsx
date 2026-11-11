@@ -7,6 +7,7 @@ import { openModalAtom } from '@/state/ui'
 import { shieldedWalletAtom, activeShieldedWalletIdAtom } from '@/state/wallet'
 import { requestShareIntentAtom } from '@/state/requestLinks'
 import { useAddRequestLink } from '@/hooks/useRequestLinks'
+import { useContinueWithWallet } from '@/hooks/useOpenActionModal'
 import { FlowShell } from '@/components/flow/FlowShell'
 import { useFlowExit } from '@/components/flow/useFlowExit'
 import {
@@ -103,6 +104,8 @@ export function RequestModal() {
     })
   }
 
+  const createLink = useContinueWithWallet(handleCreateLink)
+
   if (!isOpen && !exiting) return null
 
   const currentStep = step === 'link' ? 2 : 1
@@ -126,7 +129,7 @@ export function RequestModal() {
           onNoteChange={setNote}
           onExpiryChange={setExpiryId}
           onCancel={close}
-          onCreateLink={handleCreateLink}
+          onCreateLink={createLink}
         />
       ) : (
         <RequestLinkScreen

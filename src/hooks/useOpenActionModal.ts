@@ -1,7 +1,7 @@
 // ABOUTME: useOpenActionModal — the one way into a flow (deposit, send, request, earn…): connects the wallet when there's
 // ABOUTME: none, signs in when locked (useSignIn — the card's inline sign-in — resuming the flow after), opens it when signed in.
 
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useAccount } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
@@ -53,4 +53,33 @@ export function useOpenActionModal() {
     },
     [isConnected, unlocked, openConnectModal, setOpenModal, setResume, setAwaitingConnect, startSignIn],
   )
+}
+
+/**
+ * Run `action` now when the shielded wallet is unlocked. Otherwise connect (RainbowKit) and sign in,
+ * then run the latest `action` once unlock lands — so a flow can stay on its amount step and continue
+ * at Review / Create link. The ref is refreshed every render so the callback sees the unlocked wallet.
+ */
+export function useContinueWithWallet(action: () => void): () => void {
+  const unlocked = useAtomValue(shieldedWalletAtom).status === 'unlocked'
+  const openActionModal = useOpenActionModal()
+  const actionRef = useRef(action)
+  const pendingRef = useRef(false)
+  actionRef.current = action
+
+  useEffect(() => {
+    if (!unlocked || !pendingRef.current) return
+    pendingRef.current = false
+    actionRef.current()
+  }, [unlocked])
+
+  return useCallback(() => {
+    if (unlocked) {
+      pendingRef.current = false
+      actionRef.current()
+      return
+    }
+    pendingRef.current = true
+    openActionModal()
+  }, [unlocked, openActionModal])
 }
