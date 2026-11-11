@@ -1,5 +1,5 @@
-// ABOUTME: Tests for FlowFooter — primary always rendered, secondary optional, click handlers fire, disabled state honored.
-// ABOUTME: @armada/ui Button is a dependency; we verify integration by checking rendered button labels and behavior.
+// ABOUTME: Tests for FlowFooter — the secondary button is optional, both click handlers fire, and the primary honours
+// ABOUTME: disabled.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

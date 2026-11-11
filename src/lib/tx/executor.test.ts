@@ -1,4 +1,5 @@
-// ABOUTME: Tests for executor — cancelTx terminal-state guard.
+// ABOUTME: Tests for the tx executor — cancel / expiry / retry guards, resume on unlock, cancelAllRunning, the follower-tab
+// ABOUTME: leader guard and the visibility gate.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { getDefaultStore } from 'jotai'

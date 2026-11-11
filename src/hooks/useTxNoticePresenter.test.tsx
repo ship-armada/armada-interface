@@ -1,5 +1,5 @@
-// ABOUTME: Tests for useTxNoticePresenter — shows each new notice from the feed once, in the style picked on the Debug
-// ABOUTME: page: a floating toast per tx (updated in place by record id), or the header pill announcing it for a moment.
+// ABOUTME: Tests for useTxNoticePresenter — shows each new notice from the feed once, in the style picked in Settings: a
+// ABOUTME: floating toast per tx (updated in place by record id), or the header pill announcing it for a moment.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
