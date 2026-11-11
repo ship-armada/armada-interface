@@ -115,7 +115,9 @@ newer state). Per non-terminal record:
 - past `lifecycle.maxDurationMs` (wall-clock from `createdAt`) → `markExpired`.
 - has `artifacts.sourceTxHash` (the tx is already on chain) → `executeTx(record.id)` to re-attach
   the watcher (receipt / relayer status / cross-chain delivery polling). Safe because every submit
-  stage is idempotent (WS1.3) — a re-entry with a known hash never re-broadcasts.
+  stage is idempotent (WS1.3) — a re-entry with a known hash never re-broadcasts. Each submit path has
+  a test for it (`features/*/handler.idempotency.test.ts`, `features/relaySpend.idempotency.test.ts`);
+  a new handler adds one.
 - otherwise (no hash — interrupted at `build-proof`, or at `submit-relayer` before the tx hit the
   wire) → `markFailed` with `INTERRUPTED`. Resuming would re-prompt the wallet / re-POST out of
   nowhere, so we fail honestly: "nothing was sent — start a new transaction."
