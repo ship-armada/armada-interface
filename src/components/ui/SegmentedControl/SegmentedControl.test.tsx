@@ -1,4 +1,5 @@
 // ABOUTME: Render/interaction tests for SegmentedControl — equal + scroll layouts, surface variants, keyboard nav.
+// ABOUTME: Covers selection, onChange on click, and roving-tabindex arrow keys (wrapping in the scroll layout).
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

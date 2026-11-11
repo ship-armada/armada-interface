@@ -1,4 +1,5 @@
-// ABOUTME: Tests for useTxHistory — Phase 6 wallet-scoped hydration. On mount/activeId change, the atom resets and re-hydrates from IDB filtered to the active walletId.
+// ABOUTME: Tests for useTxHistory — wallet-scoped hydration. On mount/activeId change, the atom resets and re-hydrates from IDB filtered to the active walletId.
+// ABOUTME: Also: no IDB read while locked, a locked → unlocked flip hydrates, the hydrated mark is set, and the list clears on lock.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor } from '@testing-library/react'
@@ -138,7 +139,7 @@ describe('useTxHistory', () => {
       expect(store.get(txListAtom).map(r => r.id)).toEqual(['a'])
     })
 
-    // Account switch (Phase 4 trigger): seed rg-2 + flip activeId to rg-2.
+    // Account switch: seed rg-2 + flip activeId to rg-2.
     setActiveWallet(store, 'rg-2', 'unlocked')
     await waitFor(() => {
       expect(store.get(txListAtom).map(r => r.id)).toEqual(['c'])

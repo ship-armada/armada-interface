@@ -13,7 +13,7 @@ describe('sanitizeAmountInput', () => {
   })
 
   it('preserves the forward-typing states needed for a sub-one amount', () => {
-    // Regression: a leading `0`/`.` must survive so `0.5` / `.5` are typeable (previously discarded).
+    // Regression guard: a leading `0`/`.` must survive (not be discarded) so `0.5` / `.5` are typeable.
     expect(sanitizeAmountInput('0')).toBe('0')
     expect(sanitizeAmountInput('.')).toBe('.')
     expect(sanitizeAmountInput('0.')).toBe('0.')

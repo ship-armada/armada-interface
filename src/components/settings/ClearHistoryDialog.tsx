@@ -1,5 +1,5 @@
-// ABOUTME: Confirm-gated dialog for "Clear history (keep wallet)" — wipes the local txHistory store + checkpoint for the active wallet, then bumps the recovery epoch so the next scan rebuilds the synthetic rows from chain.
-// ABOUTME: Lighter UX than ResetWalletDialog (no typed phrase) because the action is reversible — chain history is the source of truth and re-scanning rehydrates everything that hit on-chain.
+// ABOUTME: Confirm-gated dialog for "Clear history (keep wallet)" — wipes the local txHistory + requestLinks stores and the active wallet's checkpoint, then bumps the recovery epoch so the next scan rebuilds the synthetic rows from chain.
+// ABOUTME: Lighter UX than ResetWalletDialog (no typed phrase) because tx history is reversible — chain history is the source of truth and re-scanning rehydrates everything that hit on-chain (created payment links are local-only and don't come back).
 
 import { useEffect, useState } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -54,7 +54,7 @@ export function ClearHistoryDialog({ open, onClose }: ClearHistoryDialogProps) {
       setTxList([])
       setRequestLinks([])
       // 4. Bump the trigger so useHistoryRecovery's effect re-fires and starts the rescan. Not
-      //    silent — a user-initiated wipe + rebuild should surface the recovery banner as feedback.
+      //    silent — a user-initiated rebuild reads `scanning` (Settings shows it), and a failure shows the Retry banner.
       setTrigger((prev) => ({ id: prev.id + 1, silent: false }))
       onClose()
     } catch (err) {

@@ -1,5 +1,5 @@
 /* ABOUTME: Design tokens (colors, spacing, radii, type primitives) for the app's vendored design system. */
-/* ABOUTME: Adopted from the armada-app design mockup token pipeline — treat as generated; edit upstream, not here. */
+/* ABOUTME: Adopted from the armada-app design mockup; hand-maintained here (no generator). Typography composites live in the generated typography.css. */
 [data-theme="dark"] {
   /* Primitives */
   --primitives-color-purple-50: #f5eefb;

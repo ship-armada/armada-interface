@@ -83,7 +83,6 @@ function unlock(walletId: string, historyKeySeed: number = 1) {
   setUnlocked({
     rootSecret,
     walletId,
-    sdkEncryptionKey: 'ff'.repeat(32),
     shieldedAddress: '0zk1example',
     checksum: 'a3f2 91c8 b7e0',
     creationBlock: null,

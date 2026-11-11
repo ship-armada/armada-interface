@@ -33,31 +33,6 @@ export interface DisplayFees {
   feeInclusive: boolean
 }
 
-type RelayerFeeKey = keyof FeeSchedule['fees']
-
-export function relayerFeeKeyForKind(kind: TxKind): RelayerFeeKey {
-  switch (kind) {
-    case 'shield-xchain':
-      return 'crossChainShield'
-    case 'unshield-xchain':
-      return 'crossChainUnshield'
-    case 'shield':
-    case 'yield-deposit':
-    case 'yield-withdraw':
-      return 'crossContract'
-    case 'unshield-local':
-      return 'unshield'
-    case 'transfer-shielded':
-    case 'consolidate':
-      return 'transfer'
-    case 'transfer-shielded-received':
-      // Synthetic received-transfer records are reconstructed from chain and never submitted, so
-      // they carry no relayer fee. Reaching here means a received record was fed into fee logic —
-      // a caller bug. Throw rather than invent a fee key.
-      throw new Error('relayerFeeKeyForKind: received transfers carry no relayer fee')
-  }
-}
-
 /** The zero address — a shield that routes no fee to an integrator. */
 const NO_INTEGRATOR = '0x0000000000000000000000000000000000000000'
 

@@ -1,4 +1,5 @@
 // ABOUTME: Unit tests for the tx self-metadata codec — round-trip + omit-empty + degrade-on-garbage.
+// ABOUTME: Covers the quote id, gasless flag, yield APY and consolidation tag, the no-blob case, and malformed / wrong-version input.
 
 import { describe, it, expect } from 'vitest'
 import { encodeTxSelfMetadata, decodeTxSelfMetadata } from './selfMetadata'

@@ -1,5 +1,5 @@
 // ABOUTME: Tabs — horizontal segmented control with ARIA tablist semantics. Generic over a string id union.
-// ABOUTME: Used by SendModal (Private / External) and Earn (Add / Withdraw); two-consumer threshold is the promotion bar to @armada/ui.
+// ABOUTME: Used by RecoverySecretExportDialog (file / hex modes); a second consumer is the bar for promoting it into src/design.
 
 import styles from './Tabs.module.css'
 

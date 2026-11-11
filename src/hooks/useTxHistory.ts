@@ -1,4 +1,4 @@
-// ABOUTME: Hydrates txListAtom from IDB whenever the active wallet's id changes OR its lock status flips to unlocked (V2 Phase 6 scoping). The status dep is critical — without it, a cold-load with a cached walletId in the atom but no decryption key in the keyManager produces a hydrated count of zero, and the effect never re-fires when sign-in unlocks the wallet.
+// ABOUTME: Hydrates txListAtom from IDB whenever the active wallet's id changes OR its lock status flips to unlocked (wallet-scoped history). The status dep is critical — without it, a cold-load with a cached walletId in the atom but no decryption key in the keyManager produces a hydrated count of zero, and the effect never re-fires when sign-in unlocks the wallet.
 // ABOUTME: Single source for "all tx records belonging to the currently-active shielded wallet on this device".
 
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -12,7 +12,8 @@ export function useTxHistory(): void {
   // Hydrator only — deliberately does NOT subscribe to txListAtom (P1-19). This hook is mounted at
   // the App root; subscribing would re-render the whole app shell on every tx write (≈10 proof-
   // progress writes land while snarkjs saturates the main thread). Components that DISPLAY the list
-  // (History page, RecentActivityCard) subscribe to activeTxListAtom themselves.
+  // (the Dashboard's activity list, the header's pending pill) subscribe to activeTxListAtom /
+  // pendingTxsAtom themselves.
   const setList = useSetAtom(txListAtom)
   const setHydrated = useSetAtom(txHistoryHydratedAtom)
   const upsert = useSetAtom(upsertTxAtom)
@@ -27,7 +28,7 @@ export function useTxHistory(): void {
 
   useEffect(() => {
     let cancelled = false
-    // Phase 6 scoping: reset the atom on every walletId change BEFORE hydrating. Without this,
+    // Wallet scoping: reset the atom on every walletId (or lock-status) change BEFORE hydrating. Without this,
     // switching from wallet A → wallet B would leave A's records lingering in the atom and the
     // activeTxListAtom filter would be the only thing keeping them off-screen. We want the
     // physical reset too — defense in depth, plus it lets a wallet-agnostic consumer of

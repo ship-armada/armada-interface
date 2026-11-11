@@ -11,7 +11,7 @@ per proof.
 | `MergeNotesNotice` | The "Too many small notes" callout (FeeUpdatedBanner styling: raised surface + warning accent + icon; title, one line of copy, and the action on its own row). Rendered by Send / Earn review steps when a merge is on offer (they hold Confirm), and by `MergeCompleteStep` as "One more merge needed" / "Merge again". |
 | `MergeReviewStep` | "Merge your <token> notes", notes `N → M`, the summary (with an "Est. time" row counting the merge's planned proofs, and the fee's ⓘ), whether the blocked action goes through afterwards, blocked-confirm notice, Cancel / Confirm merge. |
 | `MergeCompleteStep` | "Notes merged" + summary, then "You can now retry your <action>" or "Merge again". |
-| `ConsolidationSummary` | Summary table: date (confirmed only), token, notes `N → M`, fees, and a Total that is just the fee (a merge moves no value out of the wallet). Reuses the deposit summary's styles. Used by the review step and the Activity receipt. |
+| `ConsolidationSummary` | Summary table: date (confirmed only), token, notes `N → M`, fees, and a Total that is just the fee (a merge moves no value out of the wallet). Reuses the deposit summary's styles. Used by the review and complete steps and the Activity receipt. |
 
 ## Entry points
 - A spend the wallet is too fragmented for, caught at **review** before anything is attempted: Send

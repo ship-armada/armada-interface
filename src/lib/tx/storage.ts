@@ -29,9 +29,8 @@ function wrapForStorage(record: TxRecord): EncryptedBlob {
  *  - The envelope was written pre-Phase-7 as plain JSON (no `nonce`/`ciphertext` fields).
  *  - The blob is corrupt for any other reason.
  *
- * We do NOT throw out of `loadAllTx` for these — they're expected during a v6→v7 transition
- * and during cross-wallet IDB co-tenancy. Telemetry-with-count happens at the call site so a
- * pathological "everything skipped" state is still visible.
+ * We do NOT throw out of `loadAllTx` for these — they're expected for pre-v7 records and during
+ * cross-wallet IDB co-tenancy. They're skipped silently: nothing counts or reports how many.
  */
 function tryUnwrap(value: unknown, key: Uint8Array): TxRecord | null {
   if (!isEncryptedBlob(value)) return null
@@ -68,8 +67,8 @@ export async function putTxIfFresh(record: TxRecord): Promise<boolean> {
   // instead of throwing at write time and silently losing the record (→ false INTERRUPTED). (W-5)
   const envelope = wrap(record, key)
   try {
-    // Compare-and-set in ONE IndexedDB transaction so the OCC + terminal guards are atomic on disk. The
-    // prior `cacheGet` → guard → `cachePut` split spanned two transactions, so two concurrent same-id
+    // Compare-and-set in ONE IndexedDB transaction so the OCC + terminal guards are atomic on disk. A
+    // `cacheGet` → guard → `cachePut` split would span two transactions, so two concurrent same-id
     // writers (a cancel's fire-and-forget `putTxIfFresh` racing an in-flight `ctx.upsert`, or a
     // history-recovery reconcile vs the executor watcher) could both read the same value, both pass the
     // guard, and both write — persisting a state the in-memory atom guard correctly rejected, which then
@@ -112,8 +111,8 @@ export async function putTxIfFresh(record: TxRecord): Promise<boolean> {
 }
 
 /**
- * Unconditional encrypted write. Used by hydration paths or tests that need to bypass the OCC
- * check. Throws when locked, same rationale as `putTxIfFresh`.
+ * Unconditional encrypted write. No app code calls it — tests use it to seed records, bypassing the
+ * OCC check. Throws when locked, same rationale as `putTxIfFresh`.
  */
 export async function putTx(record: TxRecord): Promise<void> {
   if (!isUnlocked()) {

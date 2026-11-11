@@ -2,7 +2,7 @@
 
 Restoring a wallet, and the compatibility screen for a wallet that can't use sign-in — in the `RestoreModal` over the always-rendered app. Sign-in itself — a single state-agnostic **Sign In** for first visit and returning users alike — is inline on the dashboard's `dashboard/SignInCard` (`hooks/useSignIn`). Never reachable as a route; there is no full-page sign-in.
 
-V2 redesign (Path C): deterministic sign-in is the primary path (same `signIn()` for new + returning); backup-file + paste-secret are secondary recovery, tucked behind a "Restore wallet from backup" link. See `specs/TX_SIGNING.md` + `specs/TX_SIGNING_V2_AMENDMENT.md`.
+Path C: deterministic sign-in is the primary path (same `signIn()` for new + returning); backup-file + paste-secret are secondary recovery, tucked behind a "Restore wallet from backup instead" link. See `specs/TX_SIGNING.md` + `specs/TX_SIGNING_V2_AMENDMENT.md`.
 
 ## Contents
 
@@ -20,15 +20,15 @@ V2 redesign (Path C): deterministic sign-in is the primary path (same `signIn()`
 - **Every action while locked** goes through `hooks/useOpenActionModal`: disconnected → the RainbowKit connect modal, then the signature prompt as soon as it connects; locked → `useSignIn` with the action queued; unlocked → the action's modal. A wallet that reconnects on page load is never asked to sign by itself.
 - **Locking** (auto-lock timer, account switch, tab unload, hidden-tab grace, Settings → Lock / Reset) flips the atom to `locked` / `missing`; `hooks/useCloseFlowsOnLock` closes any open flow, receipt or activity panel, and the dashboard swaps back to the sign-in card. Idle, hidden and manual locks record why (`state/ui::lockReasonAtom`) for the card's "Locked after…" line.
 
-There is no create/unlock fork and no "clear this browser's saved login" affordance — since sign-in is the only entry, a returning user can't accidentally orphan their wallet, so the old `hadPersistedWalletAtBoot` machinery is gone.
+There is no create/unlock fork and no "clear this browser's saved login" affordance — since sign-in is the only entry, a returning user can't accidentally orphan their wallet, so nothing tracks whether a wallet was persisted at boot.
 
 ## Key handling
 
 - Keys are derived deterministically from an EIP-712 signature, not a generated mnemonic. The signature is captured at sign-in (`useShieldedWallet.signIn`); HKDF-SHA-256 produces a 32-byte `root_secret` held by `lib/shielded/keyManager` (module-scope, not in atoms, not in component state).
 - The recovery export format is an encrypted JSON blob (`armada-backup-v2`), produced via Settings → Export recovery. The plaintext root_secret never enters component state or atoms.
-- The anti-phish checksum (12 hex chars) IS exposed via `state.checksum` — it's a non-secret display value used to recognize an authentic unlock screen.
+- The anti-phish checksum (12 hex chars) IS exposed via `state.checksum` — it's a non-secret display value, shown only on the Debug page (`pages/Debug.tsx`).
 - All secret-handling rules from `lib/shielded/CLAUDE.md` apply: no `console.log`, no clipboard persistence beyond what the user pastes themselves, no atom storage of keys.
 
 ## Account-switch handling
 
-When wagmi reports a new EVM address while the shielded wallet is unlocked (Phase 4), `useWallet` detects the mismatch via `keyManager.getEvmAddress()`, immediately calls `lockWallet()`, resets the active wallet atoms, and surfaces a `sonner` toast. The dashboard swaps to its sign-in card, and the user signs in for the new EVM account.
+When wagmi reports a new EVM address while the shielded wallet is unlocked, `useWallet` detects the mismatch via `keyManager.getEvmAddress()`, immediately calls `lockWallet()`, resets the active wallet atoms, and surfaces a `sonner` toast. The dashboard swaps to its sign-in card, and the user signs in for the new EVM account.

@@ -1,5 +1,5 @@
 // ABOUTME: DepositReviewSummary — subtle bordered deposit summary table (network / wallet / Armada account — both copyable — / fees) with a "You'll receive" total.
-// ABOUTME: Shared by ShieldReviewStep and ShieldCompleteStep; an optional confirmedAt adds a leading "Date and time" row for confirmations.
+// ABOUTME: Shared by ShieldReviewStep, ShieldCompleteStep and the dashboard's ActivityReceipt; an optional confirmedAt adds a leading "Date and time" row for confirmations.
 
 import { ArmadaLogo } from '@/design'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'

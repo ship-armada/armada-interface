@@ -1,4 +1,5 @@
-// ABOUTME: Tests for classifyHandlerError — branded TxError pass-through, user-rejection detection, OTHER fallback with txHash forwarding.
+// ABOUTME: Tests for classifyHandlerError — branded TxError pass-through, user-rejection detection, OTHER fallback with txHash forwarding,
+// ABOUTME: and the relayer, @armada/sdk (SDK_ERROR_CODES), chain-mismatch, fee-rose-since-review and consolidation branches.
 
 import { describe, it, expect } from 'vitest'
 import { encodeErrorResult } from 'viem'

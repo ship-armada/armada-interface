@@ -22,12 +22,13 @@ export interface WaitForReceiptInput {
 /**
  * Wait for a transaction receipt, or throw a categorised TxError on cancel / timeout / revert.
  *
- * Three failure modes the caller can route via the `code` field:
- *  - `CANCELLED`    — `ctx.signal` aborted (user clicked Cancel / Stop Tracking). No txHash in
- *                     the error since the executor's outer catch already knows the record.
+ * Failure modes the caller can route via the `code` field:
+ *  - `CANCELLED`    — `ctx.signal` aborted (user clicked Cancel / Stop Tracking). Carries the
+ *                     txHash when the abort lands mid-wait; none when already aborted on entry.
  *  - `POLL_TIMEOUT` — `timeoutMs` elapsed without a receipt. Includes `txHash` so the UI can
  *                     deep-link the user to the explorer. The on-chain tx MAY still succeed.
  *  - `TX_REVERTED`  — receipt arrived with `status === 'reverted'`. Includes `txHash`.
+ *  - `RPC_ERROR`    — any other error from the receipt wait. Includes `txHash` (the tx was sent).
  *
  * On success returns the receipt unchanged. The caller is responsible for marking the next
  * stage via `ctx.upsert(advance(...))`.

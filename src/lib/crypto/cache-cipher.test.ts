@@ -1,4 +1,5 @@
 // ABOUTME: Tests for cache-cipher — AES-256-GCM wrap/unwrap round-trip, BigInt sentinel handling, wrong-key + tampered-blob detection.
+// ABOUTME: Also checks isEncryptedBlob's envelope-shape guard, which the storage layer uses to skip non-envelope rows.
 
 import { describe, it, expect } from 'vitest'
 import { wrap, unwrap, isEncryptedBlob } from './cache-cipher'

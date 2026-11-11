@@ -14,8 +14,8 @@ const ZERO_BYTES32 = `0x${'00'.repeat(32)}` as const
 /**
  * Adapter entry points — the proved Transaction tuple + the user's re-shield destination (npk +
  * ciphertext). `redeemAndShield` additionally takes the relayer's fee-shield destination + amount,
- * all committed by `boundParams.adaptParams`. Mirrors contracts/yield/ArmadaYieldAdapter.sol; the same
- * human-readable strings the engine builder used, via `ethers.Interface` (viem's parseAbi can't parse
+ * all committed by `boundParams.adaptParams`. Mirrors contracts/yield/ArmadaYieldAdapter.sol as
+ * human-readable strings, via `ethers.Interface` (viem's parseAbi can't parse
  * this depth of nested inline tuples). The Transaction is passed as a positional tuple.
  */
 const ADAPTER_ABI = [

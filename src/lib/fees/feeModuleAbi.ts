@@ -1,4 +1,5 @@
 // ABOUTME: Minimal ABI for ArmadaFeeModule fee quotes used in the UI.
+// ABOUTME: Only `calculateShieldFee(integrator, amount)` — useDisplayFees reads a shield's protocol fee with it at review.
 
 export const feeModuleAbi = [
   {

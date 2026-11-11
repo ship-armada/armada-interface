@@ -1,5 +1,5 @@
 // ABOUTME: Abortable, jittered, backoff-aware polling loop for non-terminal tx stages.
-// ABOUTME: Each TxKind's stage determines which `pollOnce` adapter to use (Iris, RPC receipt, relayer /status, etc.).
+// ABOUTME: Plus the relayer /status adapter (pollRelayStatusOnce, RPC-receipt fallback on a 404) and the per-record poll budget.
 
 import { pollStatus, RelayerError, type StatusResponse } from '../relayer'
 import { track, trackError } from '../telemetry'
@@ -35,10 +35,11 @@ const DEFAULTS = {
 
 const POLL_BUDGET_FLOOR_MS = 10_000
 
-// Poll cadence for relayer `/status` on same-chain relayer-mediated submits. Tighter than the generic
-// 10s default so the Pending→Complete transition surfaces within a few seconds of on-chain inclusion
-// (the balance itself already updates off the faster shielded scan poll). Well under the relayer's
-// 60/min GET rate limit: one tx at 4s ≈ 15/min. Cross-chain delivery polls keep the generic default.
+// Poll cadence for relayer `/status` on relayer-mediated submits (including the cross-chain unshield's hub
+// burn). Tighter than the generic 10s default so the Pending→Complete transition surfaces within a few
+// seconds of on-chain inclusion (the balance itself already updates off the faster shielded scan poll).
+// Well under the relayer's 60/min GET rate limit: one tx at 4s ≈ 15/min. The cross-chain delivery polls
+// set their own 3s interval in their handlers.
 export const RELAYER_STATUS_POLL_INTERVAL_MS = 4_000
 
 /**

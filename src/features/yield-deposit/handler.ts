@@ -1,5 +1,5 @@
 // ABOUTME: Yield-deposit (lend) handler — single atomic adapt-proof tx with broadcaster fee → POST /relay → poll status. Relayer-mediated (A4).
-// ABOUTME: Three stages: build-proof (~20-30s, embeds broadcaster output), submit-relayer (POST + status poll), hub-confirmed (balance refresh).
+// ABOUTME: Stages: build-proof (~20-30s, embeds broadcaster output), submit-relayer (POST), hub-pending (status poll), hub-confirmed (balance refresh).
 
 import { loadDeployments, loadYieldDeployment } from '@/config/deployments'
 import { getNetworkConfig } from '@/config/network'
@@ -28,10 +28,11 @@ import type { TxError, TxRecord } from '@/lib/tx/types'
  *   build-proof    — CrossContractCalls proof (USDC → adapter → aUSDC re-shielded) with the
  *                    broadcaster-fee output baked in. Stashes the populated calldata into
  *                    `artifacts.yieldTx` so a resume after submit doesn't re-prove.
- *   submit-relayer — POST `lendAndShield(...)` calldata to `/relay`, poll `/status` until
- *                    terminal. Verifier on the relayer side decodes the wrapper to lift the
+ *   submit-relayer — POST `lendAndShield(...)` calldata to `/relay` and persist the txHash.
+ *                    Verifier on the relayer side decodes the wrapper to lift the
  *                    embedded Transaction, then checks the broadcaster output (see
  *                    relayer/lib/transact-shape.ts).
+ *   hub-pending    — broadcast; poll `/status` until terminal. Also the resume / retry entry.
  *   hub-confirmed  — balance refresh; user's shielded ayUSDC balance ticks up.
  *
  * No EVM wallet signature anywhere — the relayer broadcasts. The user's shielded balance pays

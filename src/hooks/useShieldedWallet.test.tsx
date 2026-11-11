@@ -1,5 +1,5 @@
-// ABOUTME: Tests for useShieldedWallet — enroll/unlockByPaste/unlockByBackup/exportBackup/lock/reset.
-// ABOUTME: Mocks lib/shielded/wallet at the import boundary so we don't need a live engine; wagmi useSignTypedData is mocked to return a deterministic signature.
+// ABOUTME: Tests for useShieldedWallet — signIn/unlockByPaste/unlockByBackup/exportBackup/lock/reset.
+// ABOUTME: Mocks lib/shielded/wallet at the import boundary so we don't need a live engine; wagmi/actions' signTypedData is mocked to return a deterministic signature.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act, waitFor } from '@testing-library/react'

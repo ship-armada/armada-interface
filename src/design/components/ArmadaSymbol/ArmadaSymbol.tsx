@@ -1,4 +1,5 @@
 // ABOUTME: Armada flotilla mark only (no wordmark) — for modal chrome and compact branding.
+// ABOUTME: Gradient ids are made unique per instance (useId); `size` sets the rendered px (default 32).
 
 import { useId } from 'react'
 

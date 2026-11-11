@@ -1,4 +1,5 @@
-// ABOUTME: Tests for SendInputStep (amount step) — no chain row, percent pills, amount gating, variant copy, Back/Review actions.
+// ABOUTME: Tests for SendInputStep (amount step) — no chain row, percent pills, and Review gated on the amount
+// ABOUTME: (over the cap, zero amounts #112), Review firing onContinue, and the disabled CTA's nudge.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

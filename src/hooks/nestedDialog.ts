@@ -18,7 +18,7 @@ function notify() {
   listeners.forEach((listener) => listener())
 }
 
-/** Register a nested dialog (e.g. MockMetaMask) so parent modals pause focus trap. */
+/** Register a nested dialog (one opened over a flow modal) so parent modals pause focus trap. */
 export function registerNestedDialog() {
   nestedDialogCount += 1
   notify()

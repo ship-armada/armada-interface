@@ -1,4 +1,5 @@
 // ABOUTME: Tests for lib/crypto/eip712 — typed-data shape, verifyingContract determinism, signature normalization (65-byte, EIP-2098 compact, v∈{0,1,27,28}).
+// ABOUTME: The frozen identity tuple is pinned here, so a change to the domain or message constants fails these tests.
 
 import { describe, it, expect } from 'vitest'
 import {

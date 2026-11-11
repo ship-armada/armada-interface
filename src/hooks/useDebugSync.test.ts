@@ -1,4 +1,5 @@
 // ABOUTME: Tests for parseDebugParam — the ?debug URL-param → on/off/unset mapping behind debug mode.
+// ABOUTME: Absent → null (stored value kept); bare ?debug and truthy values → on; explicit falsy values → off.
 
 import { describe, it, expect } from 'vitest'
 import { parseDebugParam } from './useDebugSync'

@@ -1,4 +1,5 @@
 // ABOUTME: Tests for Tabs — renders all items, marks the selected one aria-selected, fires onSelect on click, respects disabled items.
+// ABOUTME: Also the tablist role with its aria label.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

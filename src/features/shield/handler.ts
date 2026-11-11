@@ -90,18 +90,20 @@ const PRIVACY_POOL_SHIELD_ABI = [
 
 /**
  * Shield stage handler. Two submission paths share the same lifecycle stages — `build-proof`
- * always produces the ShieldRequest from the user's signature, and `submit-relayer` then either
- * routes through the user's EVM wallet (direct) or the relayer-mediated wrapper (gasless).
+ * always produces the ShieldRequest (from a random shield key, no signature), and `submit-relayer`
+ * then either routes through the user's EVM wallet (direct) or the relayer-mediated wrapper (gasless).
  *
  *   1. `build-proof`    — generate a random shieldPrivateKey → build ShieldRequest (no signature —
  *                         see lib/shielded/shield.ts for why the shield key is random, not derived).
  *                         When gasless: sign an EIP-2612 USDC permit for `amount` (fee included)
  *                         to the wrapper address, then the EIP-712 ShieldIntent — the only wallet
  *                         prompts on this path.
- *   2. `submit-relayer` — direct path: approve USDC + writeContract(PrivacyPool.shield).
- *                         gasless path: encode `gaslessShield(...)` calldata + POST /relay +
- *                         poll /status. No EVM wallet prompts after build-proof on this branch.
- *   3. `hub-confirmed`  — terminal. Kicks a balance refresh.
+ *   2. `submit-relayer` — direct path: approve USDC (exactly `amount`, if the allowance is short) +
+ *                         writeContract(PrivacyPool.shield). gasless path: encode `gaslessShield(...)`
+ *                         calldata + POST /relay. No EVM wallet prompts after build-proof on this branch.
+ *   3. `hub-pending`    — broadcast; wait for the receipt (direct) or poll /status (gasless). Also the
+ *                         resume / retry entry for an already-broadcast tx.
+ *   4. `hub-confirmed`  — terminal, written after a sync reads the pool's actual fees (`recordedShieldFees`).
  *
  * "submit-relayer" is the framework's stage name for "tx on the wire" — for direct submit it's
  * the user's wallet, not the relayer. Same stage name regardless of path keeps the lifecycle +
@@ -183,9 +185,9 @@ async function runBuildProof(
 
   if (ctx.signal.aborted) throw new Error('cancelled')
 
-  // Ensure the wallet is on the chain we're shielding FROM before any signature. Today the
-  // handler only supports hub-to-hub shield (so meta.fromChainId == hub); once cross-chain
-  // shield lands the same call will switch to the originating client chain instead.
+  // Ensure the wallet is on the chain we're shielding FROM before any signature. This handler is
+  // hub-to-hub only (meta.fromChainId == hub); a shield from a client chain is the separate
+  // `shield-xchain` kind (features/shield-xchain).
   await ensureChain(record.meta.fromChainId)
   if (ctx.signal.aborted) throw new Error('cancelled')
 
@@ -374,9 +376,9 @@ async function runSubmitAndConfirm(
 }
 
 /**
- * Phase A direct-submit path: user signs USDC `approve` + `PrivacyPool.shield(...)` from their
- * wallet. Same flow that's been in production through Phase A — kept unchanged so a relayer
- * outage / explicit override still has a working shield.
+ * Direct-submit path: user signs USDC `approve` + `PrivacyPool.shield(...)` from their wallet,
+ * paying gas. Kept alongside gasless so a relayer outage / explicit override still has a working
+ * shield.
  */
 async function runDirectSubmit(
   record: TxRecord<'shield'>,
@@ -397,9 +399,8 @@ async function runDirectSubmit(
     await ensureChain(record.meta.fromChainId)
     if (ctx.signal.aborted) throw new Error('cancelled')
 
-    // 1. Ensure USDC allowance. We use the connected wallet's address (looked up via wagmi's
-    //    getAccount under writeContract's hood). readContract is synchronous-ish; signal-checked
-    //    around each long step.
+    // 1. Ensure USDC allowance for the EVM address captured at submit (`walletContext.evmAddress`) —
+    //    the owner the allowance is read for. Signal-checked around each long step.
     const ownerCaptured = record.walletContext.evmAddress
     if (!ownerCaptured) {
       throw new Error('Shield requires a connected EVM wallet; none captured at submit time.')
@@ -478,10 +479,10 @@ async function runDirectSubmit(
     await ctx.upsert(broadcastRecord)
   }
 
-  // 4. Wait for confirmation. The SDK's merkle scan will pick up the new commitment via the
-  //    onBalanceUpdate callback — but we also kick a refresh explicitly so the UI doesn't have
-  //    to wait for the SDK's poll interval. Timeout-and-signal-aware so a wedged RPC doesn't
-  //    pin this handler for the full 10-min lifecycle cap.
+  // 4. Wait for confirmation. The periodic sync would pick up the new commitment, but
+  //    `recordedShieldFees` below syncs explicitly (awaited) so the UI doesn't wait for the poll
+  //    interval. Timeout-and-signal-aware so a wedged RPC doesn't pin this handler for the full
+  //    10-min lifecycle cap.
   const receipt = await waitForReceiptOrFail({ hash: shieldHash, signal: ctx.signal, chainId: record.meta.fromChainId })
   broadcastRecord = await recordHubBlock(broadcastRecord, Number(receipt.blockNumber), ctx)
 

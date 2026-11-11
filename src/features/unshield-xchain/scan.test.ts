@@ -1,4 +1,5 @@
 // ABOUTME: Tests for scanCctpDeliveryWindow — verifies per-tick window cap, cursor advance, no-new-blocks short-circuit, and match detection.
+// ABOUTME: Also covers matchesXchainDelivery, the cross-chain unshield's predicate (per-tx marker in the message body + source domain).
 
 import { describe, it, expect, vi } from 'vitest'
 import { scanCctpDeliveryWindow, matchesXchainDelivery } from './scan'

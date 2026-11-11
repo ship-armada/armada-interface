@@ -1,4 +1,5 @@
 // ABOUTME: Tests for lib/crypto/determinism — NonDeterministicSignerError shape + verifySignatureDeterminism comparison.
+// ABOUTME: Covers both error reasons, the cross-bundle type guard, and byte-exact first-vs-second signature comparison.
 
 import { describe, it, expect, vi } from 'vitest'
 import {

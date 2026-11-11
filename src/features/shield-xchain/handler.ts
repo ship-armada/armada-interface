@@ -92,22 +92,26 @@ const PRIVACY_POOL_CLIENT_SHIELD_ABI = [
  * Stage map for `shield-xchain`:
  *   1. `build-proof`              — generate a random shieldPrivateKey, build the ShieldRequest
  *                                    off-chain (keyed to the HUB USDC address — the shield commitment
- *                                    lives on the hub once delivered). No signature (random key).
- *   2. `submit-relayer`           — on the CLIENT chain: ensure USDC allowance for the
- *                                    PrivacyPoolClient, then call crossChainShield. The contract
- *                                    handles depositForBurnWithHook internally, emitting a CCTP
- *                                    MessageSent that the relayer will pick up.
- *   3. `client-burn-confirmed`    — wait for the client-chain receipt, extract the CCTP nonce
- *                                    from MessageSent, snapshot hub-chain head for the delivery
- *                                    scan cursor.
- *   4. `iris-attestation-pending` — poll the HUB chain for MessageReceived matching the nonce.
- *                                    Real CCTP mode goes through Iris attestation (relayer-side);
- *                                    mock mode short-circuits via the local CCTP relay. Either
- *                                    way our signal is the on-chain MessageReceived event.
- *   5. `iris-attestation-ready` / `hub-mint-pending` / `hub-mint-confirmed` — walked through in
- *                                    quick succession with brief delays so the stepper has time
- *                                    to render each stage. Same single-detection collapse as the
- *                                    inverse-direction handler.
+ *                                    lives on the hub once delivered). The shield key needs no
+ *                                    signature; the gasless path also builds the relayer's fee note
+ *                                    and signs the EIP-2612 permit + CrossChainShieldIntent here.
+ *   2. `submit-relayer`           — on the CLIENT chain. Direct: ensure USDC allowance for the
+ *                                    PrivacyPoolClient, then send crossChainShield from the wallet.
+ *                                    Gasless: POST gaslessCrossChainShield calldata to `/relay`.
+ *                                    Either way the contract burns via CCTP with hook data,
+ *                                    emitting MessageSent. Then (`finalizeBurnAndAdvance`) wait for
+ *                                    the client-chain receipt, extract the CCTP message (hash +
+ *                                    nonce), snapshot the hub head for the delivery scan cursor,
+ *                                    and advance.
+ *   3. `client-burn-confirmed`    — bridge stage: advances straight into the delivery wait.
+ *   4. `iris-attestation-pending` — wait for the hub mint: the relayer's CCTP delivery status
+ *                                    (`fetchCctpDeliveryStatus`) first, falling back to a bounded
+ *                                    `MessageReceived` scan on the hub that matches the shield
+ *                                    request's marker (`encryptedBundle[0]`) in the message body.
+ *   5. `iris-attestation-ready` / `hub-mint-pending` / `hub-mint-confirmed` — on detection the
+ *                                    record goes straight to `hub-mint-confirmed` in one write,
+ *                                    marking the two unobserved stages done (same single-detection
+ *                                    collapse as the inverse-direction handler).
  */
 export const shieldXchainHandler: StageHandler<'shield-xchain'> = {
   kind: 'shield-xchain',
@@ -129,8 +133,8 @@ export const shieldXchainHandler: StageHandler<'shield-xchain'> = {
           await ctx.upsert(advance(record, 'iris-attestation-pending'))
           return
         case 'iris-attestation-pending':
-        // The collapsed tail stages are normally walked through synchronously inside
-        // runWaitForDelivery, but resume (#4) can re-enter run() with the record parked at one of
+        // runWaitForDelivery writes the collapsed tail stages as done in its terminal write, so a record
+        // isn't normally parked at one — but resume (#4) can re-enter run() with a record stored at one of
         // them. Re-enter the delivery wait — it re-polls (idempotent: finds the already-delivered
         // message) and walks to terminal — rather than falling through to a no-op that would
         // busy-loop the chain. (hub-mint-confirmed is terminal, so the loop never calls run() there.)
@@ -367,10 +371,9 @@ async function runSubmitAndBurn(
 }
 
 /**
- * Phase A direct-submit path: user signs USDC `approve` + `PrivacyPoolClient.crossChainShield`
- * from their wallet, paying native gas on the source client chain. Same flow that's been in
- * production through Phase A — kept unchanged so a relayer outage / explicit override still
- * has a working cross-chain shield.
+ * Direct-submit path: user signs USDC `approve` + `PrivacyPoolClient.crossChainShield` from their
+ * wallet, paying native gas on the source client chain. Kept alongside gasless so a relayer outage /
+ * explicit override still has a working cross-chain shield.
  */
 async function runDirectSubmit(
   record: TxRecord<'shield-xchain'>,
@@ -582,8 +585,8 @@ async function runGaslessSubmit(
 /**
  * Per-submit CCTP params resolved from the loaded deployment + network mode. Shared across both
  * direct and gasless submit branches so the on-chain inputs (maxFee, minFinalityThreshold) stay
- * identical regardless of who broadcasts the tx. The CCTP destinationCaller is no longer resolved
- * here — PrivacyPoolClient pins it to its configured hubHookRouter at the contract level (issue #64).
+ * identical regardless of who broadcasts the tx. The CCTP destinationCaller isn't resolved here —
+ * PrivacyPoolClient pins it to its configured hubHookRouter at the contract level (issue #64).
  */
 async function resolveCctpSubmitParams(record: TxRecord<'shield-xchain'>): Promise<{
   maxFee: bigint

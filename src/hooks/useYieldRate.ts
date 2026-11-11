@@ -1,5 +1,5 @@
 // ABOUTME: Polls the ArmadaYieldVault's shares→assets exchange rate (USDC value of 1e18 shares) and the underlying Aave spoke's annualYieldBps via React Query — paused while tab is hidden, deduped across consumers.
-// ABOUTME: Returns null until the first successful read; the modal/BalanceHero treat null as "syncing" UX. Exposes refresh() so EarnModal can pull fresh state on open + post-submit slippage protection.
+// ABOUTME: Returns null until the first successful read; EarnModal and the Dashboard treat null as "syncing" UX. Exposes refresh() so EarnModal can pull fresh state on open + post-submit slippage protection.
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAtomValue } from 'jotai'
@@ -35,8 +35,8 @@ export function frozenApyRate(apyBps: bigint): YieldRate {
 }
 
 /**
- * 5-minute cadence. The earlier 30s value was wasteful: at any realistic APY the per-tick rate
- * delta is below USDC's 2-decimal display precision, so polling that hard burned RPC quota with
+ * 5-minute cadence. A tighter poll (e.g. 30s) would be wasteful: at any realistic APY the per-tick rate
+ * delta is below USDC's 2-decimal display precision, so polling that hard burns RPC quota with
  * no UI signal. EarnModal supplements this with on-open and post-submit refreshes for the moments
  * where freshness actually matters.
  */
@@ -185,7 +185,7 @@ export function useYieldRate(): UseYieldRateResult {
   const refresh = useCallback(async (): Promise<YieldRate | null> => {
     try {
       const fresh = await queryFn()
-      // Seed the cache so other consumers (BalanceHero) pick up the new value too.
+      // Seed the cache so other consumers (the Dashboard) pick up the new value too.
       queryClient.setQueryData(YIELD_RATE_QUERY_KEY, fresh)
       return fresh
     } catch (err) {

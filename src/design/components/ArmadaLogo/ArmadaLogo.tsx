@@ -1,4 +1,4 @@
-// ABOUTME: Armada logo — `full` (gradient flotilla glyph + "ARMADA" wordmark, 132×32) or `mark` (diamond symbol only, 32×32).
+// ABOUTME: Armada logo — `full` (gradient flotilla glyph + "ARMADA" wordmark, 132×32), `mono` (full layout in currentColor) or `mark` (symbol only, 32×32).
 // ABOUTME: Extracted from the mockup's Header.tsx so consumer apps can build their own header chrome.
 
 import styles from './ArmadaLogo.module.css'

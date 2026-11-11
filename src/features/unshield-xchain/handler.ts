@@ -1,5 +1,5 @@
-// ABOUTME: Cross-chain unshield handler — A5 relayer-mediated. Hub-side atomicCrossChainUnshield is wrapped by the relayer; destination CCTP delivery polling is unchanged.
-// ABOUTME: Same handler covers Withdraw modal (destination ≠ hub) and Send-External tab (destination ≠ hub) — same contract path, different UI entry.
+// ABOUTME: Cross-chain unshield handler — A5 relayer-mediated. The relayer broadcasts the hub-side atomicCrossChainUnshield; the handler then polls for the destination CCTP delivery.
+// ABOUTME: Same handler covers the Unshield tab and the Send modal's public path (destination ≠ hub) — same contract path, different UI entry.
 
 import { ethers } from 'ethers'
 import { keccak256, toBytes } from 'viem'
@@ -64,21 +64,22 @@ function deliveryNonce(recordId: string): `0x${string}` {
 /**
  * Stage map for `unshield-xchain` (A5 — relayer-mediated hub burn):
  *   1. `build-proof`              — Groth16 proof (recipient = PrivacyPool itself) with
- *                                    broadcaster-fee output to the relayer's 0zk address.
- *   2. `submit-relayer`           — extract Transaction struct from populated calldata, encode
- *                                    atomicCrossChainUnshield, POST to `/relay`, poll `/status`
- *                                    until confirmed. Once confirmed, fetch the hub receipt by
- *                                    the relayer's txHash to extract the CCTP MessageSent log.
- *   3. `hub-burn-confirmed`       — wait for hub receipt
+ *                                    broadcaster-fee output to the relayer's 0zk address; the
+ *                                    encoded atomicCrossChainUnshield calldata is stashed in
+ *                                    `artifacts.unshieldTx`.
+ *   2. `submit-relayer`           — POST the stashed calldata to `/relay`, poll `/status` until
+ *                                    confirmed. Once confirmed, fetch the hub receipt by the
+ *                                    relayer's txHash to extract the CCTP MessageSent log, snapshot
+ *                                    the destination head, and advance.
+ *   3. `hub-burn-confirmed`       — bridge stage: advances straight into the delivery wait.
  *   4. `iris-attestation-pending` — polls for the destination mint: the relayer's CCTP delivery
  *                                    status (`fetchCctpDeliveryStatus`, authoritative in both MOCK
  *                                    `cctp-relay` and REAL `iris-relay` modes), falling back to a
  *                                    bounded `MessageReceived` scan on the destination chain.
- *   5. `iris-attestation-ready` / `client-mint-pending` / `client-mint-confirmed` — advanced
- *                                    through in quick succession on detection. The intermediate
- *                                    states exist for finer-grained UI; v1 collapses them since
- *                                    our single "mint delivered on destination" signal can't
- *                                    distinguish them.
+ *   5. `iris-attestation-ready` / `client-mint-pending` / `client-mint-confirmed` — on detection
+ *                                    the record goes straight to `client-mint-confirmed` in one
+ *                                    write, marking the intermediate stages done: our single "mint
+ *                                    delivered on destination" signal can't distinguish them.
  */
 export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
   kind: 'unshield-xchain',
@@ -102,8 +103,8 @@ export const unshieldXchainHandler: StageHandler<'unshield-xchain'> = {
           await ctx.upsert(advance(record, 'iris-attestation-pending'))
           return
         case 'iris-attestation-pending':
-        // The collapsed tail stages are normally walked through synchronously inside
-        // runWaitForDelivery, but resume (#4) can re-enter run() with the record parked at one of
+        // runWaitForDelivery writes the collapsed tail stages as done in its terminal write, so a record
+        // isn't normally parked at one — but resume (#4) can re-enter run() with a record stored at one of
         // them. Re-enter the delivery wait — it re-polls (idempotent: finds the already-delivered
         // message) and walks to terminal — rather than falling through to a no-op that would
         // busy-loop the chain. (client-mint-confirmed is terminal, so the loop never calls run() there.)
@@ -377,7 +378,7 @@ async function runWaitForDelivery(
   // bytes32(0) on outbound MessageSent; the destination contract emits an Iris-assigned
   // `eventNonce` which isn't derivable from the source side. So we drop the topic filter and
   // identify ours by looking inside the messageBody's hookData for a unique-per-tx marker.
-  // issue #287: the CCTP hookData now carries a per-transaction `uniqueNonce` (UnshieldData) derived
+  // issue #287: the CCTP hookData carries a per-transaction `uniqueNonce` (UnshieldData) derived
   // from the record's ulid, so two parallel same-recipient unshields get distinct, unambiguous
   // markers. We match the destination delivery on that nonce (recomputed here — no persisted state).
   const uniqueMarker = deliveryNonce(record.id).slice(2).toLowerCase()

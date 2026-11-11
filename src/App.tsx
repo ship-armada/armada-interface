@@ -52,11 +52,6 @@ import { startEngine } from '@/lib/tx/executor'
 import { trackError } from '@/lib/telemetry'
 import { runSchemaMigrationIfNeeded } from '@/lib/shielded/schema-migration'
 import { readStoredWalletId } from '@/lib/shielded/wallet'
-import { isLocalMode } from '@/config/network'
-import {
-  DEFAULT_DEV_MOCK_BALANCE,
-  devMockBalanceAtom,
-} from '@/state/devMockBalance'
 import {
   activeShieldedWalletIdAtom,
   shieldedWalletAtom,
@@ -82,17 +77,17 @@ export function App() {
   useAutoLock()  // idle-timer-driven lock for the shielded wallet
   usePayViaLinkIntent() // pick up a pending pay-via-link hand-off + open the prefilled Send on unlock
   // Mirror wagmi's connection state into evmAddressAtom for atom-consumers (useShieldedWallet.signIn,
-  // SendModal's withdraw-variant recipient pre-fill). Mounted
-  // before the onboarding/unlock guard so the atom is correct even before the user reaches /app.
+  // SendModal's "recipient is your connected wallet" check). Mounted at the shell, which renders while
+  // locked too, so the atom is correct before the user signs in.
   useWallet()
   // Subscribe to SDK balance-update events + drive initial scan whenever the wallet unlocks;
-  // mirrors the active wallet's shielded USDC balance into shieldedUsdcAtom for BalanceHero
-  // and the shield/unshield modals.
+  // mirrors the active wallet's shielded USDC balance into shieldedUsdcAtom for the dashboard's
+  // BalanceCard and the shield/unshield modals.
   useShieldedBalanceSync()
   // After a restore (backup / pasted secret), one "Your balance is up to date" toast once its balance is known.
   useRestoreSyncedToast()
   // Drive periodic wallet.sync() (visibility-gated) so live balance + incoming-transfer updates keep
-  // flowing — the SDK-native replacement for the stock engine's continuous scan poller.
+  // flowing (the app's continuous scan poller).
   useShieldedSyncPoll()
   // Liveness floor under the adaptive poll — the SDK's wallet.watch() auto-sync loop (immediate-run +
   // error backoff), visibility-gated, coalescing with the poll's sync() so the two never double-scan.
@@ -107,16 +102,6 @@ export function App() {
   // (`useShieldFlow`, `useUnshieldFlow`, `SendModal`, `EarnModal`) mounts its own `useFees()`, so
   // `/fees` is only hit while such a modal is open — not on the sign-in screen or the idle
   // dashboard. React Query dedups across a flow's consumers.
-
-  const setDevMockBalance = useSetAtom(devMockBalanceAtom)
-
-  // First local boot: enable mock USDC unless opted out (VITE_DEV_MOCK_BALANCE=false) or Debug saved a preference.
-  useEffect(() => {
-    if (!isLocalMode()) return
-    if (import.meta.env.VITE_DEV_MOCK_BALANCE === 'false') return
-    if (localStorage.getItem('armada-interface.devMockBalance') != null) return
-    setDevMockBalance({ ...DEFAULT_DEV_MOCK_BALANCE, enabled: true })
-  }, [setDevMockBalance])
 
   const wallet = useAtomValue(shieldedWalletAtom)
   const anotherTabActive = useAtomValue(anotherTabActiveAtom)
@@ -178,7 +163,7 @@ export function App() {
     setMode('app')
   }, [mode, wallet.status, setShieldedWallets, setActiveWalletId])
 
-  // A lock (auto-lock, account switch, tab hidden) or Settings → Reset (wallet 'missing') no longer swaps the page: the
+  // A lock (auto-lock, account switch, tab hidden) or Settings → Reset (wallet 'missing') keeps the same page: the
   // dashboard shows the sign-in card, every flow signs in first (useOpenActionModal), and useCloseFlowsOnLock closes
   // anything that needed the unlocked wallet.
 

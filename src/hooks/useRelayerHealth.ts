@@ -1,4 +1,4 @@
-// ABOUTME: useRelayerHealth — React Query wrapper around /health for the modal banner + Settings auto-surface.
+// ABOUTME: useRelayerHealth — React Query wrapper around /health for the flows' relayer banner, the shield path choice and the Debug page.
 // ABOUTME: Conservative polling — modals only need health at submit-time, so a 60s interval is enough; visibility-gated to avoid background drain.
 
 import { useQuery } from '@tanstack/react-query'
@@ -16,8 +16,8 @@ export interface UseRelayerHealthOptions {
 /**
  * Retries per /health poll before a failed poll is believed (→ isUnreachable). Smooths transient
  * network blips / a momentarily slow (>10s) relayer so the "can't find a relayer" banner reflects
- * a sustained failure rather than a single dropped request — the previous `retry: 1` (2 attempts,
- * ~1s apart) tripped the banner on any dip that outlasted a second or two. 2 retries = 3 attempts,
+ * a sustained failure rather than a single dropped request — a single retry (2 attempts, ~1s apart)
+ * would trip the banner on any dip that outlasted a second or two. 2 retries = 3 attempts,
  * spread over ~9s by `retryDelay` below: long enough to outlast a brief dip, short enough that a
  * genuine outage still surfaces within the same 60s poll (every attempt keeps failing).
  *

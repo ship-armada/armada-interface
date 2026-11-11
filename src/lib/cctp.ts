@@ -1,5 +1,5 @@
-// ABOUTME: CCTP helpers — MessageSent decoding from hub tx receipts + MessageReceived destination polling.
-// ABOUTME: Iris API polling is deferred to when real-CCTP-mode flows land; mock + local flows correlate on the indexed `nonce` topic alone.
+// ABOUTME: CCTP helpers — MessageSent / MessageReceived decoding from tx receipts and logs, plus the event topics the delivery scans match.
+// ABOUTME: No Iris polling here: the relayer tracks attestation; handlers match a destination delivery by a per-tx marker in the message hookData, never the nonce topic.
 
 import { decodeEventLog, getAbiItem, keccak256, type Log } from 'viem'
 

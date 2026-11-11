@@ -136,9 +136,8 @@ export function useAutoLock() {
     }
 
     // Tab-unload sync lock: best-effort zeroize the keyManager before the page is torn down.
-    // `lockWallet` clears the keyManager synchronously before its own internal await; the SDK's
-    // unloadWalletByID promise gets orphaned but that's OK — the engine itself is dying with
-    // the page. The point is to clear the in-memory rootSecret buffer one extra time before
+    // `lockWallet` clears the keyManager synchronously; the SDK read instance needs no teardown —
+    // it dies with the page. The point is to clear the in-memory rootSecret buffer one extra time before
     // V8 starts reclaiming everything, so a process-memory snapshot taken in the milliseconds
     // around the close has fewer bytes to recover.
     function onBeforeUnload() {

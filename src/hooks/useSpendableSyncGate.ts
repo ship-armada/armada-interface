@@ -22,7 +22,7 @@ export interface SpendableSyncGate {
  *
  * Block only on first-sync conditions:
  *   - status === 'syncing' AND shieldedUsdcAtom === null  → "wait for first sync"
- *   - status === 'failed'                                 → "sync interrupted, reload"
+ *   - status === 'failed'                                 → "sync interrupted, Try again"
  *   - nullifierCrossCheck === 'omission-detected'         → "balance stale, re-sync" (WI-5)
  *
  * Don't block when:

@@ -492,8 +492,8 @@ describe('submitRelay', () => {
   })
 
   it('aborts the underlying fetch when the caller signal aborts (cancelTx propagates through the combined signal)', async () => {
-    // P0-11: fetchWithTimeout now passes a COMBINED signal (caller ∪ timeout) to fetch, so we no
-    // longer assert identity — instead verify the caller's abort still drives the fetch signal.
+    // P0-11: fetchWithTimeout passes a COMBINED signal (caller ∪ timeout) to fetch, so we don't
+    // assert identity — instead verify the caller's abort still drives the fetch signal.
     const ctrl = new AbortController()
     fetchMock.mockResolvedValueOnce(
       new Response('{"txHash":"0x00","status":"pending"}', { status: 200 }),

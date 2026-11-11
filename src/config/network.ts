@@ -106,7 +106,7 @@ export function isLocalMode(): boolean {
  * Whether the UI should call the relayer HTTP API (`/fees`, `/relay`, `/health`, …). True when
  * the resolved `relayerUrl` is non-empty.
  *
- * Sepolia + unset `VITE_RELAYER_URL` now resolves to `''` → this is honestly `false` (P0-10), so
+ * Sepolia + unset `VITE_RELAYER_URL` resolves to `''` → this is honestly `false` (P0-10), so
  * callers can disable gasless toggles, gate fee fetches, and render a "relayer not configured"
  * banner rather than firing requests at `localhost:3001`. Local mode keeps its `localhost:3001`
  * default (a relayer is expected to be running locally).
@@ -126,7 +126,7 @@ export function getIntegratorAddress(): `0x${string}` {
   return '0x0000000000000000000000000000000000000000'
 }
 
-// Local CCTP domains match config/networks.ts (HUB=100, CLIENT_A=101, CLIENT_B=102).
+// Local CCTP domains match armada-poc's config/networks.ts (HUB=100, CLIENT_A=101, CLIENT_B=102).
 // Real CCTP domains (e.g. Ethereum=0, Base=6) are reserved for the `sepolia` mode.
 const LOCAL_HUB: ChainIdentity = {
   chainId: 31337,

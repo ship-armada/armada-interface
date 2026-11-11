@@ -1,4 +1,5 @@
 // ABOUTME: Tests for the hidden-clock — per-record crediting of tab-hidden time against the budget (T-M5/S-M6).
+// ABOUTME: Only hidden time inside a record's own life counts, so a backgrounded tab doesn't expire a tx that merely waited.
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import {

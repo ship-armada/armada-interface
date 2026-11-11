@@ -1,5 +1,5 @@
 // ABOUTME: SettingsModal — the Settings overlay (opened from the topbar gear). Renders over the dashboard like the tx flows: logo + centered "Settings" title + close chrome on the amber-blur FlowModalOverlay backdrop.
-// ABOUTME: Content (Private wallet / Preferences / History / Advanced) mirrors the former Settings page; auxiliary dialogs open via local state, not openModalAtom.
+// ABOUTME: Content: Private wallet / Notes (only when a token needs merging) / Preferences / History / Advanced; auxiliary dialogs open via local state, not openModalAtom.
 
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'

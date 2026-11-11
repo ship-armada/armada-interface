@@ -1,5 +1,5 @@
 // ABOUTME: In-memory ZK-circuit artifact registry, keyed by circuit shape (padded NNxMM).
-// ABOUTME: Populated by the origin preload (artifacts.ts); read by the @armada/sdk ArtifactSource (sdk-prover.ts).
+// ABOUTME: Written by circuitFetch.ts (preload, planned-shape warm-up and lazy loads); read by the @armada/sdk ArtifactSource (sdk-prover.ts).
 
 /**
  * A ZK circuit artifact set — the compiled `wasm`, proving key (`zkey`), and verification key
@@ -23,7 +23,7 @@ export function armadaVariantKey(nullifiers: number, commitments: number): strin
   return `${nullifiers.toString().padStart(2, '0')}x${commitments.toString().padStart(2, '0')}`
 }
 
-/** Register a circuit artifact for a shape. Called by the origin preload (see artifacts.ts). */
+/** Register a circuit artifact for a shape. Called by `circuitFetch.ts::ensureCircuitLoaded` once the files verify. */
 export function setArmadaArtifact(variant: string, artifact: ArmadaArtifact): void {
   armadaArtifacts.set(variant, artifact)
 }

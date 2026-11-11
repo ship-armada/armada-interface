@@ -1,4 +1,5 @@
 // ABOUTME: Tests for SingleTabGate — the full-screen "already open in another tab" message + reload CTA.
+// ABOUTME: The CTA calls location.reload (stubbed) so a closed other tab lets this one load.
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

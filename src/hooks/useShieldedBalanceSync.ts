@@ -31,7 +31,7 @@ import { trackError } from '@/lib/telemetry'
  * Subscribe to balance updates while the wallet is unlocked. On unlock:
  *   1. Subscribe to SDK scan-status events → drive `syncStateAtom` for the INITIAL load only
  *      (background polls don't revert it — see the subscription below)
- *   2. Subscribe to SDK balance-update events (lazily installs the global SDK callback)
+ *   2. Subscribe to the balance bus (the SDK wallet's balance / note / scan events, plus spend-hold pings)
  *   3. Trigger an initial `refreshShieldedBalances` so the first scan starts
  *   4. On each event (or initial query), READ (not sync) BOTH shielded USDC and ayUSDC shares from
  *      the @armada/sdk scan state (which resolves the token set from the deployment internally)
@@ -82,7 +82,7 @@ export function useShieldedBalanceSync(): void {
     // scan:started → syncing, scan:progress → the running fraction, scan:complete → complete,
     // scan:error → failed. `syncStateAtom` tracks the initial load ONLY. After the first `complete`,
     // the 15s poll keeps syncing the chain in the background, but those routine scan:started/complete
-    // blips are ignored here — otherwise the full "Loading your private balance" UI (BalanceHero /
+    // blips are ignored here — otherwise the full "Loading your private balance" UI (SyncCard /
     // SyncBanner) would flicker to the progress display on every poll. A fresh unlock or a "Try Again"
     // retry re-runs this effect with `initialSyncComplete` reset, which re-arms the display.
     let initialSyncComplete = false
@@ -149,8 +149,8 @@ export function useShieldedBalanceSync(): void {
         await refreshShieldedBalances(walletId)
         await refreshAll()
       } catch (err) {
-        // The scan never started (e.g. RPC unreachable), so the SDK's merkletree callback won't
-        // fire 'Incomplete' to mark the sync failed. Mark it here so the gate can offer Try Again.
+        // The scan never started (e.g. RPC unreachable), so the SDK won't emit `scan:error` to
+        // mark the sync failed. Mark it here so the gate can offer Try Again.
         if (!cancelled && latestWalletIdRef.current === walletId) {
           setSyncState({ status: 'failed', progress: 0 })
         }

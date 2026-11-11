@@ -1,4 +1,5 @@
 // ABOUTME: Tests for revert-selector decoding (S-L1) — Error(string) + Panic(uint256) + hex extraction.
+// ABOUTME: An unknown custom-error selector decodes to null so classifyHandlerError falls back to the raw message.
 
 import { describe, it, expect } from 'vitest'
 import { encodeErrorResult } from 'viem'

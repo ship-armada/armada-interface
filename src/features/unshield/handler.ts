@@ -1,5 +1,5 @@
-// ABOUTME: Unshield-local stage handler — build-proof (with broadcaster fee) → submit-relayer (POST /relay) → poll status → hub-confirmed.
-// ABOUTME: Phase A3 — first relayer-mediated handler. Zero EVM wallet prompts; tx broadcast + gas paid by the relayer; status tracked via /status polling.
+// ABOUTME: Unshield-local stage handler — build-proof (with broadcaster fee) → submit-relayer (POST /relay) → hub-pending (poll /status) → hub-confirmed.
+// ABOUTME: Relayer-mediated (Phase A3). Zero EVM wallet prompts; tx broadcast + gas paid by the relayer; status tracked via /status polling.
 
 import { loadDeployments } from '@/config/deployments'
 import { getNetworkConfig } from '@/config/network'
@@ -28,10 +28,13 @@ import type { TxError, TxRecord } from '@/lib/tx/types'
  *   1. `build-proof`    — generate the Groth16 unshield proof with broadcaster fee baked in
  *                          (~20-30s on local Anvil). The proof embeds a USDC output to the
  *                          relayer's 0zk address at the advertised fee amount.
- *   2. `submit-relayer` — populate `transact()` calldata, POST `{chainId, to, data, feesCacheId}`
- *                          to the relayer's `/relay`, get a txHash, poll `/status` until
- *                          confirmed (or failed).
- *   3. `hub-confirmed`  — terminal. Kicks a balance refresh so the UI updates immediately.
+ *                          The `transact()` calldata is built here and stashed in
+ *                          `artifacts.unshieldTx`.
+ *   2. `submit-relayer` — POST the stashed calldata (`{chainId, to, data, feesCacheId, idempotencyKey}`)
+ *                          to the relayer's `/relay`, persist the returned txHash, advance.
+ *   3. `hub-pending`    — broadcast; poll `/status` until confirmed (or failed). Also the resume /
+ *                          retry entry for an already-broadcast tx.
+ *   4. `hub-confirmed`  — terminal. Kicks a balance refresh so the UI updates immediately.
  *
  * No EVM wallet signature anywhere — proof generation uses the shielded wallet's spending key
  * (`keyManager`); the relayer broadcasts on the user's behalf and pays gas in ETH, claiming
@@ -257,7 +260,7 @@ async function runSubmitAndConfirm(
   // status === 'confirmed'
   track('tx.relayer.confirmed', { id: record.id, kind: record.kind })
 
-  // Kick an immediate balance refresh — same fire-and-forget pattern as the shield handler.
+  // Kick an immediate balance refresh, fire-and-forget.
   // The relayer's broadcast cleared the user's old commitments + planted the new change UTXO.
   if (kmIsUnlocked()) {
     void refreshShieldedBalances(kmGetWalletId()).catch(() => {})

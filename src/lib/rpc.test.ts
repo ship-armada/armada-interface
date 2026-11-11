@@ -1,4 +1,5 @@
 // ABOUTME: Tests for createProvider / FallbackJsonRpcProvider (P1-18) — single vs multi-URL construction + the 15s fetch-timeout bound that keeps failover fast.
+// ABOUTME: Also asserts createProvider rejects an empty URL list.
 
 import { describe, it, expect } from 'vitest'
 import { JsonRpcProvider } from 'ethers'

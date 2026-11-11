@@ -1,4 +1,4 @@
-// ABOUTME: History-recovery UI state — the scanning / failed status from useHistoryRecovery (Phase 9.3), read by Settings, the Dashboard and the failure banner.
+// ABOUTME: History-recovery UI state — the scanning / failed status from useHistoryRecovery, read by Settings, the Dashboard and the failure banner.
 // ABOUTME: historyRecoveryTriggerAtom bumps to re-fire the scan; its `silent` flag decides whether the scan flips the status to `scanning`.
 
 import { atom } from 'jotai'
@@ -36,7 +36,7 @@ export interface HistoryRecoveryTrigger {
 /**
  * Bumped to re-run the recovery scan. `useHistoryRecovery` includes this in its effect deps so a
  * bump re-fires the scan; its `silent` flag decides whether it reads `scanning` and surfaces a failure.
- * User-initiated re-scans (Settings, Retry, Clear history) also wipe the checkpoint so the SDK
- * walks from the hub deploy block.
+ * Settings' "Re-scan history" and Clear history also wipe the checkpoint so the SDK walks from the
+ * hub deploy block; the banner's Retry resumes from the checkpoint.
  */
 export const historyRecoveryTriggerAtom = atom<HistoryRecoveryTrigger>({ id: 0, silent: false })

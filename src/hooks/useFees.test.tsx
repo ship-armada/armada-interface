@@ -1,4 +1,5 @@
 // ABOUTME: Tests for useFees — verifies React Query integration, atom mirroring, refresh forcing, and visibility-pause for refetchInterval.
+// ABOUTME: Also: mounted instances share one fetch, and isUnavailable shows after repeated relayer failures and clears on recovery.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, waitFor } from '@testing-library/react'
