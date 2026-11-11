@@ -19,14 +19,29 @@ export function scrubString(input: string): string {
     .replace(/0x[0-9a-fA-F]{40,}/g, '0x[redacted]')
 }
 
-function scrubMaybe(v: unknown): unknown {
-  return typeof v === 'string' ? scrubString(v) : v
+/** Deep enough for console-breadcrumb arguments ({ …message } inside an array) and captureError's context. */
+const MAX_SCRUB_DEPTH = 6
+
+/**
+ * Scrub every string in a value, recursing into arrays and plain objects (in place for objects, so Sentry's own
+ * references stay valid). Sentry's console breadcrumbs carry the raw log arguments, and telemetry logs objects, so a
+ * top-level-strings-only pass let an address inside a logged error message through. Past MAX_SCRUB_DEPTH a nested value
+ * is replaced rather than sent unscrubbed.
+ */
+function scrubDeep(v: unknown, depth = 0): unknown {
+  if (typeof v === 'string') return scrubString(v)
+  if (v === null || typeof v !== 'object') return v
+  if (depth >= MAX_SCRUB_DEPTH) return '[redacted: too deep]'
+  if (Array.isArray(v)) return v.map((item) => scrubDeep(item, depth + 1))
+  const record = v as Record<string, unknown>
+  for (const k of Object.keys(record)) record[k] = scrubDeep(record[k], depth + 1)
+  return record
 }
 
 /**
- * Sentry `beforeSend` hook. A thrown error's message, stack values, or breadcrumbs can carry 0zk
- * addresses, EVM addresses, tx hashes, or calldata. We scrub everywhere those realistically ride
- * along before the event is transmitted. `sendDefaultPii: false` already strips IP/cookies; this
+ * Sentry `beforeSend` hook. A thrown error's message, stack values, breadcrumbs (including console breadcrumbs' raw
+ * log arguments), and the attached context / extra can carry 0zk addresses, EVM addresses, tx hashes, or calldata.
+ * We scrub everywhere those realistically ride along before the event is transmitted. `sendDefaultPii: false` already strips IP/cookies; this
  * covers the application payload.
  */
 export function scrubEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
@@ -36,10 +51,10 @@ export function scrubEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   }
   for (const bc of event.breadcrumbs ?? []) {
     if (bc.message) bc.message = scrubString(bc.message)
-    if (bc.data) {
-      for (const k of Object.keys(bc.data)) bc.data[k] = scrubMaybe(bc.data[k])
-    }
+    if (bc.data) scrubDeep(bc.data)
   }
+  if (event.contexts) scrubDeep(event.contexts)
+  if (event.extra) scrubDeep(event.extra)
   if (event.request?.url) event.request.url = scrubString(event.request.url)
   return event
 }

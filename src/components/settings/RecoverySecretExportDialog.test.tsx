@@ -110,6 +110,31 @@ describe('<RecoverySecretExportDialog> — hex mode', () => {
     expect(screen.getByLabelText('Recovery secret (hex)')).toHaveTextContent(expected)
   })
 
+  it('forgets the revealed secret and the passphrase when closed — reopening starts clean', () => {
+    // WHY: Settings keeps this dialog mounted and only toggles `open`, so the close-reset is the only thing that drops
+    // the revealed 64-char root secret; without it, the next open would show it again.
+    const root = new Uint8Array(32).fill(7)
+    mockGetRootSecret.mockReturnValueOnce(root)
+    const store = createStore()
+    const ui = (open: boolean) => (
+      <Provider store={store}>
+        <RecoverySecretExportDialog open={open} onClose={() => {}} />
+      </Provider>
+    )
+    const { rerender } = render(ui(true))
+    fireEvent.change(screen.getByLabelText('Passphrase'), { target: { value: 'pw-here-strong' } })
+    fireEvent.click(screen.getByRole('tab', { name: 'Show hex' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal hex' }))
+    expect(screen.getByLabelText('Recovery secret (hex)')).toHaveTextContent('07'.repeat(32))
+
+    rerender(ui(false))
+    rerender(ui(true))
+    expect(screen.queryByLabelText('Recovery secret (hex)')).toBeNull()
+    expect(screen.queryByText('07'.repeat(32))).toBeNull()
+    // Back on the file tab, with an empty passphrase.
+    expect(screen.getByLabelText('Passphrase')).toHaveValue('')
+  })
+
   it('surfaces an error when the keyManager is locked', () => {
     mockGetRootSecret.mockImplementation(() => { throw new Error('wallet is locked') })
     renderDialog()

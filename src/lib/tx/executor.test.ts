@@ -372,11 +372,22 @@ describe('resumeForWallet (P0-2)', () => {
     })
   }
 
-  it('resumes a broadcast (has-hash) record without terminalizing it', async () => {
+  it('resumes a broadcast (has-hash) record by re-attaching its watcher, without terminalizing it', async () => {
     const store = getDefaultStore()
     const walletId = 'rw-resume-hash'
     unlockForTest(walletId)
     startEngine() // elect leader (no navigator.locks in jsdom)
+    // The watcher: whatever handler the kind has. It must run for this record once the chain may proceed — otherwise the
+    // tx is never watched again, stays pending forever, and (being pending) holds off the auto-lock.
+    const watched: string[] = []
+    registerHandler({
+      kind: 'shield',
+      resumableFrom: ['submit-relayer'],
+      run: async (record, ctx) => {
+        watched.push(record.id)
+        await ctx.upsert(advance(record, 'hub-confirmed'))
+      },
+    })
     const rec = recordFor(walletId, {
       id: 'res-hash',
       executionState: 'waiting',
@@ -395,6 +406,12 @@ describe('resumeForWallet (P0-2)', () => {
     expect(after).toHaveLength(1)
     expect(isTerminalState(after[0]!.executionState)).toBe(false)
     expect(after[0]!.artifacts.sourceTxHash).toBe('0xfeed')
+    // Parked at the visibility gate (hidden tab) so far; showing the tab lets the re-attached chain run its handler.
+    expect(watched).toEqual([])
+    store.set(tabVisibleAtom, true)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(watched).toEqual(['res-hash'])
+    cancelAllRunning('test-cleanup')
   })
 
   it('marks a pre-broadcast (no-hash) record failed with INTERRUPTED', async () => {

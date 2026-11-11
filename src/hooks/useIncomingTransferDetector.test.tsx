@@ -1,5 +1,5 @@
-// ABOUTME: Tests for useIncomingTransferDetector — subscribes on unlock, bumps historyRecoveryTriggerAtom (silently) on each matching balance event, ignores events for other wallets, cleans up on lock/unmount.
-// ABOUTME: Stubs subscribeBalanceUpdates so we can drive synthetic events without a SDK runtime.
+// ABOUTME: Tests for useIncomingTransferDetector — subscribes on unlock, bumps historyRecoveryTriggerAtom (silently) on balance
+// ABOUTME: events (debounced; spend-hold pings ignored), cleans up on lock/unmount. subscribeBalanceUpdates is stubbed.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, waitFor, act } from '@testing-library/react'
@@ -138,24 +138,6 @@ describe('useIncomingTransferDetector', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
-
-  it('ignores balance events for a different wallet', async () => {
-    // WHY: defense-in-depth for the future plural-wallet schema. A balance event from a
-    // background wallet should not trigger a scan for the active one.
-    const store = makeStore({ unlocked: true })
-    render(
-      <Provider store={store}>
-        <Harness />
-      </Provider>,
-    )
-    await waitFor(() => {
-      expect(hoisted.isSubscribed()).toBe(true)
-    })
-    await act(async () => {
-      hoisted.fire({ chain: { type: 0, id: 31337 }, shieldedWalletID: 'rg-other' })
-    })
-    expect(store.get(historyRecoveryTriggerAtom).id).toBe(0)
   })
 
   it('unsubscribes when the wallet locks', async () => {

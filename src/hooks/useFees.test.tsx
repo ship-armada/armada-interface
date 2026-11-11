@@ -134,24 +134,23 @@ describe('useFees (React Query)', () => {
     }
   })
 
-  // Visibility test isolates fake timers — RTL's waitFor uses real time, so we can't share fake
-  // timers with the success-path tests above. This test mounts with tab hidden and verifies that
-  // advancing time well past the refetch window produces no additional fetches.
-  it('does not run refetchInterval while tab is hidden', async () => {
-    const quote = makeQuote(60_000) // refresh window starts at 30s remaining
-    fetchFeesSpy.mockResolvedValue(quote)
-
-    const { queryClient } = renderHarness({ tabVisible: false })
-
-    // First fetch on mount still happens (query enabled by default).
-    await waitFor(() => expect(queryClient.getQueryData(FEES_QUERY_KEY)).toEqual(quote))
-    expect(fetchFeesSpy).toHaveBeenCalledTimes(1)
-
-    // Now swap to fake timers and prove no interval-driven refetch fires while hidden.
-    vi.useFakeTimers({ shouldAdvanceTime: false })
+  // WHY: React Query starts its refetch interval when the query mounts, so the fake clock has to be installed BEFORE
+  // render — installed after, the real interval is never driven and the hidden case passes even if polling ignores the
+  // tab. The visible case proves the harness does see interval refetches.
+  it.each([
+    ['hidden', false],
+    ['visible', true],
+  ] as const)('refetches on the interval only while the tab is visible (%s)', async (_label, tabVisible) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
-      expect(fetchFeesSpy).toHaveBeenCalledTimes(1)
+      const quote = makeQuote(60_000)
+      fetchFeesSpy.mockResolvedValue(quote)
+      const { queryClient } = renderHarness({ tabVisible })
+      await waitFor(() => expect(queryClient.getQueryData(FEES_QUERY_KEY)).toEqual(quote))
+      const afterMount = fetchFeesSpy.mock.calls.length
+      await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
+      if (tabVisible) expect(fetchFeesSpy.mock.calls.length).toBeGreaterThan(afterMount)
+      else expect(fetchFeesSpy.mock.calls.length).toBe(afterMount)
     } finally {
       vi.useRealTimers()
     }

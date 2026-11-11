@@ -226,7 +226,9 @@ export function BalanceCard({
     !balanceIntroPlaying &&
     vaultRollFromValue !== undefined &&
     balanceRollTrigger > completedRollTrigger
-  const showRollingBalance = balanceIntroPlaying || depositRollActive
+  // The odometer renders the real digits, so it only runs while the balance is shown — hidden, the mask shows from the
+  // first frame, intro included (a peek counts as shown).
+  const showRollingBalance = showBalance && (balanceIntroPlaying || depositRollActive)
   const lockBalanceWidth = showRollingBalance || vaultTransferRollActive
 
   function revealBalancePeek() {

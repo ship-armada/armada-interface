@@ -101,14 +101,15 @@ const STUB_FEE_QUOTE = {
     shieldXchain: '0',
   },
 }
-// The quote a test runs with — STUB_FEE_QUOTE unless it sets another, or null (the relayer quote hasn't loaded).
-const quoteHolder: { quote: typeof STUB_FEE_QUOTE | null } = { quote: STUB_FEE_QUOTE }
+// The quote a test runs with — STUB_FEE_QUOTE unless it sets another, or null (the relayer quote hasn't loaded). `fresh`, when
+// set, is what Confirm's refresh() gets instead — a fee that changed between Review and submit.
+const quoteHolder: { quote: typeof STUB_FEE_QUOTE | null; fresh?: typeof STUB_FEE_QUOTE } = { quote: STUB_FEE_QUOTE }
 vi.mock('@/hooks/useFees', () => ({
   useFees: () => ({
     quote: quoteHolder.quote,
     isStale: false,
     isUnavailable: false,
-    refresh: async () => quoteHolder.quote,
+    refresh: async () => quoteHolder.fresh ?? quoteHolder.quote,
   }),
 }))
 
@@ -193,6 +194,7 @@ beforeEach(() => {
   hoistedDisplay.protocolFee = 0n
   hoistedDisplay.protocolFeeStatus = 'exact'
   quoteHolder.quote = STUB_FEE_QUOTE
+  quoteHolder.fresh = undefined
   hoistedDeployments.hubWrapper = null
 })
 
@@ -415,6 +417,22 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(record.meta.broadcasterFeePerProof).toBe(1_286_550n)
   }))
 
+  it('an unshield does not create a second record when Confirm is double-clicked (P0-7)', withQuotedUnshieldFees(async () => {
+    // Same guard as the Shield tab's, in useUnshieldFlow: each click awaits a fresh quote, so without it = two spends.
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
+    const confirm = screen.getByRole('button', { name: /^Confirm/ })
+    await act(async () => {
+      fireEvent.click(confirm)
+      fireEvent.click(confirm)
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    expect(store.get(txListAtom).filter((r) => r.kind === 'unshield-local')).toHaveLength(1)
+  }))
+
   it('a cross-chain unshield records its planned total with the per-proof fee too', withQuotedUnshieldFees(async () => {
     hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_527_000n, priceAt: vi.fn(async () => 1_527_000n) }
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
@@ -452,6 +470,7 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
     expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(false)
     expect(screen.getByRole('button', { name: /^Confirm/ })).toBeInTheDocument()
+    expect(screen.getByText(/fee changed/)).toBeInTheDocument()
   }))
 
   it('an unshield holds Confirm while its notes are being checked', () => {
@@ -791,8 +810,9 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       hoistedDeployments.hubWrapper = '0x' + 'e'.repeat(40)
       hoistedDisplay.protocolFee = P
       quoteHolder.quote = quote
-      renderModal({ open: true, max: 20_000_000n })
+      const store = renderModal({ open: true, max: 20_000_000n })
       fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '10' } })
+      return store
     }
 
     it('Review: the relayer + protocol fee and the net received (SH-1…SH-3)', async () => {
@@ -801,6 +821,35 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
       expect(summaryRow('Fees')).toBe('1.020014 USDC')
       expect(summaryRow("You'll receive")).toBe('8.979986 USDC')
+    })
+
+    it('Confirm submits a gasless shield carrying the relayer fee and cache id Review priced it at', async () => {
+      // WHY: the gasless submit never ran in a test — the relayer fee written into the record (what the receipt shows and
+      // the relayer verifies) could stop matching Review unnoticed.
+      const quote = { ...STUB_FEE_QUOTE, cacheId: 'gasless-cache', fees: { ...STUB_FEE_QUOTE.fees, shield: String(F) } }
+      const store = gaslessShieldReview(quote)
+      await waitFor(() => expect(screen.getByText('incl. $1.020014 FEE')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(true))
+      const record = store.get(txListAtom).find((r) => r.kind === 'shield') as TxRecord<'shield'>
+      expect(record.meta).toMatchObject({ useGasless: true, feeAmount: F, feeCacheId: 'gasless-cache' })
+    })
+
+    it('a relayer fee that changed by Confirm bounces back to Review with the banner — nothing submitted', async () => {
+      const quote = { ...STUB_FEE_QUOTE, fees: { ...STUB_FEE_QUOTE.fees, shield: String(F) } }
+      const store = gaslessShieldReview(quote)
+      await waitFor(() => expect(screen.getByText('incl. $1.020014 FEE')).toBeInTheDocument())
+      fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+      quoteHolder.fresh = { ...quote, cacheId: 'fresh-cache', fees: { ...quote.fees, shield: String(F * 2n) } }
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
+      })
+      await waitFor(() => expect(screen.getByText(/fee changed/)).toBeInTheDocument())
+      expect(store.get(txListAtom).some((r) => r.kind === 'shield')).toBe(false)
+      expect(screen.getByRole('button', { name: /^Confirm/ })).toBeInTheDocument()
     })
 
     it('before the relayer quote loads: no fee ("—") and Confirm held (G-4)', async () => {

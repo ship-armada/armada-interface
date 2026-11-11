@@ -181,19 +181,21 @@ describe('useUsdcBalances', () => {
     expect(mockLoadDeployments.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
-  it('does not refetch on the interval while tab is hidden', async () => {
-    mockUseWallet.mockReturnValue({ address: TEST_ADDR })
-    mockReadContract.mockResolvedValue(1_000_000n)
-
-    const { store } = renderHarness({ tabVisible: false })
-
-    await waitFor(() => expect(store.get(usdcBalancesAtom)[31337]).toBe(1_000_000n))
-    const callsAfterFirst = mockReadContract.mock.calls.length
-
-    vi.useFakeTimers({ shouldAdvanceTime: false })
+  // Fake clock before render (React Query starts the interval on mount); the visible case proves refetches are seen.
+  it.each([
+    ['hidden', false],
+    ['visible', true],
+  ] as const)('refetches on the interval only while the tab is visible (%s)', async (_label, tabVisible) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
+      mockUseWallet.mockReturnValue({ address: TEST_ADDR })
+      mockReadContract.mockResolvedValue(1_000_000n)
+      const { store } = renderHarness({ tabVisible })
+      await waitFor(() => expect(store.get(usdcBalancesAtom)[31337]).toBe(1_000_000n))
+      const afterMount = mockReadContract.mock.calls.length
       await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
-      expect(mockReadContract.mock.calls.length).toBe(callsAfterFirst)
+      if (tabVisible) expect(mockReadContract.mock.calls.length).toBeGreaterThan(afterMount)
+      else expect(mockReadContract.mock.calls.length).toBe(afterMount)
     } finally {
       vi.useRealTimers()
     }

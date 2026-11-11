@@ -176,7 +176,7 @@ describe('V2 shielded-wallet lifecycle integration', () => {
     })
   })
 
-  it('switching EVM addresses auto-locks + clears the active tx list (Phase 4 + Phase 6 together)', async () => {
+  it('switching EVM addresses auto-locks and zeroizes, keeping the locked entry for re-sign (Phase 4)', async () => {
     const evmA = '0x1111111111111111111111111111111111111111' as `0x${string}`
     const evmB = '0x2222222222222222222222222222222222222222' as `0x${string}`
     const { store, capture } = mount(evmA)
@@ -216,7 +216,9 @@ describe('V2 shielded-wallet lifecycle integration', () => {
     // lock-watch effect route from dashboard → UnlockFlow on disconnect/switch — wiping the
     // atoms would produce `{ status: 'missing' }`, which the guard doesn't catch. Once the
     // user signs in with the new EVM, the new walletId replaces the active id and the old
-    // wallet's records fall out of activeTxListAtom naturally.
+    // wallet's records fall out of activeTxListAtom naturally. (That a lock — the status flip, same id — clears
+    // the decrypted list is hooks/useTxHistory.test's: this test's second render() mounts a fresh hook, which
+    // resets the list on mount anyway, so it can't show that here.)
     await waitFor(() => {
       expect(isUnlocked()).toBe(false)
       expect(store.get(activeShieldedWalletIdAtom)).toBe(walletIdA)

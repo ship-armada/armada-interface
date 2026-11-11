@@ -1,5 +1,5 @@
-// ABOUTME: Idempotency tests for the shield handler's submit stage (P0-1 / WS1.3).
-// ABOUTME: A record re-entering submit-relayer with a sourceTxHash must NOT re-broadcast — it resumes via the receipt wait.
+// ABOUTME: Idempotency tests for the shield handler's submit stage (P0-1 / WS1.3), direct and gasless paths: a record
+// ABOUTME: re-entering with a sourceTxHash must NOT re-broadcast or re-POST — it resumes via the receipt wait / relayer status.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -23,6 +23,19 @@ vi.mock('@/lib/tx/receipt', async (importActual) => {
   const actual = await importActual<typeof import('@/lib/tx/receipt')>()
   return { ...actual, waitForReceiptOrFail: waitForReceiptMock }
 })
+
+// Gasless path: a re-POST of the gaslessShield call must never fire on re-entry (a duplicate 409s; an expired permit reverts).
+const submitRelayMock = vi.hoisted(() => vi.fn(() => { throw new Error('submitRelay must not be called on idempotent re-entry') }))
+vi.mock('@/lib/relayer', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/relayer')>()),
+  submitRelay: submitRelayMock,
+}))
+const pollMock = vi.hoisted(() => vi.fn(async () => ({ status: 'done' as const, value: { status: 'confirmed' as const } })))
+vi.mock('@/lib/tx/poller', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/tx/poller')>()),
+  poll: pollMock,
+  pollRelayStatusOnce: vi.fn(async () => null),
+}))
 
 vi.mock('@/lib/shielded/keyManager', () => ({
   // isUnlocked false → handler skips the post-confirm balance refresh (keeps the test self-contained).
@@ -118,6 +131,38 @@ describe('shieldHandler submit idempotency (P0-1 direct path)', () => {
     expect(waitForReceiptMock).toHaveBeenCalledOnce()
     const last = upserts.at(-1)
     expect(last?.stage).toBe('hub-confirmed')
+    expect(last?.executionState).toBe('completed')
+    expect(last?.artifacts.sourceTxHash).toBe('0xfeed')
+  })
+})
+
+describe('shieldHandler submit idempotency (P0-1 gasless path)', () => {
+  beforeEach(() => {
+    submitRelayMock.mockClear()
+    pollMock.mockClear()
+    wagmi.writeContract.mockClear()
+    wagmi.sendTransaction.mockClear()
+  })
+
+  function gaslessRecordWithHash(stage: 'submit-relayer' | 'hub-pending'): TxRecord<'shield'> {
+    const base = shieldRecordWithHash()
+    return {
+      ...base,
+      stage,
+      meta: { ...base.meta, useGasless: true, wrapperAddress: '0x4444444444444444444444444444444444444444', permitDeadline: 1 },
+    } as TxRecord<'shield'>
+  }
+
+  it.each(['submit-relayer', 'hub-pending'] as const)('from %s, it re-waits on the relayer status without re-POSTing and completes', async (stage) => {
+    // permitDeadline: 1 (long expired) — a re-POST would also be doomed, so re-entry must not even look at the permit.
+    const { ctx, upserts } = makeCtx()
+    await shieldHandler.run(gaslessRecordWithHash(stage), ctx)
+
+    expect(submitRelayMock).not.toHaveBeenCalled()
+    expect(wagmi.writeContract).not.toHaveBeenCalled()
+    expect(wagmi.sendTransaction).not.toHaveBeenCalled()
+    expect(pollMock).toHaveBeenCalledOnce()
+    const last = upserts.at(-1)
     expect(last?.executionState).toBe('completed')
     expect(last?.artifacts.sourceTxHash).toBe('0xfeed')
   })

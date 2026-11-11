@@ -24,6 +24,7 @@ import { C, C_ACTUAL, F } from '@/test/fixtures/txValues'
 import { headlineAmount, readFigures, summaryRow } from '@/test/summaryRows'
 import { acknowledgeHighFee } from '@/test/highFee'
 import { ActivityReceipt } from '@/components/dashboard/ActivityReceipt/ActivityReceipt'
+import { validateShieldedAddressStrict } from '@/lib/address'
 
 // useDisplayFees + useGasBalanceWarning hit wagmi hooks that require a WagmiProvider; these
 // tests don't mount one. Stub with neutral defaults so the modal renders.
@@ -520,6 +521,7 @@ describe('<SendModal>', () => {
       await waitFor(() => expect(hoistedCheck.result.invalidate).toHaveBeenCalled())
       expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(false)
       expect(screen.getByRole('button', { name: /Confirm send/ })).toBeInTheDocument()
+      expect(screen.getByText(/fee changed/)).toBeInTheDocument()
     }))
   })
 
@@ -658,6 +660,32 @@ describe('<SendModal>', () => {
       completeRecipientStep(VALID_0ZK)
       fireEvent.click(screen.getByRole('button', { name: /Max/ }))
       expect(screen.getByLabelText('Send amount')).toHaveValue('9.96')
+    })
+
+    it('does not create a second record when Confirm is double-clicked (P0-7)', async () => {
+      // Two clicks before React can disable Confirm — the synchronous submittingRef guard must make the second a no-op.
+      // Each click awaits a fresh quote before submitting, so without it a fast double-click = two real spends.
+      const store = reviewPrivateSend()
+      const confirm = screen.getByRole('button', { name: /Confirm send/ })
+      await act(async () => {
+        fireEvent.click(confirm)
+        fireEvent.click(confirm)
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'transfer-shielded')).toBe(true))
+      await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+      expect(store.get(txListAtom).filter((r) => r.kind === 'transfer-shielded')).toHaveLength(1)
+    })
+
+    it('refuses a 0zk recipient that fails the strict checksum check — nothing is submitted', async () => {
+      // WHY: the recipient step's regex is only a shape pre-filter; this check (bech32m checksum) at the funds-committing
+      // boundary is what stops a typo'd 0zk — whose funds could never be recovered — from being sent to.
+      vi.mocked(validateShieldedAddressStrict).mockResolvedValueOnce(false)
+      const store = reviewPrivateSend()
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
+      })
+      await waitFor(() => expect(screen.getByText(/not valid — double-check it for typos/)).toBeInTheDocument())
+      expect(store.get(txListAtom).some((r) => r.kind === 'transfer-shielded')).toBe(false)
     })
 
     it('submits the reviewed total and the per-proof fee it was priced at', async () => {

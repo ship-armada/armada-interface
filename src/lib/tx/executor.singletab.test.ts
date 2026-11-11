@@ -2,12 +2,9 @@
 // ABOUTME: `armada-tx-executor` lock (another tab holds it) shows SingleTabGate before any sign-in, not after the user signs.
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { getDefaultStore } from 'jotai'
-import { anotherTabActiveAtom } from '@/state/ui'
 
 afterEach(() => {
   Reflect.deleteProperty(navigator, 'locks')
-  getDefaultStore().set(anotherTabActiveAtom, false)
   vi.resetModules()
 })
 
@@ -23,20 +20,27 @@ function stubLocks(available: boolean) {
   })
 }
 
+/**
+ * Boot a fresh executor and read the gate it writes. The atom and store are loaded AFTER the module reset, from the same
+ * graph as the executor: a top-of-file import would be a different atom instance from the executor's after
+ * vi.resetModules(), so a test reading it could never see the executor's write.
+ */
+async function bootAndReadGate(lockAvailable: boolean): Promise<boolean> {
+  stubLocks(lockAvailable)
+  const { startEngine } = await import('./executor')
+  const { anotherTabActiveAtom } = await import('@/state/ui')
+  const { getDefaultStore } = await import('jotai')
+  startEngine()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  return getDefaultStore().get(anotherTabActiveAtom)
+}
+
 describe('startEngine — single-tab gate at boot', () => {
   it('another tab holds the engine lock → this tab shows "open in another tab" straight away', async () => {
-    stubLocks(false)
-    const { startEngine } = await import('./executor')
-    startEngine()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(getDefaultStore().get(anotherTabActiveAtom)).toBe(true)
+    expect(await bootAndReadGate(false)).toBe(true)
   })
 
   it('the lock is free → this tab leads, no gate', async () => {
-    stubLocks(true)
-    const { startEngine } = await import('./executor')
-    startEngine()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(getDefaultStore().get(anotherTabActiveAtom)).toBe(false)
+    expect(await bootAndReadGate(true)).toBe(false)
   })
 })

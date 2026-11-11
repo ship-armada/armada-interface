@@ -110,6 +110,19 @@ describe('<MergeModal>', () => {
     expect(screen.getByRole('button', { name: 'Confirm merge' })).toBeDisabled()
   })
 
+  it('does not create a second record when Confirm merge is double-clicked (P0-7)', async () => {
+    // Each click awaits a fresh quote before submitting — MergeModal's submittingRef guard makes the second a no-op.
+    const store = renderModal()
+    const confirm = screen.getByRole('button', { name: 'Confirm merge' })
+    await act(async () => {
+      fireEvent.click(confirm)
+      fireEvent.click(confirm)
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'consolidate')).toBe(true))
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    expect(store.get(txListAtom).filter((r) => r.kind === 'consolidate')).toHaveLength(1)
+  })
+
   it('submits a consolidate record carrying the re-priced fee, per-proof fee, token and note counts', async () => {
     const store = renderModal()
     await act(async () => {

@@ -71,6 +71,34 @@ describe('scrubEvent', () => {
   })
 })
 
+describe('scrubEvent — nested payloads', () => {
+  it('redacts addresses inside console-breadcrumb arguments, the attached context, and extra', () => {
+    // WHY: Sentry's console breadcrumbs keep the raw log arguments in data.arguments (an array), and every telemetry
+    // error line is console.error('[armada]', { …message }). captureError attaches its context as contexts.detail.
+    // Scrubbing only top-level strings let an address inside an error message reach Sentry.
+    const secret0zk = '0zk' + 'e'.repeat(40)
+    const secretHex = '0x' + 'f'.repeat(40)
+    const event = {
+      breadcrumbs: [{
+        category: 'console',
+        message: '[armada] [object Object]',
+        data: { logger: 'console', arguments: ['[armada]', { event: 'tx.failed', message: `call to ${secretHex} reverted`, nested: [secret0zk] }] },
+      }],
+      contexts: { detail: { message: `unshield to ${secretHex}`, recipient: secret0zk, attempts: 2 } },
+      extra: { info: { note: `from ${secret0zk}` } },
+    } as unknown as Parameters<typeof scrubEvent>[0]
+
+    const out = scrubEvent(event)
+    const serialized = JSON.stringify(out)
+    expect(serialized).not.toContain(secretHex)
+    expect(serialized).not.toContain(secret0zk)
+    const args = out.breadcrumbs?.[0]?.data?.arguments as [string, { message: string; event: string }]
+    expect(args[1].message).toBe('call to 0x[redacted] reverted')
+    expect(args[1].event).toBe('tx.failed') // structure and other values survive
+    expect(out.contexts?.detail).toMatchObject({ message: 'unshield to 0x[redacted]', recipient: '0zk[redacted]', attempts: 2 })
+  })
+})
+
 describe('initSentry', () => {
   it('is a no-op when VITE_SENTRY_DSN is unset', () => {
     // Explicitly clear the DSN so the assertion doesn't depend on the developer's ambient env —

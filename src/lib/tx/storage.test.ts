@@ -178,6 +178,14 @@ describe('encrypted writes', () => {
     expect(ok).toBe(false)
   })
 
+  it('OCC: rejects an equal updatedSeq — two writes built from the same record (#288), the second is dropped', async () => {
+    unlock('rg-1')
+    await putTxIfFresh({ ...fixture('tx-1', 'rg-1', 2), stage: 'hub-pending' })
+    const ok = await putTxIfFresh({ ...fixture('tx-1', 'rg-1', 2), stage: 'hub-confirmed' })
+    expect(ok).toBe(false)
+    expect((await loadAllTx('rg-1'))[0]!.stage).toBe('hub-pending')
+  })
+
   it('OCC: accepts a fresher updatedSeq', async () => {
     unlock('rg-1')
     await putTxIfFresh(fixture('tx-1', 'rg-1', 1))
@@ -193,6 +201,15 @@ describe('encrypted writes', () => {
     expect(ok).toBe(false)
     const records = await loadAllTx('rg-1')
     expect(records[0]!.executionState).toBe('cancelled')
+  })
+
+  it('terminal-write guard: allows terminal→retrying (an intentional Try again), so the retry\'s progress persists', async () => {
+    unlock('rg-1')
+    await putTxIfFresh({ ...fixture('tx-1', 'rg-1', 5), executionState: 'failed' })
+    expect(await putTxIfFresh({ ...fixture('tx-1', 'rg-1', 6), executionState: 'retrying' })).toBe(true)
+    // …and the retried run's own later writes go through too.
+    expect(await putTxIfFresh({ ...fixture('tx-1', 'rg-1', 7), executionState: 'active' })).toBe(true)
+    expect((await loadAllTx('rg-1'))[0]!.executionState).toBe('active')
   })
 
   it('terminal-write guard: allows a terminal→terminal upgrade (recovery path)', async () => {
