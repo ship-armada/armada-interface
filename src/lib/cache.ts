@@ -8,18 +8,10 @@ const DB_VERSION = 2
 
 export type StoreName =
   | 'txHistory'
-  | 'feeQuotes'
-  | 'ens'
-  | 'shieldedBalances'
-  | 'meta'
   | 'requestLinks'
 
 const STORES: ReadonlyArray<StoreName> = [
   'txHistory',
-  'feeQuotes',
-  'ens',
-  'shieldedBalances',
-  'meta',
   'requestLinks',
 ]
 
