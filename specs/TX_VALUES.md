@@ -15,7 +15,7 @@ row yet (§8).
 | Symbol | Meaning |
 |---|---|
 | `A` | The amount the user typed (USDC, 6 decimals). |
-| `F` | The relayer's per-proof fee from the `/fees` quote (tier per kind — `lib/fees/displayFees.ts::relayerFeeKeyForKind`). |
+| `F` | The relayer's per-proof fee from the `/fees` quote (tier per kind — `lib/relayer.ts::userFeeForKind`). |
 | `Φ` | The relayer fee a *spend* actually pays = Σ of its broadcaster fee notes: `F` (normal, sweep), `F + c` (fold-in, `c` = the folded change), `k·F` (split into `k` proofs; a split can also land on fewer proofs and still pay `k·F`). Planned at Review (`useTransferFeePlan`, `useSpendCheck`, `useConsolidationPlan`), recorded by the handler as `meta.broadcasterFeeAmount`. |
 | `P` | The pool's protocol shield fee (`ArmadaFeeModule` take, ~50 bps) on the note that reaches the pool. Unshields: the pool charges none (`TransactModule`: "unshield is free per spec"; the `Unshield` event's fee is always 0). |
 | `P'` | `P` charged on the actual base once the CCTP fee is known (cross-chain shields: `A − F − C'` instead of `A − F − C`). |
