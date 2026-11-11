@@ -1,4 +1,5 @@
-// ABOUTME: Tests for lib/crypto/eip712 — typed-data shape, verifyingContract determinism, signature normalization (65-byte, EIP-2098 compact, v∈{0,1,27,28}).
+// ABOUTME: Tests for lib/crypto/eip712 — the enrollment message's known-answer digest (from the spec), typed-data shape,
+// ABOUTME: verifyingContract derivation, and signature normalization (65-byte, EIP-2098 compact, v∈{0,1,27,28}).
 
 import { describe, it, expect } from 'vitest'
 import {
@@ -10,7 +11,7 @@ import {
   buildEnrollmentTypedData,
   normalizeSignature,
 } from './eip712'
-import { keccak256, toBytes } from 'viem'
+import { hashTypedData, keccak256, toBytes } from 'viem'
 
 describe('VERIFYING_CONTRACT', () => {
   it('is the first 20 bytes of keccak256(VERIFYING_CONTRACT_SOURCE)', () => {
@@ -54,12 +55,19 @@ describe('buildEnrollmentTypedData', () => {
     expect(td.message.account).toBe('7')
   })
 
-  it('is deterministic — same account produces an identical message', () => {
-    // The whole point of the v2 amendment: re-running with the same input must yield the
-    // same bytes, otherwise the determinism-based recovery path can't work.
-    const a = buildEnrollmentTypedData(0n)
-    const b = buildEnrollmentTypedData(0n)
-    expect(a).toEqual(b)
+  it.each([
+    [0n, '0xe5fe0789f71bbd2908389b2b4112c0a7e0270a682870c7e637131f9a25ec115b'],
+    [7n, '0xc46c5c4d826977d7463730bb4a200ee67fd2be6b23f69c2c744a4e7fa9199341'],
+  ])('hashes to the spec\'s known-answer digest (account %s)', (account, digest) => {
+    // WHY: this digest is what the wallet signs, and the signature IS the user's identity (v2 re-derives it on every
+    // sign-in, so it must be reproducible). Reordering the Enrollment fields, changing a type (e.g. account → uint64),
+    // the domain fields or primaryType would give every user a new wallet while a shape check still passed. The
+    // digests were computed independently (ethers TypedDataEncoder) from a typed-data object written straight from
+    // specs/TX_SIGNING.md + TX_SIGNING_V2_AMENDMENT.md.
+    const td = buildEnrollmentTypedData(account)
+    expect(hashTypedData({ domain: td.domain, types: { Enrollment: [...td.types.Enrollment] }, primaryType: td.primaryType, message: { ...td.message, account: BigInt(td.message.account) } })).toBe(digest)
+    // …and the domain type the app sends lists exactly the domain's fields, in order.
+    expect(td.types.EIP712Domain).toEqual([{ name: 'name', type: 'string' }, { name: 'verifyingContract', type: 'address' }])
   })
 
   it('does not include the v1 issuedAt field anymore', () => {
