@@ -1,16 +1,25 @@
 // ABOUTME: Deposit amount card — optional in-card title, chain slot, left-aligned large mono amount, balance/fee row.
 // ABOUTME: The chain UI (when shown) is supplied by the caller via `chainSlot` (e.g. the shared ChainSelect).
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { WalletIcon } from '@heroicons/react/24/solid'
+import { ArmadaLogo } from '@/design'
 import { formatAmountInputDisplay, hasActiveAmount, sanitizeAmountEdit } from '@/utils/amountInput'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { FeeBreakdownTooltip, type FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
+import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
 import { RollingBalanceValue } from '@/components/dashboard/RollingBalanceValue'
 import { formatUsdcAmount, formatUsdcPlain } from '@/lib/format'
 import { formatNativeGasAmount, type DisplayFees } from '@/lib/fees/displayFees'
 import { incompleteCtaShakeClass } from '@/design'
 import styles from './DepositAmountCard.module.css'
+
+/** Font size, in the unitless token scale, that keeps `neededPx` inside `availablePx`. */
+function fittedAmountFontSize(neededPx: number, availablePx: number, maxPx: number): number | null {
+  if (availablePx <= 1 || neededPx <= 0 || maxPx <= 0) return null
+  if (neededPx <= availablePx) return null
+  return Math.max(1, Math.floor(((availablePx - 1) / neededPx) * maxPx))
+}
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
@@ -23,6 +32,13 @@ export interface DepositAmountCardProps {
    * no in-card chain row (e.g. Send/Earn, where the chain is chosen on a prior step or is fixed).
    */
   chainSlot?: ReactNode
+  /**
+   * `armada` marks private or vault funds with the Armada symbol. `wallet` uses the connected
+   * wallet's symbol, or a generic wallet icon when that wallet has none.
+   */
+  balanceSource?: 'armada' | 'wallet'
+  /** Connected wallet brand, shown beside a balance that comes from that wallet. */
+  walletProvider?: string
   /**
    * Optional node rendered at the very top of the card, above the title (e.g. the Earn flow's
    * Add/Withdraw SegmentedControl). Matches the mockup's in-card `headerSlot`.
@@ -96,6 +112,8 @@ export interface DepositAmountCardProps {
 
 export function DepositAmountCard({
   chainSlot,
+  balanceSource = 'wallet',
+  walletProvider,
   header,
   title,
   amount,
@@ -208,6 +226,36 @@ export function DepositAmountCard({
   // Thousand-grouped for display only ("1,000,000"); the stored `amount` stays ungrouped and the
   // sanitizer strips the grouping commas back out on the next keystroke (mockup parity).
   const displayAmount = formatAmountInputDisplay(amount)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const amountMeasureRef = useRef<HTMLSpanElement>(null)
+  const [fittedAmountFont, setFittedAmountFont] = useState<number | null>(null)
+  const amountFitText =
+    amountRoll && formatAmountInputDisplay(amountRoll.fromValue).length > (displayAmount || '0').length
+      ? formatAmountInputDisplay(amountRoll.fromValue)
+      : displayAmount || '0'
+
+  useLayoutEffect(() => {
+    const card = cardRef.current
+    const measure = amountMeasureRef.current
+    if (!card || !measure) return
+
+    const fit = () => {
+      // Fit inside the card's padding. The amount field shrinks to its text, so its own width
+      // would shrink the type as soon as a second digit appeared.
+      const boxStyle = getComputedStyle(card)
+      const padX = (parseFloat(boxStyle.paddingLeft) || 0) + (parseFloat(boxStyle.paddingRight) || 0)
+      const available = card.clientWidth - padX
+      const max = Number(boxStyle.getPropertyValue('--primitives-fontSize-4xl'))
+      const next = fittedAmountFontSize(measure.scrollWidth, available, max)
+      setFittedAmountFont((current) => (current === next ? current : next))
+    }
+
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [amountFitText])
+
   // Any validation error (over-balance, below-minimum, parse, withdraw fee-shortfall) reddens the
   // amount numeral + balance row (mockup parity) alongside the above-field warning tooltip.
   const hasError = Boolean(error)
@@ -236,15 +284,43 @@ export function DepositAmountCard({
   const nativeGas = displayFees?.nativeGas ?? null
   const showGas = showActiveAmount && !feeResolving && userPaysNativeGas && nativeGas !== null
 
+  const balanceMark =
+    balanceSource === 'armada' ? (
+      <span className={styles.walletMark} aria-hidden>
+        <ArmadaLogo variant="mark" markTone="white" className={styles.markLight} />
+        <ArmadaLogo variant="mark" markTone="brand" className={styles.markDark} />
+      </span>
+    ) : walletProvider ? (
+      <span className={styles.walletMark} aria-hidden>
+        <WalletProviderIcon provider={walletProvider} />
+      </span>
+    ) : (
+      <WalletIcon
+        className={[styles.walletIcon, hasError && styles.walletIconError].filter(Boolean).join(' ')}
+        aria-hidden
+      />
+    )
+
+  const balanceFigure = (
+    <>
+      {balanceMark}
+      <span className={[styles.balanceText, hasError && styles.balanceTextError].filter(Boolean).join(' ')}>
+        {balance}
+        {pendingBalance ? ` · ${pendingBalance} pending` : ''}
+        {arrivingBalance ? ` · ${arrivingBalance} arriving` : ''}
+      </span>
+    </>
+  )
+
   return (
     <div
+      ref={cardRef}
       className={[styles.card, shaking && incompleteCtaShakeClass].filter(Boolean).join(' ')}
       onAnimationEnd={onShakeAnimationEnd}
     >
       <div className={styles.cardTop}>
       {header ? <div className={styles.cardHeader}>{header}</div> : null}
       {title ? <p className={styles.cardTitle}>{title}</p> : null}
-      {chainSlot ? <div className={styles.topRow}>{chainSlot}</div> : null}
 
       <div className={styles.amountStack}>
         <label className={styles.amountWrapper} htmlFor={amountInputId}>
@@ -254,7 +330,15 @@ export function DepositAmountCard({
             className={[styles.amountField, showActiveAmount && styles.amountFieldHasValue]
               .filter(Boolean)
               .join(' ')}
+            style={
+              fittedAmountFont === null
+                ? undefined
+                : ({ '--amount-font-size': String(fittedAmountFont) } as CSSProperties)
+            }
           >
+            <span ref={amountMeasureRef} className={styles.amountMeasure} aria-hidden>
+              {amountFitText}
+            </span>
             <span
               className={[
                 styles.amountDisplay,
@@ -350,26 +434,22 @@ export function DepositAmountCard({
 
       </div>
 
-      <div className={styles.bottomRow}>
+      <div className={[styles.bottomRow, chainSlot && styles.bottomRowSplit].filter(Boolean).join(' ')}>
+        {chainSlot ? <div className={styles.chainSlotFooter}>{chainSlot}</div> : null}
         <div className={styles.balanceControls}>
-          <div className={styles.balanceGroup}>
-            <WalletIcon
-              className={[styles.walletIcon, hasError && styles.walletIconError]
-                .filter(Boolean)
-                .join(' ')}
-              aria-hidden
-            />
-            <span
-              className={[styles.balanceText, hasError && styles.balanceTextError]
-                .filter(Boolean)
-                .join(' ')}
+          {maxInput !== undefined || onMax ? (
+            <button
+              type="button"
+              className={styles.balanceButton}
+              aria-label={`Use maximum, ${balance} USDC`}
+              onClick={handleMax}
             >
-              {balance}
-              {pendingBalance ? ` · ${pendingBalance} pending` : ''}
-              {arrivingBalance ? ` · ${arrivingBalance} arriving` : ''}
-            </span>
-          </div>
-          {maxInput !== undefined ? (
+              {balanceFigure}
+            </button>
+          ) : (
+            <div className={styles.balanceGroup}>{balanceFigure}</div>
+          )}
+          {chainSlot ? null : maxInput !== undefined ? (
             <div className={styles.pctPills}>
               <button type="button" className={styles.pctPill} onClick={() => applyPercent(25n)}>
                 25%

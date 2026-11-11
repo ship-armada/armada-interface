@@ -108,6 +108,7 @@ export function SendInputStepContent({
         <DepositAmountCard
           // Title lives inside the card; the chain is chosen on the recipient step (no chain row here).
           title="How much USDC?"
+          balanceSource="armada"
           amount={amountStr}
           onAmountChange={onAmountChange}
           balance={formatUsdcPlain(max)}

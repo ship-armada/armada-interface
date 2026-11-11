@@ -195,6 +195,7 @@ export function EarnInputStepContent({
         }
         // Title lives inside the card; the vault has no chain selection (no chain row).
         title={question}
+        balanceSource="armada"
         amount={amountStr}
         onAmountChange={onAmountChange}
         balance={formatUsdcPlain(max)}

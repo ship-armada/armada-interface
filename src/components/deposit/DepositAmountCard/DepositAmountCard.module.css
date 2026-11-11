@@ -65,9 +65,26 @@
   flex-direction: column;
   align-items: stretch;
   gap: var(--primitives-spacing-4);
-  /* Fill the card even though `.cardTop` aligns its children flex-start — otherwise the chain
-     picker collapses to content width. */
   width: 100%;
+}
+
+.bottomRowSplit {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--primitives-spacing-3);
+}
+
+.bottomRowSplit .balanceControls {
+  width: auto;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+
+.chainSlotFooter {
+  width: auto;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .tokenGroup,
@@ -81,7 +98,7 @@
 }
 
 .balanceGroup {
-  gap: var(--primitives-spacing-2);
+  gap: var(--primitives-spacing-1);
 }
 
 .balanceControls {
@@ -222,17 +239,28 @@
 .amountField {
   position: relative;
   display: inline-block;
-  /* As wide as the digits, never wider than the card. An amount longer than the card runs past its
-     right edge rather than clipping, so every digit of the amount stays visible. */
   width: max-content;
   max-width: 100%;
   vertical-align: top;
 }
 
+.amountMeasure {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: var(--primitives-fontFamily-mono), ui-monospace, monospace;
+  font-weight: var(--primitives-fontWeight-regular);
+  font-size: calc(var(--primitives-fontSize-4xl) * 1px);
+  letter-spacing: 0;
+}
+
 .amountDisplay,
 .amountInput {
   font-family: var(--primitives-fontFamily-mono), ui-monospace, monospace;
-  font-size: calc(var(--primitives-fontSize-4xl) * 1px);
+  font-size: calc(var(--amount-font-size, var(--primitives-fontSize-4xl)) * 1px);
   font-weight: var(--primitives-fontWeight-regular);
   line-height: calc(var(--primitives-fontSize-4xl) * 1px);
   font-variant-numeric: tabular-nums;
@@ -297,7 +325,7 @@
   justify-content: flex-start;
   max-width: 100%;
   font-family: var(--primitives-fontFamily-mono), ui-monospace, monospace;
-  font-size: calc(var(--primitives-fontSize-4xl) * 1px);
+  font-size: calc(var(--amount-font-size, var(--primitives-fontSize-4xl)) * 1px);
   font-weight: var(--primitives-fontWeight-regular);
   line-height: calc(var(--primitives-fontSize-4xl) * 1px);
   font-variant-numeric: tabular-nums;
@@ -332,6 +360,61 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.walletMark {
+  width: var(--primitives-spacing-5);
+  height: var(--primitives-spacing-5);
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.walletMark :global(svg) {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.walletMark .markDark {
+  display: none;
+}
+
+.markLight {
+  color: var(--semantic-color-brand-ink);
+}
+
+:global([data-theme='dark']) .walletMark .markLight {
+  display: none;
+}
+
+:global([data-theme='dark']) .walletMark .markDark {
+  display: block;
+}
+
+.bottomRowSplit .walletMark,
+.bottomRowSplit .walletIcon {
+  width: var(--primitives-spacing-6);
+  height: var(--primitives-spacing-6);
+}
+
+.balanceButton {
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  min-width: 0;
+  margin-block: calc(var(--primitives-spacing-3) * -1);
+  padding: var(--primitives-spacing-3) var(--primitives-spacing-1);
+  border: none;
+  border-radius: calc(var(--primitives-borderRadius-sm) * 1px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.balanceButton:focus-visible {
+  outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
+  outline-offset: calc(var(--primitives-spacing-1) * 0.5);
 }
 
 .walletIcon {

@@ -6,6 +6,11 @@
   width: 100%;
 }
 
+.rootInline {
+  width: auto;
+  max-width: 100%;
+}
+
 .trigger,
 .triggerStatic {
   display: flex;
@@ -39,9 +44,27 @@
   outline-offset: calc(var(--primitives-spacing-1) * 0.5);
 }
 
+.triggerInline {
+  width: auto;
+  min-height: var(--primitives-spacing-6);
+  padding: 0;
+  gap: var(--primitives-spacing-2);
+  background: transparent;
+  border-radius: calc(var(--primitives-borderRadius-sm) * 1px);
+}
+
+.triggerInline[aria-expanded='true'],
+.triggerInline:active {
+  background: transparent;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .trigger:hover {
     background: var(--semantic-color-frost-hover);
+  }
+
+  .triggerInline:hover {
+    background: transparent;
   }
 }
 
@@ -54,6 +77,17 @@
   justify-content: center;
   overflow: hidden;
   border-radius: calc(var(--primitives-borderRadius-full) * 1px);
+}
+
+.rootInline .iconSlot {
+  width: var(--primitives-spacing-6);
+  height: var(--primitives-spacing-6);
+  background: var(--semantic-color-surface-default);
+}
+
+.rootInline .iconSlot :global(svg) {
+  width: var(--primitives-spacing-4);
+  height: var(--primitives-spacing-4);
 }
 
 .iconSlot :global(svg) {
@@ -100,12 +134,24 @@
   color: var(--semantic-color-text-primary);
 }
 
+.nameInline {
+  flex: 0 1 auto;
+  font-weight: var(--primitives-fontWeight-regular);
+  white-space: nowrap;
+}
+
 .chevron {
   width: var(--primitives-spacing-5);
   height: var(--primitives-spacing-5);
   color: var(--semantic-color-text-secondary);
   flex-shrink: 0;
   transition: transform 0.15s ease;
+}
+
+.triggerInline .chevron {
+  width: var(--primitives-spacing-4);
+  height: var(--primitives-spacing-4);
+  color: var(--semantic-color-text-primary);
 }
 
 .trigger[aria-expanded='true'] .chevron {
@@ -129,6 +175,12 @@
   border-radius: calc(var(--semantic-borderRadius-card) * 1px);
   box-shadow: 0 var(--primitives-spacing-3) var(--primitives-spacing-6)
     color-mix(in srgb, var(--semantic-color-surface-bg) 55%, transparent);
+}
+
+.rootInline .menu {
+  right: auto;
+  width: max-content;
+  min-width: 100%;
 }
 
 /* Option list inside the mobile BottomSheet — the sheet supplies the chrome (surface, radius,

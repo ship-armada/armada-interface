@@ -19,17 +19,27 @@ export interface ChainSelectProps {
   chains?: ReadonlyArray<ChainIdentity>
   /** Accessible name for the trigger (no visible label is rendered — matches the mockup). */
   label?: string
+  /** `inline` is the compact chip on the shield amount row: icon, name, chevron, no caption. */
+  layout?: 'full' | 'inline'
   disabled?: boolean
   className?: string
 }
 
-function ChainIcon({ chainId, name }: { chainId: number; name: string }) {
+function ChainIcon({
+  chainId,
+  name,
+  variant = 'background',
+}: {
+  chainId: number
+  name: string
+  variant?: 'background' | 'branded'
+}) {
   const Icon = chainIconForChainId(chainId)
   if (Icon) {
-    // `background` variant carries the network's own dark circular backdrop (matches the mockup).
+    // `background` is the network's dark plate. `branded` sits in our own light circle on the chip.
     return (
       <span className={styles.iconSlot} aria-hidden>
-        <Icon size={ICON_SIZE} variant="background" />
+        <Icon size={ICON_SIZE} variant={variant} />
       </span>
     )
   }
@@ -41,7 +51,15 @@ function ChainIcon({ chainId, name }: { chainId: number; name: string }) {
   )
 }
 
-export function ChainSelect({ value, onChange, chains, label, disabled, className }: ChainSelectProps) {
+export function ChainSelect({
+  value,
+  onChange,
+  chains,
+  label,
+  layout = 'full',
+  disabled,
+  className,
+}: ChainSelectProps) {
   const listboxId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -71,7 +89,9 @@ export function ChainSelect({ value, onChange, chains, label, disabled, classNam
     setMenuOpen(false)
   }
 
-  const cls = [styles.root, className].filter(Boolean).join(' ')
+  const inline = layout === 'inline'
+  const cls = [styles.root, inline && styles.rootInline, className].filter(Boolean).join(' ')
+  const iconVariant = inline ? 'branded' : 'background'
 
   const optionItems = options.map(option => (
     <li key={option.chainId} role="presentation">
@@ -101,27 +121,35 @@ export function ChainSelect({ value, onChange, chains, label, disabled, classNam
       {selectable ? (
         <button
           type="button"
-          className={styles.trigger}
+          className={[styles.trigger, inline && styles.triggerInline].filter(Boolean).join(' ')}
           aria-haspopup={isMobile ? 'dialog' : 'listbox'}
           aria-expanded={menuOpen}
           aria-controls={isMobile ? undefined : listboxId}
           aria-label={label}
           onClick={() => setMenuOpen(open => !open)}
         >
-          <ChainIcon chainId={selected?.chainId ?? value} name={selected?.name ?? ''} />
-          <span className={styles.copy}>
-            <span className={styles.label}>Network</span>
-            <span className={styles.name}>{selected?.name}</span>
-          </span>
+          <ChainIcon chainId={selected?.chainId ?? value} name={selected?.name ?? ''} variant={iconVariant} />
+          {inline ? (
+            <span className={[styles.name, styles.nameInline].join(' ')}>{selected?.name}</span>
+          ) : (
+            <span className={styles.copy}>
+              <span className={styles.label}>Network</span>
+              <span className={styles.name}>{selected?.name}</span>
+            </span>
+          )}
           <ChevronDownIcon className={styles.chevron} aria-hidden />
         </button>
       ) : (
-        <div className={styles.triggerStatic} aria-label={label}>
-          <ChainIcon chainId={selected?.chainId ?? value} name={selected?.name ?? ''} />
-          <span className={styles.copy}>
-            <span className={styles.label}>Network</span>
-            <span className={styles.name}>{selected?.name}</span>
-          </span>
+        <div className={[styles.triggerStatic, inline && styles.triggerInline].filter(Boolean).join(' ')} aria-label={label}>
+          <ChainIcon chainId={selected?.chainId ?? value} name={selected?.name ?? ''} variant={iconVariant} />
+          {inline ? (
+            <span className={[styles.name, styles.nameInline].join(' ')}>{selected?.name}</span>
+          ) : (
+            <span className={styles.copy}>
+              <span className={styles.label}>Network</span>
+              <span className={styles.name}>{selected?.name}</span>
+            </span>
+          )}
         </div>
       )}
 

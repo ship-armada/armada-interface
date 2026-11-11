@@ -188,6 +188,7 @@ export function ShieldModal() {
             gaslessMode={isShield ? shieldFlow.useGasless : true}
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
             requiredGasWei={isShield ? (shieldFlow.displayFees.nativeGas?.wei ?? null) : null}
+            walletProvider={isShield ? shieldFlow.walletProvider : undefined}
             inputRef={amountInputRef}
             shaking={shaking}
             onShakeAnimationEnd={onShakeAnimationEnd}

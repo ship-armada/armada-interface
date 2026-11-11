@@ -53,6 +53,8 @@ interface ShieldAmountStepContentProps {
   gasChainId: number
   /** The direct shield's estimated gas (wei) — the notice compares the balance to it; null until known (fixed floor). */
   requiredGasWei?: bigint | null
+  /** Connected wallet brand, shown beside a shield balance that comes from that wallet. */
+  walletProvider?: string
   /** Ref onto the amount input so the footer's incomplete-CTA nudge can focus the field. */
   inputRef?: Ref<HTMLInputElement>
   /** One-shot shake on the amount card — the incomplete-CTA nudge (owned by the modal). */
@@ -81,6 +83,7 @@ export function ShieldAmountStepContent({
   gaslessMode = true,
   gasChainId,
   requiredGasWei = null,
+  walletProvider,
   inputRef,
   shaking = false,
   onShakeAnimationEnd,
@@ -109,7 +112,9 @@ export function ShieldAmountStepContent({
     <div className={`${styles.contentZone} ${modalStepBodyEnter}`}>
       <DepositAmountCard
         // The chain row is the shared ChainSelect (matches the Send flow's network selector).
-        chainSlot={<ChainSelect value={chainId} onChange={onChainIdChange} label="Network" />}
+        chainSlot={<ChainSelect value={chainId} onChange={onChainIdChange} label="Network" layout="inline" />}
+        balanceSource={isShield ? 'wallet' : 'armada'}
+        walletProvider={isShield ? walletProvider : undefined}
         header={
           <SegmentedControl<ShieldTab>
             size="sm"
