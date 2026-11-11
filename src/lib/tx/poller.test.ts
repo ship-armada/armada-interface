@@ -99,22 +99,6 @@ describe('pollRelayStatusOnce', () => {
     expect(init.signal!.aborted).toBe(true)
   })
 
-  it('throws a RelayerError on non-2xx, surfacing the poll loop\'s backoff path', async () => {
-    // A 5xx from /status is treated as a transient relayer hiccup — the poll loop catches the
-    // throw, increments errorStreak, and retries with exponential backoff. The adapter MUST throw
-    // (rather than returning null) so the loop's error path engages instead of silently spinning.
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ error: 'upstream offline' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    )
-
-    await expect(
-      pollRelayStatusOnce(TX_HASH, new AbortController().signal),
-    ).rejects.toMatchObject({ name: 'RelayerError', httpStatus: 502 })
-  })
-
   it('on a 404 (relayer forgot the tx), falls back to the RPC receipt → confirmed (P1-25)', async () => {
     fetchMock.mockResolvedValueOnce(notFoundResponse())
     receiptMock.waitForReceiptOrFail.mockResolvedValueOnce({ status: 'success' })
@@ -138,7 +122,9 @@ describe('pollRelayStatusOnce', () => {
     expect(result).toEqual({ status: 'failed', error: 'reverted on chain' })
   })
 
-  it('does NOT fall back on a 5xx — rethrows so the poll loop backs off', async () => {
+  it('does NOT fall back on a 5xx — throws a RelayerError so the poll loop backs off', async () => {
+    // A 5xx from /status is a transient relayer hiccup: the poll loop catches the throw, increments errorStreak and
+    // retries with backoff. The adapter MUST throw (not return null) so that error path engages.
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'offline' }), {
         status: 503,
@@ -148,7 +134,7 @@ describe('pollRelayStatusOnce', () => {
 
     await expect(
       pollRelayStatusOnce(TX_HASH, new AbortController().signal, 31337),
-    ).rejects.toMatchObject({ httpStatus: 503 })
+    ).rejects.toMatchObject({ name: 'RelayerError', httpStatus: 503 })
     expect(receiptMock.waitForReceiptOrFail).not.toHaveBeenCalled()
   })
 })

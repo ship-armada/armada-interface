@@ -16,9 +16,9 @@ afterEach(() => {
 })
 
 describe('<RequestLinkScreen> expiry', () => {
-  it('reads "Expires in N days"', () => {
+  it('says when the link expires (the wording is payViaLink.test\'s)', () => {
     render(<RequestLinkScreen paymentLink={LINK} expiresAt={Date.now() + 3 * 86_400_000 - 1_000} revoked={false} onDone={vi.fn()} />)
-    expect(screen.getByText('Expires in 3 days')).toBeInTheDocument()
+    expect(screen.getByText(/^Expires in \d+ days?$/)).toBeInTheDocument()
   })
 })
 

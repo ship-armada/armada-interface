@@ -23,13 +23,6 @@ describe('sdkTelemetrySink', () => {
     })
   })
 
-  it('carries tailCovered + root-mismatch-fallback through unchanged', () => {
-    sdkTelemetrySink.emit('sync.quicksync', { outcome: 'served', fromBlock: 5, head: 9, tailCovered: true })
-    expect(trackMock).toHaveBeenLastCalledWith('sdk.quicksync', expect.objectContaining({ tailCovered: true }))
-    sdkTelemetrySink.emit('sync.quicksync', { outcome: 'root-mismatch-fallback', fromBlock: 5, head: 9, tailCovered: false })
-    expect(trackMock).toHaveBeenLastCalledWith('sdk.quicksync', expect.objectContaining({ outcome: 'root-mismatch-fallback' }))
-  })
-
   it('forwards the fallback reason + HTTP status when the SDK classifies the discard', () => {
     // WHY: `root-mismatch-fallback` used to conflate ≥4 causes. Forwarding `reason`/`status` is what
     // lets a fallback self-diagnose (e.g. an indexer 502) instead of looking like a real root mismatch.
@@ -57,16 +50,6 @@ describe('sdkTelemetrySink', () => {
       head: 9,
       tailCovered: false,
       reason: 'root-mismatch',
-    })
-  })
-
-  it('omits reason/status on the served path (they are fallback-only)', () => {
-    sdkTelemetrySink.emit('sync.quicksync', { outcome: 'served', fromBlock: 5, head: 9, tailCovered: false })
-    expect(trackMock).toHaveBeenCalledWith('sdk.quicksync', {
-      outcome: 'served',
-      fromBlock: 5,
-      head: 9,
-      tailCovered: false,
     })
   })
 

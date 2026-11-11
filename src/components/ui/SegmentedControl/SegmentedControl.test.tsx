@@ -39,38 +39,6 @@ describe('SegmentedControl', () => {
   })
 
   describe('scroll layout', () => {
-    it('renders every option as a tab', () => {
-      render(
-        <SegmentedControl
-          options={OPTIONS}
-          value="a"
-          onChange={() => {}}
-          layout="scroll"
-          surface="raised"
-          aria-label="Test"
-        />,
-      )
-      for (const label of ['Alpha', 'Beta', 'Gamma']) {
-        expect(screen.getByRole('tab', { name: label })).toBeInTheDocument()
-      }
-    })
-
-    it('fires onChange on click', () => {
-      const onChange = vi.fn()
-      render(
-        <SegmentedControl
-          options={OPTIONS}
-          value="a"
-          onChange={onChange}
-          layout="scroll"
-          surface="raised"
-          aria-label="Test"
-        />,
-      )
-      fireEvent.click(screen.getByRole('tab', { name: 'Beta' }))
-      expect(onChange).toHaveBeenCalledWith('b')
-    })
-
     it('is keyboard-navigable (ArrowLeft wraps to the last option)', () => {
       const onChange = vi.fn()
       render(

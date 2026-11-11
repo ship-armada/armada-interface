@@ -66,17 +66,6 @@ describe('patchArtifacts', () => {
     expect(after).toEqual(snapshot)
   })
 
-  it('supports a chained sequence of patches (cursor pattern)', () => {
-    let cursor = markWaiting(baseXchainRecord())
-    cursor = patchArtifacts(cursor, { destFromBlock: '5000' })
-    cursor = patchArtifacts(cursor, { destFromBlock: '6000' })
-    cursor = patchArtifacts(cursor, { destFromBlock: '7000' })
-
-    expect(cursor.artifacts.destFromBlock).toBe('7000')
-    expect(cursor.executionState).toBe('waiting')
-    // Three patches after markWaiting (which itself bumped once).
-    expect(cursor.updatedSeq).toBe(7 + 1 + 3)
-  })
 })
 
 function baseShieldXchainRecord(): TxRecord<'shield-xchain'> {
@@ -172,11 +161,10 @@ describe('patchArtifacts → advance OCC chaining', () => {
     expect(advancedCorrectly.executionState).toBe('completed')
   })
 
-  it('patchArtifacts → advance(record, …) [the BUG pattern] produces equal updatedSeq — OCC would silently drop the advance', () => {
-    // This test demonstrates the regression that motivated the suite. If a future change
-    // reverts a handler back to passing the STALE record into the final advance, this test
-    // documents what happens: both reducer outputs share updatedSeq=6, and upsertTxAtom /
-    // putTxIfFresh would silently drop the advance — leaving the executor stuck.
+  it('advancing from the stale record collides on updatedSeq with the patch it missed (why handlers chain from the latest)', () => {
+    // Pins the reducer property behind #288: both outputs carry updatedSeq=6, so upsertTxAtom / putTxIfFresh would drop
+    // whichever lands second and the executor would stall. This documents the reducer contract; it can't catch a
+    // handler that regresses to the stale pattern — each handler's own tests cover its sequence.
     const base: TxRecord<'shield'> = {
       id: '01TESTSHIELD0000000001',
       kind: 'shield',

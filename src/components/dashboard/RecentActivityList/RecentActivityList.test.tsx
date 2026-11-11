@@ -4,12 +4,20 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RecentActivityList } from './RecentActivityList'
+import styles from './RecentActivityList.module.css'
+import scrambleStyles from '../BalanceScrambleValue/BalanceScrambleValue.module.css'
 import type { DashboardActivityItem } from '@/components/dashboard/txActivityAdapter'
 
 const items: DashboardActivityItem[] = [
   { id: 'a', kind: 'deposit', label: 'Deposit', amount: 5, occurredAt: Date.now(), status: 'settled', pending: false },
   { id: 'b', kind: 'send', label: 'Private transfer', amount: -2, occurredAt: Date.now(), status: 'pending', pending: true },
 ]
+
+/** The description's strike class (CSS-module keys type as possibly undefined). */
+const LABEL_STRUCK = styles.labelStruck ?? 'labelStruck'
+
+/** Whether a row's amount renders struck (BalanceScrambleValue's strike). */
+const struckAmount = (row: HTMLElement): boolean => row.querySelector(`.${scrambleStyles.struck}`) !== null
 
 describe('RecentActivityList', () => {
   it('shows the empty state when there are no items', () => {
@@ -33,17 +41,23 @@ describe('RecentActivityList', () => {
       { id: 'f', kind: 'send', label: 'Private transfer', amount: -2, occurredAt: Date.now(), status: 'failed', pending: false },
       { id: 'c', kind: 'deposit', label: 'Deposit', amount: 5, occurredAt: Date.now(), status: 'cancelled', pending: false },
     ]
-    render(<RecentActivityList items={failedCancelled} />)
+    render(<RecentActivityList items={failedCancelled} balanceRevealed />)
     expect(screen.getByText(/^Failed •/)).toBeInTheDocument()
     expect(screen.getByText(/^Cancelled •/)).toBeInTheDocument()
+    // Nothing settled, so both the description and the amount are struck through.
+    for (const label of ['Private transfer', 'Deposit']) expect(screen.getByText(label)).toHaveClass(LABEL_STRUCK)
+    for (const row of screen.getAllByRole('button')) expect(struckAmount(row)).toBe(true)
   })
 
   it('does not label or strike an indeterminate (unknown) item', () => {
     const unknown: DashboardActivityItem[] = [
       { id: 'u', kind: 'send', label: 'Private transfer', amount: -2, occurredAt: Date.now(), status: 'unknown', pending: false },
     ]
-    render(<RecentActivityList items={unknown} />)
+    render(<RecentActivityList items={unknown} balanceRevealed />)
     expect(screen.getByText(/^Unknown •/)).toBeInTheDocument()
+    // WHY: an unknown outcome may still have gone through — it must not look failed.
+    expect(screen.getByText('Private transfer')).not.toHaveClass(LABEL_STRUCK)
+    expect(struckAmount(screen.getByRole('button'))).toBe(false)
   })
 
   it('the full list sections its rows by date under headings; the preview stays flat', () => {

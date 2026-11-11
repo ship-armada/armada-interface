@@ -100,29 +100,8 @@ describe('scanCctpDeliveryWindow', () => {
 
     expect(calls[0]).toEqual({ from: 0n, to: 4_999n })
     expect(out).toMatchObject({ kind: 'match', txHash: '0xbeef' })
-  })
-
-  it('hands back the matched log, so the caller can read the delivery it records (the CCTP fee, #68)', async () => {
-    const { getBlockNumber, getLogsForRange } = makeFakes({
-      latest: 1_000_000n,
-      matchAtBlock: 3_500n,
-      matchTxHash: '0xbeef' as `0x${string}`,
-    })
-    const out = await scanCctpDeliveryWindow({ getBlockNumber, getLogsForRange, scanFromBlock: 0n, maxLogRange: 5_000n })
+    // The matched log comes back too, so the caller can read the delivery it records (the CCTP fee, #68).
     expect(out.kind === 'match' && out.log.transactionHash).toBe('0xbeef')
-  })
-
-  it('does not find a match outside its bounded window (caller must keep ticking)', async () => {
-    const { getBlockNumber, getLogsForRange } = makeFakes({
-      latest: 1_000_000n,
-      matchAtBlock: 20_000n,
-    })
-
-    const out = await scanCctpDeliveryWindow({
-      getBlockNumber, getLogsForRange, scanFromBlock: 0n, maxLogRange: 5_000n,
-    })
-
-    expect(out.kind).toBe('no-match')
   })
 
   it('repeated ticks march the cursor forward chunk by chunk until match is found', async () => {

@@ -15,13 +15,6 @@ describe('<MergeNotesNotice>', () => {
     expect(onAction).toHaveBeenCalledOnce()
   })
 
-  it('takes custom copy and action label (e.g. another round after a merge)', () => {
-    render(<MergeNotesNotice title="One more merge needed" body="Merge again to finish." actionLabel="Merge again" onAction={vi.fn()} />)
-    expect(screen.getByText('One more merge needed')).toBeInTheDocument()
-    expect(screen.getByText('Merge again to finish.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Merge again' })).toBeInTheDocument()
-  })
-
   it('announces itself as a status region', () => {
     render(<MergeNotesNotice onAction={vi.fn()} />)
     expect(screen.getByRole('status')).toHaveTextContent('Too many small notes')

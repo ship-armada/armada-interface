@@ -15,16 +15,6 @@ describe('<ThemeToggle>', () => {
     document.documentElement.removeAttribute('data-theme')
   })
 
-  it('renders a button', () => {
-    render(<ThemeToggle />)
-    expect(screen.getByRole('button')).toBeInTheDocument()
-  })
-
-  it('reflects the current theme in its aria-label (light → offers dark)', () => {
-    render(<ThemeToggle />)
-    expect(screen.getByRole('button')).toHaveAttribute('aria-label', 'Switch to dark theme')
-  })
-
   it('toggles the applied theme on click', () => {
     render(<ThemeToggle />)
     const button = screen.getByRole('button')

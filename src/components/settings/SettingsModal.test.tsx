@@ -58,14 +58,6 @@ describe('<SettingsModal>', () => {
     expect(screen.queryByRole('heading', { name: 'Notes' })).toBeNull()
   })
 
-  it('renders the three section titles', () => {
-    renderSettings({ walletUnlocked: true })
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Private wallet' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Preferences' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Advanced' })).toBeInTheDocument()
-  })
-
   it("enables Lock and Export when the wallet is unlocked", () => {
     renderSettings({ walletUnlocked: true })
     expect(screen.getByRole('button', { name: 'Lock' })).not.toBeDisabled()
@@ -98,14 +90,4 @@ describe('<SettingsModal>', () => {
     expect(store.get(txNoticeStyleAtom)).toBe('pill')
   })
 
-  it('has no technical-details toggle — no screen shows technical details', () => {
-    renderSettings({ walletUnlocked: true })
-    expect(screen.queryByText('Show technical details by default')).toBeNull()
-  })
-
-  it('shows the network mode in Advanced', () => {
-    renderSettings({ walletUnlocked: true })
-    // jsdom env defaults VITE_NETWORK to "local" via vitest.config.
-    expect(screen.getByText('local')).toBeInTheDocument()
-  })
 })

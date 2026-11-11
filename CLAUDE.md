@@ -58,6 +58,20 @@ src/
 - **`eth_getLogs` is always bounded.** Never query from genesis or with an unbounded `toBlock` on a public RPC. Pool events are the SDK's job (its `sync/ranged-fetch.ts` windows each range and bisects one a provider rejects). App-side polling scans one window of at most `NetworkConfig.maxLogRange` blocks per tick and saves a cursor (`features/unshield-xchain/scan.ts`, used by both cross-chain handlers); `lib/rpc-bisecting.ts` (installed in `main.tsx`) splits any range an RPC still rejects. The per-network cap lives in `NetworkConfig.maxLogRange` (5_000 on sepolia, 100_000 on local).
 - Per-folder CLAUDE.md captures folder-specific conventions.
 
+## Testing
+
+What earns a test, and how to write one so it fails when it should (#136):
+
+- **Test logic, money figures, flow behaviour, and safety / privacy copy.** No new tests for a pure wording or styling change.
+- **Wording has one owner** (`lib/tx/errorCopy`, `components/tx/noticeCopy`, `lib/payViaLink`, `ui/AddressText`, `dashboard/vaultEarnings`). Component tests check the wiring with a role query or a regex, not the literal string.
+- **One test per input class.** Add an assertion to the sibling test rather than copying its setup; fold a lone `it` into the neighbouring `it.each`.
+- **A click test already proves the button renders**, so skip "renders X" tests. At most one "wires its CTAs" test per component, and none when a modal-level test clicks the same control.
+- **Money figures live in the `*.figures` / spec-ID tests** (`specs/TX_VALUES.md`); don't repeat them in general receipt or modal tests. Flow-parity tests across sibling flows stay.
+- **Assert properties, not tuned config** (e.g. `usualMs < slowMs`, not the numbers). Identity derivations are the exception: `lib/crypto/kdf` pins known-answer vectors, because a changed label must fail.
+- **Test a function where it's defined**, not through a re-export; name test-only exports `__…ForTests` or `_…`.
+- **Prove the thing under test.** Don't mock it (stub the layer beneath it), don't assert CSS-module class names unless the class carries meaning, and compare two `invocationCallOrder` values for an ordering. A new guard is worth one temporary break to see it fail.
+- **Delete a component's tests in the same change that retires it.**
+
 ## Dev commands
 
 ```bash

@@ -26,16 +26,6 @@ function setup(extras?: Partial<SendRecipientStepProps>) {
 }
 
 describe('<SendRecipientStep>', () => {
-  it('send variant prompts "Send your USDC to:"', () => {
-    setup({ variant: 'send' })
-    expect(screen.getByRole('heading', { name: /Send your USDC to:/ })).toBeInTheDocument()
-  })
-
-  it('withdraw variant prompts "Where do you want to unshield your USDC?"', () => {
-    setup({ variant: 'withdraw' })
-    expect(screen.getByRole('heading', { name: /Where do you want to unshield your USDC\?/ })).toBeInTheDocument()
-  })
-
   it('shows a disabled "Enter address" CTA while the recipient is empty', () => {
     setup()
     expect(screen.getByRole('button', { name: /Enter address/ })).toHaveAttribute('aria-disabled', 'true')

@@ -83,18 +83,15 @@ describe('txRecordToActivityItem', () => {
     expect(unknown.kind).toBe('send')
   })
 
-  it('maps outgoing transfers to send (negative) and incoming to receive (positive)', () => {
-    expect(txRecordToActivityItem(makeRecord('transfer-shielded', { amount: 1_000_000n })).kind).toBe('send')
-    expect(txRecordToActivityItem(makeRecord('transfer-shielded', { amount: 1_000_000n })).amount).toBe(-1)
-    const received = txRecordToActivityItem(makeRecord('transfer-shielded-received', { amount: 3_000_000n }))
-    expect(received.kind).toBe('receive')
-    expect(received.amount).toBe(3)
+  // Signed amounts per kind live in the spec-fixture table at the end of this file.
+  it('maps outgoing transfers to send and incoming to receive', () => {
+    expect(txRecordToActivityItem(makeRecord('transfer-shielded')).kind).toBe('send')
+    expect(txRecordToActivityItem(makeRecord('transfer-shielded-received')).kind).toBe('receive')
   })
 
-  it('maps both vault directions to earn with opposite signs', () => {
-    expect(txRecordToActivityItem(makeRecord('yield-deposit', { amount: 5_000_000n })).amount).toBe(-5)
-    expect(txRecordToActivityItem(makeRecord('yield-withdraw', { amount: 5_000_000n })).amount).toBe(5)
+  it('maps both vault directions to earn', () => {
     expect(txRecordToActivityItem(makeRecord('yield-deposit')).kind).toBe('earn')
+    expect(txRecordToActivityItem(makeRecord('yield-withdraw')).kind).toBe('earn')
   })
 
   it('maps a note merge to merge, showing only the fee as the outflow', () => {

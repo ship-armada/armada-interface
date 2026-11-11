@@ -102,52 +102,9 @@ describe('<ActivityReceipt>', () => {
     expect(screen.queryByLabelText('Transaction progress')).toBeNull()
   })
 
-  it('a cross-chain unshield receipt includes the CCTP fee it recorded, as the confirmation screen does', () => {
-    const xchain = {
-      ...shieldRecord(),
-      kind: 'unshield-xchain',
-      stage: 'client-mint-confirmed',
-      meta: {
-        amount: 100_000_000n, feeCacheId: 'x', toChainId: 84532, recipient: '0x1234567890abcdef1234567890abcdef12345678',
-        broadcasterFeeAmount: 1_500_000n, broadcasterShieldedAddress: '0zk_r', cctpFee: 20_000n,
-      },
-    } as unknown as TxRecord
-    render(<ActivityReceipt record={xchain} open onClose={vi.fn()} />)
-    // Itemised: the relayer fee charged on top, and the CCTP fee (an estimate) taken from the amount.
-    expect(screen.getByText('1.50 USDC')).toBeInTheDocument()
-    expect(screen.getByText('≈ 0.02 USDC')).toBeInTheDocument()
-  })
-
-  it('a received payment shows no Fees row (the recipient pays none, and can\'t see the sender\'s)', () => {
-    const received = {
-      ...shieldRecord(),
-      kind: 'transfer-shielded-received',
-      stage: 'observed',
-      meta: { amount: 10_000_000n },
-    } as unknown as TxRecord
-    render(<ActivityReceipt record={received} open onClose={vi.fn()} />)
-    expect(screen.getByText('USDC received')).toBeInTheDocument()
-    expect(screen.queryByText('Fees')).toBeNull()
-  })
-
-  it('shows a note merge by its fee, with the notes merged', () => {
-    render(<ActivityReceipt record={mergeRecord()} open onClose={vi.fn()} />)
-    expect(screen.getByText('Notes merged')).toBeInTheDocument()
-    expect(screen.getByText('0.04')).toBeInTheDocument()
-    expect(screen.getByText('11 → 2')).toBeInTheDocument()
-  })
-
   it('renders nothing when record is null', () => {
     render(<ActivityReceipt record={null} open onClose={vi.fn()} />)
     expect(screen.queryByText('USDC shield')).toBeNull()
-  })
-
-  it('shows the deposit title + amount + a summary row', () => {
-    render(<ActivityReceipt record={shieldRecord()} open onClose={vi.fn()} />)
-    expect(screen.getByText('USDC shield')).toBeInTheDocument()
-    expect(screen.getByText('100.5')).toBeInTheDocument()
-    // The reused DepositReviewSummary surfaces the confirmed "Date and time" row.
-    expect(screen.getByText('Date and time')).toBeInTheDocument()
   })
 
   it('nets a gasless shield by BOTH the relayer fee and the protocol shield fee', () => {

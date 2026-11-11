@@ -17,11 +17,6 @@ describe('runSchemaMigrationIfNeeded', () => {
     vi.restoreAllMocks()
   })
 
-  it('returns SCHEMA_VERSION as the current target', () => {
-    // Sanity: tests below assume SCHEMA_VERSION matches the v2 fork value.
-    expect(SCHEMA_VERSION).toBeGreaterThanOrEqual(2)
-  })
-
   it('reads stored version as 0 when missing', () => {
     expect(readStoredSchemaVersion()).toBe(0)
   })

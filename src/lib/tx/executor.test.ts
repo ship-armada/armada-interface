@@ -1,4 +1,5 @@
-// ABOUTME: Tests for executor — cancelTx terminal-state guard.
+// ABOUTME: Tests for the tx executor — cancel / expiry / retry guards, resume on unlock, cancelAllRunning, the follower-tab
+// ABOUTME: leader guard and the visibility gate.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { getDefaultStore } from 'jotai'
@@ -72,20 +73,8 @@ describe('cancelTx', () => {
     unlockForTest()
   })
 
-  it('does NOT clobber a record that is already in a terminal state', () => {
-    const store = getDefaultStore()
-    const completed = makeRecord({ executionState: 'completed', updatedSeq: 5 })
-    store.set(upsertTxAtom, completed)
-
-    cancelTx(completed.id)
-
-    const after = store.get(txListAtom).find(t => t.id === completed.id)
-    expect(after?.executionState).toBe('completed')
-    expect(after?.updatedSeq).toBe(5)
-  })
-
-  it.each(['failed', 'expired', 'cancelled'] as const)(
-    'leaves a %s record alone',
+  it.each(['completed', 'failed', 'expired', 'cancelled'] as const)(
+    'leaves a %s record alone (never clobbers a terminal state)',
     (state) => {
       const store = getDefaultStore()
       const rec = makeRecord({ id: `ulid-${state}`, executionState: state, updatedSeq: 7 })
@@ -536,10 +525,6 @@ describe('cancelAllRunning (P1-15)', () => {
     expect(after('ca-post')?.artifacts.error?.txHash).toBe('0xfeed')
   })
 
-  it('is a no-op when nothing is running', () => {
-    // No executeTx calls → empty running set → no throw, no writes.
-    expect(() => cancelAllRunning('account-switch')).not.toThrow()
-  })
 })
 
 describe('canRetryTx — fee-expired / duplicate are non-retryable (S-H1)', () => {

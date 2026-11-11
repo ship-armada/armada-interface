@@ -138,23 +138,16 @@ describe('useWallet — account-switch detection', () => {
     expect(mockToast).not.toHaveBeenCalled()
   })
 
-  it('LOCKS when the wagmi address differs from the bound EVM address', () => {
-    wagmiState.address = '0xnewAddress'
-    wagmiState.isConnected = true
-    mockIsUnlocked.mockReturnValue(true)
-    mockGetEvmAddress.mockReturnValue('0xoldaddress')
-    renderWithStore()
-    // The lock is fired synchronously on render via the effect's first run.
-    expect(mockLockWallet).toHaveBeenCalledTimes(1)
-  })
-
-  it('clears the resume guard for the locked wallet on account-switch so switching back re-resumes (T-M1)', () => {
+  it('LOCKS when the wagmi address differs from the bound EVM address, and clears its resume guard (T-M1)', () => {
     wagmiState.address = '0xnewAddress'
     wagmiState.isConnected = true
     mockIsUnlocked.mockReturnValue(true)
     mockGetEvmAddress.mockReturnValue('0xoldaddress')
     mockGetWalletId.mockReturnValue('rw-locked')
     renderWithStore()
+    // The lock is fired synchronously on render via the effect's first run.
+    expect(mockLockWallet).toHaveBeenCalledTimes(1)
+    // …and the locked wallet's txs stop and its resume guard clears, so switching back re-resumes.
     expect(mockCancelAllRunning).toHaveBeenCalledWith('account-switch')
     expect(mockClearResumed).toHaveBeenCalledWith('rw-locked')
   })

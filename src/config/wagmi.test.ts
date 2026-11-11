@@ -43,13 +43,6 @@ describe('buildTransports (P1-18)', () => {
     expect(transportType(transports[31338]!)).toBe('http')
   })
 
-  it('builds exactly one transport per chain', () => {
-    const transports = buildTransports([HUB, CLIENT], [
-      { chainId: 31337, name: 'Hub', domain: 100, rpcUrls: ['http://primary', 'http://fallback'] },
-      { chainId: 31338, name: 'Client A', domain: 101, rpcUrls: ['http://only'] },
-    ])
-    expect(Object.keys(transports).sort()).toEqual(['31337', '31338'])
-  })
 })
 
 describe('resolveChainsForMode — derives chains from the network config (N clients)', () => {

@@ -6,7 +6,6 @@ import {
   readBurnMessage,
   readCctpFromLogs,
   messageSentTopic,
-  messageReceivedTopic,
   CCTP_MESSAGE_TRANSMITTER_ABI,
 } from './cctp'
 import { encodeAbiParameters, encodeEventTopics } from 'viem'
@@ -151,8 +150,4 @@ describe('readCctpFromLogs', () => {
     expect(info.sent).toBeUndefined()
   })
 
-  it('exposes the event topics', () => {
-    expect(messageSentTopic()).toMatch(/^0x[0-9a-f]{64}$/)
-    expect(messageReceivedTopic()).toMatch(/^0x[0-9a-f]{64}$/)
-  })
 })

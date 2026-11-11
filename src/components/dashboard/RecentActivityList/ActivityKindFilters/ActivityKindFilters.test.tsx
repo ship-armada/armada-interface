@@ -12,12 +12,6 @@ describe('ActivityKindFilters', () => {
     }
   })
 
-  it('marks the active chip as selected', () => {
-    render(<ActivityKindFilters value="deposit" onChange={() => {}} />)
-    expect(screen.getByRole('tab', { name: 'Shield' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'false')
-  })
-
   it('fires onChange with the chip id when clicked', () => {
     const onChange = vi.fn()
     render(<ActivityKindFilters value="all" onChange={onChange} />)

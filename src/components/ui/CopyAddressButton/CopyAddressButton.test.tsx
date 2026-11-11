@@ -19,12 +19,4 @@ describe('<CopyAddressButton>', () => {
     expect(screen.getByRole('button', { name: 'Address copied' })).toBeInTheDocument()
   })
 
-  it('takes custom names for its copy / copied states', async () => {
-    Object.assign(navigator, { clipboard: { writeText: vi.fn(async () => {}) } })
-    render(<CopyAddressButton address={ZK} label="Copy your address" copiedLabel="Your address copied" />)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Copy your address' }))
-    })
-    expect(screen.getByRole('button', { name: 'Your address copied' })).toBeInTheDocument()
-  })
 })

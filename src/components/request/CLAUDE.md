@@ -22,4 +22,4 @@ Creating a link persists a `RequestLinkRecord` (encrypted, per-wallet — `lib/s
 
 ## Note
 
-`ReceiveDialog` (plain 0zk address + copy, `openModalAtom='receive'`) currently has **no entry point** — the Request flow is the only receive affordance on the dashboard. The component + `'receive'` modal kind are retained but dormant until a raw-address path is (re)introduced.
+The Request flow is the dashboard's only receive affordance — there is no separate "show my 0zk address" dialog.

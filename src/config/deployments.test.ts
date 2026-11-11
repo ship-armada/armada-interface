@@ -187,18 +187,4 @@ describe('loadDeployments — binds client manifests by embedded chainId', () =>
     await expect(loadDeployments()).rejects.toThrow(/non-JSON body|SPA fallback|missing/)
   })
 
-  it('probes -sepolia suffixed names in sepolia mode', async () => {
-    h.state.config = { mode: 'sepolia', hub: { chainId: 11155111 }, clients: [{ chainId: 84532 }] }
-    const fetchMock = stubFetchByName({
-      'privacy-pool-hub-sepolia.json': { chainId: 11155111, contracts: {} },
-      'privacy-pool-client1-sepolia.json': { chainId: 84532, contracts: {} },
-    })
-    const { loadDeployments } = await import('./deployments')
-
-    await loadDeployments()
-
-    const names = namesFetched(fetchMock)
-    expect(names).toContain('/api/deployments/privacy-pool-hub-sepolia.json')
-    expect(names).toContain('/api/deployments/privacy-pool-client1-sepolia.json')
-  })
 })

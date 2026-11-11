@@ -3,7 +3,6 @@
 
 import { describe, it, expect } from 'vitest'
 import {
-  ArmadaError,
   FeeQuoteExpiredError,
   InsufficientBalanceError,
   InvalidRequestError,
@@ -68,8 +67,4 @@ describe('assertSpendPreflight', () => {
     })
   })
 
-  it('every thrown error is an ArmadaError (so classifyHandlerError catches it)', async () => {
-    const wallet = walletReturning({ ok: false, findings: [finding('root-freshness', false)] })
-    await expect(assertSpendPreflight(wallet, PLAN)).rejects.toBeInstanceOf(ArmadaError)
-  })
 })

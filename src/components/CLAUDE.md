@@ -28,7 +28,6 @@ UI components. **Dumb when possible.** State comes from hooks + atoms; effects b
 | `shield/` | ShieldModal + steps (deposit; same-chain + cross-chain) — see `shield/CLAUDE.md` |
 | `payments/` | SendModal — the shared Send/Withdraw flow (variant-driven, address-picks-kind). Also seeds recipient/amount from a pay-via-link `paymentIntentAtom` on open — see `payments/CLAUDE.md` |
 | `yield/` | EarnModal + steps (Add / Withdraw tabs) — see `yield/CLAUDE.md` |
-| `receive/` | ReceiveDialog — plain 0zk address + copy (`openModalAtom='receive'`). Dormant: no entry point today (the Request flow is the dashboard's only receive affordance) |
 | `request/` | RequestModal — the "Request USDC via link" flow (compose amount/expiry/note → generated link screen). Revoke is disabled ("coming soon"); the Link-revoked variant is built but unreachable until backend-backed revocation lands |
 | `payViaLink/` | `PaymentLinkQrCode` — QR of a pay-via-link URL (`qrcode.react`). Shared by the payer landing (`pages/PayViaLinkLanding`) and the requester's link screen (`request/RequestLinkScreen`) |
 | `history/` | `HistoryRecoveryBanner` — shown only when a chain-history recovery scan failed: "Couldn't recover activity from chain" + Retry (mounted in AppLayout). Nothing while a scan runs — Settings' "Scanning…" and the refilling list show it |

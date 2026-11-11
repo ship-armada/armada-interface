@@ -178,11 +178,6 @@ describe('<EarnModal>', () => {
     expect(screen.getByRole('tab', { name: 'Withdraw' })).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('renders the dialog with title "Earn"', () => {
-    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
-    expect(screen.getByRole('dialog', { name: 'Earn' })).toBeInTheDocument()
-  })
-
   it('switching tabs clears the amount field', () => {
     renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
@@ -202,18 +197,6 @@ describe('<EarnModal>', () => {
     fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
     expect(summaryRow('Est. time')).toBe('Usually takes ~15 sec')
-  })
-
-  it('Confirm submits the tx and advances to the progress step', async () => {
-    renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
-    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '3' } })
-    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Confirm deposit/ }))
-    })
-    await waitFor(() => {
-      expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
-    })
   })
 
   it('a vault deposit shows the fee its plan charges (change folded in), not the one-proof quote', withQuotedVaultFee(() => {

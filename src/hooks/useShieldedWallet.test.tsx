@@ -116,51 +116,10 @@ beforeEach(() => {
   mockLockWallet.mockResolvedValue(undefined)
   mockResetWallet.mockResolvedValue(undefined)
   // Default: simulate a returning user (cached walletId present). This skips the double-sign
-  // determinism check so the existing signIn/enroll happy-path tests don't have to re-mock
+  // determinism check so the signIn happy-path tests don't have to re-mock
   // signTypedData a second time. Tests that exercise the FIRST-ever-sign-in branch override
   // this to return null.
   mockReadStoredWalletIdFor.mockReturnValue('cached-wallet-id')
-})
-
-describe('enroll', () => {
-  it('signs, derives, and mirrors the resulting state into atoms', async () => {
-    const store = createStore()
-    store.set(evmAddressAtom, '0xabc')
-    mockEnroll.mockResolvedValueOnce({
-      rootSecret: new Uint8Array(32),
-      state: SAMPLE_STATE,
-    })
-    const capture = renderWithStore(store)
-
-    let result: { rootSecret: Uint8Array; state: ShieldedWalletState } | undefined
-    await act(async () => {
-      result = await capture.current!.signIn(0n)
-    })
-
-    expect(mockEnroll).toHaveBeenCalledTimes(1)
-    expect(result!.state.id).toBe('wallet-id-1')
-    expect(store.get(shieldedWalletsAtom)['wallet-id-1']).toEqual(SAMPLE_STATE)
-    expect(store.get(activeShieldedWalletIdAtom)).toBe('wallet-id-1')
-  })
-
-  it('rejects when no EVM wallet is connected', async () => {
-    const store = createStore()
-    store.set(evmAddressAtom, null)
-    const capture = renderWithStore(store)
-
-    await expect(capture.current!.signIn(0n)).rejects.toThrow(/Connect an EVM wallet/)
-    expect(mockEnroll).not.toHaveBeenCalled()
-  })
-
-  it('propagates wagmi sign rejection (user rejected in MetaMask)', async () => {
-    const store = createStore()
-    store.set(evmAddressAtom, '0xabc')
-    mockSignTypedData.mockRejectedValueOnce(new Error('User rejected the request.'))
-    const capture = renderWithStore(store)
-
-    await expect(capture.current!.signIn(0n)).rejects.toThrow(/rejected/)
-    expect(mockEnroll).not.toHaveBeenCalled()
-  })
 })
 
 describe('signIn (v2 primary)', () => {
@@ -178,10 +137,23 @@ describe('signIn (v2 primary)', () => {
       result = await capture.current!.signIn()
     })
 
+    // One prompt: the default cached walletId makes this a returning sign-in, which never double-signs (the
+    // determinism check runs inside enrollFromSignature against the cached checksum).
     expect(mockSignTypedData).toHaveBeenCalledTimes(1)
     expect(mockEnroll).toHaveBeenCalledTimes(1)
     expect(result!.state.id).toBe('wallet-id-1')
+    expect(store.get(shieldedWalletsAtom)['wallet-id-1']).toEqual(SAMPLE_STATE)
     expect(store.get(activeShieldedWalletIdAtom)).toBe('wallet-id-1')
+  })
+
+  it('propagates wagmi sign rejection (user rejected in MetaMask)', async () => {
+    const store = createStore()
+    store.set(evmAddressAtom, '0xabc')
+    mockSignTypedData.mockRejectedValueOnce(new Error('User rejected the request.'))
+    const capture = renderWithStore(store)
+
+    await expect(capture.current!.signIn()).rejects.toThrow(/rejected/)
+    expect(mockEnroll).not.toHaveBeenCalled()
   })
 
   it('defaults the account index to 0 in the signed message', async () => {
@@ -266,22 +238,6 @@ describe('signIn (v2 primary)', () => {
     expect(mockEnroll).not.toHaveBeenCalled()
   })
 
-  it('subsequent sign-in (cached walletId) does NOT double-sign', async () => {
-    const store = createStore()
-    store.set(evmAddressAtom, '0xabc')
-    // Default beforeEach already returns 'cached-wallet-id', but be explicit for the test's
-    // intent. Returning users get their determinism check inside enrollFromSignature via the
-    // cached-checksum comparison; the hook doesn't re-prompt.
-    mockReadStoredWalletIdFor.mockReturnValue('cached-wallet-id')
-    mockEnroll.mockResolvedValueOnce({ rootSecret: new Uint8Array(32), state: SAMPLE_STATE })
-    const capture = renderWithStore(store)
-
-    await act(async () => {
-      await capture.current!.signIn()
-    })
-
-    expect(mockSignTypedData).toHaveBeenCalledTimes(1)
-  })
 })
 
 describe('unlockByPaste', () => {

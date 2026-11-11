@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeDisplayFees, relayerGasFeeForKind, resolveShieldProtocolFee, shieldFeeIntegrator, shieldProtocolFeeBase, withdrawBelowFee } from './displayFees'
+import { computeDisplayFees, resolveShieldProtocolFee, shieldFeeIntegrator, shieldProtocolFeeBase, withdrawBelowFee } from './displayFees'
 import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'
 
 const quote: FeeSchedule = {
@@ -48,12 +48,6 @@ describe('computeDisplayFees', () => {
     expect(fees.protocolFee).toBe(0n)
     expect(fees.totalFee).toBe(0n)
     expect(fees.feeInclusive).toBe(true)
-  })
-})
-
-describe('relayerGasFeeForKind', () => {
-  it('returns 0 without a quote', () => {
-    expect(relayerGasFeeForKind('transfer-shielded', null)).toBe(0n)
   })
 })
 

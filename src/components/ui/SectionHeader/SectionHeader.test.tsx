@@ -17,13 +17,4 @@ describe('<SectionHeader>', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Profile' })).toBeInTheDocument()
   })
 
-  it('renders the trailing slot when provided', () => {
-    render(<SectionHeader title="Activity" trailing={<a href="#">View all</a>} />)
-    expect(screen.getByRole('link', { name: 'View all' })).toBeInTheDocument()
-  })
-
-  it('omits the trailing wrapper when no trailing slot is given', () => {
-    const { container } = render(<SectionHeader title="Activity" />)
-    expect(container.querySelectorAll('div').length).toBe(1)
-  })
 })

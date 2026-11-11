@@ -94,10 +94,6 @@ export function resolveShieldProtocolFee(args: {
   return { protocolFee: estimate, status: 'pending' }
 }
 
-/** Relayer USDC reimbursement — not charged to users until submitRelay ships. */
-export function relayerGasFeeForKind(_kind: TxKind, _quote: FeeSchedule | null): bigint {
-  return 0n
-}
 
 /**
  * The base the protocol shield fee (PrivacyPool's ~50 bps take) is charged on. The pool shields only

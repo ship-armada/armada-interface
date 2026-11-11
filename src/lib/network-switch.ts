@@ -188,4 +188,3 @@ async function waitForConnectorChainId(
 
 // Internal — exported for tests only. Do not import from app code.
 export { isChainNotAdded as _isChainNotAdded }
-export { isUserRejection as _isUserRejection } from '@/lib/errors'

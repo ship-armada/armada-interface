@@ -100,18 +100,6 @@ describe('ShieldAmountStep step-enter animation (regression)', () => {
 })
 
 describe('ShieldAmountStepFooter (Review gating)', () => {
-  it('disables Review when the amount is empty', () => {
-    renderFooter('')
-    expect(screen.getByRole('button', { name: /Review|Input amount/ })).toHaveAttribute('aria-disabled', 'true')
-  })
-
-  it("labels the CTA 'Input amount' when there is no valid amount", () => {
-    // Mockup parity: the disabled primary CTA is instructional ("Input amount"), not a dead "Review".
-    // The enabled-state "Review" label is covered by 'enables Review for a positive amount'.
-    renderFooter('')
-    expect(screen.getByRole('button', { name: 'Input amount' })).toBeInTheDocument()
-  })
-
   it('disables Review when the amount is 0', () => {
     renderFooter('0')
     expect(screen.getByRole('button', { name: /Review|Input amount/ })).toHaveAttribute('aria-disabled', 'true')

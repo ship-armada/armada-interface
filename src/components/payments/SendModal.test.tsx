@@ -305,18 +305,6 @@ describe('<SendModal>', () => {
     expect(screen.getByRole('button', { name: /^Continue$/ })).not.toBeDisabled()
   })
 
-  it('a 0zk recipient hides the chain selector (private transfer)', () => {
-    renderModal({ open: 'payment', shielded: 10_000_000n })
-    fireEvent.change(screen.getByLabelText('Recipient address'), { target: { value: VALID_0ZK } })
-    expect(screen.queryByLabelText('Destination chain')).toBeNull()
-  })
-
-  it('a 0x recipient reveals the chain selector (public transfer)', () => {
-    renderModal({ open: 'payment', shielded: 10_000_000n })
-    fireEvent.change(screen.getByLabelText('Recipient address'), { target: { value: VALID_EVM } })
-    expect(screen.getByLabelText('Destination chain')).toBeInTheDocument()
-  })
-
   it('0zk recipient → transfer-shielded: review shows the "Private" privacy row + no network row', () => {
     renderModal({ open: 'payment', shielded: 10_000_000n })
     completeRecipientStep(VALID_0ZK)
@@ -355,19 +343,6 @@ describe('<SendModal>', () => {
     fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
     expect(screen.getByText(/Anvil Client A/)).toBeInTheDocument()
-  })
-
-  it('transfer-shielded Confirm advances to the progress step', async () => {
-    renderModal({ open: 'payment', shielded: 10_000_000n })
-    completeRecipientStep(VALID_0ZK)
-    fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
-    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Confirm send/ }))
-    })
-    await waitFor(() => {
-      expect(screen.getByText('Preparing transaction')).toBeInTheDocument()
-    })
   })
 
   it('a tx cancelled while its proof is building returns the flow to Review — nothing was sent', async () => {

@@ -25,18 +25,20 @@ describe('socialPreviewMeta', () => {
     expect(byKey(undefined)['og:image']).toBe('/og-image.png')
   })
 
-  it('is one generic card — title, description, large image — with nothing about any payment', () => {
-    const tags = byKey('sepolia')
-    expect(tags).toMatchObject({
-      'og:type': 'website',
-      'og:site_name': 'Armada',
-      'og:title': 'Armada',
-      'og:description': 'Private USDC payments',
-      'og:image:width': '1200',
-      'og:image:height': '630',
-      'twitter:card': 'summary_large_image',
-      'twitter:site': '@ship_armada',
-      description: 'Private USDC payments',
-    })
+  it('is one generic card with the tags a preview needs, and nothing that could carry a payment link\'s data', () => {
+    // WHY: crawlers fetch /pay-via-link?… too. A card built from the link would leak its amount / address to any chat
+    // preview (and could be spoofed), so the tag set is fixed per build: no extra keys, URLs are the bare origin.
+    for (const network of ['sepolia', 'mainnet', 'local', undefined]) {
+      const tags = socialPreviewMeta(network)
+      const keys = tags.map((tag) => tag.property ?? tag.name)
+      for (const required of ['og:title', 'og:description', 'og:image', 'og:type', 'twitter:card']) expect(keys).toContain(required)
+      expect(new Set(keys)).toEqual(new Set([
+        'description', 'og:type', 'og:site_name', 'og:title', 'og:description', 'og:image', 'og:image:width',
+        'og:image:height', 'twitter:card', 'twitter:site', ...(network === 'sepolia' || network === 'mainnet' ? ['og:url'] : []),
+      ]))
+      const url = tags.find((tag) => tag.property === 'og:url')?.content
+      if (url) expect(new URL(url).pathname + new URL(url).search).toBe('/')
+      for (const { content } of tags) expect(content).not.toMatch(/pay-via-link|0zk|\?|USDC \d/i)
+    }
   })
 })

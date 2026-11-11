@@ -56,18 +56,6 @@ describe('<ErrorStep>', () => {
     expect(screen.getByText(/MerkleRootInvalid/)).toBeInTheDocument()
   })
 
-  it('uses category-specific copy for USER_REJECTED', () => {
-    render(<ErrorStep error={{ code: 'USER_REJECTED', message: 'user denied' }} />)
-    expect(screen.getByText('Action declined')).toBeInTheDocument()
-  })
-
-  it('renders the raw error.message when the code is OTHER and no body is preset', () => {
-    // OTHER has no category-specific body — fall through to the raw message so we don't hide
-    // a useful error string from the user (or developer) in production.
-    render(<ErrorStep error={{ code: 'OTHER', message: 'gas estimation failed: insufficient funds' }} />)
-    expect(screen.getByText(/insufficient funds/)).toBeInTheDocument()
-  })
-
   it('renders the fallback `message` prop when no typed error is supplied (submit-time path)', () => {
     render(<ErrorStep message="Relayer returned 502 Bad Gateway." />)
     expect(screen.getByText('Relayer returned 502 Bad Gateway.')).toBeInTheDocument()
@@ -131,11 +119,6 @@ describe('<ErrorStep>', () => {
     expect(btn).not.toBeDisabled()
     fireEvent.click(btn)
     expect(onRetry).toHaveBeenCalledTimes(1)
-  })
-
-  it('defaults the primary button label to "Try again"', () => {
-    render(<ErrorStep onRetry={() => {}} />)
-    expect(screen.getByRole('button', { name: /Try again/ })).toBeInTheDocument()
   })
 
   it('renders a custom primaryLabel (S-M3 "Start over" for non-retryable failures)', () => {

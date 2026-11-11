@@ -65,13 +65,11 @@ describe('buildProcessingView', () => {
       sendVariant: 'send',
     })
     expect(send.cardCopy.title).toBe('Unshielding and sending your USDC')
-    expect(send.cardCopy.titleLines).toEqual(['Unshielding and sending', 'your USDC'])
 
     const withdraw = buildProcessingView(rec('unshield-local', 'build-proof', 'active'), {
       sendVariant: 'withdraw',
     })
     expect(withdraw.cardCopy.title).toBe('Unshielding your USDC')
-    expect(withdraw.cardCopy.titleLines).toEqual(['Unshielding your', 'USDC'])
   })
 
   it('snaps to the last rendered row and folds the terminal completedLabel onto it when completed', () => {

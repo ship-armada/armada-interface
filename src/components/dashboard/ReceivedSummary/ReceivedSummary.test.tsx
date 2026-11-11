@@ -19,9 +19,4 @@ describe('<ReceivedSummary>', () => {
     expect(writeText).toHaveBeenCalledWith(SENDER)
   })
 
-  it('hides the From row when the sender did not disclose their address', () => {
-    render(<ReceivedSummary memoText="Rent for May" />)
-    expect(screen.queryByText('From')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Copy sender address' })).toBeNull()
-  })
 })

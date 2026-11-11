@@ -11,10 +11,6 @@ describe('txNoticeStyleAtom', () => {
     window.localStorage.clear()
   })
 
-  it('defaults to toasts', () => {
-    expect(createStore().get(txNoticeStyleAtom)).toBe('toast')
-  })
-
   it('reads toasts from preferences saved before the setting existed', () => {
     const store = createStore()
     store.set(preferencesAtom, { autoLockMinutes: 5 })

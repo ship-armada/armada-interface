@@ -8,7 +8,6 @@ import {
   clearPendingPayViaLink,
   createPaymentRequestId,
   formatPaymentLinkExpiry,
-  isPaymentLinkRevoked,
   parsePayViaLinkSearch,
   readPendingPayViaLink,
   requestLinkExpiryMs,
@@ -123,12 +122,6 @@ describe('parsePayViaLinkSearch', () => {
       NOW,
     )
     expect(result.status).toBe('revoked')
-  })
-})
-
-describe('isPaymentLinkRevoked', () => {
-  it('is false by default (no UI writes the revoked set today)', () => {
-    expect(isPaymentLinkRevoked('req_anything')).toBe(false)
   })
 })
 

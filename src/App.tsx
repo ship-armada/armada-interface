@@ -9,7 +9,6 @@ import { RestoreModal } from '@/components/onboarding'
 import { ShieldModal } from '@/components/shield'
 import { SendModal } from '@/components/payments'
 import { MergeModal } from '@/components/consolidate/MergeModal'
-import { ReceiveDialog } from '@/components/receive'
 import { RequestModal } from '@/components/request'
 import { EarnModal } from '@/components/yield'
 import { SettingsModal } from '@/components/settings'
@@ -210,7 +209,6 @@ export function App() {
       <ShieldModal />
       <SendModal />
       <EarnModal />
-      <ReceiveDialog />
       <RequestModal />
       <SettingsModal />
       <MergeModal />

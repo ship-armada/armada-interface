@@ -89,6 +89,7 @@ describe('useRelayerHealth', () => {
     await waitFor(() => expect(results.at(-1)?.data?.status).toBe('stale'))
     expect(results.at(-1)?.isUnreachable).toBe(false)
     expect(results.at(-1)?.isIndexerStalled).toBe(false)
+    expect(results.at(-1)?.isChecking).toBe(false) // no "looking" flicker on the steady poll
   })
 
   it('flags indexer-stalled (not unreachable) on an `unhealthy` self-report', async () => {
@@ -103,7 +104,7 @@ describe('useRelayerHealth', () => {
     expect(results.at(-1)?.isUnreachable).toBe(false)
   })
 
-  it('is neither unreachable nor indexer-stalled when the relayer reports healthy', async () => {
+  it('is neither unreachable, indexer-stalled nor still checking once the relayer reports healthy', async () => {
     vi.spyOn(relayer, 'fetchHealth').mockResolvedValue(makeHealth('healthy'))
 
     const { results } = renderHarness()
@@ -124,12 +125,4 @@ describe('useRelayerHealth', () => {
     expect(results.at(-1)?.isUnreachable).toBe(false)
   })
 
-  it('clears isChecking once a healthy result lands (no "looking" flicker on the steady poll)', async () => {
-    vi.spyOn(relayer, 'fetchHealth').mockResolvedValue(makeHealth('healthy'))
-
-    const { results } = renderHarness()
-
-    await waitFor(() => expect(results.at(-1)?.data?.status).toBe('healthy'))
-    expect(results.at(-1)?.isChecking).toBe(false)
-  })
 })

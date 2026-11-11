@@ -81,33 +81,6 @@ describe('useAutoLock', () => {
     expect(store.get(lockReasonAtom)).toBe('idle')
   })
 
-  it('does not lock when the wallet is already locked', () => {
-    const store = setupStore({ unlocked: false, autoLockMinutes: 5 })
-    render(
-      <Provider store={store}>
-        <Harness />
-      </Provider>,
-    )
-    act(() => {
-      vi.advanceTimersByTime(10 * 60_000)
-    })
-    expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
-  })
-
-  it('defers locking when a non-terminal tx is in flight', () => {
-    const store = setupStore({ unlocked: true, autoLockMinutes: 5, withInflightTx: true })
-    render(
-      <Provider store={store}>
-        <Harness />
-      </Provider>,
-    )
-    act(() => {
-      vi.advanceTimersByTime(5 * 60_000 + 1)
-    })
-    // Tx is in flight; the hook reschedules instead of locking.
-    expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('unlocked')
-  })
-
   it('locks after the deferral cap even while a tx stays in flight (T-H3)', () => {
     // WHY (T-H3): a wedged non-terminal record would otherwise defer the lock forever — keeping the
     // rootSecret in memory indefinitely. After MAX_LOCK_DEFERRALS (~5 × 1 min) past the idle

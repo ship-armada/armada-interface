@@ -27,7 +27,7 @@ function setup() {
   const ctx = { signal: new AbortController().signal, upsert: vi.fn(async (r: TxRecord) => { upserts.push(r) }) }
   const record = txRecord('shield', { amount: 5_000_000n, fromChainId: 31337 }, { stage: 'submit-relayer', executionState: 'active', stagesCompleted: ['build-proof'] } as Partial<TxRecord>) as TxRecord<'shield'>
   const run = () => ensureExactAllowance({ record, ctx, token: TOKEN, spender: SPENDER, owner: OWNER, chainId: 31337 })
-  return { upserts, run }
+  return { upserts, upsert: ctx.upsert, run }
 }
 
 beforeEach(() => {
@@ -57,14 +57,15 @@ describe('ensureExactAllowance', () => {
 
   it('records the approval as sent (confirming on chain) before waiting for it, so the row can say so (4B)', async () => {
     wagmi.readContract.mockResolvedValueOnce(0n).mockResolvedValueOnce(5_000_000n)
-    const { upserts, run } = setup()
+    const { upserts, upsert, run } = setup()
     await run()
     const sentIndex = upserts.findIndex(
       (r) => (r.artifacts as { approveSubmittedHash?: string }).approveSubmittedHash === '0xapprove' && r.executionState === 'active'
         && (r.artifacts as { approveTxHash?: string }).approveTxHash === undefined,
     )
     expect(sentIndex).toBeGreaterThan(0)
-    expect(waitForReceiptMock.mock.invocationCallOrder[0]).toBeGreaterThan(0)
+    // The "sent" write lands before the receipt wait starts.
+    expect(upsert.mock.invocationCallOrder[sentIndex]).toBeLessThan(waitForReceiptMock.mock.invocationCallOrder[0]!)
   })
 
   it('stops before the shield when the confirmed allowance is still short (a spend cap lowered in the wallet)', async () => {

@@ -52,9 +52,9 @@ describe('<SendReviewStep>', () => {
     expect(screen.queryByText('Network')).toBeNull()
   })
 
-  it('private: shows the 0zk recipient as its fixed prefix + 8 head + 6 tail characters (full address in the title)', () => {
+  it('private: shows the 0zk recipient, with the full address in its title (AddressText owns the shortened format)', () => {
     renderReview({ recipient: VALID_0ZK })
-    expect(screen.getByTitle(VALID_0ZK)).toHaveTextContent('0zkabcdefgh...89aaaa')
+    expect(screen.getByTitle(VALID_0ZK)).toBeInTheDocument()
   })
 
   it('lets the user reveal and copy the FULL recipient address before confirming (5E)', async () => {

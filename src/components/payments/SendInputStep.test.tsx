@@ -42,29 +42,11 @@ function setup(extras?: Partial<SendInputStepProps>) {
 }
 
 describe('<SendInputStep>', () => {
-  it('renders the amount question', () => {
-    setup()
-    expect(screen.getByText('How much USDC?')).toBeInTheDocument()
-  })
-
-  it('withdraw variant: keeps the static title + exposes the "Withdrawal amount" field', () => {
-    setup({ variant: 'withdraw' })
-    expect(screen.getByText('How much USDC?')).toBeInTheDocument()
-    expect(screen.getByLabelText('Withdrawal amount')).toBeInTheDocument()
-  })
-
   it('hides the chain row entirely (chosen on the recipient step; not in the mockup)', () => {
     setup()
     // No chain name, no dropdown — the send amount card has no chain row.
     expect(screen.queryByText(/Anvil Hub/)).toBeNull()
     expect(screen.queryByRole('listbox')).toBeNull()
-  })
-
-  it('renders the 25% / 50% / 75% / Max percent pills', () => {
-    setup()
-    for (const label of ['25%', '50%', '75%', 'Max']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
-    }
   })
 
   it('a percent pill sets the amount to that fraction of the input cap', () => {
@@ -107,9 +89,4 @@ describe('<SendInputStep>', () => {
     expect(screen.getByLabelText('Send amount')).toHaveFocus()
   })
 
-  it('fires onBack from the Back button', () => {
-    const props = setup()
-    fireEvent.click(screen.getByRole('button', { name: /Back/ }))
-    expect(props.onBack).toHaveBeenCalledTimes(1)
-  })
 })

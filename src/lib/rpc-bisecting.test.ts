@@ -1,7 +1,7 @@
 // ABOUTME: Unit tests for the eth_getLogs bisecting patch.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { JsonRpcProvider } from 'ethers'
+import { JsonRpcProvider, type JsonRpcResult } from 'ethers'
 import {
   installBisectingGetLogs,
   _isBisectingGetLogsPatched,
@@ -164,36 +164,35 @@ describe('installBisectingGetLogs', () => {
     expect(_isBisectingGetLogsPatched()).toBe(true)
   })
 
-  it('intercepts eth_getLogs but passes through other methods', async () => {
+  it('splits a rejected eth_getLogs range through a real provider, and passes other methods straight through', async () => {
+    // WHY: stub the transport UNDER the patch (ethers' _send, which carries the JSON-RPC payloads). Spying on
+    // provider.send itself would replace the patched method and pass with no patch installed.
     installBisectingGetLogs()
-    const provider = new JsonRpcProvider('http://localhost:0') // never connects; we mock send
-
-    // Spy on the underlying send (the patched method calls back into the real one for non-getLogs)
-    // by replacing it temporarily with a mock and verifying call shape.
-    let recordedMethod = ''
-    let recordedParams: unknown[] = []
-    const origSend = JsonRpcProvider.prototype.send
-    // The patched `proto.send` calls `originalSend.call(this, ...)` — we'll stash our own
-    // base implementation by going one level down: replace prototype.send temporarily.
-    // Simpler: monkey-patch the instance's send directly to track calls.
-    const baseSend = provider.send.bind(provider)
-    vi.spyOn(provider, 'send').mockImplementation(async (m, p) => {
-      recordedMethod = m
-      recordedParams = p as unknown[]
-      if (m === 'eth_getLogs') return []
-      return null
+    const provider = new JsonRpcProvider('http://localhost:0', 1, { staticNetwork: true, batchMaxCount: 1 })
+    const sent: { method: string; params: unknown[] }[] = []
+    // ethers types _send's result as success-only; an RPC error item is just as valid at runtime.
+    const respond = (items: unknown[]): JsonRpcResult[] => items as JsonRpcResult[]
+    vi.spyOn(provider, '_send').mockImplementation(async (payload) => {
+      const { id, method, params } = (Array.isArray(payload) ? payload[0] : payload) as { id: number; method: string; params: unknown[] }
+      sent.push({ method, params })
+      if (method !== 'eth_getLogs') return respond([{ id, result: '0x10' }])
+      const { fromBlock, toBlock } = params[0] as { fromBlock: string; toBlock: string }
+      if (Number(toBlock) - Number(fromBlock) > 0x8) {
+        return respond([{ id, error: { code: -32005, message: 'eth_getLogs block range is too large' } }])
+      }
+      return respond([{ id, result: [{ fromBlock, toBlock }] }])
     })
 
-    // Non-getLogs: pass-through
-    await provider.send('eth_blockNumber', [])
-    expect(recordedMethod).toBe('eth_blockNumber')
+    expect(await provider.send('eth_blockNumber', [])).toBe('0x10')
+    expect(sent).toEqual([{ method: 'eth_blockNumber', params: [] }])
 
-    // eth_getLogs: intercepted (still calls send internally with same args because no error)
-    await provider.send('eth_getLogs', [{ fromBlock: '0x0', toBlock: '0x10' }])
-    expect(recordedMethod).toBe('eth_getLogs')
-    expect(recordedParams).toEqual([{ fromBlock: '0x0', toBlock: '0x10' }])
-
-    // Keep the linter happy about unused
-    void origSend; void baseSend
+    const logs = await provider.send('eth_getLogs', [{ fromBlock: '0x0', toBlock: '0x10' }])
+    // One rejected request for the whole range, then its two halves; the halves' logs are merged in order.
+    expect(sent.slice(1).map((c) => c.params[0])).toEqual([
+      { fromBlock: '0x0', toBlock: '0x10' },
+      { fromBlock: '0x0', toBlock: '0x8' },
+      { fromBlock: '0x9', toBlock: '0x10' },
+    ])
+    expect(logs).toEqual([{ fromBlock: '0x0', toBlock: '0x8' }, { fromBlock: '0x9', toBlock: '0x10' }])
   })
 })
