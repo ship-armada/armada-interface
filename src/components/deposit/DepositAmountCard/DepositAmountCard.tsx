@@ -121,6 +121,16 @@ export function DepositAmountCard({
   const amountInputId = useId()
   const amountErrorId = useId()
 
+  // The flow dialog focuses itself on open, after this card's effects. Focus the amount on the
+  // next turn so Shield, Send, and Earn show the field active.
+  useEffect(() => {
+    if (!inputRef || typeof inputRef === 'function') return
+    const id = window.setTimeout(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [inputRef])
+
   // Odometer roll for preset/Max taps (mockup): the amount digit-spins from the old value to the new
   // one. A preset handler records where we're rolling *from*; the effect below detects the resulting
   // `amount` change and starts the roll. Typing clears the marker so keystrokes never roll.
