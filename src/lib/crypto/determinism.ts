@@ -1,5 +1,5 @@
 // ABOUTME: Signature-determinism verification + typed NonDeterministicSignerError, per V2 amendment §"Axiom 1 (revised)".
-// ABOUTME: Re-sign recovery only works on RFC 6979 deterministic ECDSA wallets; we verify at first sign-in and on every subsequent unlock.
+// ABOUTME: Re-sign recovery only works on RFC 6979 deterministic ECDSA wallets; we double-sign at first sign-in, and later sign-ins compare the cached checksum.
 
 /**
  * Typed error thrown when the user's wallet fails the determinism contract — either:

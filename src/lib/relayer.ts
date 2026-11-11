@@ -1,5 +1,5 @@
 // ABOUTME: HTTP client for the Armada relayer — typed fees / relay / status requests with structured error handling.
-// ABOUTME: All three endpoints wired; handler-side adoption of submitRelay is staged in per-kind under Phase A.
+// ABOUTME: Endpoints: /fees, /relay, /status, /health, CCTP delivery status. Every spend handler (and gasless shield) submits via submitRelay; also the per-kind fee model.
 
 import { RELAYER_ENDPOINTS, RELAYER_STATUS_CODES, relayerEndpoint, type RelayerErrorCode } from '@/config/relayer'
 import type { TxKind } from '@/lib/tx/types'
@@ -11,9 +11,8 @@ export interface FeeSchedule {
   /**
    * Relayer's shielded (`0zk...`) address. Clients direct the broadcaster-fee output of their
    * SNARK proof here so the relayer is paid in the same atomic tx. Sourced verbatim from the
-   * relayer's `BROADCASTER_RAILGUN_ADDRESS` env var. Empty string is allowed in Phase A1 (no
-   * handler consumes this yet); the build-proof stage will start asserting non-empty once
-   * relayer-mediated submit ships in A3.
+   * relayer's `BROADCASTER_RAILGUN_ADDRESS` env var (normalized from the wire name in `fetchFees`,
+   * which falls back to an empty string when the relayer sends neither name).
    */
   broadcasterShieldedAddress: string
   /** USDC raw values (6 decimals) as strings — JSON can't carry bigints. Callers BigInt() on use. */
@@ -24,13 +23,13 @@ export interface FeeSchedule {
     crossChainShield: string
     crossChainUnshield: string
     /**
-     * Phase B2 — permit-based gasless `shield` on the hub. Semantically meaningful only on the
+     * Permit-based gasless `shield` on the hub. Semantically meaningful only on the
      * hub schedule (clients return a still-computed value for type uniformity, but no handler
      * consumes it there).
      */
     shield: string
     /**
-     * Phase B2 — permit-based gasless `shield-xchain` originating on a CLIENT chain. Each
+     * Permit-based gasless `shield-xchain` originating on a CLIENT chain. Each
      * client quotes its own gas cost (Base Sepolia is materially cheaper than Ethereum
      * Sepolia, etc.), so callers must fetch the FeeSchedule for the source client chain via
      * `fetchFees(chainId)` rather than reading the hub schedule.
@@ -53,15 +52,16 @@ const CCTP_FAST_FEE_BPS = 2n
  * sources today:
  *
  *  - CCTP V2 fast-transfer fee (~2 bps) on cross-chain kinds, deducted from the destination mint.
- *  - Relayer broadcaster fee on relayer-mediated kinds (Phase A3+), advertised verbatim in the
+ *  - Relayer broadcaster fee on relayer-mediated kinds, advertised verbatim in the
  *    FeeSchedule's per-op entries. Encoded into the SNARK proof as a broadcaster output to the
  *    relayer's `0zk` address; the relayer's pre-submit verifier rejects the request if the
  *    proof's broadcaster output is below the advertised amount (`FEE_INSUFFICIENT`).
  *
- * Migration table — flips a kind's USDC fee on as its handler migrates to `submitRelay`:
- *   - A3: unshield-local → reads `quote.fees.unshield`
- *   - A4: transfer-shielded / yield-deposit / yield-withdraw → `transfer` / `crossContract`
- *   - A5: unshield-xchain hub burn — separate; today's CCTP fee path is unchanged
+ * Tier per kind (every spend handler submits via `submitRelay`):
+ *   - unshield-local → `quote.fees.unshield`
+ *   - transfer-shielded / consolidate → `transfer`; yield-deposit / yield-withdraw → `crossContract`
+ *   - unshield-xchain → `crossChainUnshield` (the CCTP fast-fee is a separate line, `cctpFastFeeForAmount`)
+ *   - shield / shield-xchain → `shield` / `shieldXchain` on the gasless path only; 0 on direct submit
  *
  * `quote` is optional: without one this returns `0n`, which is the right answer for kinds that don't consume the
  * quote. For a relayer-paid kind a missing quote means the fee isn't known yet — its flow shows "—" and holds Confirm
@@ -74,7 +74,7 @@ const CCTP_FAST_FEE_BPS = 2n
  * for the chosen chain AND the relayer is reachable) and is passed in here for every recompute.
  */
 export interface UserFeeOpts {
-  /** Phase B `shield` gasless path: include the relayer's `shield` tier fee. Default false. */
+  /** `shield` gasless path: include the relayer's `shield` tier fee. Default false. */
   gasless?: boolean
 }
 
@@ -89,7 +89,7 @@ export function userFeeForKind(
 ): bigint {
   switch (kind) {
     case 'shield-xchain':
-      // Phase B4 — gasless path: the wrapper pulls `amount` (fee included) via permit on the
+      // Gasless path: the wrapper pulls `amount` (fee included) via permit on the
       // client chain; the fee comes out of it — the user's note is `amount − fee`, the relayer's
       // `fee`. The relayer's `shieldXchain` fee is per-chain (Base Sepolia ≠ Ethereum Sepolia —
       // see the relayer's FeeCalculator), so the modal MUST pass the quote for the SOURCE chain via
@@ -101,7 +101,7 @@ export function userFeeForKind(
       if (opts?.gasless) return quote ? BigInt(quote.fees.shieldXchain) : 0n
       return 0n
     case 'unshield-xchain':
-      // A5 — relayer-mediated hub burn. The visible "fee" is the relayer's broadcaster fee from
+      // Relayer-mediated hub burn. The visible "fee" is the relayer's broadcaster fee from
       // the `crossChainUnshield` tier (covers proof verification + the CCTP burn). The CCTP
       // fast-fee (~2 bps proportional to amount) still applies but is paid out of the
       // destination-side mint, not the user's shielded balance — surface it via
@@ -110,7 +110,7 @@ export function userFeeForKind(
     case 'unshield-local':
       return quote ? BigInt(quote.fees.unshield) : 0n
     case 'transfer-shielded':
-      // A4 — relayer-mediated. The relayer's transfer-tier fee covers a single transact() call
+      // Relayer-mediated. The relayer's transfer-tier fee covers a single transact() call
       // (no cross-contract leg), so it's the cheapest tier in the schedule.
       return quote ? BigInt(quote.fees.transfer) : 0n
     case 'consolidate':
@@ -119,12 +119,12 @@ export function userFeeForKind(
       return quote ? BigInt(quote.fees.transfer) : 0n
     case 'yield-deposit':
     case 'yield-withdraw':
-      // A4 — relayer-mediated via ArmadaYieldAdapter's lendAndShield/redeemAndShield wrappers,
+      // Relayer-mediated via ArmadaYieldAdapter's lendAndShield/redeemAndShield wrappers,
       // which carry a Transaction struct that does the cross-contract spend + re-shield. The
       // `crossContract` tier reflects the higher gas profile of that pattern (~2M gas vs ~500k).
       return quote ? BigInt(quote.fees.crossContract) : 0n
     case 'shield':
-      // Phase B3 — when the modal decided to route through the GaslessShieldWrapper (wrapper
+      // When the modal decided to route through the GaslessShieldWrapper (wrapper
       // deployed for the chain, relayer healthy, user hasn't overridden to wallet-submit), the
       // relayer charges the `shield` tier in USDC. When direct-submit instead, the user pays
       // ETH gas themselves and the wrapper doesn't enter the picture — fee is 0.
@@ -140,7 +140,7 @@ export function userFeeForKind(
 /**
  * Per-kind fee semantics — which side of the recipient line the fee sits on. Decoupled from
  * `userFeeForKind` (which computes the fee amount) so a single-site refactor when a kind's fee
- * model flips (e.g., A4 moves yield kinds to relayer-mediated → `fee-on-top`) doesn't ripple
+ * model flips (e.g., a kind moving to relayer-mediated → `fee-on-top`) doesn't ripple
  * through every modal.
  *
  *  - `no-fee`            — recipient receives the entered amount; nothing extra is deducted.
@@ -149,7 +149,7 @@ export function userFeeForKind(
  *  - `fee-on-top`        — fee is an extra output in the SNARK proof (relayer-mediated path).
  *                            Recipient receives the full entered amount; user is deducted
  *                            `amount + fee`. Input MAX must reserve room for the fee.
- *  - `fee-on-top-and-from-recipient` — both apply (A5 cross-chain unshield). Primary `fee` is the
+ *  - `fee-on-top-and-from-recipient` — both apply (cross-chain unshield). Primary `fee` is the
  *                            broadcaster fee (on top); the optional `secondaryFee` is the CCTP
  *                            fast-fee (from recipient). User pays `amount + fee`; recipient
  *                            receives `amount - secondaryFee`.
@@ -166,7 +166,7 @@ export function feeModelForKind(kind: TxKind, opts?: UserFeeOpts): FeeModel {
       // deducted from the destination mint, recipient receives `amount - cctpFee`.
       return 'fee-from-recipient'
     case 'unshield-xchain':
-      // A5 — relayer-mediated AND cross-chain. Two fees apply:
+      // Relayer-mediated AND cross-chain. Two fees apply:
       //   - broadcaster fee (`crossChainUnshield` tier) is on top of `amount`, debited from
       //     the user's shielded balance via an extra unshield output in the proof.
       //   - CCTP fast-fee (~2 bps) is from-recipient — deducted from the destination mint.
@@ -177,11 +177,11 @@ export function feeModelForKind(kind: TxKind, opts?: UserFeeOpts): FeeModel {
     case 'yield-deposit':
     case 'yield-withdraw':
     case 'consolidate':
-      // A4 — all relayer-mediated. Recipient receives the entered amount; the broadcaster fee
+      // All relayer-mediated. Recipient receives the entered amount; the broadcaster fee
       // is an extra output in the proof, deducted on top of the entered amount.
       return 'fee-on-top'
     case 'shield':
-      // Phase B3 — gasless path: the wrapper interprets the user's entered amount as the
+      // Gasless path: the wrapper interprets the user's entered amount as the
       // permit's `totalAmount`. It transfers `fee` to the relayer and shields `(amount - fee)`.
       // `fee-from-recipient` so the modal shows "you deposit = amount - fee" consistently
       // with shield-xchain — same semantic as CCTP's destination-side fee deduction. Direct
@@ -269,7 +269,7 @@ export function computeFeeBreakdown(
 
 /**
  * CCTP V2 fast-transfer fee for an unshield-xchain amount. ~2 bps, deducted from the destination
- * mint. Separate from `userFeeForKind` post-A5 since the relayer's broadcaster fee now occupies
+ * mint. Separate from `userFeeForKind` because the relayer's broadcaster fee occupies
  * the "user-visible relayer fee" slot, and the CCTP fee is its own line item in the modal
  * (different semantics — paid by the recipient, not the user). Use as `secondaryFee` when
  * calling `computeFeeBreakdown` for `unshield-xchain` / `shield-xchain`.
@@ -425,9 +425,9 @@ export { fetchWithTimeout as _fetchWithTimeout }
  * 5-min TTL and returns the cached value when valid; the client caches at the atom layer via
  * `useFees`. Both can re-fetch independently — relayer is the source of truth.
  *
- * Phase B2 made fees per-chain — the source-chain gas price drives the gasless `shield-xchain`
- * quote (Base Sepolia ≠ Ethereum Sepolia). Pass `chainId` to fetch the schedule for a specific
- * chain; omit to default to the hub (backward-compatible for Phase A callers).
+ * Fees are per-chain — the source-chain gas price drives the gasless `shield-xchain` quote
+ * (Base Sepolia ≠ Ethereum Sepolia). Pass `chainId` to fetch the schedule for a specific chain;
+ * omit for the hub's schedule.
  */
 export async function fetchFees(
   signal?: AbortSignal,
@@ -463,8 +463,8 @@ export async function fetchFees(
  * Status semantics: success here means the relayer accepted the request and broadcast the tx —
  * NOT that the tx is on-chain. Use `pollStatus(txHash)` / `pollRelayStatusOnce` to track inclusion.
  *
- * Dormant in A1: no handler calls this yet. Handlers migrate in A3 (`unshield-local` first), then
- * A4 (transfer + yield), then A5 (`unshield-xchain` hub burn). See `.claude/RELAYER_MEDIATION_PLAN.md`.
+ * Called by every spend handler (unshield, cross-chain unshield, transfer, yield deposit / withdraw,
+ * merge) and by both shield handlers on their gasless path.
  */
 export async function submitRelay(req: RelayRequest, signal?: AbortSignal): Promise<RelayResponse> {
   const res = await fetchWithTimeout(relayerEndpoint(RELAYER_ENDPOINTS.relay), {

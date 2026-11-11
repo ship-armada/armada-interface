@@ -1,4 +1,5 @@
 // ABOUTME: Unit tests for the CCTP message parsers used by cross-chain history recovery.
+// ABOUTME: Covers readCctpMessage, readBurnMessage and readCctpFromLogs (MessageSent → destination + maxFee; MessageReceived → source + amounts).
 
 import { describe, it, expect } from 'vitest'
 import {

@@ -1,5 +1,5 @@
 // ABOUTME: One-time monkey-patch of ethers' JsonRpcProvider.send that bisects eth_getLogs on "block range too large" errors.
-// ABOUTME: Free-tier RPCs (Alchemy 10 blocks, Infura 10k, drpc varies) all reject large ranges with subtly different error messages — bisection lets the SDK keep its preferred chunk size without us needing to choose an RPC by its limit.
+// ABOUTME: Free-tier RPCs (Alchemy 10 blocks, Infura 10k, drpc varies) all reject large ranges with subtly different error messages — bisection lets each caller keep its preferred chunk size without us needing to choose an RPC by its limit.
 
 import { JsonRpcProvider } from 'ethers'
 
@@ -99,7 +99,7 @@ async function bisectEthGetLogs(
     const mid = Math.floor((from + to) / 2)
     if (mid <= from || mid >= to) throw err // single-block range
     // Recurse on left + right halves; concatenate results. Order matters for some downstream
-    // consumers (the engine processes events in chronological order).
+    // consumers (logs are expected in chronological order).
     const leftFilter: GetLogsFilter = { ...filter, fromBlock: toHexBlock(from), toBlock: toHexBlock(mid) }
     const rightFilter: GetLogsFilter = { ...filter, fromBlock: toHexBlock(mid + 1), toBlock: toHexBlock(to) }
     const left = await bisectEthGetLogs(send, leftFilter, depth + 1)
@@ -115,9 +115,9 @@ type PatchedPrototype = typeof JsonRpcProvider.prototype & { [PATCHED_FLAG]?: bo
  * Patches `JsonRpcProvider.prototype.send` to intercept eth_getLogs calls and bisect on range
  * errors. Idempotent — safe to call multiple times. Non-getLogs RPC calls pass through unchanged.
  *
- * Affects every ethers JsonRpcProvider in the process — including the SDK's
- * PollingJsonRpcProvider (which extends JsonRpcProvider). Wagmi/viem providers are unaffected
- * (different stack).
+ * Affects every ethers JsonRpcProvider in the process — including any the `@armada/sdk` builds
+ * from the same ethers module (the SDK also bisects rejected ranges itself, in its
+ * `sync/ranged-fetch.ts`). Wagmi/viem providers are unaffected (different stack).
  *
  * Call this once at app entry (main.tsx) before any provider is constructed. Calling after a
  * provider exists is also fine — the patch is at the prototype level, so existing instances

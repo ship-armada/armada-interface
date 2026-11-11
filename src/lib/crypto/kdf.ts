@@ -1,5 +1,5 @@
 // ABOUTME: Key derivation per specs/TX_SIGNING.md — HKDF-SHA-256 from signature bytes to root_secret, then HKDF-Expand subkeys.
-// ABOUTME: Also: anti-phish checksum, internal-mnemonic shim (Phase 1 SDK compat), AES-GCM backup encryption with PBKDF2.
+// ABOUTME: Also: the history-encryption key, the local walletId, anti-phish checksum, IC-2 entropy canary, AES-GCM backup encryption with PBKDF2.
 
 import { hkdf } from '@noble/hashes/hkdf'
 import { expand as hkdfExpand } from '@noble/hashes/hkdf'
@@ -70,10 +70,11 @@ export function deriveViewingKeyBytes(rootSecret: Uint8Array): Uint8Array {
 }
 
 /**
- * Derive a 32-byte AES-256 key for encrypting transaction-history records at rest. Consumed by
- * `lib/cache.ts` once Phase 7 wires per-record encryption.
+ * Derive a 32-byte AES-256 key for encrypting transaction-history records (and created request
+ * links) at rest. Held by the keyManager; consumed via `cache-cipher.ts` by `lib/tx/storage` and
+ * `lib/shielded/requestLinks`.
  *
- * Versioned info string — a future Phase 7.x can rotate to `:v2` without disturbing other key
+ * Versioned info string — a future rotation can move to `:v2` without disturbing other key
  * derivations. Like every other subkey here, this is HKDF-Expand from root_secret (root_secret
  * is already a PRK output, so a second Extract would be redundant per RFC 5869 §3.3).
  */
@@ -89,10 +90,9 @@ const HKDF_INFO_WALLET_ID_V1 = utf8('armada-wallet-id:v1')
 
 /**
  * Deterministic, engine-free wallet identifier — HKDF-Expand from root_secret (16 bytes → 32 hex),
- * domain-separated from the encryption/history keys. Replaces the stock engine's opaque
- * `sha256(mnemonicToSeed(...) ‖ index)` walletId now that the engine is gone. Non-secret: it's a
- * one-way derivation used only to key local bookkeeping (the per-(EVM, account) maps + tx-history
- * records); knowing it grants nothing (the at-rest wallet/history is encrypted under separate keys).
+ * domain-separated from the history key. Non-secret: it's a one-way derivation used only to key
+ * local bookkeeping (the per-(EVM, account) maps + tx-history records); knowing it grants nothing
+ * (the SDK's scan state and the tx history are encrypted under other keys).
  */
 export function deriveWalletId(rootSecret: Uint8Array): string {
   assertRootSecret(rootSecret)
@@ -319,7 +319,7 @@ export async function encryptBackup(
  *
  * v2 path returns the embedded creationBlock as-is. v1 path (legacy 32-byte plaintext) returns
  * `creationBlock: 0` — the unlock path's `creationBlock === 0` sentinel converts that to
- * `undefined` when calling into the SDK, producing a slow full-genesis rescan. This preserves
+ * `undefined` when calling into the SDK, so it looks for the wallet's notes from the pool's deploy block. This preserves
  * existing v1 backups as a "correct but slow" restore path rather than rejecting outright.
  */
 export async function decryptBackup(blob: BackupBlob, passphrase: string): Promise<BackupPayload> {
@@ -503,10 +503,9 @@ export function parseBackupBlob(json: unknown): BackupBlob {
  *
  * Uses the platform WebCrypto `subtle.deriveBits` rather than @noble's synchronous `pbkdf2` so the
  * 600k-iteration stretch runs off the main thread instead of janking the UI for hundreds of ms
- * during backup encrypt/decrypt (P1-20). The output is byte-identical to the previous @noble
- * implementation for the same (passphrase, salt, iterations) — a frozen invariant locked by
- * kdf.test.ts so the backup format stays interoperable. Algorithm and params are unchanged; only
- * the implementation moved.
+ * during backup encrypt/decrypt (P1-20). The output is byte-identical to @noble's `pbkdf2` for the
+ * same (passphrase, salt, iterations) — a frozen invariant locked by kdf.test.ts so the backup
+ * format stays interoperable.
  */
 async function deriveBackupKey(
   passphrase: string,

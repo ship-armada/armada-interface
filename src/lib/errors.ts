@@ -1,5 +1,5 @@
 // ABOUTME: Shared cross-stack error predicates so network-switch, the tx error classifier, and enrollment copy all agree on what "the user declined" looks like.
-// ABOUTME: One source of truth — previously each layer carried its own near-identical copy.
+// ABOUTME: One source of truth for these predicates — add new wallet-error shapes here, not in each layer.
 
 /**
  * Detect user-declined-wallet-prompt errors across wallet stacks. viem throws

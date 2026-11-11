@@ -14,7 +14,7 @@ const hoisted = vi.hoisted(() => ({
   trackError: vi.fn(),
 }))
 
-// The cross-check now reads the wallet's spendable notes' (tree, nullifier) from @armada/sdk.
+// The cross-check reads the wallet's spendable notes' (tree, nullifier) from @armada/sdk.
 vi.mock('./sdk-read', () => ({ getSdkWallet: hoisted.getSdkWallet }))
 vi.mock('ethers', () => ({
   ethers: {
@@ -134,7 +134,7 @@ describe('checkOwnNullifiersOnChain (wired)', () => {
     expect(calls).toEqual([
       { contract: hoisted.contractInstance, functionName: 'nullifiers', args: [0, `0x${rawNullifier}`] },
     ])
-    // Multicall collapses the fan-out to a single eth_call, so batching no longer needs disabling.
+    // Multicall collapses the fan-out to a single eth_call, so JSON-RPC batching stays at the default.
     expect(hoisted.timeoutProvider).toHaveBeenCalledWith(expect.any(String))
   })
 

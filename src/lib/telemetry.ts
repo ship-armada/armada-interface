@@ -38,7 +38,7 @@ export type EventRegistry = {
   'shielded.syncRetry':       Record<string, never>
 
   // @armada/sdk read-instance sync outcome — one line per wallet.sync() so resume-vs-rescan is
-  // observable. Named `sdk.*` because this is the in-house SDK; stock-engine / shielded-pool telemetry
+  // observable. Named `sdk.*` because this is the in-house SDK; shielded-pool telemetry
   // uses `shielded.*`. We never emit `railgun` in any event name or scope (it would confuse the
   // telemetry stream — see the naming convention). Block numbers + a boolean only. `fromBlock` =
   // the resume point (checkpoint + 1): a low value ≈ deploy block means a cold rescan, a high value
@@ -102,7 +102,7 @@ export type EventRegistry = {
   'tx.engine.no-handler':     { kind: TxKind }
 
   'tx.history.hydrated':      { count: number }
-  // Chain-driven history recovery + incoming-transfer detection (Phase 9). `durationMs` covers
+  // Chain-driven history recovery + incoming-transfer detection. `durationMs` covers
   // the SDK call + mapping; `itemCount` is the raw SDK return size; `recordCount` is what we
   // actually wrote (mapped + non-duplicate). Distinguishes Unknown-heavy chain history from
   // genuinely-empty wallets.

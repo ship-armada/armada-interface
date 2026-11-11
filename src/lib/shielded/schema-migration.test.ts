@@ -1,4 +1,5 @@
 // ABOUTME: Tests for the v2 schema-migration that wipes legacy v1 shielded-wallet state on first run.
+// ABOUTME: Covers reading a missing / malformed version, the legacy-key wipe, marking the schema current, and the no-op when current.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { SCHEMA_VERSION } from '@/lib/crypto/eip712'

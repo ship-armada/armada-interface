@@ -38,8 +38,7 @@ export interface NullifierCrossCheckResult {
 
 /**
  * The wallet's own locally-unspent notes as `{tree, nullifier}`, from the @armada/sdk read wallet's
- * `spendableNullifiers()` (the SDK-native replacement for the engine's `TXOs(...)` + `spendtxid`
- * filter). `_walletId` is accepted for call-site compatibility but ignored — the read instance is the
+ * `spendableNullifiers()`. `_walletId` is accepted for call-site compatibility but ignored — the read instance is the
  * unlocked wallet. V2 only — our PrivacyPool implements the V2 UTXO tree.
  */
 export async function getOwnUnspentNotes(_walletId?: string): Promise<OwnUnspentNote[]> {
@@ -76,8 +75,8 @@ async function buildNullifiersReader(): Promise<NullifiersReader | null> {
   const privacyPool = deployments.hub.contracts.privacyPool
   if (!privacyPool) return null
   // A single Multicall3 `aggregate3` folds every note's `nullifiers(...)` read into ONE eth_call, so
-  // there is nothing for JSON-RPC batching to over-batch — the batch-limit that forced `batchMaxCount=1`
-  // (e.g. drpc's free plan caps JSON-RPC batches at 3) no longer applies. Default provider batching is fine.
+  // there is nothing for JSON-RPC batching to over-batch, and a provider's JSON-RPC batch cap (e.g. drpc's
+  // free plan allows 3 per batch) doesn't come into play. Default provider batching is fine.
   const provider = timeoutProvider(rpc)
   const contract = new ethers.Contract(privacyPool, NULLIFIERS_ABI, provider)
   return { contract, provider }

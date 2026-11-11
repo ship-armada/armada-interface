@@ -57,7 +57,7 @@ async function readPathConfig(): Promise<{
   const yieldAdapter = await yieldAdapterAddress()
   // Quick-sync fast path: when a watcher URL is configured, the SDK uses the native `/v2/quick-sync`
   // indexer as the primary event source (RPC covers the tail + verifies against the on-chain root).
-  // Unset → RPC-only slow scan. Parity with the engine's former quickSync path.
+  // Unset → RPC-only slow scan.
   const indexerUrl = getNetworkConfig().indexerUrl
   return {
     pool: {
@@ -114,7 +114,7 @@ function dbNameFor(cfg: Awaited<ReturnType<typeof readPathConfig>>): string {
 }
 
 // Prior read-DB names for this (chain, pool): the pre-encryption plaintext DB (no suffix) and the
-// interface-side `-e1` encryption (rootSecret-derived key, now superseded by the SDK's viewing-key
+// interface-side `-e1` encryption (rootSecret-derived key, superseded by the SDK's viewing-key
 // encryption). Both are unreadable under the current key, so they are best-effort deleted so no stale
 // (plaintext or wrong-key) note data lingers at rest.
 function legacyDbNames(cfg: Awaited<ReturnType<typeof readPathConfig>>): string[] {
@@ -205,8 +205,7 @@ async function createInstance(engineAddress: string): Promise<SdkInstance> {
     await sdk.close().catch(() => {})
     throw err
   }
-  // Forward the wallet's scan/balance/note events onto the app buses — the SDK-native replacement for
-  // the stock engine's global balance callback + merkletree-scan callback. Scan lifecycle drives the
+  // Forward the wallet's scan/balance/note events onto the app buses. Scan lifecycle drives the
   // sync banner/gate (scan-status bus); scan-complete/balance/note ping the balance bus (re-read
   // trigger). The wallet (and its listeners) is discarded on `closeSdkRead`, so no teardown is needed.
   wallet.on('scan:started', () => emitScanStatus({ status: 'syncing', progress: 0 }))

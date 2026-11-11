@@ -1,5 +1,5 @@
 // ABOUTME: Signature-derived shielded wallet lifecycle per specs/TX_SIGNING.md + TX_SIGNING_V2_AMENDMENT.md.
-// ABOUTME: enrollFromSignature / unlockFromRootSecret / unlockFromBackup / lockWallet / resetWallet route through a shared applyRootSecret helper. Internal mnemonic shim hidden inside this module.
+// ABOUTME: enrollFromSignature / unlockFromRootSecret / unlockFromBackup / lockWallet / resetWallet route through a shared applyRootSecret helper. Identity is derived locally (walletId via HKDF, 0zk via the SDK's deriveKeyset).
 
 import { loadSdk } from './sdk-loader'
 import {
@@ -52,13 +52,12 @@ export interface ShieldedWalletState {
  * Account indices are decimal strings because JSON keys are strings; we round-trip through
  * `accountKey(bigint)` so the convention is enforced in one place.
  *
- * Both maps are non-secret: walletId is an opaque SDK identifier (knowing it does not grant
- * access), and the
- * checksum is a public anti-phish display string by spec.
+ * Both maps are non-secret: walletId is a one-way local identifier (knowing it does not grant
+ * access), and the checksum is a public anti-phish display string by spec.
  *
- * Schema-version-2 boot wipe (Phase 1) drops the old single-value keys ('armada.shielded.walletId'
- * + 'armada.shielded.checksum'). No code path here reads those legacy keys — first run of v2
- * starts from empty maps.
+ * The schema-version-2 boot wipe (`schema-migration.ts`) drops the legacy single-value keys
+ * ('armada.shielded.walletId' + 'armada.shielded.checksum'). No code path here reads those legacy
+ * keys — first run of v2 starts from empty maps.
  */
 const STORED_WALLET_IDS_KEY = 'armada.shielded.walletIds'
 const STORED_CHECKSUMS_KEY = 'armada.shielded.checksums'
@@ -117,12 +116,12 @@ export function readStoredWalletIdFor(
 }
 
 /**
- * App.tsx cold-boot probe: does ANY walletId exist on this device?
+ * Cold-boot probe: does ANY walletId exist on this device?
  *
- * Returns null when the map is empty (route to onboarding) or the first cached walletId we
- * encounter otherwise (route to unlock — App.tsx only needs the existence signal; UnlockFlow's
- * Sign-in tab then asks the user to connect a wallet and looks up the actual entry per
- * (evmAddress, account)).
+ * Returns null when the map is empty, or the first cached walletId we encounter otherwise. App.tsx
+ * seeds that id as a `locked` wallet entry, and the dashboard uses the null case (with no wallet
+ * connected) to tell a first visit from a returning one. Signing in then looks up the actual entry
+ * per (evmAddress, account).
  *
  * Deterministic-ish order: `Object.keys` returns insertion order, so the first sign-in's address
  * wins. v1 UX is singular so this is "the user's address." Multi-account v2+ can revisit.
@@ -177,9 +176,9 @@ function setStoredChecksum(
 }
 
 /**
- * Dev/UX escape hatch: clear ALL persisted wallet identities (forces onboarding on next boot).
+ * Clear ALL persisted wallet identities (Settings → Reset wallet, via `resetWallet`).
  * Wipes the full per-(EVM, account) maps — not surgical. Surgical removal isn't exposed because
- * Phase 4's account-switch handler just auto-locks; the user can sign back in for any prior
+ * the account-switch handler just auto-locks; the user can sign back in for any prior
  * EVM address that's still in the map.
  */
 export function clearStoredWalletIdentity(): void {
@@ -200,24 +199,24 @@ export function clearStoredWalletIdentity(): void {
  *
  * Telemetry is the caller's responsibility — `applyRootSecret` reports back via `newlyCreated`
  * so each caller can emit the right `shielded.created` vs `shielded.unlock` semantics. (Why not
- * emit here? Because "newly created" is necessary but not sufficient for "first-time
- * enrollment": a re-sign whose cached load fails will *recreate* the SDK wallet, but for the
- * user it's still an unlock, not a new identity.)
+ * emit here? Because "newly created" — no cached walletId for this (EVM address, account) — is
+ * necessary but not sufficient for "first-time enrollment": a paste or backup restore onto a fresh
+ * device is newly created here, but for the user it's still an unlock, not a new identity.)
  *
  * Caller-supplied `creationBlock` semantics:
  *  - First-time enrollment passes the hub deploy block (`resolveCreationBlock`), so a re-sign on
  *    another device still discovers the wallet's earlier notes
  *  - Backup-file unlock passes the value embedded in the v2 blob
- *  - Paste-secret unlock and post-load-failure recovery pass `undefined` (forces a full rescan)
+ *  - Paste-secret unlock passes `undefined` (the SDK looks for notes from the pool's deploy block)
  *
- * Spec compliance: IC-2 entropy-floor canaries on root + both subkey buffers (Phase 1 belt-
- * and-suspenders; the spec mandates the canary on the raw HKDF output of each, pre-reduction).
+ * Spec compliance: IC-2 entropy-floor canaries on root + both subkey buffers (belt-and-
+ * suspenders; the spec mandates the canary on the raw HKDF output of each, pre-reduction).
  */
 interface ApplyRootSecretOptions {
   /**
    * Hub block where this wallet was first enrolled. When known (first sign-in or restored from
-   * a v2 backup) it's threaded to the SDK's commitment-scan start position. When omitted, the
-   * SDK runs a full-genesis scan — correct, just slow.
+   * a v2 backup) it's held on the keyManager and passed to the SDK's `fromRootSecret` as where to
+   * start looking for this wallet's notes. When omitted, the SDK looks from the pool's deploy block.
    */
   readonly creationBlock?: number
   /**
@@ -227,8 +226,8 @@ interface ApplyRootSecretOptions {
    * binding records who's responsible for the unlock — driving account-switch detection in
    * useWallet.ts.
    *
-   * When undefined (no EVM wallet connected — rare edge case), the map fast-path is skipped and
-   * the SDK wallet is always recreated from scratch. Functional, just slow on subsequent unlocks.
+   * When undefined (no EVM wallet connected — rare edge case), the localStorage maps are neither
+   * read nor written, so no binding is recorded and every such unlock counts as newly created.
    */
   readonly evmAddress?: `0x${string}`
   /** BIP-44-style account index. Default 0 (v1 UI only exposes 0). */
@@ -250,7 +249,7 @@ interface ApplyRootSecretResult {
  * device is already bound to for (evmAddress, account). We refuse rather than silently overwriting
  * the localStorage binding maps — a wrong-secret rebind would make the NEXT deterministic sign-in
  * throw a confusing `NonDeterministicSignerError('cached-checksum-mismatch')`. The unlock entry
- * points let this propagate; the UnlockFlow renders `message`. (P1-13)
+ * points let this propagate; the restore flow shows `message`. (P1-13)
  */
 export class MismatchedRecoverySecretError extends Error {
   readonly boundChecksum: string
@@ -302,8 +301,8 @@ async function applyRootSecret(
   // @armada/sdk read instance, created lazily on first balance read (sdk-read.ts).
   const walletId = deriveWalletId(rootSecret)
   const shieldedAddress = (await (await loadSdk()).deriveKeyset(rootSecret)).shieldedAddress
-  // "Newly created" (telemetry) = first sign-in on this device for the tuple (no cached id). It no
-  // longer implies an engine wallet was created; the identity is purely derived.
+  // "Newly created" (telemetry) = first sign-in on this device for the tuple (no cached id). Nothing
+  // is created: the identity is purely derived.
   const newlyCreated = cachedWalletId === null
   // Mirrors what we stash into keyManager.creationBlock so a later `exportBackup` can write a
   // meaningful value. null = not known in this session (the SDK read instance resumes from its own
@@ -344,16 +343,14 @@ async function applyRootSecret(
  * Spec V2 amendment: deterministic re-sign is the primary recovery path for compatible EOA
  * wallets. The cached-checksum-mismatch check below catches the case where a wallet *isn't*
  * deterministic (different signature each time → different root_secret → different identity):
- * we refuse to clobber the prior identity and direct the user to paste-secret / backup-file
- * unlock. Phase 2a will replace the inline error message with a typed `NonDeterministicSignerError`
- * the UI can render as a dedicated screen.
+ * we refuse to clobber the prior identity and throw a typed `NonDeterministicSignerError`, which
+ * the UI renders as a dedicated screen directing the user to paste-secret / backup-file unlock.
  *
- * Returns `rootSecret` to the caller because the onboarding flow needs it for the (now-optional)
- * backup-export ceremony. The keyManager retains the authoritative copy until lock or reset; the
+ * Returns `rootSecret` to the caller for the optional backup-export ceremony. The keyManager retains the authoritative copy until lock or reset; the
  * caller must NOT mutate or `fill(0)` the returned buffer.
  *
- * Identity is derived entirely locally now — `applyRootSecret` computes the walletId + 0zk address
- * from root_secret (no engine wallet). The actual scanning wallet is the persistent @armada/sdk read
+ * Identity is derived entirely locally — `applyRootSecret` computes the walletId + 0zk address
+ * from root_secret. The actual scanning wallet is the persistent @armada/sdk read
  * instance, created lazily on first balance read.
  */
 /**
@@ -422,8 +419,9 @@ export async function enrollFromSignature(
   // If the manifest can't supply the deploy block, creationBlock stays undefined: the SDK then looks
   // for notes from the start, and since its tree scan always begins at the pool's deploy block, that
   // costs the same as the anchored path.
-  // Returning paths (cached walletId exists in localStorage) leave creationBlock undefined so
-  // the SDK reuses the value it stored at original creation.
+  // Returning paths (cached walletId exists in localStorage) leave creationBlock undefined, which
+  // `sdk-read.ts` passes to `fromRootSecret` as 0 — the same "look from the start" as above. The
+  // SDK's persisted scan state is what makes a returning scan incremental.
   const wasFirstTimeEnrollment = opts.evmAddress
     ? readStoredWalletIdFor(opts.evmAddress, account) == null
     : true
@@ -453,8 +451,8 @@ export async function enrollFromSignature(
  *
  * `creationBlock` is the hub block at which the wallet was originally enrolled. When supplied
  * (i.e. came out of a decrypted v2 backup), it's threaded to the SDK so the merkletree scan
- * starts at the correct tree position. When undefined (paste-secret path), the SDK runs a full
- * chain rescan — slower but correct.
+ * starts looking for the wallet's notes there. When undefined (paste-secret path), it looks from the
+ * pool's deploy block — slower but correct.
  */
 export interface UnlockOptions {
   /** Embedded v2-backup hub creation block, or omitted for paste-secret restores. */

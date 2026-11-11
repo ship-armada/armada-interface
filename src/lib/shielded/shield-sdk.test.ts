@@ -1,5 +1,5 @@
 // ABOUTME: Unit test for createShieldRequestSdk — maps the @armada/sdk ShieldRequest into the interface's
-// ABOUTME: ShieldRequestData shape (the drop-in for the engine builder) and validates its inputs.
+// ABOUTME: ShieldRequestData shape the shield handlers consume, and validates its inputs.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 

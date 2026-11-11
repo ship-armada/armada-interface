@@ -1,4 +1,5 @@
-// ABOUTME: Maps wagmi / RainbowKit connector ids to WalletPillMenu provider keys.
+// ABOUTME: Maps a wagmi / RainbowKit connector (by id + name) to the wallet-provider key WalletMenu's icon uses.
+// ABOUTME: Returns 'metamask' / 'phantom' / 'walletconnect', or undefined for any other connector (generic icon).
 
 import type { Connector } from 'wagmi'
 

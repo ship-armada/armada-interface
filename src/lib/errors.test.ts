@@ -1,4 +1,5 @@
 // ABOUTME: Tests for the shared isUserRejection predicate (P1-17) — the single source of truth used by network-switch, the tx classifier, and enrollment copy.
+// ABOUTME: Covers code 4001, ACTION_REJECTED / UserRejectedRequestError, message variants, one level of .cause, and non-matches.
 
 import { describe, it, expect } from 'vitest'
 import { isUserRejection } from './errors'

@@ -1,3 +1,6 @@
+// ABOUTME: Tests for normalizeEnrollmentError — the sign-in card's error copy.
+// ABOUTME: Covers the circuit-download (SyntaxError), missing-manifest and declined-signature mappings.
+
 import { describe, it, expect } from 'vitest'
 import { normalizeEnrollmentError } from './enrollmentErrors'
 

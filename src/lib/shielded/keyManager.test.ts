@@ -1,4 +1,5 @@
 // ABOUTME: Tests for lib/shielded/keyManager — set/get/clear, locked-state throws, best-effort zeroization of the rootSecret buffer on clear.
+// ABOUTME: Also covers the historyEncryptionKey getter (and its zeroization) and deriveChecksum.
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
@@ -17,7 +18,7 @@ import {
 function makeState(seed = 1, creationBlock: number | null = 100) {
   const rootSecret = new Uint8Array(32)
   for (let i = 0; i < 32; i++) rootSecret[i] = (seed + i) & 0xff
-  // Phase 7: keyManager now also holds a historyEncryptionKey for at-rest tx-record AES-GCM.
+  // keyManager also holds the historyEncryptionKey used for at-rest tx-record AES-GCM.
   // Fixture uses a distinct seed so a copy-paste of rootSecret won't mask a bug.
   const historyEncryptionKey = new Uint8Array(32)
   for (let i = 0; i < 32; i++) historyEncryptionKey[i] = (seed + 64 + i) & 0xff
