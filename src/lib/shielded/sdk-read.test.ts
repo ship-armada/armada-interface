@@ -136,10 +136,13 @@ describe('ensureInstance — concurrency guard (getSdkWallet)', () => {
     expect(opts).not.toHaveProperty('viewOnly') // spend-capable by default
   })
 
-  it('rebuilds after closeSdkRead — a fresh unlock creates a new instance', async () => {
+  it('closeSdkRead closes the instance (which wipes its keys), and a fresh unlock creates a new one', async () => {
+    // WHY: lock → closeSdkRead → sdk.close() is what disposes the wallet's viewing key and the SDK signer's spend key.
+    // Dropping the close() would leave both in memory after a lock while a "rebuilds" check still passed.
     await getSdkWallet()
     expect(createArmadaSdk).toHaveBeenCalledTimes(1)
     await closeSdkRead()
+    expect(fakeSdk.close).toHaveBeenCalledTimes(1)
     await getSdkWallet()
     expect(createArmadaSdk).toHaveBeenCalledTimes(2)
   })

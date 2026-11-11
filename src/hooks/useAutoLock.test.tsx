@@ -10,6 +10,7 @@ import { preferencesAtom, DEFAULT_PREFERENCES } from '@/state/preferences'
 import { txListAtom } from '@/state/tx'
 import { lockReasonAtom } from '@/state/ui'
 import type { TxRecord } from '@/lib/tx/types'
+import { setUnlocked, isUnlocked, clear as clearKeyManager } from '@/lib/shielded/keyManager'
 
 function Harness() {
   useAutoLock()
@@ -22,6 +23,20 @@ function setupStore(opts: {
   withInflightTx?: boolean
 }) {
   const store = createStore()
+  // An unlocked wallet holds real key material in the keyManager — what a lock must actually wipe (not just the atom).
+  if (opts.unlocked) {
+    setUnlocked({
+      rootSecret: new Uint8Array(32).fill(1),
+      walletId: 'rg-1',
+      sdkEncryptionKey: 'ff'.repeat(32),
+      shieldedAddress: '0zk-test',
+      checksum: 'a3f2 91c8 b7e0',
+      creationBlock: null,
+      evmAddress: null,
+      account: 0n,
+      historyEncryptionKey: new Uint8Array(32).fill(2),
+    })
+  }
   store.set(shieldedWalletsAtom, {
     'rg-1': {
       id: 'rg-1',
@@ -61,6 +76,7 @@ describe('useAutoLock', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    clearKeyManager()
   })
 
   it('locks the wallet after the idle timeout when unlocked + idle', () => {
@@ -77,6 +93,7 @@ describe('useAutoLock', () => {
     })
     // After the timeout, lock() should have flipped the entry to 'locked'.
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    expect(isUnlocked()).toBe(false) // the keys are wiped, not just the status flipped
     // The sign-in card says why: "Locked after 5 minutes of inactivity."
     expect(store.get(lockReasonAtom)).toBe('idle')
   })
@@ -101,6 +118,7 @@ describe('useAutoLock', () => {
       vi.advanceTimersByTime(2 * 60_000)
     })
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    expect(isUnlocked()).toBe(false) // the keys are wiped, not just the status flipped
   })
 
   it('resets the timer on user activity', () => {
@@ -131,6 +149,7 @@ describe('useAutoLock', () => {
       vi.advanceTimersByTime(2 * 60_000)
     })
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    expect(isUnlocked()).toBe(false) // the keys are wiped, not just the status flipped
   })
 
   it('locks 5 minutes after the tab becomes hidden, before the idle timeout would fire', () => {
@@ -159,6 +178,7 @@ describe('useAutoLock', () => {
       vi.advanceTimersByTime(1 * 60_000 + 1)
     })
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    expect(isUnlocked()).toBe(false) // the keys are wiped, not just the status flipped
     expect(store.get(lockReasonAtom)).toBe('hidden')
   })
 
@@ -213,6 +233,7 @@ describe('useAutoLock', () => {
       vi.advanceTimersByTime(5 * 60_000 + 1000)
     })
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    expect(isUnlocked()).toBe(false) // the keys are wiped, not just the status flipped
     // Reset for sibling tests that assume a visible document.
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
   })
@@ -228,5 +249,6 @@ describe('useAutoLock', () => {
       window.dispatchEvent(new Event('beforeunload'))
     })
     expect(store.get(shieldedWalletsAtom)['rg-1']?.status).toBe('locked')
+    expect(isUnlocked()).toBe(false) // the keys are wiped, not just the status flipped
   })
 })
