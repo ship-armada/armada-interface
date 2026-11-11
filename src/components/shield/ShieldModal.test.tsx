@@ -239,12 +239,6 @@ describe('<ShieldModal>', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('renders the input step when open', () => {
-    renderModal({ open: true, max: 10_000_000n })
-    expect(screen.getByRole('dialog', { name: 'Shield' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Shield amount')).toBeInTheDocument()
-  })
-
   it('advances to the review step after entering a valid amount', () => {
     renderModal({ open: true, max: 10_000_000n })
     fireEvent.change(screen.getByLabelText('Shield amount'), { target: { value: '5' } })
@@ -561,9 +555,11 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(screen.getByLabelText('Network')).toHaveTextContent(client.name)
   })
 
-  it('opens on the Shield tab from openModal=shield with both tabs present', () => {
+  it('opens on the Shield tab\'s amount step from openModal=shield, with both tabs present', () => {
     renderModal({ open: true, kind: 'shield', max: 10_000_000n, spendable: 10_000_000n, evm: EVM })
+    expect(screen.getByRole('dialog', { name: 'Shield' })).toBeInTheDocument()
     expect(screen.getByText('Shield your USDC')).toBeInTheDocument()
+    expect(screen.getByLabelText('Shield amount')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Shield' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Unshield' })).toBeInTheDocument()
   })

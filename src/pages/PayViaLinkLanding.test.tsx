@@ -33,9 +33,9 @@ describe('PayViaLinkLanding', () => {
     expect(screen.getByRole('img', { name: 'Scan to open payment request' })).toBeInTheDocument()
   })
 
-  it('says when the link expires: "Expires in N days"', () => {
+  it('says when the link expires (the wording is payViaLink.test\'s)', () => {
     renderAt(`/pay-via-link?to=${VALID_0ZK}&id=req_a&expires=${FUTURE}&amount=25`)
-    expect(screen.getByText('Expires in 7 days')).toBeInTheDocument()
+    expect(screen.getByText(/^Expires in \d+ days?$/)).toBeInTheDocument()
   })
 
   it('asks the payer to check the address with whoever sent the link (10F)', () => {
