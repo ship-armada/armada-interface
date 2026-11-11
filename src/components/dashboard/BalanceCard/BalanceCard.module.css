@@ -216,6 +216,126 @@
   width: 100%;
 }
 
+.syncLoader {
+  display: flex;
+  align-items: center;
+  height: calc(var(--primitives-fontSize-4xl) * 1px);
+}
+
+.syncLabel {
+  display: inline-block;
+}
+
+.syncRing {
+  --ring-size: var(--primitives-spacing-8);
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--ring-size);
+  height: var(--ring-size);
+}
+
+.syncTick {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.5px;
+  height: var(--primitives-spacing-1);
+  border-radius: calc(var(--primitives-borderRadius-sm) * 0.5px);
+  background: var(--semantic-color-text-lavender);
+  transform-origin: 50% calc(var(--ring-size) / 2);
+  transform: translate(-50%, calc(var(--ring-size) / -2)) rotate(calc(var(--i) * 15deg));
+  opacity: 0.4;
+  animation: syncTickSweep 2.1s linear infinite;
+  animation-delay: calc(var(--i) * 0.0875s);
+}
+
+@keyframes syncTickSweep {
+  0% {
+    opacity: 1;
+    width: 3px;
+  }
+
+  12% {
+    opacity: 0.7;
+    width: 2.25px;
+  }
+
+  30% {
+    opacity: 0.45;
+    width: 1.5px;
+  }
+
+  100% {
+    opacity: 0.4;
+    width: 1.5px;
+  }
+}
+
+.syncFail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--primitives-spacing-3);
+  width: 100%;
+}
+
+.syncFailTitle,
+.syncFailBody {
+  margin: 0;
+}
+
+.syncFailTitle {
+  color: var(--semantic-color-text-primary);
+}
+
+.syncFailBody {
+  color: var(--semantic-color-text-secondary);
+}
+
+.syncHelp {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--primitives-spacing-1);
+}
+
+.syncHelpLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  padding-block: var(--primitives-spacing-1);
+  color: var(--semantic-color-text-muted);
+  text-decoration: underline;
+}
+
+.syncHelpLink:hover,
+.syncHelpLink:focus-visible {
+  color: var(--semantic-color-text-primary);
+}
+
+.syncHelpLink:focus-visible {
+  outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
+  outline-offset: var(--primitives-spacing-1);
+}
+
+.balanceStackEnter {
+  animation: balanceStackRise 420ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes balanceStackRise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--primitives-spacing-3));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .visibilityToggle {
   position: absolute;
   top: var(--balance-card-padding);
@@ -328,6 +448,38 @@
 .label {
   color: var(--semantic-color-text-primary);
   padding-left: var(--primitives-spacing-1);
+}
+
+@property --sync-label-shine {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+.label.syncLabel {
+  --sync-label-ink: color-mix(in srgb, var(--semantic-color-text-primary) 55%, var(--semantic-color-surface-bg));
+  background-image: linear-gradient(
+    105deg,
+    var(--sync-label-ink) 0%,
+    var(--sync-label-ink) 36%,
+    var(--semantic-color-text-primary) 50%,
+    var(--sync-label-ink) 64%,
+    var(--sync-label-ink) 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: var(--sync-label-shine) 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: syncLabelShine 1.6s linear infinite;
+}
+
+@keyframes syncLabelShine {
+  to {
+    --sync-label-shine: 100%;
+  }
 }
 
 /* "· Confirming…" after the label while the balance includes an unconfirmed figure (3B). Always mounted (empty when not),
@@ -704,6 +856,25 @@
 @media (prefers-reduced-motion: reduce) {
   .moreMenu {
     transition: none;
+  }
+
+  .syncTick {
+    animation: none;
+    opacity: 0.55;
+    width: 1.5px;
+  }
+
+  .label.syncLabel {
+    animation: none;
+    background-image: none;
+    background-clip: border-box;
+    -webkit-background-clip: border-box;
+    -webkit-text-fill-color: currentcolor;
+    color: color-mix(in srgb, var(--semantic-color-text-primary) 55%, transparent);
+  }
+
+  .balanceStackEnter {
+    animation: none;
   }
 }
 

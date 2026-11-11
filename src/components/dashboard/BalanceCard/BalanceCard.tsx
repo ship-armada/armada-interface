@@ -1,6 +1,6 @@
 // ABOUTME: Private-USDC balance card — address + animated balance + Shield/Send/Request/Earn action row + optional vault position bar.
-// ABOUTME: Ported from the armada-app design mockup (polish update). Presentational; Dashboard.tsx wires real data + actions.
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+// ABOUTME: While the first scan runs, the figure slot shows the loader (or the failure) instead of a separate sync card.
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   ArrowDownIcon,
   ArrowRightIcon,
@@ -9,6 +9,9 @@ import {
   EyeSlashIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline'
+import { ExternalLink } from 'lucide-react'
+import { Button } from '@/design'
+import { SUPPORT_URL } from '@/config/support'
 import { BalanceActionButton } from '@/components/dashboard/BalanceActionButton'
 import {
   RollingBalanceValue,
@@ -58,6 +61,13 @@ export interface BalanceCardProps {
   /** The balance includes a figure the chain hasn't confirmed yet (a send's change, an incoming shield — 3B): "Confirming…"
    *  beside the label until it has. */
   confirming?: boolean
+  /** The first scan is still running: the figure slot shows the loader instead of an amount. */
+  syncing?: boolean
+  /** The first scan failed: the figure slot shows the retry, in the same card. */
+  syncFailed?: boolean
+  /** A retry already failed once, so the help link is shown. */
+  syncRetried?: boolean
+  onSyncRetry?: () => void
 }
 
 function prefersReducedMotion(): boolean {
@@ -96,6 +106,10 @@ export function BalanceCard({
   onBalanceHiddenChange,
   armadaAddress,
   confirming = false,
+  syncing = false,
+  syncFailed = false,
+  syncRetried = false,
+  onSyncRetry,
 }: BalanceCardProps) {
   const isMobileLayout = useMobileLayout()
   const [internalBalanceHidden, setInternalBalanceHidden] = useState(false)
@@ -109,7 +123,9 @@ export function BalanceCard({
     }
   }
   const [peekBalance, setPeekBalance] = useState(false)
-  const [balanceIntroPlaying, setBalanceIntroPlaying] = useState(() => !prefersReducedMotion())
+  const [balanceIntroPlaying, setBalanceIntroPlaying] = useState(false)
+  const [balanceIntroArmed, setBalanceIntroArmed] = useState(false)
+  const [syncSeen, setSyncSeen] = useState(false)
   const balanceRowRef = useRef<HTMLDivElement>(null)
   const balanceValueRef = useRef<HTMLSpanElement>(null)
   const balanceValueSizerRef = useRef<HTMLSpanElement>(null)
@@ -118,6 +134,25 @@ export function BalanceCard({
   const [completedRollTrigger, setCompletedRollTrigger] = useState(0)
   const [armadaAddressCopied, setArmadaAddressCopied] = useState(false)
   const armadaAddressCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showSync = syncing || syncFailed
+  const [prevShowSync, setPrevShowSync] = useState(showSync)
+  const [balanceArriving, setBalanceArriving] = useState(false)
+  if (showSync && !syncSeen) setSyncSeen(true)
+  if (showSync !== prevShowSync) {
+    setPrevShowSync(showSync)
+    if (showSync) setBalanceArriving(false)
+    else if (!prefersReducedMotion()) setBalanceArriving(true)
+  }
+  // The first scan's balance arrives a render after the gate lifts, still 0 on the frame syncing ends.
+  // Wait for that amount before deciding the intro roll; a card that never scanned decides immediately.
+  if (!showSync && !balanceIntroArmed) {
+    if (balance > 0 && !prefersReducedMotion()) {
+      setBalanceIntroArmed(true)
+      setBalanceIntroPlaying(true)
+    } else if (!syncSeen) {
+      setBalanceIntroArmed(true)
+    }
+  }
 
   useEffect(() => {
     return () => {
@@ -364,7 +399,15 @@ export function BalanceCard({
                   {armadaAddressCopied ? 'Copied' : truncateArmadaAddress(armadaAddress)}
                 </button>
               ) : null}
-              <div className={styles.balanceStack}>
+              <div
+                className={[styles.balanceStack, balanceArriving && styles.balanceStackEnter]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {showSync ? (
+                  <BalanceSyncSlot failed={syncFailed} retried={syncRetried} onRetry={onSyncRetry} />
+                ) : (
+                  <>
                 <span className={`armada-text-ui-label-md ${styles.label}`}>
                   USDC shielded balance
                   <span className={styles.confirming} role="status" aria-live="polite">
@@ -394,6 +437,8 @@ export function BalanceCard({
                     </div>
                   )}
                 </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -465,5 +510,58 @@ export function BalanceCard({
         ) : null}
       </div>
     </div>
+  )
+}
+
+const SYNC_TICK_COUNT = 24
+
+function BalanceSyncSlot({
+  failed,
+  retried,
+  onRetry,
+}: {
+  failed: boolean
+  retried: boolean
+  onRetry?: () => void
+}) {
+  const ticks = useMemo(() => Array.from({ length: SYNC_TICK_COUNT }, (_, index) => index), [])
+
+  if (failed) {
+    return (
+      <div className={styles.syncFail} role="alert">
+        <p className={`armada-text-ui-body-lg ${styles.syncFailTitle}`}>Sync interrupted</p>
+        <p className={`armada-text-ui-body-sm ${styles.syncFailBody}`}>
+          Your funds are safe on chain — we just couldn’t finish loading your private balance here. This is usually a
+          temporary network problem.
+        </p>
+        <Button variant="primary" size="md" label="Try again" showIcon={false} onClick={onRetry} />
+        {retried ? (
+          <div className={styles.syncHelp}>
+            <p className={`armada-text-ui-body-sm ${styles.syncFailBody}`}>
+              Still not loading? Check your connection, or try again in a few minutes.
+            </p>
+            <a className={styles.syncHelpLink} href={SUPPORT_URL} target="_blank" rel="noopener noreferrer">
+              Get help on Discord
+              <ExternalLink size={14} aria-hidden />
+            </a>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <span className={`armada-text-ui-label-md ${styles.label} ${styles.syncLabel}`} role="status" aria-live="polite">
+        Loading private balance
+      </span>
+      <div className={styles.syncLoader} aria-hidden="true">
+        <span className={styles.syncRing}>
+          {ticks.map((index) => (
+            <span key={index} className={styles.syncTick} style={{ '--i': index } as CSSProperties} />
+          ))}
+        </span>
+      </div>
+    </>
   )
 }
