@@ -5,7 +5,7 @@ import { MODAL_STEP_EXIT_MS } from './modalExitMotion'
 import styles from './ModalShell.module.css'
 
 export interface ModalStepSwitchProps {
-  /** Stable id for the current step (same as the old `key` on the step shell). */
+  /** Stable id for the current step; a change plays the exit, then remounts the children. */
   stepKey: string
   children: ReactNode
   /** When the whole modal is closing, skip step exit — overlay/content exit owns motion. */

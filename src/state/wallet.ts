@@ -21,8 +21,8 @@ export const activeShieldedWalletAtom = atom<ShieldedWalletState | null>((get) =
 })
 
 /**
- * Legacy alias retained until Bundle 2 consumers fully migrate to `activeShieldedWalletAtom`.
- * For now, returns a thin compat shape ({ status: 'missing' } when no wallet, else the active one).
+ * Compat view of `activeShieldedWalletAtom` that most UI reads: a thin shape ({ status: 'missing' }
+ * when no wallet, else the active one's status + shielded address).
  */
 export const shieldedWalletAtom = atom<{ status: 'locked' | 'unlocked' | 'missing'; shieldedAddress?: string }>((get) => {
   const active = get(activeShieldedWalletAtom)

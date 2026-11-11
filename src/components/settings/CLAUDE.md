@@ -1,6 +1,6 @@
 # components/settings/
 
-Auxiliary dialogs for the Settings page — destructive actions are gated here so the page itself stays a flat list of options.
+Auxiliary dialogs for the Settings modal (`SettingsModal`) — destructive actions are gated here so the modal itself stays a flat list of options.
 
 ## Contents
 
@@ -8,7 +8,7 @@ Auxiliary dialogs for the Settings page — destructive actions are gated here s
 |---|---|
 | `RecoverySecretExportDialog` | Tabs over two modes — encrypted backup file (passphrase + browser download) and raw hex (opt-in reveal). Clears state on close so revealed material never outlives the dialog. |
 | `ResetWalletDialog` | Destructive — requires typing "reset" before the Reset CTA enables. Calls `useShieldedWallet().reset()`. |
-| `ClearHistoryDialog` | V1 Phase 9 — wipes the local `txHistory` IDB store + per-wallet checkpoint, then bumps `historyRecoveryTriggerAtom` (`silent: false` — a user-initiated rebuild reads `scanning`, and a failure shows the Retry banner) so the recovery hook rebuilds from chain. Single-confirm (no typed phrase) because the action is reversible via re-scan. |
+| `ClearHistoryDialog` | Wipes the local `txHistory` IDB store, the `requestLinks` store (created payment links — local-only, so this part is permanent) and the per-wallet checkpoint, then bumps `historyRecoveryTriggerAtom` (`silent: false` — a user-initiated rebuild reads `scanning`, and a failure shows the Retry banner) so the recovery hook rebuilds from chain. Single-confirm (no typed phrase) because tx history is reversible via re-scan. |
 
 The **Preferences** card holds auto-lock and **Show transaction updates** (`txNoticeStyleAtom` → `preferencesAtom.txNoticeStyle`): "Pop-up" (toasts, the default) or "In the header" (the pending pill announces the outcome). A tx in flight always shows in the header pill either way.
 
@@ -17,8 +17,8 @@ The Settings modal also shows a **Notes** card when a shielded token is spread a
 ## Conventions
 
 - Dialogs use the `Modal` primitive directly (not `FlowShell`) since they're single-screen, not multi-step flows.
-- Open/close is controlled by Settings page-local state (not `openModalAtom`); these dialogs are Settings-internal.
-- Secret-handling rules from `lib/shielded/CLAUDE.md` apply here: never `console.log` the mnemonic, never store it outside the dialog's local state, clear on close.
+- Open/close is controlled by `SettingsModal`-local state (not `openModalAtom`); these dialogs are Settings-internal.
+- Secret-handling rules from `lib/shielded/CLAUDE.md` apply here: never `console.log` the recovery secret, never store it outside the dialog's local state, clear on close.
 
 ## Wired
 

@@ -1,4 +1,5 @@
 // ABOUTME: Tests for useUsdcBalances — verifies per-chain queries are skipped while disconnected, atom is mirrored on success, visibility-pause halts the interval, atom is cleared on disconnect.
+// ABOUTME: Also: an account switch clears the prior account's balances, a flaky deployments load is retried, and mergeUsdcBalances keeps its reference when nothing changed.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, waitFor } from '@testing-library/react'

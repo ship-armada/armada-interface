@@ -1,4 +1,5 @@
 // ABOUTME: Unit tests for the eth_getLogs bisecting patch.
+// ABOUTME: Covers the per-provider range-error matcher, recursive bisect + merge, non-range passthrough, and the idempotent prototype install.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { JsonRpcProvider, type JsonRpcResult } from 'ethers'

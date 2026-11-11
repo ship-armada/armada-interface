@@ -63,8 +63,8 @@ describe('DepositAmountCard — pendingBalance', () => {
 
 describe('DepositAmountCard — amount typing', () => {
   it('passes a leading 0 / . through instead of discarding it (sub-one amounts are typeable)', () => {
-    // Regression: the card used to rewrite `0`/`.` to '' via hasActiveAmount, so a user could not
-    // start typing "0.5" — the leading 0 or . vanished. Each keystroke must now commit forward.
+    // Regression guard: rewriting `0`/`.` to '' via hasActiveAmount would stop a user typing "0.5"
+    // (the leading 0 or . vanishes). Each keystroke must commit forward.
     const onAmountChange = vi.fn()
     renderCard({ amount: '', onAmountChange, amountAriaLabel: 'Deposit amount' })
     const input = screen.getByLabelText('Deposit amount')

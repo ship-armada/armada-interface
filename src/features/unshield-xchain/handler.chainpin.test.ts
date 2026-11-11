@@ -16,7 +16,6 @@ vi.mock('@/lib/shielded/sync', () => ({ refreshShieldedBalances: vi.fn(async () 
 vi.mock('@/lib/shielded/keyManager', () => ({
   isUnlocked: () => false,
   getWalletId: () => 'rw-1',
-  getSdkEncryptionKey: () => '0xkey',
 }))
 vi.mock('@/config/deployments', () => ({
   loadDeployments: vi.fn(async () => ({

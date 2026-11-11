@@ -1,4 +1,5 @@
 // ABOUTME: Tests for resolveFreshQuote — always refetches; flags feeChanged only when the fresh fee differs from the reviewed one.
+// ABOUTME: A relayer that can't be reached returns a null quote rather than the stale one.
 
 import { describe, it, expect, vi } from 'vitest'
 import { resolveFreshQuote } from './submitQuote'

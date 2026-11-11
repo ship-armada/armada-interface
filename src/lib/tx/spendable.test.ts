@@ -1,4 +1,5 @@
 // ABOUTME: Tests for assertSpendableForFeeOnTop (S-M5) — the submit-time amount+fee<=balance guard.
+// ABOUTME: It throws a clear error before proof generation when the fresh relayer fee no longer fits the balance.
 
 import { describe, it, expect } from 'vitest'
 import { assertSpendableForFeeOnTop } from './spendable'

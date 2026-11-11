@@ -1,4 +1,5 @@
 // ABOUTME: Tests for feeQuoteIsStaleAtom (P1-28) — staleness is derived from the CLIENT-clock fetch time, not the server's expiresAt, so wall-clock skew can't produce a "always stale" re-quote storm.
+// ABOUTME: Stale with no quote or no fetch time; fresh right after a fetch and stale past FEE_QUOTE_STALE_AFTER_MS on nowAtom, whatever expiresAt says.
 
 import { describe, it, expect } from 'vitest'
 import { createStore } from 'jotai'

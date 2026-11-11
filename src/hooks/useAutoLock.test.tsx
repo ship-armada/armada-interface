@@ -28,7 +28,6 @@ function setupStore(opts: {
     setUnlocked({
       rootSecret: new Uint8Array(32).fill(1),
       walletId: 'rg-1',
-      sdkEncryptionKey: 'ff'.repeat(32),
       shieldedAddress: '0zk-test',
       checksum: 'a3f2 91c8 b7e0',
       creationBlock: null,

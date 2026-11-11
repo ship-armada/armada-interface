@@ -11,9 +11,9 @@ const KIND_TITLES: Record<TxKind, string> = {
   // Cross-chain shield surfaces under the same modal/CTA as same-chain shield; the kind
   // distinction is purely for the lifecycle. From the user's perspective both are shields.
   'shield-xchain': 'Shield',
-  // Unshield and Send-External both produce `unshield-*` records — there's no separate kind
-  // for "Payment" because the contract paths are identical. The UI distinguishes the user's
-  // intent (self vs other) via the modal they started from + the recipient field default.
+  // Unshield (the Unshield tab) and a public Send (to a 0x address) both produce `unshield-*` records — there's no separate kind
+  // for "Payment" because the contract paths are identical. The Activity list tells an unshield to
+  // the user's own wallet from a payment by its recipient (`isWithdrawToSelf`).
   'unshield-local': 'Unshield',
   'unshield-xchain': 'Unshield',
   'transfer-shielded': 'Private transfer',

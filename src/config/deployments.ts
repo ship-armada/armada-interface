@@ -1,5 +1,5 @@
-// ABOUTME: Loads privacy-pool deployment manifests for hub + each client chain at app start.
-// ABOUTME: Schema typed against actual manifest shapes; fetched via the serveDeployments() Vite dev plugin.
+// ABOUTME: Loads privacy-pool deployment manifests for hub + each client chain on first use (single-flight, cached).
+// ABOUTME: Schema typed against actual manifest shapes; fetched from /api/deployments (Vite dev plugin locally, static public/api/deployments in production).
 
 import { getNetworkConfig, type ChainIdentity } from './network'
 

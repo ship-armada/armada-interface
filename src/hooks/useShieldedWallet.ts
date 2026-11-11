@@ -63,8 +63,8 @@ export function useShieldedWallet() {
    * load-or-create. The signing prompt is what users see in MetaMask / Rabby / etc; if they
    * reject, the wagmi async call rejects and we propagate.
    *
-   * Returns the rootSecret to the caller so the onboarding flow can drive the optional backup-
-   * export ceremony. The returned `Uint8Array` is the SAME reference held by the keyManager —
+   * Returns the rootSecret and wallet state to the caller (`useSignIn` uses neither — it only
+   * awaits success). The returned `Uint8Array` is the SAME reference held by the keyManager —
    * UI code MUST NOT mutate or `fill(0)` the buffer; the keyManager owns its lifetime.
    *
    * `account` defaults to 0 (the only value the v1 UI exposes); the plumbing accepts N ≥ 0 so
@@ -255,10 +255,10 @@ export function useShieldedWallet() {
 
   const lock = useCallback(() => {
     if (!activeId) return
-    // Flip the atom synchronously — `lockWallet` clears the in-memory key material before its
-    // own internal await, so the wallet is effectively locked the moment we drop the keys. The
-    // SDK's `unloadWalletByID` is best-effort cleanup; awaiting it would make `lock()` appear
-    // async to callers (e.g. the auto-lock timer) that need a synchronous transition.
+    // Flip the atom synchronously — `lockWallet` clears the in-memory key material synchronously
+    // (its body has no await), so the wallet is locked the moment we drop the keys. The SDK read
+    // instance is closed by `useShieldedBalanceSync` when it sees the status flip; not awaiting
+    // here keeps `lock()` synchronous for callers (e.g. the auto-lock timer) that need that.
     setWallets(prev => {
       const existing = prev[activeId]
       if (!existing) return prev

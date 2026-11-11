@@ -1,4 +1,5 @@
 // ABOUTME: Shared DisplayFees fixtures for component tests.
+// ABOUTME: ZERO_DISPLAY_FEES (every fee zero) and displayFeesWithProtocol(fee) (a protocol fee + a native-gas estimate).
 
 import type { DisplayFees } from '@/lib/fees/displayFees'
 

@@ -1,5 +1,5 @@
 // ABOUTME: MergeModal — the "Merge notes" flow (note consolidation, armada-sdk #98): review the priced merge, confirm
-// ABOUTME: (re-priced at submit), then progress → complete / error. Opened from a blocked flow's error or Settings.
+// ABOUTME: (re-priced at submit), then progress → complete / error. Opened from a blocked flow's Review callout or error step, or Settings.
 
 import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'

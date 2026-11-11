@@ -34,7 +34,7 @@ track('app.sentry', { enabled: sentryEnabled() })
 installBisectingGetLogs()
 
 // Apply the persisted theme, defaulting to light to match the design mockup. Runs before render
-// so the WalletPillMenu dark/light toggle survives reloads. index.html sets data-theme="light"
+// so the header ThemeToggle's dark/light choice survives reloads. index.html sets data-theme="light"
 // pre-paint to avoid a flash; this reconciles it with any saved choice.
 setTheme(getSavedTheme() ?? 'light', { animate: false })
 

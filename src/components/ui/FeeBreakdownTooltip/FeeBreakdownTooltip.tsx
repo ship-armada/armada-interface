@@ -59,8 +59,8 @@ export interface FeeBreakdownTooltipProps {
   flowBreakdown?: FlowFeeBreakdown
   /**
    * True when the user pays native gas themselves (direct shield). Explicit signal for the
-   * network-gas line + description. When omitted, falls back to the legacy "no broadcaster fee ⇒
-   * direct" inference for callers that don't thread it.
+   * network-gas line + description. When omitted, falls back to inferring "no broadcaster fee ⇒
+   * direct" for callers that don't thread it.
    */
   userPaysNativeGas?: boolean
 }

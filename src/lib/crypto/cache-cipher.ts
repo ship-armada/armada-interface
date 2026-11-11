@@ -15,7 +15,7 @@ import { bytesToHexNoPrefix, hexToBytesNoPrefix } from './hex'
  *
  * Privacy note: the envelope deliberately carries NO plaintext metadata — no walletId, no kind,
  * no timestamps. A consumer with the wrong key sees an opaque blob and learns nothing about
- * what's inside. Phase 6's filter-on-load uses post-decrypt comparison (records belonging to the
+ * what's inside. Filter-on-load uses post-decrypt comparison (records belonging to the
  * active wallet successfully decrypt; foreign records throw and get skipped), so the active
  * walletId never needs to leak to the envelope shape.
  */

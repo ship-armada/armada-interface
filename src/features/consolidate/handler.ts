@@ -28,8 +28,9 @@ import type { TxError, TxRecord } from '@/lib/tx/types'
  *   1. `build-proof`    — plan the merge (old-tree notes first, then the smallest) and generate its
  *                          Groth16 proofs (up to 4, ~20-30s each on local Anvil), combined into one atomic
  *                          `transact([...])`. Every proof embeds the per-proof USDC fee to the relayer.
- *   2. `submit-relayer` — POST the calldata to the relayer's `/relay`, poll `/status` until confirmed.
- *   3. `hub-confirmed`  — terminal. Kicks a balance refresh.
+ *   2. `submit-relayer` — POST the calldata to the relayer's `/relay`, persist the txHash, advance.
+ *   3. `hub-pending`    — broadcast; poll `/status` until confirmed. Also the resume / retry entry.
+ *   4. `hub-confirmed`  — terminal. Kicks a balance refresh.
  *
  * No EVM wallet signature — the relayer broadcasts and pays gas, reimbursed by the fee notes.
  */

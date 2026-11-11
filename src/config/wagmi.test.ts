@@ -1,4 +1,5 @@
 // ABOUTME: Tests for buildTransports (P1-18) — a chain with multiple configured RPC URLs gets a viem `fallback` transport; a single-URL chain gets a plain `http` transport.
+// ABOUTME: Also resolveChainsForMode — one wagmi Chain per active identity (hub + enabled clients), with no hardcoded count.
 
 import { describe, it, expect, vi } from 'vitest'
 

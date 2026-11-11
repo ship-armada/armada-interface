@@ -1,5 +1,5 @@
 // ABOUTME: Tests for lib/crypto/eip712 — the enrollment message's known-answer digest (from the spec), typed-data shape,
-// ABOUTME: verifyingContract derivation, and signature normalization (65-byte, EIP-2098 compact, v∈{0,1,27,28}).
+// ABOUTME: verifyingContract derivation, signature normalization; a change to the frozen domain / types / message constants fails them.
 
 import { describe, it, expect } from 'vitest'
 import {

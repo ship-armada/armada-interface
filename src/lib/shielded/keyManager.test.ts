@@ -1,4 +1,5 @@
 // ABOUTME: Tests for lib/shielded/keyManager — set/get/clear, locked-state throws, best-effort zeroization of the rootSecret buffer on clear.
+// ABOUTME: Also covers the historyEncryptionKey getter (and its zeroization) and deriveChecksum.
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
@@ -6,7 +7,6 @@ import {
   isUnlocked,
   getRootSecret,
   getWalletId,
-  getSdkEncryptionKey,
   getShieldedAddress,
   getChecksum,
   getCreationBlock,
@@ -18,14 +18,13 @@ import {
 function makeState(seed = 1, creationBlock: number | null = 100) {
   const rootSecret = new Uint8Array(32)
   for (let i = 0; i < 32; i++) rootSecret[i] = (seed + i) & 0xff
-  // Phase 7: keyManager now also holds a historyEncryptionKey for at-rest tx-record AES-GCM.
+  // keyManager also holds the historyEncryptionKey used for at-rest tx-record AES-GCM.
   // Fixture uses a distinct seed so a copy-paste of rootSecret won't mask a bug.
   const historyEncryptionKey = new Uint8Array(32)
   for (let i = 0; i < 32; i++) historyEncryptionKey[i] = (seed + 64 + i) & 0xff
   return {
     rootSecret,
     walletId: 'wallet-id-xyz',
-    sdkEncryptionKey: 'ff'.repeat(32),
     shieldedAddress: '0zk1qexample…',
     checksum: 'a3f2 91c8 b7e0',
     creationBlock,
@@ -54,7 +53,6 @@ describe('setUnlocked + getters', () => {
     setUnlocked(s)
     expect(getRootSecret()).toBe(s.rootSecret) // same reference, not a copy
     expect(getWalletId()).toBe(s.walletId)
-    expect(getSdkEncryptionKey()).toBe(s.sdkEncryptionKey)
     expect(getShieldedAddress()).toBe(s.shieldedAddress)
     expect(getChecksum()).toBe(s.checksum)
   })
@@ -64,7 +62,6 @@ describe('setUnlocked + getters', () => {
       setUnlocked({
         rootSecret: new Uint8Array(16),
         walletId: 'x',
-        sdkEncryptionKey: 'y',
         shieldedAddress: 'z',
         checksum: 'cs',
         creationBlock: 0,
@@ -99,7 +96,6 @@ describe('locked-state behavior', () => {
   it('throws on every getter when locked', () => {
     expect(() => getRootSecret()).toThrow(/locked/)
     expect(() => getWalletId()).toThrow(/locked/)
-    expect(() => getSdkEncryptionKey()).toThrow(/locked/)
     expect(() => getShieldedAddress()).toThrow(/locked/)
     expect(() => getChecksum()).toThrow(/locked/)
     expect(() => deriveChecksum()).toThrow(/locked/)

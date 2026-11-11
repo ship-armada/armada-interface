@@ -1,5 +1,5 @@
-// ABOUTME: IndexedDB cache helpers — tx history, fee quotes, ENS resolutions, balance snapshots.
-// ABOUTME: Stub now (typed signatures only); implementation lands when first consumer needs it.
+// ABOUTME: IndexedDB cache helpers over the `armada-interface` DB — the `txHistory` and `requestLinks` stores.
+// ABOUTME: get / put / read-modify-write / delete / all / clear; callers (lib/tx/storage, shielded/requestLinks) encrypt values first.
 
 const DB_NAME = 'armada-interface'
 // v2: adds the `requestLinks` store (created payment-request links). The upgrade is additive —
@@ -8,18 +8,10 @@ const DB_VERSION = 2
 
 export type StoreName =
   | 'txHistory'
-  | 'feeQuotes'
-  | 'ens'
-  | 'shieldedBalances'
-  | 'meta'
   | 'requestLinks'
 
 const STORES: ReadonlyArray<StoreName> = [
   'txHistory',
-  'feeQuotes',
-  'ens',
-  'shieldedBalances',
-  'meta',
   'requestLinks',
 ]
 

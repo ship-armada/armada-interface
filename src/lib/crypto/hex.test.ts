@@ -1,4 +1,5 @@
 // ABOUTME: Tests for lib/crypto/hex — the shared nibble-based hex codec used on key-material paths.
+// ABOUTME: Known-vector decode, optional 0x prefix, round-trip, lowercase zero-padded encode, and rejection of odd-length / non-hex input.
 
 import { describe, it, expect } from 'vitest'
 import { bytesToHexNoPrefix, hexToBytesNoPrefix } from './hex'

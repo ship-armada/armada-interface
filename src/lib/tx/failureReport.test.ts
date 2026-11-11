@@ -1,5 +1,5 @@
-// ABOUTME: Tests for reportTerminalFailure — always emits a tx.failed info event; forwards only the
-// ABOUTME: unexpected-failure codes (OTHER / TX_REVERTED / POLL_TIMEOUT) to Sentry via trackError.
+// ABOUTME: Tests for reportTerminalFailure — always emits a tx.failed info event; forwards to Sentry only the unexpected-failure
+// ABOUTME: codes (OTHER / TX_REVERTED / POLL_TIMEOUT) and SDK codes that mean a bug or broken prover, never an expected SDK refusal.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 

@@ -1,5 +1,5 @@
 // ABOUTME: useShieldFlow — the shield (deposit) flow controller. Owns form + fee + submit + step orchestration.
-// ABOUTME: Extracted from ShieldModal so the modal is a dumb renderer; no ethers/execution here — that lives in features/shield*.
+// ABOUTME: ShieldModal is its dumb renderer; no ethers/execution here — that lives in features/shield*.
 
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
 import { estimatedTimeLabel } from '@/lib/tx/eta'
@@ -156,7 +156,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   })
 
   // Relayer-side health. Only consult to flip the gasless toggle off when the relayer is in a
-  // state that can't safely accept submits; the banner itself is rendered at the bottom of the
+  // state that can't safely accept submits; the banner itself is rendered by ShieldModal
+  // (`RelayerStatusBanner`), not here.
   // Gate the gasless/relayer path on the actor being REACHABLE — not on `/health`'s freshness
   // `status`. A `stale`/`unhealthy` indexer doesn't stop the relayer accepting + broadcasting a
   // shield, so it must not silently flip the user to direct wallet-submit. Only a sustained
@@ -167,7 +168,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
 
   const computedKind: SubmittedKind = computeKind(fromChainId, hubChainId)
 
-  // Phase B3/B4 — gasless path is available when the wrapper for the source chain is deployed and
+  // The gasless path is available when the wrapper for the source chain is deployed and
   // the relayer is reachable.
   //   - `shield` (hub):           reads `deployments.hub.contracts.gaslessShieldWrapper`.
   //   - `shield-xchain` (client): reads the per-client `gaslessShieldWrapperClient`.
@@ -184,8 +185,8 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   // there's no wallet-submit fallback for spends (that would link the EVM address to a shielded spend).
   const useGasless: boolean = wrapperAddress !== undefined && relayerAvailable
 
-  // useFees stays plumbed in for the relayer-submit path (need cacheId at submit time even
-  // though the display fee no longer comes from the quote on the direct path). For B4 the
+  // useFees serves the relayer-submit path (it needs a cacheId at submit time; the direct path's
+  // display fee doesn't come from the quote). The
   // shield-xchain gasless path needs the SOURCE chain's quote — fees vary per chain because
   // gas costs do (Base Sepolia ≠ Ethereum Sepolia). Pass `fromChainId` so useFees fetches the
   // matching schedule from `/fees?chainId=...`.
@@ -279,7 +280,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
   const protocolFeePending = protocolFeeStatus === 'pending'
   const reviewFigures = quotePending || protocolFeePending ? null : txFiguresAs(reviewed, 'deposit')
   // Minimum valid amount = the live fee. Below or equal to it the wrapper's `shieldAmount =
-  // totalAmount - fee` would underflow / be zero. Surfaced via ShieldInputStep's `minAmount`
+  // totalAmount - fee` would underflow / be zero. Surfaced via ShieldAmountStep's `minAmount`
   // prop so the user can't type a value that would inevitably revert. Zero for no-fee paths.
   const minAmount: bigint = fee
 
@@ -365,7 +366,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
       }
       if (reviewed.kind === 'shield') {
         setSubmittedKind('shield')
-        // Phase B3: gasless meta only set when actually routing through the wrapper; absent
+        // Gasless meta is only set when actually routing through the wrapper; absent
         // when direct-submit. The handler checks `meta.useGasless` to branch.
         if (useGasless && hubWrapperAddress !== undefined) {
           // Re-check against the FRESH fee. With fee-from-recipient semantics the entered
@@ -400,7 +401,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
         }
       } else {
         setSubmittedKind('shield-xchain')
-        // Phase B4: same dispatch pattern as B3 for hub, but the fee comes from the source
+        // Same dispatch pattern as the hub branch above, but the fee comes from the source
         // chain's `shieldXchain` tier — useFees was already configured with `chainId=fromChainId`
         // above so `activeQuote` is the source-chain quote.
         if (useGasless && clientWrapperAddress !== undefined) {
@@ -446,7 +447,7 @@ export function useShieldFlow(isOpen: boolean): ShieldFlow {
     }
   }
 
-  // Error-step primary action — same decision the old inline ErrorStep wiring made:
+  // Error-step primary action:
   //   review-stage error → back to review; retryable record → re-dispatch; else start over.
   const errorRetryable = errorAtStep === 'review' || (record != null && canRetryTx(record))
   // A retry that only re-checks a tx we lost track of reads "Check again" — it never resends (retryActionLabel).

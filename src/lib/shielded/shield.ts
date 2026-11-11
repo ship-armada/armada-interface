@@ -11,14 +11,12 @@
  *   of `shieldPrivateKey`). The sender's key is never re-needed after the shield is built —
  *   randomness is correct.
  * - Railgun's deterministic convention enables "sender-side history recovery from EVM wallet
- *   alone" across shielded wallets. We don't use that recovery path (our identity layer is
- *   `root_secret`-derived with a non-deterministic enrollment, so EVM-only recovery isn't
- *   available regardless), so the convention has no value for our app.
- * - Eliminates one wallet prompt per deposit; the engine's own `relay-adapt-helper` already
- *   uses `randomHex(32)` for its internal shields, proving correctness end-to-end.
+ *   alone" across shielded wallets. We don't use that path: our history recovery scans with the
+ *   wallet's own viewing key (derived from `root_secret`), which decrypts its shields from the
+ *   recipient side, so the convention has no value for our app.
+ * - Eliminates one wallet prompt per deposit.
  *
- * Uses `crypto.getRandomValues` (Web Crypto) — same source the SDK's `ByteUtils.randomHex` uses
- * for its random salt input on the same code path.
+ * Uses `crypto.getRandomValues` (Web Crypto).
  */
 export function generateRandomShieldPrivateKey(): string {
   const bytes = new Uint8Array(32)
@@ -46,7 +44,7 @@ export interface ShieldRequestData {
   readonly encryptedBundle: readonly [`0x${string}`, `0x${string}`, `0x${string}`]
   readonly shieldKey: `0x${string}`
   /**
-   * The 16-byte per-note salt (hex, no 0x) the engine bound into `npk = Poseidon(masterPublicKey,
+   * The 16-byte per-note salt (hex, no 0x) the SDK bound into `npk = Poseidon(masterPublicKey,
    * random)`. Surfaced so a relayer fee note can be verified without decryption: the relayer
    * recomputes the npk from its own masterPublicKey + this random and matches it against the note
    * (same primitive as the yield-redeem `feeShieldRandom`, see relayer `redeem-fee-verifier.ts`).

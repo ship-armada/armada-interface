@@ -1,6 +1,6 @@
 # lib/tx/
 
-Transaction lifecycle model. The most important architectural surface in this app — read `.claude/PLAN_ARMADA_INTERFACE.md` §7 + §7a before touching.
+Transaction lifecycle model. The most important architectural surface in this app — read `docs/ARCHITECTURE.md` §6 + §7 before touching.
 
 ## Files
 
@@ -9,12 +9,25 @@ Transaction lifecycle model. The most important architectural surface in this ap
 | `types.ts` | `TxKind` discriminated union; per-kind stage unions; `TxRecord<K>` with `executionState` + `stage` + `updatedSeq` + `walletContext`; `TxLifecycle<K>` with `maxDurationMs` + `retryableStages` (no auto-retry policy). |
 | `lifecycles.ts` | One `TxLifecycle` per `TxKind` — stage sequence, terminal-success stage, retryable stages (for the user-driven "Try Again"), per-kind expiry cap, and `stageEstimates` (per-stage `usualMs` / `slowMs` for the long waits — proof, chain confirmation, cross-chain submit, CCTP attestation — measured on Sepolia via Debug → Tx timings, with headroom; a shield's wallet prompts and sub-second stages get none). |
 | `eta.ts` | `stageTimingNote(timing, now)` — the progress view's note for its active row: `{ kind: 'usual', chip: 'Usually takes ~15 sec' }` while normal (when the stage has a `usualMs`; else null), or past `slowMs` `{ kind: 'slow', title: 'Taking longer than usual', body }` — the body says what's safe: USDC safe in transit (a broadcast cross-chain "Bridging" row), the tab can close (broadcast), or keep the tab open (not yet broadcast). `estimatedTimeLabel(kind, proofs)` — Review's "Est. time": the kind's `usualMs` estimates + `PROOF_MS` per proof, to the nearest 5s ("Usually takes ~15 sec"; cross-chain adds "· fast CCTP transfer"; a shield's wallet prompts aren't counted). |
-| `reducer.ts` | Pure transitions: `advance`, `markWaiting`, `markRetrying`, `markFailed`, `markExpired`, `markCancelled`. Every transition increments `updatedSeq`. `advance` also stamps `stageEnteredAt[toStage]` (first entry only, so a retried stage keeps its first stamp); `useTx.submit` stamps the first stage. |
+| `reducer.ts` | Pure transitions: `advance`, `markWaiting`, `markRetrying`, `markFailed`, `markExpired`, `markCancelled`, `markDismissed` (stopped tracking a broadcast tx — hash kept), `markRecoveredComplete` (history recovery's in-place upgrade to `completed`), and the in-stage patches `patchArtifacts` (e.g. a scan cursor) / `patchMeta` (on-chain-reconciled actuals). Every transition increments `updatedSeq`. `advance` also stamps `stageEnteredAt[toStage]` (first entry only, so a retried stage keeps its first stamp); `useTx.submit` stamps the first stage. |
 | `storage.ts` | IDB persistence: `putTxIfFresh` (OCC enforced via `updatedSeq`), `loadAllTx`, plus `putTx` (unconditional) and `deleteTx`, which no app code calls — tests use them to seed and clear records. |
 | `executor.ts` | **Module-scope** execution engine. Runs stage handlers outside React, owns AbortControllers, leader-elected via `navigator.locks`. |
-| `poller.ts` | Generic abortable / jittered / backoff-aware poll loop. Stage-specific adapters (Iris, RPC, relayer) plug in here. |
+| `poller.ts` | Generic abortable / jittered / backoff-aware poll loop (`poll`), the relayer `/status` adapter `pollRelayStatusOnce` (falls back to the RPC receipt on a relayer 404), `pollBudgetMs(record)` (a poll's timeout = the lifecycle budget left, crediting hidden time) and `RELAYER_STATUS_POLL_INTERVAL_MS`. |
+| `errors.ts` | `classifyHandlerError(err, fallback, sourceTxHash?, targetChainId?)` — every handler's outer catch turns a thrown value into a typed `TxError`: a branded TxError passes through, then relayer codes, `@armada/sdk` codes (`SDK_ERROR_CODES`, carried as `sdkCode`), `SpendFeeIncreasedError` → `FEE_EXPIRED`, a chain mismatch → `RPC_ERROR`, a user rejection → `USER_REJECTED`, else `OTHER` (decoding a raw revert payload first). |
+| `receipt.ts` | `waitForReceiptOrFail({ hash, signal, chainId })` — receipt wait with a timeout + cancel signal that throws branded TxErrors (`CANCELLED` / `POLL_TIMEOUT` / `TX_REVERTED`, or `RPC_ERROR` carrying the hash); `asTxError` / `extractTxError` for the brand. |
+| `broadcast.ts` | `recordBroadcastHash(record, hash, ctx)` — persists a fresh broadcast hash from the LATEST record (fresh `updatedSeq`), folding it into a dismissed record when a cancel raced the broadcast. Handlers continue from the record it returns. |
+| `progress.ts` | `createProofProgressWriter(record, signal)` — atom-only proof-progress writes in 10% buckets. Each write bumps `updatedSeq`, so a handler advances out of `build-proof` from `progress.latest()`, never the stage-entry record. |
+| `relaySubmit.ts` | `handleRelaySubmitError` — the relayer submit's catch: recovers the hash from a `DUPLICATE_TX` (the relayer already sent it) so the handler polls instead of failing; anything else rethrows. |
+| `hiddenClock.ts` | Credits tab-hidden time back to each running record's wall-clock budget (`beginHiddenCredit` / `hiddenMsForRecord` / `endHiddenCredit`), so a backgrounded tab doesn't expire or `POLL_TIMEOUT` a tx that only waited. |
+| `simulate.ts` | `simulateOrThrow` — the direct shield paths' pre-flight `eth_call`; a revert becomes `PRE_FLIGHT_REVERT` with the decoded reason before any wallet prompt. |
+| `revertSelectors.ts` | Decodes raw `Error(string)` / `Panic(uint256)` revert payloads for `classifyHandlerError`. |
+| `spendable.ts` | `assertSpendableForFeeOnTop` — submit-time check that amount + the fresh relayer fee fits the balance, before proving. |
+| `duplicateGuard.ts` | `hasUnresolvedShield` — the Shield review's warning when a same-amount deposit may still be on chain. |
+| `shieldWalletSteps.ts` | Maps a `shield` / `shield-xchain` record to the wallet-confirmation checklist rows (approve / submit, or authorize / sign). |
+| `selfSend.ts` | `selfSendAsMerge` — a send to the wallet's own 0zk shown as a merge (spec PS-7). |
+| `devForce.ts` | `throwIfForcedError` — debug-only fault injection: a record carrying `meta.devForceError` fails with that code. |
 | `recentRecipients.ts` | Pure `deriveRecentRecipients(records, {hubChainId, limit})` — the Send flow's recent-recipients list from settled history (dedupe by normalized address, newest-first, completed-only, per-kind destination chain). Also `countSendsTo(records, address)` — settled sends already made to one address (Review's "New recipient" callout / "History" row). Consumed via `hooks/useRecentRecipients`. |
-| `submitQuote.ts` | `resolveFreshQuote({refresh, reviewedFee, feeOf})` — every submit path (shield/unshield/transfer/yield) refetches a fresh `cacheId` right before proof gen (a stale cacheId is the relayer `FEE_EXPIRED` cause) and flags `feeChanged` when the fresh fee differs from the reviewed one, so the modal re-reviews (FeeUpdatedBanner) instead of silently swapping the fee. A private send additionally re-prices its split fee at the fresh quote (`useTransferFeePlan.priceAt`) and re-reviews on a different total. |
+| `submitQuote.ts` | `resolveFreshQuote({refresh, reviewedFee, feeOf})` — every submit path (shield/unshield/transfer/yield/merge) refetches a fresh `cacheId` right before proof gen (a stale cacheId is the relayer `FEE_EXPIRED` cause) and flags `feeChanged` when the fresh fee differs from the reviewed one, so the modal re-reviews (FeeUpdatedBanner) instead of silently swapping the fee. A private send additionally re-prices its split fee at the fresh quote (`useTransferFeePlan.priceAt`) and re-reviews on a different total. |
 | `spendDraft.ts` | `spendDraft(kind, input)` — the record a private send / unshield review will submit (`TxDraft`: kind + meta), shared by the Send modal and the Unshield tab. Review renders it through `lib/fees/txFigures` and submit sends it (+ the fresh quote's cache id / broadcaster address), so the stored record is what Review showed (spec G-2, G-10). Every other flow builds its `TxDraft` the same way inline. |
 | `notices.ts` | `detectTxNotices(prev, records, inView, now)` — which changes between two snapshots of the tx list deserve a notice outside the flow modal: a watched tx settling (`success`), failing (`failure`) or ending indeterminate (`uncertain`, via `txOutcome`), and a freshly received payment (`received`, only within `RECEIVED_NOTICE_MAX_AGE_MS` so history rebuilt from chain never reads as news). Records on screen (`inView`), a tx still in flight (the header pill names it) and a user cancel are silent; events carry a `TxNoticeOutcome` (every `TxNoticeTone` but `pending`, which only labels the pill). Driven by `hooks/useTxNotices`. |
 | `timings.ts` | Debug-page timing stats: `stageTimings(records)` — per kind and stage, p50 / p90 of the gap from a stage's `stageEnteredAt` stamp to the next stamped stage (+ a `total` row), completed records only; `latencyTimings(samples)` — the completion → balance-change samples per kind; `percentile` (nearest rank). |
@@ -41,8 +54,8 @@ Transaction lifecycle model. The most important architectural surface in this ap
 3. Add a `Meta<NewKind>` interface + extend `MetaFor<K>`.
 4. (If cross-chain) extend `ArtifactsFor<K>` or reuse `ArtifactsXchain`.
 5. Add a `TxLifecycle<NewKind>` entry in `lifecycles.ts` with `maxDurationMs` + `retryableStages` (and `stageEstimates` for any long wait, measured on the Debug page's Tx timings).
-6. Register a `StageHandler<NewKind>` somewhere that gets imported on app load (typically a `features/<area>/handler.ts` module that side-effects `registerHandler(...)`).
-7. Add the kind's copy to `components/tx/stageCopy.ts` (`KIND_TITLES`), `components/tx/processing/processingView.ts` (`STAGE_COPY`, `resolveCardBase`) and `components/tx/noticeCopy.ts` (`COPY`). These are exhaustive over `TxKind`, so the compiler flags a missing entry.
+6. Write the `StageHandler<NewKind>` in `features/<area>/handler.ts`, register it from `features/<area>/index.ts` (a side-effect module that calls `registerHandler(...)`), and add `import '@/features/<area>'` to `src/App.tsx` beside the others — nothing else imports it. Add a `features/<area>/handler.idempotency.test.ts` proving a re-entry with a known `sourceTxHash` never re-broadcasts (resume and retry rely on it — see "Resume policy").
+7. Add the kind's copy to `components/tx/stageCopy.ts` (`KIND_TITLES`), `components/tx/processing/processingView.ts` (`STAGE_COPY`, `resolveCardBase`) and `components/tx/noticeCopy.ts` (`COPY`), plus `lib/tx/errorCopy.ts` (`FUNDS_NOTE`) and `components/dashboard/txActivityAdapter.ts` (`DIRECTION`). These are exhaustive over `TxKind`, so the compiler flags a missing entry.
 
 That's it. The reducer, storage, executor, and pollers handle any kind that conforms to the type contract.
 
@@ -53,14 +66,14 @@ The executor lives at **module scope** in `executor.ts`. React doesn't own it. H
 Key behaviour:
 
 - **Single-leader via `navigator.locks`.** On `startEngine()` the engine requests an exclusive lock named `armada-tx-executor` with `ifAvailable: true`. The holder runs handlers; other tabs are passive observers (atoms still hydrate from IDB, but `executeTx` is a no-op). When the leader tab closes, the lock releases and a follower tab can take over on next start. Because the SDK allows only one tab per origin anyway, a tab that doesn't get the lock sets `anotherTabActiveAtom`, so it shows the `SingleTabGate` at boot — before the user is asked to sign.
-- **Visibility-gated.** Even on the leader, when the tab is hidden (`tabVisibleAtom = false`) the handler chain pauses. Resumes on visibility change.
+- **Visibility-gated after broadcast.** Once a record has a `sourceTxHash`, the chain loop waits between `run()` calls while the tab is hidden (`tabVisibleAtom = false`) and resumes on visibility change. Work before broadcast (proof, the submit prompt / POST) keeps going while hidden so the budget isn't spent idle, and a poll already running inside `run()` isn't paused. Hidden time is credited back to the record's budget (`hiddenClock.ts`).
 - **Resume on unlock (leader only).** `resumeForWallet(walletId)` runs from `useTxResume` once the active wallet unlocks — NOT from `startEngine` (the leader lock is acquired pre-unlock, when there's no decryption key and `loadAllTx` returns `[]`). It reads non-terminal records from IDB and, per record: past the per-kind budget → `expired`; has a `sourceTxHash` (already broadcast) → `executeTx` re-attaches the watcher (safe because submit stages are idempotent — WS1.3); otherwise (no hash, never reached the wire) → `failed` with `INTERRUPTED` ("nothing was sent"). Idempotent per (walletId, session). Resume never re-broadcasts and never re-prompts the wallet on load.
 - **AbortController per running tx.** `cancelTx(id)` aborts the controller; the handler must check `ctx.signal` and propagate. Stage handlers wire `ctx.signal` into their pollers.
-- **No-progress backstop (#4).** Per the handler contract, `run()` must advance the stage, park at `waiting`, or terminate — every transition written via `ctx.upsert` (which bumps `updatedSeq`). If `run()` returns having written **nothing** (same stage AND same `updatedSeq`) while non-terminal + non-`waiting`, the chain loop would re-call it forever (a busy-loop until the lifecycle budget). The loop detects this and fails the record `STUCK` (indeterminate — the tx may have completed) + emits `tx.executor.no-progress`. The reachable trigger was a resume landing on a cross-chain handler's *collapsed* delivery stage (`iris-attestation-ready` / `*-mint-pending`) that had no `switch` case; those cases now re-enter `runWaitForDelivery` (idempotent re-poll → terminal), and the backstop guards any future handler with the same gap.
+- **No-progress backstop (#4).** Per the handler contract, `run()` must advance the stage, park at `waiting`, or terminate — every transition written via `ctx.upsert` (which bumps `updatedSeq`). If `run()` returns having written **nothing** (same stage AND same `updatedSeq`) while non-terminal + non-`waiting`, the chain loop would re-call it forever (a busy-loop until the lifecycle budget). The loop detects this and fails the record `STUCK` (indeterminate — the tx may have completed) + emits `tx.executor.no-progress`. The case it was built for: a resume landing on a cross-chain handler's *collapsed* delivery stage (`iris-attestation-ready` / `*-mint-pending`). Those stages have `switch` cases that re-enter `runWaitForDelivery` (idempotent re-poll → terminal); the backstop guards any handler with a stage it doesn't handle.
 
 ### Stage naming caveat — `'submit-relayer'` is a framework label
 
-The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `unshield-xchain`, `shield-xchain`). Every handler calls `lib/relayer.ts::submitRelay` (POST `/relay`) and then polls `/status` via `poller.ts::pollRelayStatusOnce`. The exceptions are `shield`'s direct path (`writeContract(PrivacyPool.shield)` from the user's wallet, after an approve if needed) and `shield-xchain`'s source-chain step, which also uses the user's wallet. The stage name is a stable framework label for "tx-on-the-wire", not a guarantee of who sends it.
+The `'submit-relayer'` stage exists in every kind's lifecycle (`shield`, `unshield-local`, `transfer-shielded`, `yield-deposit`, `yield-withdraw`, `consolidate`, `unshield-xchain`, `shield-xchain`). Every spend handler (unshield, transfer, yield, merge, cross-chain unshield) and the gasless `shield` call `lib/relayer.ts::submitRelay` (POST `/relay`) and then poll `/status` via `poller.ts::pollRelayStatusOnce`. The exceptions: `shield`'s direct path (`writeContract(PrivacyPool.shield)` from the user's wallet, after an approve if needed, then a receipt wait); `shield-xchain`'s direct path (`crossChainShield` sent from the user's wallet on the source chain); and gasless `shield-xchain`, which POSTs to `/relay` but then waits for the source-chain receipt instead of polling `/status`. The stage name is a stable framework label for "tx-on-the-wire", not a guarantee of who sends it.
 
 This matters when scoping work like fee display, ETA estimation, or stage copy. The per-kind handler is the source of truth for submission shape.
 
@@ -77,11 +90,11 @@ interface StageHandler<K extends TxKind> {
 - `run` executes the **current** stage. It writes transitions via `ctx.upsert(nextRecord)`.
 - `run` returns when the stage is done (next stage advanced) OR the record is in `'waiting'` (chain pauses).
 - `run` MUST honour `ctx.signal`. Throwing on abort is fine.
-- `resumableFrom` lists stages this handler can safely re-enter on app reload — typically the same as `lifecycle.retryableStages`. The executor does not currently read it: resume decides by `sourceTxHash` presence (see "Resume on unlock" above).
+- `resumableFrom` lists stages this handler can safely re-enter on app reload — typically the same as `lifecycle.retryableStages`. The executor doesn't read it: resume decides by `sourceTxHash` presence (see "Resume on unlock" above).
 
 ### Outer try/catch contract
 
-Every handler's `async run` wraps its switch/dispatch in `try { ... } catch (err) { ... }`. The catch MUST follow this shape so cancel + dismiss work correctly:
+Every handler's `async run` wraps its switch/dispatch in `try { ... } catch (err) { ... }`. Every catch follows this shape — the abort check first is what keeps cancel + dismiss correct — but the `markFailed(record, …)` line has a known bug (#153, below):
 
 ```ts
 } catch (err) {
@@ -93,16 +106,20 @@ Every handler's `async run` wraps its switch/dispatch in `try { ... } catch (err
   // 2. Otherwise classify the thrown value into a typed TxError and write it via markFailed.
   //    classifyHandlerError preserves branded TxErrors (POLL_TIMEOUT / TX_REVERTED from inner
   //    helpers like waitForReceiptOrFail) so the category isn't lost in the outer catch.
-  const failed = markFailed(record, classifyHandlerError(err, '<kind> failed.', record.artifacts.sourceTxHash))
+  //    The 4th argument is the chain the handler's pinned calls target, so a chain-mismatch error
+  //    can name the network to switch back to.
+  const failed = markFailed(record, classifyHandlerError(err, '<kind> failed.', record.artifacts.sourceTxHash, <targetChainId>))
   await ctx.upsert(failed)
 }
 ```
 
-The abort-check-before-markFailed pattern is invariant across every handler. If you add a new handler, copy the shape rather than improvising.
+The abort-check-before-markFailed pattern is invariant across every handler.
+
+**Known bug in this pattern (#153).** `record` here is the stage-entry record `run()` was called with. Any write earlier in the same `run()` — proof-progress writes, `permitSigned`, the approve legs, `markWaiting`, `recordBroadcastHash`, the advance to `hub-pending`, a scan-cursor patch — has already bumped `updatedSeq` past it, so `markFailed(record, …)` carries an `updatedSeq` that isn't newer than the stored one, and `upsertTxAtom` / `putTxIfFresh` silently drop the failed write. The record is left `waiting` or `active` instead of `failed`. The fix is to fail the latest record (re-read it, or thread the working record through as `broadcast.ts` / `progress.ts` require), not the stage-entry one. All eight handlers' catches use the stage-entry record; a new handler should fail the latest record rather than copy that.
 
 ## Polling adapters
 
-`poller.ts` exports a generic `poll(pollOnce, opts)`. Stage-specific adapters (one per polling type) call into `lib/cctp.ts`, `lib/relayer.ts`, or RPC directly (bounded windows — see the root `eth_getLogs` rule). Convention: the adapter function is named `poll<Source>Once(...)` (e.g. `pollRelayStatusOnce`) and returns `Promise<T | null>` — null means "no result yet, keep polling".
+`poller.ts` exports a generic `poll(pollOnce, opts)`. A `pollOnce` returns `Promise<T | null>` — null means "no result yet, keep polling"; a throw backs off and retries. The one shared adapter is `pollRelayStatusOnce` (relayer `/status`, falling back to the RPC receipt on a 404); a reusable adapter is named `poll<Source>Once(...)`. Cross-chain delivery polls with an inline `pollOnce` in each cross-chain handler: the relayer's CCTP delivery status (`lib/relayer.ts::fetchCctpDeliveryStatus`) first, then a bounded `MessageReceived` scan of one window per tick (`features/unshield-xchain/scan.ts`, shared by both handlers — see the root `eth_getLogs` rule). There is no Iris polling.
 
 ## Resume policy
 
@@ -124,8 +141,8 @@ newer state). Per non-terminal record:
 
 Resume thus only ever RE-WATCHES an already-broadcast tx; it never submits and never re-prompts on
 load. `maxDurationMs` is per-kind: 10 min same-chain (`shield`, `unshield-local`,
-`transfer-shielded`), 15 min yield and `consolidate` (up to 4 serial proofs), 60 min xchain. (`StageHandler.resumableFrom` is currently
-unread — the has-hash test supersedes it; see WS7 docs cleanup.)
+`transfer-shielded`), 15 min yield and `consolidate` (up to 4 serial proofs), 60 min xchain. (`StageHandler.resumableFrom` is
+unread — the has-hash test supersedes it.)
 
 ## Terminal-write guard
 

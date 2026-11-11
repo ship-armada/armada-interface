@@ -1,4 +1,5 @@
-// ABOUTME: Tests for getNetworkConfig — verifies the maxLogRange cap is conservatively set on testnets so getLogs cannot overrun public RPC limits.
+// ABOUTME: Tests for config/network — the testnet maxLogRange cap, empty-env fallbacks (cleanEnv), the sepolia reorg hold-back,
+// ABOUTME: and client selection (getClientRegistry, resolveEnabledClients: VITE_ENABLED_CLIENTS and enabledByDefault).
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {

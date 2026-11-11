@@ -1,3 +1,6 @@
+// ABOUTME: Tests for the review-time fee helpers — computeDisplayFees (protocol fee 0 for every kind, fee-inclusive kinds),
+// ABOUTME: withdrawBelowFee, shieldProtocolFeeBase, shieldFeeIntegrator and resolveShieldProtocolFee (exact / pending / estimate).
+
 import { describe, expect, it } from 'vitest'
 import { computeDisplayFees, resolveShieldProtocolFee, shieldFeeIntegrator, shieldProtocolFeeBase, withdrawBelowFee } from './displayFees'
 import { computeFeeBreakdown, type FeeSchedule } from '@/lib/relayer'

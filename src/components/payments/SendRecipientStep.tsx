@@ -1,4 +1,4 @@
-// ABOUTME: Send/Withdraw recipient step — a frost card (title + address TextField with Clear + a paste row that
+// ABOUTME: Send recipient step — a frost card (title + address TextField with Clear + a paste row that
 // ABOUTME: previews a valid 0zk/0x on the clipboard + public-only chain selector + privacy badge once valid) over an always-visible Cancel / Continue action row + a recent-recipients list.
 
 import { useEffect, useId, useRef, useState } from 'react'
@@ -22,7 +22,8 @@ import { RecentAddressList } from './RecentAddressList'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
 import styles from './SendRecipientStep.module.css'
 
-/** Which flow the shared Send/Withdraw modal is running as — drives minimal copy differences. */
+/** Which copy the shared send/withdraw step components use: `send` in SendModal; `withdraw` for the Unshield tab's
+ *  review/confirmation, ActivityReceipt's unshield-to-self receipts and SendModal's confirmation paid to your own wallet. */
 export type SendFlowVariant = 'send' | 'withdraw'
 
 /** Returns the trimmed clipboard text if it's a valid shielded (0zk) or public (0x) address, else null. */

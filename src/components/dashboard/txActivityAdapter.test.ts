@@ -1,4 +1,5 @@
 // ABOUTME: Unit tests for the TxRecord → dashboard activity-item adapter (direction, sign, label, pending, ordering).
+// ABOUTME: Also the created-payment-link rows and buildActivityItems' newest-first merge + cap.
 
 import { describe, it, expect } from 'vitest'
 import type { TxRecord, TxKind, TxExecutionState, TxErrorCode } from '@/lib/tx/types'

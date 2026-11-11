@@ -1,5 +1,5 @@
 // ABOUTME: Pill-shaped button primitive with primary/secondary/ghost/gradient variants and three sizes.
-// ABOUTME: Ported byte-identical from the armada-crowdfund mockup; restyle via tokens, not edits here.
+// ABOUTME: Ported from the armada-crowdfund mockup (plus the app's `leadingIcon`); restyle via tokens, not edits here.
 
 import type { ReactNode } from 'react'
 import { ArrowRightIcon as ArrowRightMicroIcon } from '@heroicons/react/16/solid'
@@ -34,7 +34,7 @@ export interface ButtonProps {
    * Optional icon rendered before the label. Mockup buttons are label-only or
    * label + trailing arrow; armada-interface's "Connect Wallet" pill ships with a leading
    * `LogIn` glyph to read as an entry-action button. Same design-system-deviation precedent as
-   * `WalletPillMenu.extraSection` and `WalletButton.disabled`. See packages/ui/src/components/CLAUDE.md.
+   * `WalletButton.disabled`.
    */
   leadingIcon?: ReactNode
 }

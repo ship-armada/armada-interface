@@ -2,13 +2,13 @@
 
 USDC user app on the Armada protocol — shield, unshield, yield, payments, cross-chain. Replaces the legacy `usdc-v2-frontend` app.
 
-**Status:** V2 shielded-wallet redesign landed (Path C). The app always renders: while locked, the dashboard's balance spot holds the sign-in card, which signs in inline (`hooks/useSignIn`), and every action signs in first, then continues into it. That one state-agnostic sign-in is the account entry for first visit AND returning users — `signIn()` first-derives or re-derives the same identity, so there is no create/unlock split. Backup-file + paste-secret recovery (for smart-account wallets / cross-device) sit behind a "Restore wallet from backup instead" link that opens the `RestoreModal`; a non-deterministic signer gets the compatibility screen in that modal. Until the first SDK balance loads, the balance spot shows the sync progress (the Armada tick ring + percent) with no flow buttons, and activity already shows. Per-(EVM address, account) walletId map in localStorage drives account-switch detection + auto-lock. Tx history is scoped to the active walletId and AES-256-GCM-encrypted at rest under a per-wallet key. See `specs/TX_SIGNING.md` + `specs/TX_SIGNING_V2_AMENDMENT.md`. Tx flows (shield/unshield/payments/yield) are wired end-to-end.
+**Account model (V2 shielded wallet, Path C):** The app always renders: while locked, the dashboard's balance spot holds the sign-in card, which signs in inline (`hooks/useSignIn`), and every action signs in first, then continues into it. That one state-agnostic sign-in is the account entry for first visit AND returning users — `signIn()` first-derives or re-derives the same identity, so there is no create/unlock split. Backup-file + paste-secret recovery (for smart-account wallets / cross-device) sit behind a "Restore wallet from backup instead" link that opens the `RestoreModal`; a non-deterministic signer gets the compatibility screen in that modal. Until the first SDK balance loads, the balance spot shows the sync progress (the Armada tick ring + percent) with no flow buttons, and activity already shows. Per-(EVM address, account) walletId map in localStorage drives account-switch detection + auto-lock. Tx history is scoped to the active walletId and AES-256-GCM-encrypted at rest under a per-wallet key. See `specs/TX_SIGNING.md` + `specs/TX_SIGNING_V2_AMENDMENT.md`. Tx flows (shield/unshield/payments/yield) are wired end-to-end.
 
-**V1 Phase 9 — chain history recovery (landed):** on unlock, `useHistoryRecovery` reconstructs history from the `@armada/sdk` wallet scan (`runHistoryScan` → `historyEntryToTxRecord`) and synthesizes terminal `TxRecord`s for shields / transacts / unshields / yield ops not already in local IDB. `useIncomingTransferDetector` re-fires the scan on every SDK balance event so received transfers (which the user didn't author) surface live. A per-wallet localStorage checkpoint makes subsequent scans incremental. Settings → "Re-scan history" / "Clear local history" let the user force a refresh or wipe locally. See `lib/shielded/history.ts`, `hooks/useHistoryRecovery.ts`, and `test/integration/history-recovery.test.tsx`.
+**Chain history recovery (V1 Phase 9):** on unlock, `useHistoryRecovery` reconstructs history from the `@armada/sdk` wallet scan (`runHistoryScan` → `historyEntryToTxRecord`) and synthesizes terminal `TxRecord`s for shields / transacts / unshields / yield ops not already in local IDB. `useIncomingTransferDetector` re-fires the scan on every SDK balance event so received transfers (which the user didn't author) surface live. A per-wallet localStorage checkpoint makes subsequent scans incremental. Settings → "Re-scan history" / "Clear local history" let the user force a refresh or wipe locally. See `lib/shielded/history.ts`, `hooks/useHistoryRecovery.ts`, and `test/integration/history-recovery.test.tsx`.
 
-## Plan
+## Architecture
 
-Architectural decisions and rationale: `../../.claude/PLAN_ARMADA_INTERFACE.md`. **Read first.** It defines the tx lifecycle model, polling matrix, security boundary, and 19 locked decisions.
+Architectural decisions and rationale: `docs/ARCHITECTURE.md`. **Read first.** It covers the tx lifecycle model and execution engine, fees, the key and security boundary, the polling matrix, and the decision log.
 
 ## Stack
 
@@ -20,7 +20,7 @@ Architectural decisions and rationale: `../../.claude/PLAN_ARMADA_INTERFACE.md`.
 | State | Jotai | Atoms in `src/state/`, derived inline in hooks |
 | Server state | `@tanstack/react-query` | All HTTP, all RPC reads, all polling that fits the request/response shape |
 | Styling | Vendored design system in `src/design` (CSS Modules + tokens, imported as `@/design`) + Tailwind v4 (layout glue) | Severed from the shared `@armada/ui` so the app is self-contained. No typography Tailwind classes in app code — body baseline (15px Geist 1.5) drives everything |
-| Persistence | IndexedDB (`lib/cache.ts`) | Stores tx history, fee quotes, ENS, shielded balance snapshots |
+| Persistence | IndexedDB (`lib/cache.ts`) | Two stores: tx history (`txHistory`) and created payment-request links (`requestLinks`) |
 | Routing | `react-router-dom` 7 | Routed pages: Dashboard (`/`), Debug (`/debug`), parked AddressBook, and the standalone `PayViaLinkLanding` (`/pay-via-link`, outside the App shell). Settings is a modal, not a page; `/history` was retired |
 | QR | `qrcode.react` | Renders the pay-via-link QR (`components/payViaLink/PaymentLinkQrCode`) |
 
@@ -28,7 +28,7 @@ Architectural decisions and rationale: `../../.claude/PLAN_ARMADA_INTERFACE.md`.
 
 ```
 src/
-├── main.tsx                 provider tree (StrictMode → Wagmi → Query → RainbowKit → Jotai → Router)
+├── main.tsx                 provider tree (StrictMode → AppErrorBoundary → Wagmi → Query → RainbowKit → Router; no Jotai Provider, so hooks share the executor's default store)
 ├── App.tsx                  installs visibility listener + hydrates tx history; renders <AppLayout>
 ├── index.css                @import tailwindcss + ./design/styles tokens.css + global.css
 ├── design/                  vendored design system (@/design) — primitives + tokens/typography CSS; severed from @armada/ui
@@ -74,25 +74,24 @@ What earns a test, and how to write one so it fails when it should (#136):
 
 ## Dev commands
 
+This is a standalone repo (no workspaces). From the repo root:
+
 ```bash
-# From repo root
 npm install                           # if dependencies changed
-npm run armada:interface              # → http://localhost:5176
-
-# Or equivalently:
-npm run dev --workspace=@armada/interface
-
-# Typecheck only (app and test files)
-npm run typecheck --workspace=@armada/interface
+npm run dev                           # → http://localhost:5176
+npm run typecheck                     # app + node configs, then the test files
+npm run test                          # vitest
 ```
 
-For local mode (`VITE_NETWORK=local` — default), three Anvil chains must be running on `:8545` / `:8546` / `:8547`. Use the existing `npm run chains` + `npm run setup` from the repo root.
+The README's "Mode 1" / "Mode 2" sections have the full setup for each network:
 
-For Sepolia, set `VITE_NETWORK=sepolia` and ensure manifest files exist in `deployments/` (`privacy-pool-hub-sepolia.json`, `privacy-pool-client1-sepolia.json`, `privacy-pool-client2-sepolia.json`).
+- **Local** (`VITE_NETWORK=local` — default): three Anvil chains on `:8545` / `:8546` / `:8547`. `npm run chains`, `npm run setup` and `npm run armada-relayer` run in the sibling **armada-poc** checkout, not here; the dev server reads that checkout's `deployments/` (override with `ARMADA_POC_DIR` / `ARMADA_DEPLOYMENTS_DIR`).
+- **Sepolia** (`VITE_NETWORK=sepolia`): fetch an instance's manifests with `node scripts/fetch-sepolia-deployments.mjs` (writes `public/api/deployments/`: `privacy-pool-hub-sepolia.json`, `hub-sepolia-v3.json`, `privacy-pool-client<i>-sepolia.json`, …) and point the dev server at them with `ARMADA_DEPLOYMENTS_DIR="$PWD/public/api/deployments"`.
+- **ZK circuits** (both modes): set `VITE_ARTIFACTS_BASE_URL` to a hosted release, or run `npm run circuits:fetch` to fill `public/artifacts` (see `docs/CIRCUIT_ARTIFACTS.md`).
 
 ## Duplicated utilities
 
-`src/lib/rpc.ts`, `format.ts`, `wagmi-adapter.ts`, `revert.ts` are duplicates of files in `@armada/crowdfund-shared`. They live here so this app doesn't depend on a crowdfund-named package. When both apps need to evolve these, extract them to a new `@armada/eth-utils` package (Plan §19). Don't pre-extract.
+`src/lib/rpc.ts`, `format.ts`, `multicall3.ts` (from `@armada/crowdfund-shared`) and `wagmi-adapter.ts`, `revert.ts` (from the crowdfund committer) are duplicates of crowdfund-app files. They live here so this app doesn't depend on a crowdfund-named package. When both apps need to evolve these, extract them to a new `@armada/eth-utils` package (`docs/ARCHITECTURE.md` §16). Don't pre-extract.
 
 ## Tx lifecycle model — required reading
 
@@ -100,8 +99,8 @@ The central design is in `src/lib/tx/types.ts`, `src/lib/tx/lifecycles.ts`, and 
 
 1. The `TxKind` union, stage union, and meta in `lib/tx/types.ts`.
 2. A lifecycle entry in `lib/tx/lifecycles.ts`.
-3. A `StageHandler` registered from a `features/<area>/index.ts` module.
-4. The kind's copy in `components/tx/stageCopy.ts`, `components/tx/processing/processingView.ts` and `components/tx/noticeCopy.ts` (all `Record<TxKind, …>` maps, so the compiler flags a missing entry).
+3. A `StageHandler` registered from a `features/<area>/index.ts` module, imported for its side effect in `src/App.tsx` (alongside the other `@/features/*` imports), with a `handler.idempotency.test.ts` beside the handler (as in `features/shield/` and `features/unshield/`).
+4. The kind's copy in `components/tx/stageCopy.ts`, `components/tx/processing/processingView.ts` and `components/tx/noticeCopy.ts`. The first two are `Record<TxKind, …>` maps; `noticeCopy`'s is `Record<Exclude<TxKind, 'unshield-local' | 'unshield-xchain'>, …>` (the unshield kinds get their copy separately). In all three the compiler flags a missing entry for a new kind.
 
 The full checklist is in `src/lib/tx/CLAUDE.md`.
 
@@ -116,4 +115,4 @@ This model fixes the crowdfund-committer's `useTransactionFlow` single-tx limita
 - A remote telemetry sink beyond Sentry. Sentry error capture IS wired (`lib/sentry.ts`, DSN-gated via `VITE_SENTRY_DSN` — see DEPLOYMENT.md), but the structured `track()` info events remain console-only.
 - Service worker / offline support.
 - i18n.
-- Mnemonic import flow (only generate-on-first-run, per Plan §15.7).
+- Mnemonic import flow. Keys are derived from an EIP-712 signature at sign-in, not from a generated mnemonic; recovery is the backup file / pasted recovery secret in `RestoreModal` (`docs/ARCHITECTURE.md` §9).

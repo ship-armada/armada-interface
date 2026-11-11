@@ -1,5 +1,5 @@
 // ABOUTME: Surface primitive — bordered card with rounded corners and padded body; raised variant for nested surfaces.
-// ABOUTME: Used by BalanceHero, ActionCard, RecentActivityCard, InProgressCard, Settings sections, Modal body.
+// ABOUTME: Used by the Settings sections, the Debug page and the AppErrorBoundary fallback card.
 
 import type { HTMLAttributes, ReactNode } from 'react'
 import styles from './Card.module.css'

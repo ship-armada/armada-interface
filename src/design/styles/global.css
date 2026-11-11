@@ -1,4 +1,4 @@
-/* ABOUTME: Global reset and base body styles for @armada/ui consumers — copy of the mockup's global.css. */
+/* ABOUTME: Global reset and base body styles for the app — copy of the mockup's global.css. */
 /* ABOUTME: Import once at the app entry point alongside tokens.css; CSS Modules handle the rest. */
 
 @import './fonts.css';

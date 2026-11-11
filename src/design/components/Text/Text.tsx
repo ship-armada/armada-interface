@@ -1,5 +1,5 @@
 // ABOUTME: Typography primitive — applies a generated composite (e.g. ui/heading-sm) via .armada-text-* class.
-// ABOUTME: Prefer HeadingSm for step titles; use Text with variant for other composites.
+// ABOUTME: `variant` is any TypographyVariant (generated from the tokens); `as` picks the element (default <p>).
 
 import type { ElementType, HTMLAttributes } from 'react'
 import { typographyClassName, type TypographyVariant } from '../../typography/variants'

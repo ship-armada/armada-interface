@@ -1,4 +1,5 @@
 // ABOUTME: Tests for useDebouncedValue — value only updates after the input is stable for delayMs.
+// ABOUTME: Fake timers advance the clock: an earlier value holds through a burst of changes, then the last one lands.
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'

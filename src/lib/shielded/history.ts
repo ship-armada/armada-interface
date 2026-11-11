@@ -132,7 +132,8 @@ export interface HistoryScanResult {
 /**
  * Map an @armada/sdk `HistoryEntry` → `TxRecord`. The SDK classifies yield deposit/withdraw
  * natively and carries recipient + fee + memo inline. `value` is a signed wallet delta
- * (negative = outflow); `timestampMs` is resolved by the caller from `blockNumber`. Returns
+ * (negative = outflow); `timestampMs` is the caller's — `runHistoryScan` passes the entry's own
+ * SDK-recorded block `timestamp` (0 when absent). Returns
  * null only if a future SDK category isn't handled here.
  */
 export function historyEntryToTxRecord(
@@ -317,7 +318,7 @@ export function historyEntryToTxRecord(
     }
     case 'yield-withdraw': {
       const stages = terminalizeStages('yield-withdraw')
-      // The SDK (#93) now surfaces the redeemed `shares` + the redeem's relayer fee on this leg.
+      // The SDK (#93) surfaces the redeemed `shares` + the redeem's relayer fee on this leg.
       // `entry.value` is the user's OWNED USDC note = the NET received (the relayer fee note is a
       // separate re-shield the user doesn't own), so the GROSS redeemed = value + fee — matching the
       // authored `amount` (gross), and the receipt's `amount - fee` then renders the net received.
@@ -376,8 +377,9 @@ async function withXchainRouting(
 }
 
 /**
- * Single entry point for both first-time recovery and ongoing incoming-transfer detection. Syncs
- * the @armada/sdk wallet, maps its history entries to `TxRecord`s, and surfaces a checkpoint
+ * Single entry point for both first-time recovery and ongoing incoming-transfer detection. Reads
+ * the @armada/sdk wallet's history from its current scan state (`readSdkHistory` — no sync of its own;
+ * it sees whatever the wallet's last sync reached), maps its history entries to `TxRecord`s, and surfaces a checkpoint
  * candidate (`highestBlock`). Block times come with the SDK's entries, recorded during sync — never fetched
  * here: asking the RPC for exactly this wallet's blocks would tell it which transactions are the wallet's
  * (armada-sdk#135). An entry without one keeps 0 and sorts to the bottom of the feed. Deliberately does NOT

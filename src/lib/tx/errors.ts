@@ -226,12 +226,17 @@ function sdkErrorToTxError(err: Error & { code: ErrorCode }): TxError {
  * Precedence:
  *   1. Branded TxError (thrown by `waitForReceiptOrFail` or a handler that already classified).
  *      Extract as-is so a POLL_TIMEOUT doesn't get re-tagged as OTHER by the outer catch.
- *   2. User-rejected wallet prompt → USER_REJECTED.
- *   3. Anything else → OTHER, preserving the raw message.
+ *   2. Relayer rejection (`RelayerError` code) → PRE_FLIGHT_REVERT / FEE_EXPIRED / DUPLICATE_TX / RPC_ERROR / OTHER.
+ *   3. `@armada/sdk` error (by `code`) → its mapped category, with `sdkCode` kept.
+ *   4. `SpendFeeIncreasedError` (a multi-proof spend's fee rose since review) → FEE_EXPIRED.
+ *   5. Chain mismatch (wallet switched networks mid-flow) → RPC_ERROR naming the network.
+ *   6. User-rejected wallet prompt → USER_REJECTED.
+ *   7. Anything else → OTHER, with a raw revert payload decoded first and the message run through
+ *      mapRevertToMessage.
  *
- * The optional `sourceTxHash` is folded in for the categories where the UI needs it (timeout,
- * revert) — handlers that have the hash by their catch point should pass it in so the explorer
- * link works. For OTHER / USER_REJECTED it's typically absent and that's fine.
+ * The optional `sourceTxHash` is attached only to the OTHER fallback — branded errors (timeout,
+ * revert) already carry their own hash. Handlers that have the hash by their catch point should
+ * pass it in so the explorer link works.
  *
  * The optional `targetChainId` lets a chain-mismatch error name the network the wallet should be
  * on ("switch back to <network>"). Handlers pass the chain their pinned calls target (W-4).
@@ -296,7 +301,7 @@ export function classifyHandlerError(
 
   // Run the raw (or decoded) message through mapRevertToMessage: it maps known revert/wallet
   // patterns to short copy and truncates at 200 chars, so a multi-line viem dump (RPC payload,
-  // stack frames) doesn't reach ErrorStep verbatim. (P2 — wire the previously-dead mapRevertToMessage.)
+  // stack frames) doesn't reach ErrorStep verbatim. (P2)
   const raw = decoded ?? (err instanceof Error ? err.message : fallbackMessage)
   const message = mapRevertToMessage(raw)
   return sourceTxHash ? { code: 'OTHER', message, txHash: sourceTxHash } : { code: 'OTHER', message }

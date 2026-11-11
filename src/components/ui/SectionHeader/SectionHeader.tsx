@@ -1,5 +1,5 @@
 // ABOUTME: Section header — heading text with an optional trailing slot (link, filter chip, action button).
-// ABOUTME: Used by Settings sections, Dashboard sub-sections (Recent Activity, In Progress), and History.
+// ABOUTME: Used by the Debug page's sections.
 
 import type { ReactNode } from 'react'
 import styles from './SectionHeader.module.css'

@@ -1,4 +1,5 @@
-// ABOUTME: Tests for EarnModal orchestrator — opens on both yield-deposit and yield-withdraw kinds, tab defaults from entry kind, switching tabs clears amount.
+// ABOUTME: Tests for EarnModal orchestrator — opens on both yield kinds with the matching tab, switching tabs clears the amount,
+// ABOUTME: a deposit's planned fee re-priced at Confirm, "Merge notes", withdrawal Max/fee, and record-driven confirmation figures.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'

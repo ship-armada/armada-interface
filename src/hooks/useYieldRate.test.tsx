@@ -1,4 +1,5 @@
 // ABOUTME: Tests for useYieldRate — first-read latency, hidden-tab refetch pause, no-deployment short-circuit, refresh() bypassing the cache, net APY math.
+// ABOUTME: Contract reads are stubbed; refresh() must seed the shared query cache, and an absurd yieldFeeBps is clamped so the APY never goes negative.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, act, waitFor } from '@testing-library/react'
@@ -147,7 +148,7 @@ describe('useYieldRate', () => {
       await results.at(-1)!.refresh()
     })
 
-    // The cache reflects the new value — a BalanceHero re-render would pick it up immediately.
+    // The cache reflects the new value — a Dashboard re-render would pick it up immediately.
     const cached = queryClient.getQueryData<{ rate: bigint; apyBps: bigint }>(['yieldRate'])
     expect(cached?.rate).toBe(1_001_000n)
     expect(cached?.apyBps).toBe(720n)

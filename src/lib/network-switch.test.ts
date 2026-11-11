@@ -1,4 +1,5 @@
 // ABOUTME: Unit tests for ensureChain — direct-EIP-1193 switching, post-switch settle loop, user-rejection + chain-not-added wrapping.
+// ABOUTME: The connector + EIP-1193 provider are stubbed; asserts the requests sent and the user-facing error copy for each failure.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 

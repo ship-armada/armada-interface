@@ -1,5 +1,5 @@
 // ABOUTME: Barrel export for the send (payment) feature — modal orchestrator + per-step components.
-// ABOUTME: SendModal is the only export consumed externally; step components are exposed for testability.
+// ABOUTME: App consumes SendModal from here; ShieldModal imports SendReviewStep / SendCompleteStep by file path for its Unshield tab.
 
 export { SendModal } from './SendModal'
 

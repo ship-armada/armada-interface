@@ -1,5 +1,5 @@
 // ABOUTME: One-shot schema-version migration that wipes legacy v1 shielded-wallet state on first run of v2.
-// ABOUTME: Synchronous localStorage purge + asynchronous IndexedDB purge; App.tsx awaits before the engine init kicks off.
+// ABOUTME: Synchronous localStorage purge + asynchronous IndexedDB purge; App.tsx awaits it before rendering the app (so before any SDK instance opens).
 
 import { SCHEMA_VERSION } from '@/lib/crypto/eip712'
 import { track, trackError } from '@/lib/telemetry'
@@ -12,8 +12,8 @@ import { track, trackError } from '@/lib/telemetry'
  *  - `armada.shielded.walletId` — opaque SDK walletId, identity-bound (different in v2)
  *  - `armada.shielded.checksum` — anti-phish display string for the v1 root_secret
  *  - IndexedDB database `armada-shielded` — SDK-encrypted wallet blob keyed by v1 walletId
- *  - IndexedDB store `txHistory` — historical transaction records (currently plaintext;
- *    Phase 7 introduces encryption)
+ *  - IndexedDB store `txHistory` — historical transaction records (plaintext in v1; v2 records
+ *    are encrypted under the per-wallet history key)
  *
  * Per the redesign plan (.context/shielded-wallet-redesign-plan.md §2.4), this is a hard cut:
  * the v1 → v2 schema fork in eip712.ts means a v1 walletId never re-derives from a v2 sign.
@@ -28,15 +28,14 @@ const LEGACY_KEYS = ['armada.shielded.walletId', 'armada.shielded.checksum'] as 
 /**
  * IndexedDB databases dropped on a schema fork.
  *
- * - `armada-shielded`: owned by the SDK; holds the encrypted v1 wallet blob keyed by
- *   v1 walletId. Useless once we re-derive under v2.
- * - `armada-interface`: owned by `lib/cache.ts`; holds tx history, fee quotes, ENS resolutions,
- *   shielded balance snapshots. We drop the whole DB rather than clearing individual stores so
+ * - `armada-shielded`: the stock engine's DB (this app never opens it); holds the encrypted v1
+ *   wallet blob keyed by v1 walletId. Useless once we re-derive under v2.
+ * - `armada-interface`: owned by `lib/cache.ts`; holds tx history and created request links (a v1
+ *   install may also carry fee-quote / ENS / balance caches). We drop the whole DB rather than clearing individual stores so
  *   we don't race with the cache module's `onupgradeneeded` setup (opening without a matching
  *   `(version, onupgradeneeded)` pair would create an empty DB without the expected stores).
- *   `cache.ts` re-creates the structure on its next open; the only data lost is short-lived
- *   caches that re-populate naturally (fees auto-refresh, ENS re-resolves on demand). Tx
- *   history is the only thing we actively want gone, and dropping the whole DB takes care of it.
+ *   `cache.ts` re-creates the structure on its next open. Tx history is the only thing we
+ *   actively want gone, and dropping the whole DB takes care of it.
  */
 const DROPPED_DATABASES = ['armada-shielded', 'armada-interface'] as const
 
@@ -90,8 +89,8 @@ function deleteIndexedDbDatabase(name: string): Promise<void> {
 /**
  * Idempotent migration runner. Synchronous portion (localStorage) completes first so any
  * downstream code that reads `readStoredWalletId()` sees clean state immediately. Async
- * portion (IDB) runs in parallel; callers SHOULD await the returned promise before initializing
- * the SDK to avoid racing against the SDK's `armada-shielded` open.
+ * portion (IDB) runs in parallel; callers SHOULD await the returned promise before opening the
+ * SDK instance, so the legacy `armada-shielded` / `armada-interface` deletes don't race a fresh open.
  *
  * Returns `null` if no migration is needed (schemaVersion is already current).
  */

@@ -1,15 +1,13 @@
-// ABOUTME: Module-scope private state for the unlocked wallet — root_secret, walletId, sdkEncryptionKey, shieldedAddress, checksum.
-// ABOUTME: Never exposed to React state, atoms, or localStorage. Cleared on lock; best-effort fill(0) on the root_secret buffer.
+// ABOUTME: Module-scope private state for the unlocked wallet — root_secret, walletId, historyEncryptionKey, shieldedAddress, checksum.
+// ABOUTME: Never exposed to React state, atoms, or localStorage. Cleared on lock; best-effort fill(0) on the root_secret + history-key buffers.
 
 import { antiPhishChecksumBytes, formatChecksumDisplay } from '@/lib/crypto/kdf'
 
 interface UnlockedState {
   /** 32-byte root_secret. Kept here so re-derivation isn't needed on each tx. */
   rootSecret: Uint8Array
-  /** Cached walletId for fast SDK calls. Persisted via localStorage separately. */
+  /** Local wallet identifier (keys tx history + the scan checkpoint). Persisted via localStorage separately. */
   walletId: string
-  /** 64-hex SDK encryption key, derived from rootSecret. */
-  sdkEncryptionKey: string
   /** Display-format anti-phish checksum ("a3f2 91c8 b7e0"). */
   checksum: string
   /** The 0zk… address returned by the SDK. */
@@ -17,14 +15,14 @@ interface UnlockedState {
   /**
    * Hub-chain block the SDK starts looking for this wallet's notes from. Set at first enrollment on a
    * device to the hub deploy block (`resolveCreationBlock`), preserved across backups via the
-   * encrypted payload, and passed as `fromRootSecret({ creationBlock })` on every wallet recreation,
+   * encrypted payload, and passed as `fromRootSecret({ creationBlock })` whenever the SDK instance is built,
    * so note discovery covers the wallet's whole history rather than starting at chain head (which
    * would silently drop the user's earlier notes).
    *
-   * `null` means "not known in this session" — happens on paste-secret restores and on the
-   * post-load-failure fallback paths in enroll/unlock. `exportBackup` writes 0 in the blob for
-   * a null in-session value, and the next restore from that blob will fall back to a full
-   * chain rescan (correct, slow).
+   * `null` means "not known in this session" — happens on paste-secret restores and on a returning
+   * sign-in (cached walletId). `sdk-read.ts` passes it as 0, so the SDK looks from the pool's deploy
+   * block. `exportBackup` writes 0 in the blob for a null in-session value, and the next restore from
+   * that blob does the same full scan (correct, slow).
    */
   creationBlock: number | null
   /**
@@ -46,9 +44,9 @@ interface UnlockedState {
    */
   account: bigint
   /**
-   * 32-byte AES-256 key for at-rest encryption of cache records (tx history, in Phase 7).
+   * 32-byte AES-256 key for at-rest encryption of cache records (tx history and request links).
    * Derived from root_secret via HKDF-Expand with `info='armada-tx-history:v1'` — distinct
-   * from sdkEncryptionKey so a leak of one doesn't compromise the other. Same lifecycle as
+   * from the spending / viewing subkeys so a leak of one doesn't compromise the others. Same lifecycle as
    * rootSecret: zeroized on `clear()`.
    */
   historyEncryptionKey: Uint8Array
@@ -82,11 +80,6 @@ export function getWalletId(): string {
   return unlocked.walletId
 }
 
-export function getSdkEncryptionKey(): string {
-  if (!unlocked) throw new Error('keyManager: wallet is locked')
-  return unlocked.sdkEncryptionKey
-}
-
 export function getShieldedAddress(): string {
   if (!unlocked) throw new Error('keyManager: wallet is locked')
   return unlocked.shieldedAddress
@@ -99,7 +92,7 @@ export function getChecksum(): string {
 
 /** Returns the in-session creationBlock, or null if not known. Does NOT throw when locked
  *  by design — exportBackup needs to consult this value defensively. Callers that strictly
- *  need a value should treat null as "scan from genesis". */
+ *  need a value should treat null as "scan from the pool's deploy block". */
 export function getCreationBlock(): number | null {
   return unlocked?.creationBlock ?? null
 }

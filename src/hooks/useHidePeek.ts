@@ -1,5 +1,5 @@
 // ABOUTME: Builds pointer/hover event handlers that momentarily reveal a hidden balance while pressed or hovered.
-// ABOUTME: Ported from the armada-app design mockup; shared by BalanceCard, VaultPositionBar, and RecentActivityList.
+// ABOUTME: Ported from the armada-app design mockup; shared by VaultPositionBar and RecentActivityList.
 import type { HTMLAttributes } from 'react'
 
 export function hidePeekEventHandlers(

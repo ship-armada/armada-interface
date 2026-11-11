@@ -8,11 +8,14 @@
 # for reference / `netlify build` locally; Netlify does not run it in the CI-deploy model. The
 # [[redirects]] + [[headers]] blocks ARE still applied — the CLI reads them from this file on deploy.
 #
-# Env vars set in the Netlify UI (not committed):
+# Env vars (not committed). The CI deploy reads them from GitHub repo variables (see deploy.yml); a
+# local `netlify build` reads them from the Netlify UI:
 #   VITE_WALLETCONNECT_PROJECT_ID  required for WalletConnect modal
+#   VITE_ARTIFACTS_BASE_URL        hosted ZK circuits release (deploy.yml defaults it to the testnet host);
+#                                  unset → prepare:artifacts requires a locally-fetched public/artifacts
 #   VITE_RELAYER_URL               public relayer endpoint when the VPS is live
-#                                  (omit until then — submit flows will error,
-#                                   but UI/flow review still works)
+#                                  (omit until then — spends are blocked and shield
+#                                   goes direct from the wallet, but UI/flow review still works)
 #   DEPLOYMENT_INSTANCE            optional override; defaults to "demo3"
 #                                  (build-step variable only, no VITE_ prefix
 #                                   because it's never exposed to bundled JS)
@@ -30,7 +33,8 @@
   #      Vercel/Netlify npm optional-native bug #4828 (rollup/lightningcss/oxide linux binaries).
   #   2. fetch the selected deployment instance's manifests from the armada-deployments repo (driven
   #      by that instance's manifest.json index — no hardcoded chain list) into public/api/deployments/
-  #   3. verify the committed ZK artifacts, then build
+  #   3. check the ZK artifacts (prepare:artifacts — a no-op when VITE_ARTIFACTS_BASE_URL is set,
+  #      otherwise checks the locally-fetched public/artifacts), then build
   command = """
     npm ci && \
     node scripts/fetch-sepolia-deployments.mjs && \
@@ -75,10 +79,11 @@
 # The CSP ships as Content-Security-Policy-Report-Only FIRST so it can't break a flow before a
 # human has clicked through every path on a Netlify draft deploy with devtools open (the headers only apply on
 # Netlify, not the local dev server — publish one by hand with `npx netlify-cli deploy --no-build --dir=dist`
-# after `npm run build`; CI no longer publishes PR previews). Promote to the
+# after `npm run build`; CI doesn't publish PR previews). Promote to the
 # enforcing `Content-Security-Policy` header only after that sweep — and AFTER adding the runtime
-# relayer origin (VITE_RELAYER_URL host) and any IPFS artifact-gateway host to connect-src, neither
-# of which is statically known here.
+# hosts to connect-src: the relayer (VITE_RELAYER_URL), the indexer (VITE_INDEXER_URL) and the
+# circuits host (VITE_ARTIFACTS_BASE_URL), none of which is statically known here, plus the
+# default-enabled OP Sepolia RPC (https://sepolia.optimism.io), which the list below lacks.
 [[headers]]
   for = "/*"
   [headers.values]

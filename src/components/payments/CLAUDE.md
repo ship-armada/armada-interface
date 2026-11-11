@@ -3,22 +3,24 @@
 The **Send** flow — pay someone in USDC, either privately (0zk → 0zk) or to an external EVM
 wallet (0x). Opened via `setOpenModal('payment')`; recipient starts empty.
 
-**Send-only.** The former `withdraw` variant (unshield to your OWN wallet) moved to the
-Shield/Unshield tabbed modal (`components/shield/`, Unshield tab). SendModal no longer opens in a
-withdraw variant — but `SendReviewStep` / `SendCompleteStep` keep their `variant="withdraw"` copy,
-which the Unshield tab and `ActivityReceipt` reuse to render unshield reviews/receipts.
+**Send-only.** Unshielding to your OWN wallet is the Shield/Unshield tabbed modal's Unshield tab
+(`components/shield/`). SendModal always runs with `variant="send"`; the step components'
+`variant="withdraw"` copy is used by the Unshield tab (`SendReviewStep` / `SendCompleteStep`), by
+`ActivityReceipt` (through `TransferReviewSummary`), and by SendModal's own confirmation when the 0x
+recipient is the connected wallet (spec UN-7).
 
 ## Contents
 
 | Component | Purpose |
 |---|---|
-| `SendModal` | Orchestrator. Owns step + form state; derives `variant` from the open modal kind. Three `useTx` hooks mounted (`transfer-shielded` / `unshield-local` / `unshield-xchain`); the submitted one's record drives Progress + Complete. |
+| `SendModal` | Orchestrator. Owns step + form state. Runs as `variant='send'`; only the Complete step switches to `'withdraw'` copy when the 0x recipient is the connected wallet (`isWithdrawToSelf`, spec UN-7). Three `useTx` hooks mounted (`transfer-shielded` / `unshield-local` / `unshield-xchain`); the submitted one's record drives Progress + Complete. |
 | `SendRecipientStep` | First step. Editable recipient (0zk or 0x), a privacy indicator, a destination-chain selector shown **only** for public 0x recipients, and a **recent-recipients list** below the action row. A paste (or the clipboard preview row) keeps just the one valid address inside the pasted text (`lib/address::extractAddress`; two different addresses → left as pasted); single keystrokes pass through untouched. Continue is gated on a valid address — the wallet's own 0zk is refused (a send to yourself only pays the fee; a payment link that points at it is held at Review). |
 | `RecentAddressList` | Presentational "Recent address" list — previously-used recipients as one-tap rows (arrow badge + `ui/AddressText` shortened address + relative time). Data comes from `useRecentRecipients` (derived from settled tx history); a click fills the recipient and restores its destination chain. Empty history renders nothing. Hidden on mobile once a valid address is typed. |
-| `SendInputStep` | Amount step. `DepositAmountCard` with the chain rendered **statically** (chosen on the recipient step). The balance row adds "· X pending" (not yet final) and "· X arriving" (a projected change or shield, spec G-12 — in the headline, not in Max yet). Gates Review on the amount only. The fee caption reads "Estimating fees…" until the send's plan (private: the fee plan; public: the unshield's) prices the amount (never the one-proof quote first), and "—" when the planner refuses it (Review's fee and "Total deducted" rows too). |
-| `SendReviewStep` | Read-only echo. An "Est. time" row (`lib/tx/eta::estimatedTimeLabel`, a private send counting its planned proofs) — Review only, as on every flow's Review. Shows the resolved mode label (Private transfer / External wallet) + cross-chain tag when applicable. Variant drives the headline + confirm label. The recipient row can be revealed in full + copied (`ui/AddressReveal`; the full address opens as a wrapping block of 4-character groups under the To row, `ui/FullAddress`), and the "From your private account" row has a copy button for the sender's own full address (`ui/CopyableAddress`); the user's history with the recipient comes from `useSendCountTo` (local settled history only): a first-time recipient gets a "New recipient" warning callout under the summary (`FirstSendNotice`, styled like `MergeNotesNotice`), and a known one a "History" row under the To row ("Sent N times before" / "(Your connected wallet)"). |
+| `SendInputStep` | Amount step. `DepositAmountCard` with **no chain row** (the chain is chosen on the recipient step). The balance row adds "· X pending" (not yet final) and "· X arriving" (a projected change or shield, spec G-12 — in the headline, not in Max yet). Gates Review on the amount only. The fee caption reads "Estimating fees…" until the send's plan (private: the fee plan; public: the unshield's) prices the amount (never the one-proof quote first), and "—" when the planner refuses it (Review's fee and "Total deducted" rows too). |
+| `SendReviewStep` | Read-only echo. An "Est. time" row (`lib/tx/eta::estimatedTimeLabel`, a private send counting its planned proofs) — Review only, as on every flow's Review. The headline follows the variant and recipient format ("Review your USDC shielded transfer" for 0zk, "Review your USDC transfer" for 0x, "Review unshielding transfer" for withdraw), as does the confirm label. The summary (`TransferReviewSummary`) adds a Network row for a 0x recipient, a "CCTP fee (from amount)" row cross-chain, and a trailing privacy notice ("Private transfer." / "Public transfer."); the high-fee warning (`flow/HighFeeNotice` via `useHighFeeAck`, counting the relayer + CCTP fees) sits under it. The recipient row can be revealed in full + copied (`ui/AddressReveal`; the full address opens as a wrapping block of 4-character groups under the To row, `ui/FullAddress`), and the "From your private account" row has a copy button for the sender's own full address (`ui/CopyableAddress`); the user's history with the recipient comes from `useSendCountTo` (local settled history only): a first-time recipient gets a "New recipient" warning callout under the summary (`FirstSendNotice`, styled like `MergeNotesNotice`), and a known one a "History" row under the To row ("Sent N times before" / "(Your connected wallet)"). |
 | `FirstSendNotice` | Review's "New recipient" warning callout (warning accent + icon, `role="note"`) for a recipient the user has never sent to. |
-| `SendCompleteStep` | Frost-card confirmation; title by variant (send → "USDC send confirmed", withdraw → "USDC unshield confirmed"). |
+| `SendCompleteStep` | Frost-card confirmation; title by variant and recipient (send to 0zk → "USDC shielded transfer confirmed", send to 0x → "USDC sent successfully", withdraw → "USDC unshield confirmed"). |
+| `TransferReviewSummary` | The send/withdraw summary table (date when confirmed, network, "From your private account", "To recipient" revealable in full, history, est. time, fees, CCTP fee, received) with a fee-on-top "Total deducted" row and, before confirmation, the privacy notice. Shares `DepositReviewSummary`'s styles. Used by `SendReviewStep`, `SendCompleteStep` and `ActivityReceipt`. |
 
 ## Step machine
 
@@ -44,8 +46,10 @@ Recipient validation accepts EITHER a valid shielded (0zk) OR a valid EVM (0x) a
 transfer has no destination-chain concept, so the chain selector is hidden for it and the flow
 stays on the hub.
 
-The "Send to someone else" vs "Withdraw to my wallet" distinction is purely UX — both public paths
-produce `unshield-*` records. History rows show "Withdraw" by default.
+A public send and the Unshield tab's withdraw-to-self both produce `unshield-*` records; the record
+doesn't store which the user meant. Activity labels an unshield a withdraw ("Unshielded to your
+wallet") only when its recipient is the connected wallet (`dashboard/txActivityAdapter::isWithdrawToSelf`),
+otherwise a send.
 
 ## What's wired now
 
@@ -80,5 +84,6 @@ produce `unshield-*` records. History rows show "Withdraw" by default.
 
 ## Folder name
 
-The folder is `payments/` (vs the action buttons' "Send" / "Withdraw" labels) to align with the
-`ModalKind = 'payment'` atom value. `'withdraw'` opens the same modal in its withdraw variant.
+The folder is `payments/` (vs the dashboard's "Send" button label) to align with the
+`ModalKind = 'payment'` atom value. There is no withdraw modal kind: `'unshield'` opens the
+Shield/Unshield modal on its Unshield tab.

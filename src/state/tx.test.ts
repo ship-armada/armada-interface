@@ -1,5 +1,5 @@
-// ABOUTME: Tests for the tx atoms — Phase 6 scoping: activeTxListAtom + pendingTxsAtom filter to records bound to the active shielded walletId.
-// ABOUTME: A wallet switch (or lock) must produce empty surfaces synchronously, so neither the History page nor the InProgressCard leak a prior wallet's records.
+// ABOUTME: Tests for the tx atoms — wallet scoping (activeTxListAtom + pendingTxsAtom filter to the active walletId) and upsertTxAtom's terminal-write guard.
+// ABOUTME: A wallet switch, or the active id clearing, must empty the scoped lists synchronously, so no activity surface leaks a prior wallet's records.
 
 import { describe, it, expect } from 'vitest'
 import { createStore } from 'jotai'
@@ -27,7 +27,7 @@ function fixture(id: string, walletId: string, executionState: TxRecord['executi
   } as TxRecord<'shield'>
 }
 
-describe('activeTxListAtom (Phase 6 scoping)', () => {
+describe('activeTxListAtom (wallet scoping)', () => {
   it('returns [] when no shielded wallet is active (locked / never-unlocked)', () => {
     const store = createStore()
     store.set(txListAtom, [fixture('a', 'rg-1', 'completed')])

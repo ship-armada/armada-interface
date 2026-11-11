@@ -147,7 +147,7 @@ vi.mock('@/hooks/useGasBalanceWarning', () => ({
   }),
 }))
 
-// Phase 7: tx/storage now requires an unlocked keyManager (records are AES-256-GCM encrypted
+// tx/storage requires an unlocked keyManager (records are AES-256-GCM encrypted
 // at rest under the active wallet's historyEncryptionKey). Modal tests don't drive the
 // onboarding flow, so the keyManager is locked here. Mock storage to no-op the writes so the
 // Confirm-clicks-through-to-progress assertions exercise the UI orchestration without
@@ -340,7 +340,7 @@ describe('<ShieldModal>', () => {
     })
 
     // Modal closed, but the record was NOT cancelled/dismissed — it keeps running in the
-    // background (and would surface in the dashboard InProgressCard).
+    // background (and stays visible in the header's pending pill and the activity list).
     expect(store.get(openModalAtom)).toBeNull()
     const rec = store.get(txListAtom).find(t => t.kind === 'shield')
     expect(rec).toBeDefined()

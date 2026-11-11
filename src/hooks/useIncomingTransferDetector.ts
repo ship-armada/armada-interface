@@ -19,10 +19,10 @@ const SCAN_DEBOUNCE_MS = 2_000
 /**
  * Subscribe to SDK balance-update events while the wallet is unlocked. On each event, bump
  * `historyRecoveryTriggerAtom` silently — `useHistoryRecovery`'s effect re-runs and fetches the
- * delta since the persisted checkpoint (without surfacing the recovery banner). The dedup guard
- * inside `runScanAndPersist` skips items
- * whose `sourceTxHash` already matches a record in `txListAtom`, so the user's own outgoing
- * tx doesn't get a duplicate synthetic row tacked on.
+ * delta since the persisted checkpoint (without surfacing the recovery banner). The reconcile step
+ * inside `runScanAndPersist` matches each item against `txListAtom` by hash (`sourceTxHash` or
+ * `destTxHash`) or cross-chain shield marker, so the user's own outgoing tx doesn't get a duplicate
+ * synthetic row tacked on (an unfinished authored record is upgraded instead).
  *
  * Rationale for piggybacking on balance events vs polling: every relevant on-chain event for
  * the wallet (shield, transact, incoming transfer, yield deposit/withdraw) already produces a

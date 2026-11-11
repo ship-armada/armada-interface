@@ -1,4 +1,5 @@
 // ABOUTME: Warning below the amount card when the EVM wallet lacks native token for gas.
+// ABOUTME: Adds "You have X; about Y is needed" when the balance / estimate are known. Presentational (role="status").
 
 import styles from './GasBalanceNotice.module.css'
 

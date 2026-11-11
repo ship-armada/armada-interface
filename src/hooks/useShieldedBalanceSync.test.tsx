@@ -118,7 +118,7 @@ describe('useShieldedBalanceSync — initial-load-only sync UI (flicker fix)', (
     expect(store.get(syncStateAtom)).toEqual({ status: 'complete', progress: 1 })
 
     // WHY (flicker fix): the 15s poll re-syncs and fires scan:started again on every tick. That MUST
-    // NOT revert syncStateAtom to 'syncing' — else BalanceHero/SyncBanner replace the balance with
+    // NOT revert syncStateAtom to 'syncing' — else SyncCard/SyncBanner replace the balance with
     // the "Loading your private balance" block a couple times a second.
     act(() => h.scanListener!({ status: 'syncing', progress: 0 }))
     expect(store.get(syncStateAtom)).toEqual({ status: 'complete', progress: 1 })

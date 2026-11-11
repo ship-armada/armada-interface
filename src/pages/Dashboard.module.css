@@ -1,5 +1,5 @@
 /* ABOUTME: Dashboard page layout — a centered ~420px card stack (balance card, deposit tooltip, activity). */
-/* ABOUTME: Replaces the former hero-row + split grid; matches the armada-app mockup's single-column stack. */
+/* ABOUTME: One single-column stack (no hero row or split grid), matching the armada-app mockup. */
 
 .page {
   display: flex;

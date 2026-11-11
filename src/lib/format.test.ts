@@ -61,8 +61,8 @@ describe('parseUsdcInput', () => {
   })
 
   it('reports too-many-decimals BEFORE numeric truncation would silently lose precision', () => {
-    // The whole reason for the new API: previously "1.1234567" silently parsed as 1_123_456n
-    // (loses the trailing 7). Now it surfaces an error so UI can prompt the user instead.
+    // The point of the error channel: a plain truncating parse would turn "1.1234567" into 1_123_456n
+    // (losing the trailing 7). It surfaces an error instead so the UI can prompt the user.
     expect(parseUsdcInput('1.1234567')).toEqual({ value: 0n, error: 'too-many-decimals' })
     expect(parseUsdcInput('0.0000001')).toEqual({ value: 0n, error: 'too-many-decimals' })
   })

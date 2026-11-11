@@ -1,3 +1,6 @@
+// ABOUTME: Tests for shieldWalletSteps / shieldWalletInteractionsComplete — the shield's wallet checklist rows: Approve (exact
+// ABOUTME: amount, omitted when the allowance covers it) + Submit, or gasless Authorize + Sign, with each row's status and why.
+
 import { describe, it, expect } from 'vitest'
 import { shieldWalletInteractionsComplete, shieldWalletSteps } from './shieldWalletSteps'
 import type { TxRecord } from './types'

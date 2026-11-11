@@ -1,4 +1,5 @@
-// ABOUTME: Tests for the Settings overlay — opens via openModalAtom, three sections render, gated buttons honor wallet state, preference selects wire to atoms.
+// ABOUTME: Tests for the Settings overlay — the Notes card's "Merge" offers (hidden when nothing needs merging), Lock / Export /
+// ABOUTME: Reset gated on wallet state, and the auto-lock and "Show transaction updates" preferences writing their atoms.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

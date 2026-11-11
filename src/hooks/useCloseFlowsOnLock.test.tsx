@@ -1,5 +1,5 @@
 // ABOUTME: Tests for useCloseFlowsOnLock — when the wallet locks under an open flow, receipt or activity panel, they close
-// ABOUTME: (the app shell stays mounted while locked); Settings and the sign-in modal are left open.
+// ABOUTME: (the app shell stays mounted while locked); Settings is left open.
 
 import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'

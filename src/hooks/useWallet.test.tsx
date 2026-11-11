@@ -1,5 +1,5 @@
-// ABOUTME: Tests for useWallet — Phase 4 account-switch detection auto-locks the shielded wallet when wagmi reports a different EVM address than the keyManager is bound to.
-// ABOUTME: wagmi + sonner + lib/railgun all mocked at the import boundary so we don't need a real provider tree.
+// ABOUTME: Tests for useWallet — account-switch detection auto-locks the shielded wallet when wagmi reports a different EVM address than the keyManager is bound to.
+// ABOUTME: wagmi, sonner, lib/shielded (wallet + keyManager), the wagmi adapter and the executor are mocked at the import boundary so we don't need a real provider tree.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render } from '@testing-library/react'

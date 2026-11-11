@@ -1,5 +1,5 @@
 // ABOUTME: Address + USDC formatters. Kept in LOCKSTEP with crowdfund-ui/packages/shared/src/lib/format.ts (parseUsdcInput, formatUsdc, formatUsdcPlain, truncateAddress) — any change to those four must land in both files in the same PR.
-// ABOUTME: Once a third consumer needs these or the apps need to diverge, extract to @armada/eth-utils per Plan §19. Tracked in the POC polish backlog (https://github.com/ship-armada/armada-poc/blob/90156cf03598277c05b742fa1486550fc71fab5b/.claude/ARMADA_INTERFACE_POLISH.md).
+// ABOUTME: Once a third consumer needs these or the apps need to diverge, extract to @armada/eth-utils per docs/ARCHITECTURE.md §16.
 
 /** Format a USDC raw amount (6 decimals) as a dollar string, e.g. "$1,200,000". */
 export function formatUsdc(amount: bigint): string {

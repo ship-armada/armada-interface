@@ -1,4 +1,4 @@
-// ABOUTME: Send/Withdraw amount step — DepositAmountCard (no chain row; chosen on the recipient step) + percent pills + gas notice.
+// ABOUTME: Send amount step — DepositAmountCard (no chain row; chosen on the recipient step) + percent pills (+ a gas notice, unused while every kind is relayer-submitted).
 // ABOUTME: Recipient + chain live on the preceding recipient step, so this step gates only on the amount.
 
 import { useRef, type Ref } from 'react'
@@ -95,7 +95,8 @@ export function SendInputStepContent({
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const gasWarning = useGasBalanceWarning(gasChainId)
   // Only surface the gas notice when the user actually pays gas themselves. All three SendModal
-  // kinds default to the relayer path; the wallet-submit override flips `gaslessMode` to false.
+  // kinds are relayer-submitted with no wallet fallback (#23), so SendModal always passes
+  // `gaslessMode` true and the notice doesn't show.
   const showGasNotice = !gaslessMode && gasWarning.show
   const tooMuch = amount > maxInput
   // Every Send kind (private transfer, unshield) draws its fee from the same balance as the amount.

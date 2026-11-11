@@ -1,4 +1,5 @@
-// ABOUTME: Tests for WalletMenu — the pill opens the side panel; copy / disconnect / deposit / hide-balance actions wire through; explorer disables without a URL.
+// ABOUTME: Tests for WalletMenu — the pill opens the side panel; copy / disconnect / deposit / hide-balance actions wire through;
+// ABOUTME: explorer disables without a URL; the Total row expands to per-chain rows (buildWalletChainBalances).
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

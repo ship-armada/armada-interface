@@ -1,5 +1,5 @@
 // ABOUTME: RequestModal — the "Request USDC via link" flow: compose (amount/expiry/note) → generated link screen.
-// ABOUTME: Opened via openModalAtom='request'. Builds a real pay-via-link from the user's 0zk address; copy-address hands off to ReceiveDialog.
+// ABOUTME: Opened via openModalAtom='request'. Builds a real pay-via-link from the user's 0zk address on Create.
 
 import { useEffect, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'

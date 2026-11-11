@@ -13,6 +13,7 @@
 #     NETLIFY_SITE_ID      the site's API ID (Netlify → Site config → General → Site ID)
 #     SENTRY_AUTH_TOKEN    optional — enables Sentry source-map upload
 #   Variables (plain; these end up in the public client bundle anyway):
+#     VITE_ARTIFACTS_BASE_URL  hosted ZK circuits release (optional → defaults to the testnet host below)
 #     VITE_RELAYER_URL     e.g. https://relayer.knowable.run       (optional → wallet-submit only)
 #     VITE_INDEXER_URL     e.g. https://relayer.knowable.run/indexer (optional → RPC-only sync)
 #     VITE_WALLETCONNECT_PROJECT_ID   WalletConnect Cloud id       (optional; MetaMask works without)
@@ -23,7 +24,8 @@
 name: Deploy
 
 # main only: PRs are previewed on the local dev server, and CI's "Production Build" job (ci.yml) already
-# builds them (including the ZK-artifact check via `prebuild`), so a PR run here would only duplicate it.
+# builds them (its `prebuild` runs the ZK-artifact check, which skips since VITE_ARTIFACTS_BASE_URL is set), so a PR
+# run here would only duplicate it.
 on:
   push:
     branches: [main]
@@ -75,7 +77,8 @@ jobs:
           cache: "npm"
       - run: npm ci
       # Mirror netlify.toml's build flow: fetch the instance's manifests into public/api/deployments/,
-      # verify the committed ZK artifacts, then bundle. 16 GB runner → 8192 MB heap has ample headroom.
+      # run the ZK-artifact check (a no-op here: VITE_ARTIFACTS_BASE_URL is set, circuits are host-served), then
+      # bundle. 16 GB runner → 8192 MB heap has ample headroom.
       - name: Fetch deployment manifests
         run: node scripts/fetch-sepolia-deployments.mjs
       - name: Prepare ZK artifacts

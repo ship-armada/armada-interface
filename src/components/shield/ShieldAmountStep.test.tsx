@@ -1,5 +1,5 @@
 // ABOUTME: Tests for the shared Shield/Unshield amount step — footer Review gating + direction-driven title/tabs.
-// ABOUTME: Footer gating mirrors the retired ShieldInputStep coverage (empty / 0 / exceeds max / at-or-below fee floor).
+// ABOUTME: Footer gating covers empty / 0 / exceeds max / at-or-below the shield's fee floor.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

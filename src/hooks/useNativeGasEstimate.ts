@@ -1,4 +1,5 @@
-// ABOUTME: Estimates native-token gas cost for wallet-submitted txs (display only).
+// ABOUTME: Estimates native-token gas cost for wallet-submitted txs (display only): per-kind gas units × the chain's gas price.
+// ABOUTME: Feeds the direct shield's ETH check (useGasBalanceWarning) and the flows' gas display (useDisplayFees); null until a gas price loads.
 
 import { useMemo } from 'react'
 import { useAccount, useGasPrice } from 'wagmi'

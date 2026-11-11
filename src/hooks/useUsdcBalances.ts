@@ -53,7 +53,7 @@ export function useUsdcBalances(): void {
   const tabVisible = useAtomValue(tabVisibleAtom)
 
   // Deployments load once and rarely change at runtime — cache them via a static query rather
-  // than re-fetching per balance tick (the prior implementation did the latter unnecessarily).
+  // than re-fetching per balance tick.
   const deployments = useQuery({
     queryKey: ['deployments'],
     queryFn: () => loadDeployments(),
