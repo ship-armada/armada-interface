@@ -415,6 +415,22 @@ describe('<ShieldModal> — Shield/Unshield tabs', () => {
     expect(record.meta.broadcasterFeePerProof).toBe(1_286_550n)
   }))
 
+  it('an unshield does not create a second record when Confirm is double-clicked (P0-7)', withQuotedUnshieldFees(async () => {
+    // Same guard as the Shield tab's, in useUnshieldFlow: each click awaits a fresh quote, so without it = two spends.
+    const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })
+    fireEvent.change(screen.getByLabelText('Unshield amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
+    const confirm = screen.getByRole('button', { name: /^Confirm/ })
+    await act(async () => {
+      fireEvent.click(confirm)
+      fireEvent.click(confirm)
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'unshield-local')).toBe(true))
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    expect(store.get(txListAtom).filter((r) => r.kind === 'unshield-local')).toHaveLength(1)
+  }))
+
   it('a cross-chain unshield records its planned total with the per-proof fee too', withQuotedUnshieldFees(async () => {
     hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 1_527_000n, priceAt: vi.fn(async () => 1_527_000n) }
     const store = renderModal({ open: true, kind: 'unshield', spendable: 10_000_000n, evm: EVM })

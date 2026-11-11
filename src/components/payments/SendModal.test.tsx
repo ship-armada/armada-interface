@@ -660,6 +660,20 @@ describe('<SendModal>', () => {
       expect(screen.getByLabelText('Send amount')).toHaveValue('9.96')
     })
 
+    it('does not create a second record when Confirm is double-clicked (P0-7)', async () => {
+      // Two clicks before React can disable Confirm — the synchronous submittingRef guard must make the second a no-op.
+      // Each click awaits a fresh quote before submitting, so without it a fast double-click = two real spends.
+      const store = reviewPrivateSend()
+      const confirm = screen.getByRole('button', { name: /Confirm send/ })
+      await act(async () => {
+        fireEvent.click(confirm)
+        fireEvent.click(confirm)
+      })
+      await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'transfer-shielded')).toBe(true))
+      await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+      expect(store.get(txListAtom).filter((r) => r.kind === 'transfer-shielded')).toHaveLength(1)
+    })
+
     it('refuses a 0zk recipient that fails the strict checksum check — nothing is submitted', async () => {
       // WHY: the recipient step's regex is only a shape pre-filter; this check (bech32m checksum) at the funds-committing
       // boundary is what stops a typo'd 0zk — whose funds could never be recovered — from being sent to.

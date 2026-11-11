@@ -228,6 +228,22 @@ describe('<EarnModal>', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2) // Fees and Total
   }))
 
+  it('a vault deposit does not create a second record when Confirm is double-clicked (P0-7)', withQuotedVaultFee(async () => {
+    // Each click awaits a fresh quote before submitting — EarnModal's submittingRef guard makes the second a no-op.
+    const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
+    fireEvent.change(screen.getByLabelText('Shielded vault deposit amount'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }))
+    acknowledgeHighFee()
+    const confirm = screen.getByRole('button', { name: /Confirm deposit/ })
+    await act(async () => {
+      fireEvent.click(confirm)
+      fireEvent.click(confirm)
+    })
+    await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-deposit')).toBe(true))
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
+    expect(store.get(txListAtom).filter((r) => r.kind === 'yield-deposit')).toHaveLength(1)
+  }))
+
   it('a vault deposit re-prices at the fresh quote and records its planned total with the per-proof fee', withQuotedVaultFee(async () => {
     hoistedCheck.result = { ...hoistedCheck.defaults(), fee: 2_118_648n, priceAt: vi.fn(async () => 2_118_648n) }
     const store = renderModal({ open: 'yield-deposit', shielded: 10_000_000n })
