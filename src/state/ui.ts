@@ -14,15 +14,13 @@ export type ModalKind =
   | 'payment'
   | 'request'
   | 'settings'
-  | 'wallet-unlock'
-  | 'wallet-reset'
   | 'merge'
   | 'restore'
 
 /** Dashboard / action flows that require a connected EVM wallet before opening. */
 export type ActionModalKind = Exclude<
   ModalKind,
-  null | 'wallet-unlock' | 'wallet-reset' | 'settings' | 'merge' | 'restore'
+  null | 'settings' | 'merge' | 'restore'
 >
 
 export const openModalAtom = atom<ModalKind>(null)
