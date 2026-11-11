@@ -8,9 +8,10 @@ import { isTerminalState } from './types'
  * Outcome bucket for a tx record (an activity row's status).
  *   settled   — completed on chain.
  *   pending   — still in flight.
- *   failed    — definitively failed (revert / reject / pre-flight / interrupted / fee-expired / rpc). Nothing settled —
- *               except a cross-chain tx whose source burn confirmed before its delivery failed (see `moneyMoved`).
- *   cancelled — user cancelled before anything was sent.
+ *   failed    — definitively failed (revert / relayer rejection / pre-flight / interrupted / fee-expired, or a network
+ *               error before sending). Nothing settled — except a cross-chain tx whose source burn confirmed before
+ *               its delivery failed (see `moneyMoved`).
+ *   cancelled — nothing was sent: the user cancelled, or declined the wallet prompt (USER_REJECTED).
  *   unknown   — we stopped watching (timeout / dismissed / duplicate / expired), or a network error hit while the tx
  *               was being sent; it MAY still have settled on chain, so we never present these as "failed".
  */

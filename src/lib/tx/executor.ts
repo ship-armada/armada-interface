@@ -325,8 +325,8 @@ function onBecomeLeader(): void {
  * `upsertTxAtom` is OCC-safe so seeding records here can't regress newer in-memory state.
  *
  * Policy — what we resume is deliberately narrow:
- *  - past the per-kind wall-clock budget → `expired` (now actually reachable; resume used to be
- *    dead code that ran pre-unlock with no walletId and silently did nothing).
+ *  - past the per-kind wall-clock budget → `expired`. (Resume runs on unlock, not from `startEngine`:
+ *    pre-unlock there's no walletId or key, so `loadAllTx` would return nothing.)
  *  - has a `sourceTxHash` → the tx is ON CHAIN; re-attach the watcher (receipt / relayer status /
  *    cross-chain delivery polling). Safe because every submit stage is idempotent (WS1.3): a
  *    re-entry with a known hash never re-broadcasts. This is the ONLY thing we resume.
@@ -439,8 +439,9 @@ async function runHandlerChain(
         break
       }
 
-      // Handler put us in 'waiting'? Pause the chain; external trigger (e.g. a
-      // poller completing, or executeTx being called again) will resume.
+      // Handler put us in 'waiting'? Pause the chain. Nothing re-dispatches it automatically: only
+      // another executeTx (a retry, or resume on the next unlock) runs it again. Handlers poll inside
+      // run() rather than returning at 'waiting'.
       if (current.executionState === 'waiting') break
 
       // No-progress backstop (#4). Per the handler contract, `run()` must advance the stage, park at
@@ -481,7 +482,7 @@ async function runHandlerChain(
   } finally {
     running.delete(initial.id)
     // Free the hidden-credit snapshot once the record is settled. If the chain merely paused at
-    // 'waiting' (to be re-dispatched by a poller/external trigger), keep the snapshot so the credit
+    // 'waiting' (to be re-dispatched by a later executeTx), keep the snapshot so the credit
     // survives the re-attach.
     const latest = store.get(txListAtom).find(t => t.id === initial.id)
     if (!latest || isTerminalState(latest.executionState)) endHiddenCredit(initial.id)

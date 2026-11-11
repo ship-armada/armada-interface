@@ -1,4 +1,5 @@
 // ABOUTME: Unit tests for throwIfForcedError — no-op unless meta.devForceError is set, else throws a branded TxError carrying that code.
+// ABOUTME: The debug-only fault injection the Send flow uses to show each failed / cancelled outcome on demand.
 
 import { describe, it, expect } from 'vitest'
 import { throwIfForcedError } from './devForce'

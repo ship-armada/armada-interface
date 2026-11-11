@@ -1,4 +1,5 @@
 // ABOUTME: Tests for handleRelaySubmitError + extractDuplicateTxHash — DUPLICATE_TX hash recovery (T-M3/S-M1).
+// ABOUTME: A relayer that already sent the tx yields its hash so the handler polls on; any other submit error rethrows.
 
 import { describe, it, expect } from 'vitest'
 import { handleRelaySubmitError } from './relaySubmit'

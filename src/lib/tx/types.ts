@@ -188,8 +188,8 @@ export interface MetaShield extends MetaCommon {
    * deployed for fromChainId AND relayer healthy).
    *   - `true`  → handler signs an EIP-2612 permit + POSTs gaslessShield(...) calldata to the
    *     relayer; user pays the relayer's `shield` tier fee in USDC and no ETH gas.
-   *   - `false` → handler does the existing direct path (user-signed approve + shield from the
-   *     EVM wallet, paying ETH gas). Defaults to false (omitted) for records pre-dating B3.
+   *   - `false` → handler does the direct path (user-signed approve + shield from the
+   *     EVM wallet, paying ETH gas). Absent (read as false) on records without the gasless path.
    */
   useGasless?: boolean
   /**
@@ -212,8 +212,8 @@ export interface MetaShield extends MetaCommon {
   permitDeadline?: number
   /**
    * Phase C — the relayer's shielded (`0zk...`) address, frozen from the fee quote. The gasless
-   * build-proof shields the relayer's fee note to this npk (a second note in the array), replacing
-   * the old public-USDC fee. Only set when `useGasless` is true.
+   * build-proof shields the relayer's fee note to this npk (a second note in the array). Only set
+   * when `useGasless` is true.
    */
   broadcasterShieldedAddress?: string
   /**
@@ -238,9 +238,9 @@ export interface MetaShieldXchain extends MetaCommon {
    *   - `true`  → handler signs an EIP-2612 permit on the source chain + POSTs
    *     gaslessCrossChainShield(...) calldata to the relayer; user pays the `shieldXchain`
    *     tier fee in USDC and no native gas on the source chain.
-   *   - `false` → handler does the existing direct path (user-signed approve + crossChainShield
-   *     from the EVM wallet, paying native gas on the source chain). Defaults to false (omitted)
-   *     for records pre-dating B4.
+   *   - `false` → handler does the direct path (user-signed approve + crossChainShield
+   *     from the EVM wallet, paying native gas on the source chain). Absent (read as false) on
+   *     records without the gasless path.
    */
   useGasless?: boolean
   /**
@@ -423,7 +423,10 @@ export type MetaFor<K extends TxKind> =
  *                      The UI must communicate "nothing happened" (not "your tx failed on chain").
  *  POLL_TIMEOUT      — we lost track of an on-chain tx whose hash we know. It MAY still succeed;
  *                      the user should check their wallet or the explorer. Distinct from TX_REVERTED.
- *  RPC_ERROR         — wagmi/viem call threw before we got any tx hash. Usually safe to retry.
+ *  RPC_ERROR         — a network / RPC / transient relayer error. Before broadcast (no hash) a
+ *                      retry is safe; while sending, the tx MAY have gone out (the relayer can
+ *                      broadcast before its error reaches us), and a receipt-wait failure carries
+ *                      the known txHash — so outcome.ts reads it as indeterminate once past build-proof.
  *  USER_REJECTED     — the user declined a wallet signature or chain switch.
  *  INTERRUPTED       — a non-terminal record was found on resume (app reload / crash) that never
  *                      reached a broadcast (no sourceTxHash). Nothing was sent; resuming would
@@ -484,8 +487,8 @@ export interface ArtifactsCommon {
   /** Categorised error if the record terminated unsuccessfully (failed / expired / cancelled-with-context). */
   error?: TxError
   /**
-   * ZK-proof generation progress (0–1). Set by the build-proof stage of any kind that calls
-   * `generateUnshieldProof` / `generateTransferProof` / `generateProofTransactions`. Atom-only
+   * ZK-proof generation progress (0–1). Set by the build-proof stage of every spend kind through
+   * `progress.ts::createProofProgressWriter` (the `lib/shielded/*-sdk` builders' `onProgress`). Atom-only
    * write (no IDB) because progress is ephemeral — a reload restarts proof gen from scratch.
    */
   proofProgress?: number
@@ -510,23 +513,25 @@ export interface ArtifactsXchain extends ArtifactsCommon {
     data: `0x${string}`
     value: string
   }
-  /** Iris message hash, used to poll attestations. */
+  /** keccak256 of the source-chain CCTP message — the key for the relayer's CCTP delivery status
+   *  (`lib/relayer.ts::fetchCctpDeliveryStatus`), polled while the delivery is awaited. */
   messageHash?: `0x${string}`
-  /** Attestation bytes once Iris returns 'complete'. */
+  /** Attestation bytes. No handler writes it — the app doesn't poll Iris; delivery is detected by
+   *  the relayer's status or the destination `MessageReceived` scan. */
   attestation?: `0x${string}`
   /** Hash of the destination-chain `receiveMessage` / `relayWithHook` tx. */
   destTxHash?: `0x${string}`
   /**
    * CCTP V2 nonce extracted from the source-chain MessageSent envelope (bytes32 at offset
-   * [12, 44) of the message). The destination MessageTransmitter's `MessageReceived` event
-   * has this as its indexed `nonce` topic, so we detect delivery by an exact-match log query
-   * rather than recipient-balance polling — eliminates the false-positive window.
+   * [12, 44) of the message). Recorded for reference only: V2's outbound nonce slot is zero and
+   * the destination's indexed `nonce` is assigned by Iris, so the delivery scan can't filter on
+   * it — it matches a per-tx marker inside the `MessageReceived` message body instead.
    */
   cctpNonce?: `0x${string}`
   /**
-   * Block number on the destination chain at the moment we finished the hub burn. The polling
-   * stage uses this as the `fromBlock` floor when scanning for MessageReceived events so we
-   * don't pay for full-history rescans. Stored as a decimal string for IDB.
+   * The delivery scan's cursor on the destination chain (the client chain for an unshield, the hub
+   * for a cross-chain shield): its head when the source burn confirmed, then advanced after each
+   * window scanned without a match, so the scan never re-reads history. Stored as a decimal string for IDB.
    */
   destFromBlock?: string
 }
@@ -598,9 +603,9 @@ export interface ArtifactsShield extends ArtifactsCommon {
 
 /**
  * Yield-specific artifacts. The `build-proof` stage stashes the populated adapter calldata here
- * so submit-relayer can dispatch it directly without re-running `generateProofTransactions`
- * (which is stateless in the SDK — a second call from submit-relayer would otherwise pay
- * the full ~20-30s proving cost again). `value` is stringified for IDB serializability.
+ * so submit-relayer can dispatch it directly without re-running the build (`lib/shielded/yield-sdk::buildYieldAdaptSdk`
+ * — plan → prove → encode, so a second call from submit-relayer would pay the full ~20-30s proving cost
+ * again). `value` is stringified for IDB serializability.
  */
 export interface ArtifactsYield extends ArtifactsCommon {
   yieldTx?: {

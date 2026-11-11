@@ -1,5 +1,5 @@
 // ABOUTME: Reports a settled `failed` TxRecord — always an info-level tx.failed event, plus a Sentry
-// ABOUTME: error for the unexpected-failure codes so prod transaction failures stop failing dark.
+// ABOUTME: error for the unexpected-failure codes (and bug / broken-prover SDK codes) so prod failures don't go unseen.
 
 import type { TxErrorCode, TxRecord } from './types'
 import { track, trackError } from '../telemetry'

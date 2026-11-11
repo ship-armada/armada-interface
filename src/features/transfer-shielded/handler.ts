@@ -29,9 +29,13 @@ import type { TxError, TxRecord } from '@/lib/tx/types'
  *                          (~20-30s each on local Anvil). A fragmented wallet splits into several
  *                          supported-shape proofs combined into one atomic `transact([...])`; each
  *                          embeds its share of the USDC output to the relayer's 0zk address.
- *   2. `submit-relayer` — populate `transact()` calldata, POST to relayer's `/relay`, poll
- *                          `/status` until confirmed (or failed).
- *   3. `hub-confirmed`  — terminal. Kicks a balance refresh.
+ *                          The `transact([...])` calldata is built here and stashed in
+ *                          `artifacts.transferTx`.
+ *   2. `submit-relayer` — POST the stashed calldata to the relayer's `/relay`, persist the txHash,
+ *                          advance.
+ *   3. `hub-pending`    — broadcast; poll `/status` until confirmed (or failed). Also the resume /
+ *                          retry entry for an already-broadcast tx.
+ *   4. `hub-confirmed`  — terminal. Kicks a balance refresh.
  *
  * No EVM wallet signature anywhere — proof generation uses the shielded wallet's spending key
  * (`keyManager`); the relayer broadcasts and pays gas in ETH, claiming reimbursement via the

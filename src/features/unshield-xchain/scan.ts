@@ -1,4 +1,4 @@
-// ABOUTME: Pure per-tick scan helper used by the xchain unshield handler — caps the eth_getLogs window to maxLogRange blocks and advances a cursor between ticks.
+// ABOUTME: Pure per-tick scan helper used by both cross-chain handlers' delivery waits (unshield-xchain, shield-xchain) — caps the eth_getLogs window to maxLogRange blocks and advances a cursor between ticks.
 // ABOUTME: Lifted out of handler.ts so the cursor/window math is unit-testable without dragging in wagmi, ethers, or the SDK.
 
 /**
@@ -9,7 +9,7 @@
  */
 export type ScanLog = { transactionHash?: string | null }
 
-/** Caller-supplied range query. Lets the handler keep viem's typed event filter without leaking it into this helper's signature. */
+/** Caller-supplied range query. Lets the handler keep its own provider's event filter (an ethers `getLogs`) out of this helper's signature. */
 export type GetLogsForRange<TLog extends ScanLog = ScanLog> = (
   fromBlock: bigint,
   toBlock: bigint,

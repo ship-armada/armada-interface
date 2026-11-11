@@ -65,7 +65,7 @@ function shieldNote(record: TxRecord, syncedThrough: number | null): bigint | nu
  * A spend counts from broadcast for as long as the SDK holds its inputs. The SDK releases a hold in the same sync that
  * scans the spend's `Nullified` event — when its change note is found and joins the scanned balance — so the projected
  * figure hands over to the scanned one with no gap and no double count; a dropped spend (released at once) or one past
- * the SDK's hold TTL simply stops counting. Spec G-11.
+ * the SDK's hold TTL simply stops counting. Spec G-12.
  */
 export function projectedBalance({ records, heldTxids, syncedThrough }: ProjectionInputs): BalanceProjection {
   const held = new Set(heldTxids.map((txid) => txid.toLowerCase()))

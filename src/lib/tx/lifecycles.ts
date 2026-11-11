@@ -1,5 +1,5 @@
 // ABOUTME: Lifecycle definitions per TxKind — stage sequence, terminal-success stage, retryable stages, ETA hints, stage wait estimates.
-// ABOUTME: Single source of truth for tx flow modeling. Adding a kind means adding here, its stage union in types.ts, and (optionally) a renderer.
+// ABOUTME: Single source of truth for tx flow modeling. Adding a kind means adding here, its stage union in types.ts, a handler and its copy (lib/tx/CLAUDE.md).
 
 import type { TxKind, TxLifecycle } from './types'
 

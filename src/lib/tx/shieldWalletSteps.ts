@@ -1,4 +1,5 @@
 // ABOUTME: Maps shield / shield-xchain tx records to wallet-confirmation rows (Step 4 participate flow parity).
+// ABOUTME: Direct: Approve (only when the allowance is short) + Submit; gasless: Authorize (permit) + Sign — each row's status and why.
 
 import { formatUsdcAmount } from '@/lib/format'
 import type { TxRecord } from '@/lib/tx/types'

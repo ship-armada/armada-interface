@@ -277,6 +277,6 @@ async function runSubmitAndConfirm(
 
   track('tx.relayer.confirmed', { id: record.id, kind: record.kind })
 
-  // Syncs balances (awaited) AND reconciles meta.amount to the actual redeemed gross before terminal.
+  // Reconciles meta.amount to the actual redeemed gross in the terminal write, then kicks a (fire-and-forget) balance refresh.
   await confirmWithReconciledAmount(broadcastRecord, ctx, txHash)
 }
