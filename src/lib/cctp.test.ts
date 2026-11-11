@@ -5,7 +5,6 @@ import {
   readCctpMessage,
   readBurnMessage,
   readCctpFromLogs,
-  messageSentTopic,
   CCTP_MESSAGE_TRANSMITTER_ABI,
 } from './cctp'
 import { encodeAbiParameters, encodeEventTopics } from 'viem'
@@ -142,12 +141,32 @@ describe('readCctpFromLogs', () => {
     expect(info.sent).toBeUndefined()
   })
 
-  it('ignores logs from other addresses', () => {
-    const info = readCctpFromLogs({
-      logs: [{ address: '0x0000000000000000000000000000000000000001', topics: [messageSentTopic()], data: '0x' } as never],
-      messageTransmitterAddress: TRANSMITTER,
+  it('ignores well-formed CCTP logs emitted by any other contract', () => {
+    // WHY: recovered history reads a shield's headline and fee from these logs, so a foreign contract's lookalike event
+    // must not count. The logs here decode fine — only the address check can drop them.
+    const raw = buildMessageWithMaxFee(6, '0x4d25f9d0b0cd67f6fb2e6e1f2e9b072e750b0c30', 1_200n).slice(2)
+    const len = (raw.length / 2).toString(16).padStart(64, '0')
+    const sentData = `0x${(32).toString(16).padStart(64, '0')}${len}${raw.padEnd(Math.ceil(raw.length / 64) * 64, '0')}` as `0x${string}`
+    const receivedTopics = encodeEventTopics({
+      abi: CCTP_MESSAGE_TRANSMITTER_ABI,
+      eventName: 'MessageReceived',
+      args: { caller: '0x4d25f9d0b0cd67f6fb2e6e1f2e9b072e750b0c30', nonce: `0x${'00'.repeat(32)}`, finalityThresholdExecuted: 2000 },
     })
-    expect(info.sent).toBeUndefined()
+    const receivedData = encodeAbiParameters(
+      [{ name: 'sourceDomain', type: 'uint32' }, { name: 'sender', type: 'bytes32' }, { name: 'messageBody', type: 'bytes' }],
+      [6, `0x${'00'.repeat(32)}`, buildBurnMessage(3_000_000n, 25_000n)],
+    )
+    const OTHER = '0x0000000000000000000000000000000000000001'
+    const logs = [
+      { address: OTHER, topics: sentTopics, data: sentData },
+      { address: OTHER, topics: receivedTopics, data: receivedData },
+    ] as never[]
+    expect(readCctpFromLogs({ logs, messageTransmitterAddress: TRANSMITTER })).toEqual({})
+    // The same logs from the transmitter are read — so the empty result above is the address check, not bad fixtures.
+    const fromTransmitter = logs.map((log: { address: string }) => ({ ...log, address: TRANSMITTER })) as never[]
+    const info = readCctpFromLogs({ logs: fromTransmitter, messageTransmitterAddress: TRANSMITTER })
+    expect(info.sent?.maxFee).toBe(1_200n)
+    expect(info.received?.burnAmount).toBe(3_000_000n)
   })
 
 })
