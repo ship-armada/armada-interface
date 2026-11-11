@@ -8,7 +8,6 @@ import {
   decryptBackup,
   deriveHistoryEncryptionKey,
   deriveRootSecret,
-  deriveSdkEncryptionKeyHex,
   deriveSpendingKeyBytes,
   deriveViewingKeyBytes,
   deriveWalletId,
@@ -54,7 +53,7 @@ export interface ShieldedWalletState {
  * `accountKey(bigint)` so the convention is enforced in one place.
  *
  * Both maps are non-secret: walletId is an opaque SDK identifier (knowing it does not grant
- * access; the encrypted wallet blob in IndexedDB requires sdkEncryptionKey to decrypt), and the
+ * access), and the
  * checksum is a public anti-phish display string by spec.
  *
  * Schema-version-2 boot wipe (Phase 1) drops the old single-value keys ('armada.shielded.walletId'
@@ -278,7 +277,6 @@ async function applyRootSecret(
   assertEntropyFloor('spending_key', deriveSpendingKeyBytes(rootSecret))
   assertEntropyFloor('viewing_key', deriveViewingKeyBytes(rootSecret))
 
-  const sdkEncryptionKey = deriveSdkEncryptionKeyHex(rootSecret)
   const checksum = formatChecksumDisplay(antiPhishChecksumBytes(rootSecret))
   const account = opts.account ?? 0n
 
@@ -319,7 +317,6 @@ async function applyRootSecret(
   setUnlocked({
     rootSecret,
     walletId,
-    sdkEncryptionKey,
     shieldedAddress,
     checksum,
     creationBlock: effectiveCreationBlock,

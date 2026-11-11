@@ -6,7 +6,6 @@ import {
   deriveRootSecret,
   deriveSpendingKeyBytes,
   deriveViewingKeyBytes,
-  deriveSdkEncryptionKeyHex,
   deriveHistoryEncryptionKey,
   deriveWalletId,
   antiPhishChecksumBytes,
@@ -56,8 +55,7 @@ describe('known-answer vectors (specs/TX_SIGNING.md, IC-4 until official vectors
     expect(hex(deriveViewingKeyBytes(root))).toBe('29d5f4da49a8b3d0c2e1cc65ecfb964238809a50ac512fdce8656ee4d5656c48')
   })
 
-  it('SDK, history and wallet-id keys = HKDF-Expand(root_secret, their versioned info strings)', () => {
-    expect(deriveSdkEncryptionKeyHex(root)).toBe('f20d813656c56a3da5f9b993386fed6722d26a144e4d7fa0eb3bfaa4a07556e3')
+  it('history and wallet-id keys = HKDF-Expand(root_secret, their versioned info strings)', () => {
     expect(hex(deriveHistoryEncryptionKey(root))).toBe('9b1a7d1812541522cf501fc325b8d70645c2efc78ac8c2c837ed08255e246eac')
     expect(deriveWalletId(root)).toBe('5bba98931a10acb9e51d77fae0493c5c')
   })
@@ -100,27 +98,10 @@ describe('subkey derivation', () => {
   })
 })
 
-describe('deriveSdkEncryptionKeyHex', () => {
-  it('returns 64 lowercase hex chars (no 0x prefix) — SDK-expected format', () => {
-    const root = deriveRootSecret(fixedSignature())
-    const key = deriveSdkEncryptionKeyHex(root)
-    expect(key.length).toBe(64)
-    expect(key).toMatch(/^[0-9a-f]{64}$/)
-  })
-})
-
 describe('deriveHistoryEncryptionKey', () => {
   it('returns 32 bytes', () => {
     const root = deriveRootSecret(fixedSignature())
     expect(deriveHistoryEncryptionKey(root).length).toBe(32)
-  })
-
-  it('is distinct from the SDK encryption key (different HKDF info string)', () => {
-    const root = deriveRootSecret(fixedSignature())
-    const history = deriveHistoryEncryptionKey(root)
-    const sdkHex = deriveSdkEncryptionKeyHex(root)
-    const historyHex = Array.from(history, b => b.toString(16).padStart(2, '0')).join('')
-    expect(historyHex).not.toBe(sdkHex)
   })
 
   it('is distinct from the spending/viewing subkeys', () => {

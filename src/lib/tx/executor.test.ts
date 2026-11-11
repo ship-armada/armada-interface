@@ -52,7 +52,6 @@ function unlockForTest(walletId = 'rw-1'): void {
   setUnlocked({
     rootSecret: new Uint8Array(32),
     walletId,
-    sdkEncryptionKey: 'ff'.repeat(32),
     shieldedAddress: '0zk1example',
     checksum: 'a3f2 91c8 b7e0',
     creationBlock: null,

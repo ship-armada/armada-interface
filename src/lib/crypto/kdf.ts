@@ -23,13 +23,6 @@ const HKDF_INFO_SPEND_V1 = utf8('spend:v1')
 const HKDF_INFO_VIEW_V1 = utf8('view:v1')
 
 /**
- * Internal-only info string for deriving an encryption key passed to the SDK in Phase 1.
- * Not part of the spec; replaced in Phase 2 when we drop the internal-mnemonic shim entirely.
- * Documented here so future readers understand this is a Phase 1 compromise.
- */
-const HKDF_INFO_SDK_ENCRYPTION_V1 = utf8('phase1-sdk-encryption:v1')
-
-/**
  * Anti-phish checksum domain separator (spec §"Anti-Phish Checksum"):
  *   checksum = first_6_bytes(SHA256(root_secret || "armada-check"))
  */
@@ -74,18 +67,6 @@ export function deriveSpendingKeyBytes(rootSecret: Uint8Array): Uint8Array {
 export function deriveViewingKeyBytes(rootSecret: Uint8Array): Uint8Array {
   assertRootSecret(rootSecret)
   return hkdfExpand(sha256, rootSecret, HKDF_INFO_VIEW_V1, 32)
-}
-
-/**
- * Derive a 32-byte encryption key (hex) for the SDK's at-rest wallet encryption.
- * Returns 64 lowercase hex characters (no `0x` prefix) — matches the SDK's expected format.
- *
- * Phase 1 only: in Phase 2 this disappears because we won't go through the high-level wallet SDK.
- */
-export function deriveSdkEncryptionKeyHex(rootSecret: Uint8Array): string {
-  assertRootSecret(rootSecret)
-  const bytes = hkdfExpand(sha256, rootSecret, HKDF_INFO_SDK_ENCRYPTION_V1, 32)
-  return bytesToHexNoPrefix(bytes)
 }
 
 /**

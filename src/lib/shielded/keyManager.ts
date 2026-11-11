@@ -1,4 +1,4 @@
-// ABOUTME: Module-scope private state for the unlocked wallet — root_secret, walletId, sdkEncryptionKey, shieldedAddress, checksum.
+// ABOUTME: Module-scope private state for the unlocked wallet — root_secret, walletId, historyEncryptionKey, shieldedAddress, checksum.
 // ABOUTME: Never exposed to React state, atoms, or localStorage. Cleared on lock; best-effort fill(0) on the root_secret buffer.
 
 import { antiPhishChecksumBytes, formatChecksumDisplay } from '@/lib/crypto/kdf'
@@ -8,8 +8,6 @@ interface UnlockedState {
   rootSecret: Uint8Array
   /** Cached walletId for fast SDK calls. Persisted via localStorage separately. */
   walletId: string
-  /** 64-hex SDK encryption key, derived from rootSecret. */
-  sdkEncryptionKey: string
   /** Display-format anti-phish checksum ("a3f2 91c8 b7e0"). */
   checksum: string
   /** The 0zk… address returned by the SDK. */
@@ -48,7 +46,7 @@ interface UnlockedState {
   /**
    * 32-byte AES-256 key for at-rest encryption of cache records (tx history, in Phase 7).
    * Derived from root_secret via HKDF-Expand with `info='armada-tx-history:v1'` — distinct
-   * from sdkEncryptionKey so a leak of one doesn't compromise the other. Same lifecycle as
+   * from the spending / viewing subkeys so a leak of one doesn't compromise the others. Same lifecycle as
    * rootSecret: zeroized on `clear()`.
    */
   historyEncryptionKey: Uint8Array
@@ -80,11 +78,6 @@ export function getRootSecret(): Uint8Array {
 export function getWalletId(): string {
   if (!unlocked) throw new Error('keyManager: wallet is locked')
   return unlocked.walletId
-}
-
-export function getSdkEncryptionKey(): string {
-  if (!unlocked) throw new Error('keyManager: wallet is locked')
-  return unlocked.sdkEncryptionKey
 }
 
 export function getShieldedAddress(): string {

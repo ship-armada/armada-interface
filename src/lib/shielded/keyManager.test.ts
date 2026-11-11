@@ -6,7 +6,6 @@ import {
   isUnlocked,
   getRootSecret,
   getWalletId,
-  getSdkEncryptionKey,
   getShieldedAddress,
   getChecksum,
   getCreationBlock,
@@ -25,7 +24,6 @@ function makeState(seed = 1, creationBlock: number | null = 100) {
   return {
     rootSecret,
     walletId: 'wallet-id-xyz',
-    sdkEncryptionKey: 'ff'.repeat(32),
     shieldedAddress: '0zk1qexample…',
     checksum: 'a3f2 91c8 b7e0',
     creationBlock,
@@ -54,7 +52,6 @@ describe('setUnlocked + getters', () => {
     setUnlocked(s)
     expect(getRootSecret()).toBe(s.rootSecret) // same reference, not a copy
     expect(getWalletId()).toBe(s.walletId)
-    expect(getSdkEncryptionKey()).toBe(s.sdkEncryptionKey)
     expect(getShieldedAddress()).toBe(s.shieldedAddress)
     expect(getChecksum()).toBe(s.checksum)
   })
@@ -64,7 +61,6 @@ describe('setUnlocked + getters', () => {
       setUnlocked({
         rootSecret: new Uint8Array(16),
         walletId: 'x',
-        sdkEncryptionKey: 'y',
         shieldedAddress: 'z',
         checksum: 'cs',
         creationBlock: 0,
@@ -99,7 +95,6 @@ describe('locked-state behavior', () => {
   it('throws on every getter when locked', () => {
     expect(() => getRootSecret()).toThrow(/locked/)
     expect(() => getWalletId()).toThrow(/locked/)
-    expect(() => getSdkEncryptionKey()).toThrow(/locked/)
     expect(() => getShieldedAddress()).toThrow(/locked/)
     expect(() => getChecksum()).toThrow(/locked/)
     expect(() => deriveChecksum()).toThrow(/locked/)

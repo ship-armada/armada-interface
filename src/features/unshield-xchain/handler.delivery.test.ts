@@ -12,7 +12,7 @@ vi.mock('@/lib/shielded/pending-spend', () => ({
   clearSpendPendingForTx: vi.fn(async () => {}),
   forgetSpendPlan: vi.fn(),
 }))
-vi.mock('@/lib/shielded/keyManager', () => ({ isUnlocked: () => false, getWalletId: () => 'rw-1', getSdkEncryptionKey: () => '0xkey' }))
+vi.mock('@/lib/shielded/keyManager', () => ({ isUnlocked: () => false, getWalletId: () => 'rw-1' }))
 vi.mock('@/lib/rpc', () => ({ createProvider: vi.fn(() => ({})) }))
 vi.mock('@/config/deployments', () => ({
   loadDeployments: vi.fn(async () => ({
