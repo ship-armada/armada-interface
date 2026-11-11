@@ -137,8 +137,6 @@ const variantsTs = [
   '',
   `export type TypographyVariant = ${variantUnion}`,
   '',
-  `export const TYPOGRAPHY_VARIANTS = [${variantSlugs.map((id) => `'${id}'`).join(', ')}] as const satisfies readonly TypographyVariant[]`,
-  '',
   'export function typographyClassName(variant: TypographyVariant): string {',
   '  return `armada-text-${variant}`',
   '}',
