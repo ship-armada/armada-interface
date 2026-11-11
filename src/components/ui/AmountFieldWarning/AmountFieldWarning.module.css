@@ -9,5 +9,7 @@
 }
 
 .tooltip {
+  left: 50%;
   bottom: calc(100% + var(--primitives-spacing-4));
+  transform: translateX(-50%);
 }

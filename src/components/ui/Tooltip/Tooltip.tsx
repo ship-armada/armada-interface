@@ -2,7 +2,11 @@
 // ABOUTME: Wrap the trigger (e.g. info icon button); popover is positioned above the trigger.
 
 import { useState, useRef, useId, type ReactNode, type KeyboardEvent } from 'react'
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react'
 import styles from './Tooltip.module.css'
+
+/** Same gap the CSS anchor used: `bottom: calc(100% + 8px)`. */
+const TOOLTIP_GAP_PX = 8
 
 interface TooltipSimpleProps {
   variant: 'centered'
@@ -24,10 +28,17 @@ export type TooltipProps = TooltipSimpleProps | TooltipRichProps
 export function Tooltip(props: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const tooltipId = useId()
-  const triggerRef = useRef<HTMLSpanElement>(null)
+  const triggerRef = useRef<HTMLSpanElement | null>(null)
 
   const show = () => setVisible(true)
   const hide = () => setVisible(false)
+  const { refs, floatingStyles, isPositioned } = useFloating({
+    open: visible,
+    placement: 'top',
+    strategy: 'absolute',
+    middleware: [offset(TOOLTIP_GAP_PX), flip({ padding: TOOLTIP_GAP_PX }), shift({ padding: TOOLTIP_GAP_PX })],
+    whileElementsMounted: autoUpdate,
+  })
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -44,7 +55,10 @@ export function Tooltip(props: TooltipProps) {
       onFocus={show}
       onBlur={hide}
       onKeyDown={handleKeyDown}
-      ref={triggerRef}
+      ref={(node) => {
+        triggerRef.current = node
+        refs.setReference(node)
+      }}
       tabIndex={0}
       aria-describedby={visible ? tooltipId : undefined}
     >
@@ -53,6 +67,8 @@ export function Tooltip(props: TooltipProps) {
       {visible && (
         <span
           id={tooltipId}
+          ref={refs.setFloating}
+          style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
           className={[
             styles.tooltip,
             props.variant === 'centered' ? styles.centered : styles.rich,

@@ -9,9 +9,6 @@
 /* ── Tooltip base ── */
 .tooltip {
   position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 100;
   padding: var(--primitives-spacing-5);
   background: var(--semantic-color-surface-tooltip);
@@ -109,7 +106,6 @@
 
 /* ── Action label (balance card icon buttons) ── */
 .action {
-  bottom: calc(100% + var(--primitives-spacing-2));
   display: inline-flex;
   flex-direction: row;
   align-items: center;

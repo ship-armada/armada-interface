@@ -1,8 +1,12 @@
 // ABOUTME: Hover/focus tooltip with centered, rich, and action variants.
 // ABOUTME: Ported from the armada-app design mockup.
 import { useEffect, useId, useRef, useState } from 'react'
+import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react'
 import { useFineHover } from '@/hooks/useFineHover'
 import styles from './Tooltip.module.css'
+
+/** Same gap the CSS anchor used: `bottom: calc(100% + 8px)`. */
+const TOOLTIP_GAP_PX = 8
 
 interface TooltipSimpleProps {
   variant: 'centered'
@@ -29,12 +33,19 @@ type TooltipProps = TooltipSimpleProps | TooltipRichProps | TooltipActionProps
 export default function Tooltip(props: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const tooltipId = useId()
-  const triggerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement | null>(null)
   const isAction = props.variant === 'action'
   const fineHover = useFineHover()
 
   const show = () => setVisible(true)
   const hide = () => setVisible(false)
+  const { refs, floatingStyles, isPositioned } = useFloating({
+    open: visible,
+    placement: 'top',
+    strategy: 'absolute',
+    middleware: [offset(TOOLTIP_GAP_PX), flip({ padding: TOOLTIP_GAP_PX }), shift({ padding: TOOLTIP_GAP_PX })],
+    whileElementsMounted: autoUpdate,
+  })
 
   useEffect(() => {
     if (fineHover || !visible) return
@@ -68,7 +79,10 @@ export default function Tooltip(props: TooltipProps) {
       onFocusCapture={fineHover && isAction ? show : undefined}
       onBlurCapture={fineHover && isAction ? hide : undefined}
       onKeyDown={isAction ? undefined : handleKeyDown}
-      ref={triggerRef}
+      ref={(node) => {
+        triggerRef.current = node
+        refs.setReference(node)
+      }}
       aria-describedby={visible && !isAction ? tooltipId : undefined}
     >
       {props.children}
@@ -76,6 +90,8 @@ export default function Tooltip(props: TooltipProps) {
       {visible && (
         <div
           id={tooltipId}
+          ref={refs.setFloating}
+          style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
           className={[
             styles.tooltip,
             props.variant === 'centered' && styles.centered,
