@@ -21,20 +21,15 @@ const pkg = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'),
 )
 
-// Local-devnet dev needs the poc monorepo + armada-circuits checked out as SIBLINGS of this repo.
-// This app was spun out of the monorepo, so local contract iteration is now two-repo (see
-// LOCAL_VS_DEPLOY.md). Override any location via env if your layout differs. Production builds do
-// NOT use these — Sepolia manifests are curl'd at build time and ZK artifacts are committed under
-// public/artifacts/.
+// Local-devnet dev reads the deployment manifests from an armada-poc checkout next to this repo
+// (see LOCAL_VS_DEPLOY.md); override the location via env if your layout differs. Production builds
+// do NOT use these — Sepolia manifests are fetched at build time.
 const POC_DIR = process.env.ARMADA_POC_DIR
   ? path.resolve(process.env.ARMADA_POC_DIR)
   : path.resolve(__dirname, '../armada-poc')
 const DEPLOYMENTS_DIR = process.env.ARMADA_DEPLOYMENTS_DIR
   ? path.resolve(process.env.ARMADA_DEPLOYMENTS_DIR)
   : path.resolve(POC_DIR, 'deployments')
-const CIRCUITS_DIR = process.env.ARMADA_CIRCUITS_DIR
-  ? path.resolve(process.env.ARMADA_CIRCUITS_DIR)
-  : path.resolve(__dirname, '../armada-circuits/build')
 
 /**
  * Local-mode dev endpoint: POST /api/fund-gas { address, chainId } → uses the well-known Anvil
@@ -144,74 +139,6 @@ function fundGasEndpoint() {
 }
 
 /**
- * Serves Armada circuit artifacts (WASM/ZKEY/VKEY) from armada-circuits/build/.
- *
- * In local mode, the interface needs to inject Armada's own circuit artifacts
- * into the Railgun SDK's cache via `overrideArtifact()`. This middleware serves
- * the binary files so the browser can fetch them at runtime.
- *
- * Routes:
- *   /api/circuits/<N>x<M>/wasm   → main_<N>x<M>_js/main_<N>x<M>.wasm
- *   /api/circuits/<N>x<M>/zkey    → final.zkey
- *   /api/circuits/<N>x<M>/vkey    → vkey.json
- */
-function serveCircuitArtifacts() {
-  return {
-    name: 'serve-circuit-artifacts',
-    configureServer(server: any) {
-      server.middlewares.use(
-        '/api/circuits',
-        async (req: any, res: any, _next: any) => {
-          // Parse: /<N>x<M>/<type>
-          const parts = req.url?.replace(/^\//, '').split('/') ?? []
-          if (parts.length !== 2) {
-            res.statusCode = 400
-            res.end('Bad path. Expected /<N>x<M>/<wasm|zkey|vkey>')
-            return
-          }
-          const [shape, filetype] = parts
-          const buildDir = path.resolve(CIRCUITS_DIR, shape)
-
-          let filepath: string
-          let contentType: string
-          if (filetype === 'wasm') {
-            filepath = path.resolve(buildDir, `main_${shape}_js`, `main_${shape}.wasm`)
-            contentType = 'application/wasm'
-          } else if (filetype === 'zkey') {
-            filepath = path.resolve(buildDir, 'final.zkey')
-            contentType = 'application/octet-stream'
-          } else if (filetype === 'vkey') {
-            filepath = path.resolve(buildDir, 'vkey.json')
-            contentType = 'application/json'
-          } else {
-            res.statusCode = 400
-            res.end('Unknown file type')
-            return
-          }
-
-          if (!filepath.startsWith(buildDir + path.sep) && filepath !== buildDir) {
-            res.statusCode = 403
-            res.end('Forbidden')
-            return
-          }
-
-          if (!fs.existsSync(filepath)) {
-            res.statusCode = 404
-            res.end(`Not found: ${shape}/${filetype}. Run scripts/fetch-circuits.sh from the repo root to install the pinned release`)
-            return
-          }
-
-          const data = fs.readFileSync(filepath)
-          res.setHeader('Content-Type', contentType)
-          res.setHeader('Access-Control-Allow-Origin', '*')
-          res.end(data)
-        },
-      )
-    },
-  }
-}
-
-/**
  * Serves deployment JSON files from the project's `deployments/` directory.
  * Path-traversal guard prevents reads outside that directory.
  *
@@ -289,7 +216,6 @@ export default defineConfig({
       },
     }),
     serveDeployments(),
-    serveCircuitArtifacts(),
     socialPreview(),
     fundGasEndpoint(),
     // Sentry sourcemap upload + release. Self-disables when SENTRY_AUTH_TOKEN is unset, so local
@@ -378,8 +304,8 @@ export default defineConfig({
     port: 5176,
     strictPort: true,
     fs: {
-      // Allow the app root plus the sibling poc/deployments/circuits dirs the dev middleware reads.
-      allow: [path.resolve(__dirname), POC_DIR, DEPLOYMENTS_DIR, CIRCUITS_DIR],
+      // Allow the app root plus the sibling poc/deployments dirs the dev middleware reads.
+      allow: [path.resolve(__dirname), POC_DIR, DEPLOYMENTS_DIR],
     },
   },
 })
