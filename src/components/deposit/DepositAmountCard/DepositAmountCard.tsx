@@ -43,10 +43,11 @@ export interface DepositAmountCardProps {
   displayFees?: DisplayFees
   feeLoading?: boolean
   /**
-   * True while the fee path is still being determined — today the shield's relayer-reachability
-   * probe (gasless USDC fee vs direct ETH gas is unknown until it settles). Suppresses both fee
-   * segments and shows a neutral "Estimating fees…" caption instead of prematurely committing to
-   * the direct-path ETH gas figure that may vanish a moment later (#23).
+   * True while the fee is still being worked out — the shield's relayer-reachability probe (gasless
+   * USDC fee vs direct ETH gas is unknown until it settles), or a spend still being planned (a send,
+   * unshield or vault deposit). Suppresses both fee segments and shows a neutral "Estimating fees…"
+   * caption instead of prematurely committing to a figure — e.g. the direct-path ETH gas that may
+   * vanish a moment later (#23).
    */
   feeResolving?: boolean
   /**
@@ -76,8 +77,8 @@ export interface DepositAmountCardProps {
   /**
    * Full (pre-fee) balance the percent pills take a share of — a % of this, capped at `maxInput`.
    * When omitted the pills fall back to a share of `maxInput` (fine where the cap equals the balance,
-   * e.g. shield). Set on fee-on-top paths (send/withdraw/earn) so 25/50/75 land on round balance
-   * fractions rather than fractions of the fee-adjusted cap.
+   * e.g. shield). Send and Earn pass it so 25/50/75 land on round balance fractions rather than
+   * fractions of the fee-adjusted cap; the Unshield tab (also fee-on-top) doesn't yet — issue #154.
    */
   balanceRaw?: bigint
   error?: string
@@ -158,8 +159,8 @@ export function DepositAmountCard({
     clearAmountRoll()
     pendingRollFromRef.current = null
     // Pass the sanitized value straight through — including forward-typing states like `0`, `.`,
-    // and `0.` that `hasActiveAmount` reports false. Rewriting those to `''` (the previous
-    // behaviour) discarded a leading `0`/`.` keystroke, making sub-one amounts impossible to type.
+    // and `0.` that `hasActiveAmount` reports false. Rewriting those to `''` would discard a
+    // leading `0`/`.` keystroke, making sub-one amounts impossible to type.
     // `hasActiveAmount` still gates display styling (`showActiveAmount`) and the `amount > 0n`
     // submit checks, so a bare `0`/`.` never advances the flow. The edit is read against what the field
     // showed (`displayAmount`, grouped), so a typed comma is a decimal point but our grouping commas aren't.

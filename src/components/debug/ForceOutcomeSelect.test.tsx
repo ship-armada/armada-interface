@@ -1,4 +1,5 @@
 // ABOUTME: Tests for the debug ForceOutcomeSelect — hidden unless debug mode is on; a selection writes devForceOutcomeAtom.
+// ABOUTME: "Normal" writes null, so the next Send runs unforced.
 
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

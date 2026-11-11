@@ -1,4 +1,5 @@
 // ABOUTME: Header wallet control — RainbowKit connect flow; connected state renders the WalletMenu pill + side panel.
+// ABOUTME: WalletButton while connecting, a secondary Button for "Connect Wallet" / "Wrong network", WalletMenu once connected.
 
 import { useAtom, useSetAtom } from 'jotai'
 import { AlertTriangle, Loader2, LogIn } from 'lucide-react'
@@ -50,11 +51,11 @@ export function WalletConnector() {
         }
 
         if (!isConnected) {
-          // V2 redesign: the disconnected-state pill uses the same `secondary md` chrome as the
+          // The disconnected-state pill uses the same `secondary md` chrome as the
           // connected `WalletMenu` trigger (solid black bg via `styles.trigger`), so the
           // transition from "Connect Wallet" → "0xabcd…1234" reads as a state change on the
-          // same pill rather than a swap to a different component. Replaces the legacy
-          // `WalletButton` whose built-in radial-gradient circle icon no longer fits the design.
+          // same pill rather than a swap to a different component. Not `WalletButton`: its
+          // built-in radial-gradient circle icon doesn't fit this design.
           return (
             <Button
               variant="secondary"

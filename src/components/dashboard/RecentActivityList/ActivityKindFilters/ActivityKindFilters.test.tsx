@@ -1,4 +1,5 @@
 // ABOUTME: Render/interaction tests for the activity kind-filter chips — SegmentedControl tabs render and fire onChange.
+// ABOUTME: Checks every chip is present and a click reports its chip id.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

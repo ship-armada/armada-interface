@@ -1,4 +1,5 @@
-// ABOUTME: Tests for RecentAddressList — renders label + truncated address + relative time; row click fires onSelect; empty renders nothing.
+// ABOUTME: Tests for RecentAddressList — renders label + truncated address + relative time per row.
+// ABOUTME: A row click fires onSelect with that item; an empty list renders nothing.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

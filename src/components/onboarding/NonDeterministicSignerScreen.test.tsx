@@ -1,4 +1,5 @@
-// ABOUTME: Tests for NonDeterministicSignerScreen — renders compatibility lists + routes the two CTAs (use-recovery / try-different-wallet) for both error reasons.
+// ABOUTME: Tests for NonDeterministicSignerScreen — the headline + the two CTAs (use-recovery / try-different-wallet) for
+// ABOUTME: both error reasons, and the supported / unsupported wallet compatibility lists.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'

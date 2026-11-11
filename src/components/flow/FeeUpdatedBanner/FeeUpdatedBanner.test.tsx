@@ -1,4 +1,5 @@
 // ABOUTME: Render test for FeeUpdatedBanner — the review-step fee-changed callout.
+// ABOUTME: Checks the re-review prompt, and that the new fee is appended when one is passed.
 
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'

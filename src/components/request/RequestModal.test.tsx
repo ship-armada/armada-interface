@@ -1,4 +1,4 @@
-// ABOUTME: Tests for the Request-via-link flow — compose → generated link screen, with disabled revoke + copy-address hand-off.
+// ABOUTME: Tests for the Request-via-link flow — compose → generated link screen, the amount-gated Create, disabled revoke, and the share-intent re-open.
 // ABOUTME: Seeds an unlocked shielded wallet so the link builder has a real 0zk recipient.
 
 import { describe, it, expect } from 'vitest'

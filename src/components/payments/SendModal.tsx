@@ -1,5 +1,5 @@
-// ABOUTME: SendModal — the shared Send/Withdraw flow. Pays USDC privately (0zk → 0zk) or to a public wallet (0x); the recipient address drives which of three kinds runs.
-// ABOUTME: One variant-driven modal (send | withdraw). Mounts three useTx hooks (transfer-shielded / unshield-local / unshield-xchain); submitted-kind state locks the subscription for the rest of the flow.
+// ABOUTME: SendModal — the Send flow. Pays USDC privately (0zk → 0zk) or to a public wallet (0x); the recipient address drives which of three kinds runs.
+// ABOUTME: Runs with the send variant (withdraw copy only on a confirmation paid to your own wallet). Mounts three useTx hooks (transfer-shielded / unshield-local / unshield-xchain); submitted-kind state locks the subscription for the rest of the flow.
 
 import { estimatedTimeLabel } from '@/lib/tx/eta'
 import { useEffect, useRef, useState } from 'react'
@@ -83,9 +83,9 @@ export function SendModal() {
   const [repeatIntent, setRepeatIntent] = useAtom(repeatIntentAtom)
   const sendAgain = repeatIntent?.flow === 'send' ? repeatIntent : null
   const isOpen = openModal === 'payment'
-  // Send-only: "unshield to my own wallet" now lives in the Shield/Unshield tabbed modal
-  // (ShieldModal). The `withdraw` variant copy survives on the step components (ActivityReceipt
-  // renders unshield receipts with it), but this modal no longer opens in that variant.
+  // Send-only: "unshield to my own wallet" is the Shield/Unshield tabbed modal's Unshield tab
+  // (ShieldModal). The `withdraw` variant copy lives on the step components (the Unshield tab and
+  // ActivityReceipt use it); this modal always runs as `send`, except the confirmation below.
   const variant: SendFlowVariant = 'send'
 
   // The user's own shielded (Armada) address — rendered as the review/complete summary's
@@ -281,7 +281,7 @@ export function SendModal() {
   // shared helper — see `lib/relayer.ts::computeFeeBreakdown`. The xchain branch uses
   // `secondaryFee` to model the CCTP fee being deducted from the recipient mint, separate from
   // the broadcaster fee on top.
-  // useDisplayFees normalizes shape (protocolFee + nativeGas) — 0n for these kinds today, but
+  // useDisplayFees normalizes shape (protocolFee + nativeGas) — 0n for these kinds, but
   // routes through DepositAmountCard's tooltip via flowBreakdown below.
   const { fees: displayFees, isLoading: feeLoading } = useDisplayFees(
     computedKind,
@@ -446,7 +446,7 @@ export function SendModal() {
               'malformed shielded address cannot be recovered.',
           )
         }
-        // Same address-shape guard as unshield-local — both paths now embed a broadcaster
+        // Same address-shape guard as unshield-local — both paths embed a broadcaster
         // output, so a malformed published address would doom proof gen the same way.
         if (!isShieldedAddress(activeQuote.broadcasterShieldedAddress)) {
           throw new Error(

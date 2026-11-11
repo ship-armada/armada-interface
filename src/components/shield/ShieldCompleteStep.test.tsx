@@ -1,4 +1,5 @@
-// ABOUTME: Tests for ShieldCompleteStep — renders the confirmed headline, the deposited amount, the date/time row, and dispatches the explorer/dashboard CTAs.
+// ABOUTME: Tests for ShieldCompleteStep — the confirmed headline, the deposited amount and the chain name, plus the
+// ABOUTME: explorer/dashboard CTAs (explorer disabled without a URL) and a cross-chain shield's delivery (mint) link.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

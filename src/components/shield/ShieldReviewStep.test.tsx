@@ -1,4 +1,5 @@
-// ABOUTME: Tests for ShieldReviewStep — renders amount + chain name + dispatches Back/Confirm.
+// ABOUTME: Tests for ShieldReviewStep — Back/Confirm dispatch, Confirm held with its reason, the direct path's "Network gas"
+// ABOUTME: row, the gasless fee ⓘ, the "Wallet prompts" row per path, and the high-fee acknowledgement hold.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'

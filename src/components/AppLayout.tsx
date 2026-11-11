@@ -1,5 +1,5 @@
-// ABOUTME: App-wide layout — fixed @armada/ui-style header with our routes, body padding to clear the inset header.
-// ABOUTME: Header is local to this app (not the crowdfund-shared AppHeader) — different nav, a network badge, custom right-side chrome (incl. the pending-tx pill).
+// ABOUTME: App-wide layout — fixed inset header (logo link home, no nav), body padding to clear it, and the status-banner overlay.
+// ABOUTME: Header is local to this app (not the crowdfund-shared AppHeader) — a network badge and custom right-side chrome (incl. the pending-tx pill).
 
 import { type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -60,8 +60,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           {/* Light/dark switch — grouped with the settings gear + wallet pill on the header's right
               edge, mirroring the mockup's DashboardHeader (toggle sits left of the wallet control). */}
           <ThemeToggle />
-          {/* Settings moved off the nav into a gear here (left of the wallet pill), opening the
-              Settings overlay over the dashboard — the standalone /settings route is gone. */}
+          {/* Settings gear (left of the wallet pill) — opens the Settings overlay over the current
+              page; there is no /settings route. */}
           <button
             type="button"
             className={styles.gearButton}
@@ -70,9 +70,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
           >
             <Cog6ToothIcon className={styles.gearIcon} aria-hidden />
           </button>
-          {/* V2 Phase 3a: merged pill — the 0zk shielded identity now lives inside
-              `WalletConnector`'s `WalletPillMenu` dropdown (via the `extraSection` prop), so
-              the separate `ShieldedAddressPill` previously sat here is gone. */}
           {/* In-flight txs, beside the wallet pill; hidden when nothing is pending and nothing is being announced. */}
           <PendingTxPill
             count={pendingTxs.length}

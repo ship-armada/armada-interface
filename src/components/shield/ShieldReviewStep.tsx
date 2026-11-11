@@ -21,7 +21,7 @@ export interface ShieldReviewStepProps {
   walletAddress?: string
   /** Connected wallet provider name (wagmi connector) — drives the "From your wallet" brand glyph. */
   walletProvider?: string
-  /** Shielded (Armada) destination address — rendered (truncated) as the "To your private account" row when present. */
+  /** Shielded (Armada) destination address — rendered (truncated) as the "To Armada" row when present. */
   shieldedAddress?: string
   /** True while a submit is in flight — disables Confirm so a double-click can't create two txs. */
   isSubmitting?: boolean

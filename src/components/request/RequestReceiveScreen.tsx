@@ -1,5 +1,5 @@
 // ABOUTME: RequestReceiveScreen — compose a payment request (amount + expiry + note) that becomes a shareable link.
-// ABOUTME: The first step of the Request flow; "Create link" advances to RequestLinkScreen. Amount-less requests copy the raw address instead.
+// ABOUTME: The first step of the Request flow; "Create link" (enabled only for a positive amount) advances to RequestLinkScreen.
 
 import { useId, useRef } from 'react'
 import {

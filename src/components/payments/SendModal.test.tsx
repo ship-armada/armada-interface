@@ -1,4 +1,5 @@
-// ABOUTME: Tests for SendModal orchestrator — send flow: address-driven kind selection + the recipient→amount→review→progress flow.
+// ABOUTME: Tests for SendModal orchestrator — address-driven kind selection, the recipient→amount→review→progress flow, prefilled entry,
+// ABOUTME: planned fees (split sends, unshields) re-priced at Confirm, "Merge notes", self-send refusal and record-driven confirmation figures.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react'

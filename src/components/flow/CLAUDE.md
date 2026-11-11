@@ -17,7 +17,7 @@
 
 ### FlowFooter
 
-`FlowFooter` (primary CTA right, optional secondary left) predates the redesign but is live: `ErrorStep`, the settings dialogs (`ResetWalletDialog`, `RecoverySecretExportDialog`, `ClearHistoryDialog`) and `onboarding/RestoreFlow` (inside `RestoreModal`) render it. Feature flow steps don't — they render their own button row (below).
+`FlowFooter` (primary CTA right, optional secondary left) is live in the non-flow dialogs: `ErrorStep`, the settings dialogs (`ResetWalletDialog`, `RecoverySecretExportDialog`, `ClearHistoryDialog`) and `onboarding/RestoreFlow` (inside `RestoreModal`) render it. Feature flow steps don't — they render their own button row (below).
 
 ## FlowShell motion
 
@@ -35,4 +35,4 @@
 
 ## Wallet-signing step (shield)
 
-`shield` is the only kind that surfaces a wallet signature, and it now has a **dedicated `wallet` step** (the mockup's step 3) between `review` and `progress` — `components/shield/ShieldWalletStep`, rendering `WalletConfirmList` from `lib/tx/shieldWalletSteps` (live approve/sign statuses). `useShieldFlow` advances `wallet → progress` once `shieldWalletInteractionsComplete(record)`, so by the time `progress` shows, the wallet prompts are done (no duplicate "Confirm in your wallet" in the progress timeline). Other kinds (unshield/transfer/yield) have no wallet-sign step — they're relayer-submitted; their brief `executionState === 'waiting'` still shows in `ProgressStep`'s stage copy.
+`shield` is the only kind that surfaces a wallet signature, and it has a **dedicated `wallet` step** (the mockup's step 3) between `review` and `progress` — `components/shield/ShieldWalletStep`, rendering `WalletConfirmList` from `lib/tx/shieldWalletSteps` (live approve/sign statuses). `useShieldFlow` advances `wallet → progress` once `shieldWalletInteractionsComplete(record)`, so by the time `progress` shows, the wallet prompts are done (no duplicate "Confirm in your wallet" in the progress timeline). Other kinds (unshield/transfer/yield) have no wallet-sign step — they're relayer-submitted; their brief `executionState === 'waiting'` still shows in `ProgressStep`'s stage copy.
