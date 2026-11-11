@@ -115,18 +115,20 @@ describe('useYieldRate', () => {
     expect(mockReadContract).not.toHaveBeenCalled()
   })
 
-  it('does not refetch on the interval while tab is hidden', async () => {
-    mockSuccessfulReadOnce({})
-    const { queryClient } = renderHarness({ tabVisible: false })
-
-    await waitFor(() => expect(queryClient.getQueryData(['yieldRate'])).toBeDefined())
-    const initialCalls = mockReadContract.mock.calls.length
-
-    vi.useFakeTimers({ shouldAdvanceTime: false })
+  // Fake clock before render (React Query starts the interval on mount); the visible case proves refetches are seen.
+  it.each([
+    ['hidden', false],
+    ['visible', true],
+  ] as const)('refetches on the 5-min interval only while the tab is visible (%s)', async (_label, tabVisible) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
-      // Advance past the new 5-min poll cadence. Should produce zero new reads while hidden.
-      await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000) })
-      expect(mockReadContract.mock.calls.length).toBe(initialCalls)
+      mockSuccessfulReadOnce({})
+      const { queryClient } = renderHarness({ tabVisible })
+      await waitFor(() => expect(queryClient.getQueryData(['yieldRate'])).toBeDefined())
+      const afterMount = mockReadContract.mock.calls.length
+      await act(async () => { await vi.advanceTimersByTimeAsync(11 * 60_000) })
+      if (tabVisible) expect(mockReadContract.mock.calls.length).toBeGreaterThan(afterMount)
+      else expect(mockReadContract.mock.calls.length).toBe(afterMount)
     } finally {
       vi.useRealTimers()
     }
