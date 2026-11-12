@@ -1,5 +1,5 @@
-// ABOUTME: Counterparty address display — shortened to its fixed prefix ("0zk1" / "0x") + the head and tail a user verifies
-// ABOUTME: (0zk: 8 + 6, 0x: 4 + 4), as plain text with the full address in the title. Split rules live in lib/address.
+// ABOUTME: Counterparty address display — a shielded address is 8 + 4 of the whole string (`0zk1qyqk...5xlt`),
+// ABOUTME: an EVM address is "0x" + 4 + 4, as plain text with the full address in the title. Split rules live in lib/address.
 
 import { shortAddress } from '@/lib/address'
 

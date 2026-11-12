@@ -1,5 +1,5 @@
 // ABOUTME: Address-format helpers — validators for EVM (0x…) and shielded (0zk…) recipient strings, address extraction from pasted text, plus the counterparty
-// ABOUTME: display split (fixed prefix + verifiable head/tail). No React. Uses ethers for EIP-55 checksum verification.
+// ABOUTME: display split (0zk is 8 + 4 of the whole string; 0x is the prefix + 4 + 4). No React. Uses ethers for EIP-55 checksum verification.
 
 import { getAddress } from 'ethers'
 import { loadSdk } from '@/lib/shielded/sdk-loader'
@@ -81,24 +81,21 @@ export interface AddressDisplayParts {
 }
 
 const ZK_HEAD = 8
-const ZK_TAIL = 6
+const ZK_TAIL = 4
 const EVM_HEAD = 4
 const EVM_TAIL = 4
 
 /**
- * Split a recipient / sender address for display. A shielded address's "0zk1" (bech32m hrp + separator)
- * is the same for everyone, so it's the `prefix` and the verifiable part starts after it: 8 head + 6
- * tail characters. (Showing the first 6 + last 4 of the whole string left ~5 meaningful characters —
- * cheap for a lookalike address to match.) EVM addresses keep the familiar "0x" + 4 + 4. Returns null
- * for a string too short to shorten or of another shape, so callers render it as-is.
+ * Split a recipient / sender address for display. A shielded address is the first 8 and last 4
+ * characters of the whole string (`0zk1qyqk...5xlt`); `prefix` is empty and those slices are `head`
+ * and `tail`. EVM addresses keep the familiar "0x" + 4 + 4. Returns null for a string too short to
+ * shorten or of another shape, so callers render it as-is.
  */
 export function splitAddressForDisplay(address: string): AddressDisplayParts | null {
   const v = address.trim()
   if (v.startsWith('0zk')) {
-    const prefix = v.startsWith('0zk1') ? '0zk1' : '0zk'
-    const body = v.slice(prefix.length)
-    if (body.length <= ZK_HEAD + ZK_TAIL) return null
-    return { prefix, head: body.slice(0, ZK_HEAD), tail: body.slice(-ZK_TAIL) }
+    if (v.length <= ZK_HEAD + ZK_TAIL + 3) return null
+    return { prefix: '', head: v.slice(0, ZK_HEAD), tail: v.slice(-ZK_TAIL) }
   }
   if (v.startsWith('0x')) {
     const body = v.slice(2)
@@ -108,7 +105,7 @@ export function splitAddressForDisplay(address: string): AddressDisplayParts | n
   return null
 }
 
-/** Plain-text form of {@link splitAddressForDisplay} ("0zk1qyk9nn28...9wnce0"), for places that can't style the parts. */
+/** Plain-text form of {@link splitAddressForDisplay} ("0zk1qyk9...nce0"), for places that can't style the parts. */
 export function shortAddress(address: string): string {
   const parts = splitAddressForDisplay(address)
   return parts ? `${parts.prefix}${parts.head}...${parts.tail}` : address

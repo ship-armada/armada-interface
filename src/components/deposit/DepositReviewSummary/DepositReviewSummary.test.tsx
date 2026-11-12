@@ -83,7 +83,7 @@ describe('<DepositReviewSummary>', () => {
     )
     // Same shortened form as every other address row (ui/AddressText), the full address in the title.
     expect(screen.getByTitle(wallet)).toHaveTextContent('0x1234...5678')
-    expect(screen.getByTitle(shielded)).toHaveTextContent('0zk1qyk9nn28...9wnce0')
+    expect(screen.getByTitle(shielded)).toHaveTextContent('0zk1qyk9...nce0')
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy wallet address' }))
     })
@@ -113,7 +113,7 @@ describe('<DepositReviewSummary>', () => {
     const walletButton = screen.getByRole('button', { name: 'Copy wallet address' })
     const armadaButton = screen.getByRole('button', { name: 'Copy Armada address' })
     expect(walletButton).toHaveTextContent('0x1234...5678')
-    expect(armadaButton).toHaveTextContent('0zk1qyk9nn28...9wnce0')
+    expect(armadaButton).toHaveTextContent('0zk1qyk9...nce0')
     expect(walletButton.querySelector('svg')).toBeNull()
     expect(armadaButton.querySelector('svg')).toBeNull()
     await act(async () => {

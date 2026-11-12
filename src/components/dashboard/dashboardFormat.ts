@@ -7,10 +7,10 @@ export function formatUsdcAmount(value: number, fractionDigits = 2): string {
   })
 }
 
-/** Shielded / Armada zk address — slightly longer tail for readability. */
+/** Shielded Armada address: 8 characters, ellipsis, 4 — `0zk1qyqk...5xlt`. */
 export function truncateArmadaAddress(address: string): string {
   if (address.length <= 15) return address
-  return `${address.slice(0, 6)}...${address.slice(-6)}`
+  return `${address.slice(0, 8)}...${address.slice(-4)}`
 }
 
 /** Activity-row time: "Just now" / "N min ago" / "N hours ago" / "N days ago" for the first week, then "Oct 3" (+ year). */

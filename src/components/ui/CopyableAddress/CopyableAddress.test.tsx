@@ -12,7 +12,7 @@ describe('<CopyableAddress>', () => {
     const writeText = vi.fn(async () => {})
     Object.assign(navigator, { clipboard: { writeText } })
     render(<CopyableAddress address={ZK} label="Copy sender address" copiedLabel="Sender address copied" />)
-    expect(screen.getByTitle(ZK)).toHaveTextContent('0zk1qyk9nn28...9wnce0')
+    expect(screen.getByTitle(ZK)).toHaveTextContent('0zk1qyk9...nce0')
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy sender address' }))
     })
@@ -45,7 +45,7 @@ describe('<CopyableAddress>', () => {
         />,
       )
       const address = screen.getByRole('button', { name: 'Copy sender address' })
-      expect(address).toHaveTextContent('0zk1qyk9nn28...9wnce0')
+      expect(address).toHaveTextContent('0zk1qyk9...nce0')
       expect(address.querySelector('svg')).toBeNull()
       fireEvent.mouseEnter(address.parentElement as HTMLElement)
       // Floating UI never marks the tooltip positioned in jsdom, so it stays visibility:hidden.

@@ -1,7 +1,7 @@
 // ABOUTME: Send/Withdraw recipient step — a frost card (title + address TextField with Clear + a paste row that
 // ABOUTME: previews a valid 0zk/0x on the clipboard + public-only chain selector + privacy badge once valid) over an always-visible Cancel / Continue action row + a recent-recipients list.
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { GlobeAltIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
 import {
   ArmadaLogo,
@@ -16,7 +16,6 @@ import { ChainSelect } from '@/components/ui'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
 import { extractAddress, isShieldedAddress, shortAddress, validateEvmAddress } from '@/lib/address'
-import { AddressText } from '@/components/ui/AddressText'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { RecentAddressList } from './RecentAddressList'
 import type { RecentRecipient } from '@/lib/tx/recentRecipients'
@@ -24,6 +23,36 @@ import styles from './SendRecipientStep.module.css'
 
 /** Which flow the shared Send/Withdraw modal is running as — drives minimal copy differences. */
 export type SendFlowVariant = 'send' | 'withdraw'
+
+/** Middle-truncate so the longest form that fits `maxWidthPx` is shown. */
+function truncateMiddleToWidth(text: string, maxWidthPx: number, font: string): string {
+  if (!text || maxWidthPx <= 0) return text
+  if (typeof document === 'undefined') return text
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return text
+  ctx.font = font
+  if (ctx.measureText(text).width <= maxWidthPx) return text
+
+  const ellipsis = '…'
+  let lo = 3
+  let hi = text.length - 1
+  let best = `${text.slice(0, 1)}${ellipsis}${text.slice(-1)}`
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    const visible = mid - ellipsis.length
+    const head = Math.ceil(visible / 2)
+    const tail = Math.floor(visible / 2)
+    const candidate = `${text.slice(0, head)}${ellipsis}${text.slice(-tail)}`
+    if (ctx.measureText(candidate).width <= maxWidthPx) {
+      best = candidate
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return best
+}
 
 /** Returns the trimmed clipboard text if it's a valid shielded (0zk) or public (0x) address, else null. */
 function validClipboardAddress(text: string): string | null {
@@ -72,6 +101,8 @@ export function SendRecipientStep({
   // Trimmed clipboard content (null if empty / unreadable), used by the paste row. Probed on open +
   // whenever the tab regains focus (the user may copy then return).
   const [clipboardText, setClipboardText] = useState<string | null>(null)
+  const clipboardAddressRef = useRef<HTMLSpanElement>(null)
+  const [fittedClipboardAddress, setFittedClipboardAddress] = useState('')
 
   const recipientTrimmed = recipient.trim()
   const hasInput = recipientTrimmed.length > 0
@@ -107,6 +138,31 @@ export function SendRecipientStep({
       document.removeEventListener('visibilitychange', reprobe)
     }
   }, [hasInput])
+  useLayoutEffect(() => {
+    if (!clipboardAddress) {
+      setFittedClipboardAddress('')
+      return
+    }
+    const el = clipboardAddressRef.current
+    if (!el) return
+
+    function fitClipboardAddress() {
+      const node = clipboardAddressRef.current
+      if (!node || !clipboardAddress) return
+      const style = getComputedStyle(node)
+      const font = [style.fontStyle, style.fontWeight, style.fontSize, style.fontFamily]
+        .filter(Boolean)
+        .join(' ')
+      setFittedClipboardAddress(truncateMiddleToWidth(clipboardAddress, node.clientWidth, font))
+    }
+
+    fitClipboardAddress()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(fitClipboardAddress)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [clipboardAddress])
+
   const isPrivate = isShieldedAddress(recipientTrimmed)
   const evmValidation = validateEvmAddress(recipientTrimmed)
   // A public recipient is a valid 0x address that is NOT a shielded 0zk address.
@@ -209,7 +265,13 @@ export function SendRecipientStep({
               <span className={styles.clipboardPasteCopy}>
                 <span className={styles.clipboardPasteLabel}>Paste from clipboard</span>
                 {clipboardAddress ? (
-                  <AddressText className={styles.clipboardPasteAddress} address={clipboardAddress} />
+                  <span
+                    ref={clipboardAddressRef}
+                    className={styles.clipboardPasteAddress}
+                    title={clipboardAddress}
+                  >
+                    {fittedClipboardAddress || clipboardAddress}
+                  </span>
                 ) : (
                   <span className={styles.clipboardPasteAddressInvalid}>Not a valid address</span>
                 )}

@@ -101,13 +101,10 @@ describe('validateShieldedAddressStrict', () => {
 })
 
 describe('splitAddressForDisplay', () => {
-  // WHY: "0zk1" is fixed (bech32m hrp + separator), so the old 6+4 truncation ("0zk1qy...ab12") left the
-  // user ~5 meaningful characters to check — cheap for a lookalike address to match. Skip the fixed part
-  // and show 8 + 6 meaningful characters.
   const ZK = '0zk1qyk9nn28x0u3rwn5pknglda68wrn7gw6anjw8gg94mcj6eq5u48tlrv7j6fe3z53lama02nutwtcqc979wnce0'
 
-  it('splits a 0zk address into the fixed prefix, 8 head and 6 tail characters', () => {
-    expect(splitAddressForDisplay(ZK)).toEqual({ prefix: '0zk1', head: 'qyk9nn28', tail: '9wnce0' })
+  it('splits a 0zk address into the first 8 and last 4 characters of the whole string', () => {
+    expect(splitAddressForDisplay(ZK)).toEqual({ prefix: '', head: '0zk1qyk9', tail: 'nce0' })
   })
 
   it('splits a 0x address into "0x", 4 head and 4 tail characters', () => {
@@ -118,8 +115,8 @@ describe('splitAddressForDisplay', () => {
     })
   })
 
-  it('treats a bare "0zk" prefix (no separator) as the fixed part', () => {
-    expect(splitAddressForDisplay('0zk' + 'a'.repeat(40))).toEqual({ prefix: '0zk', head: 'aaaaaaaa', tail: 'aaaaaa' })
+  it('shortens a bare "0zk" address the same way, from the whole string', () => {
+    expect(splitAddressForDisplay('0zk' + 'a'.repeat(40))).toEqual({ prefix: '', head: '0zkaaaaa', tail: 'aaaa' })
   })
 
   it('returns null for strings too short to shorten or of unknown shape', () => {
@@ -131,7 +128,7 @@ describe('splitAddressForDisplay', () => {
 describe('shortAddress', () => {
   it('joins the split parts with "..."', () => {
     expect(shortAddress('0x1234567890abcdef1234567890abcdef12345678')).toBe('0x1234...5678')
-    expect(shortAddress('0zk' + 'b'.repeat(40))).toBe('0zkbbbbbbbb...bbbbbb')
+    expect(shortAddress('0zk' + 'b'.repeat(40))).toBe('0zkbbbbb...bbbb')
   })
 
   it('returns the input unchanged when it cannot be split', () => {
