@@ -58,6 +58,8 @@ export interface BalanceCardProps {
   onBalanceHiddenChange?: (hidden: boolean) => void
   /** User's shielded Armada address — shown above the balance label when set. */
   armadaAddress?: string
+  /** Opens connect when there is no wallet. Shown in the address pill's place. */
+  onConnect?: () => void
   /** The balance includes a figure the chain hasn't confirmed yet (a send's change, an incoming shield — 3B): "Confirming…"
    *  beside the label until it has. */
   confirming?: boolean
@@ -105,6 +107,7 @@ export function BalanceCard({
   balanceHidden: balanceHiddenProp,
   onBalanceHiddenChange,
   armadaAddress,
+  onConnect,
   confirming = false,
   syncing = false,
   syncFailed = false,
@@ -399,6 +402,14 @@ export function BalanceCard({
                     {armadaAddressCopied ? 'Copied' : truncateArmadaAddress(armadaAddress)}
                   </button>
                 </Tooltip>
+              ) : onConnect ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  label="Connect wallet"
+                  showIcon={false}
+                  onClick={onConnect}
+                />
               ) : null}
               <div
                 className={[styles.balanceStack, balanceArriving && styles.balanceStackEnter]

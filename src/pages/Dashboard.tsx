@@ -311,6 +311,7 @@ export function Dashboard() {
               balance={0}
               balanceHidden={balanceHidden}
               onBalanceHiddenChange={setBalanceHidden}
+              onConnect={evmAddress ? undefined : () => openActionModal()}
               onSend={() => setOpenModal('payment')}
               onDeposit={() => setOpenModal('shield')}
               onRequest={() => setOpenModal('request')}
