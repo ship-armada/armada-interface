@@ -6,3 +6,25 @@
   align-items: center;
   gap: var(--primitives-spacing-1);
 }
+
+.link {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin-block: calc(var(--primitives-spacing-1) * -1);
+  padding-block: var(--primitives-spacing-1);
+  padding-inline: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration-line: underline;
+  text-underline-offset: calc(var(--primitives-spacing-1) * 0.5);
+  text-decoration-thickness: calc(var(--primitives-borderWidth-default) * 1px);
+  border-radius: calc(var(--primitives-borderRadius-sm) * 1px);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--semantic-color-text-lavender);
+  outline-offset: 2px;
+}

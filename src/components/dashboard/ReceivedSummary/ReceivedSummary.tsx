@@ -1,4 +1,4 @@
-// ABOUTME: ReceivedSummary — a received payment's summary table (date / sender when disclosed — copyable — / memo). No Fees or Total:
+// ABOUTME: ReceivedSummary — a received payment's summary table (date / sender when disclosed — underlined, copies on click — / memo). No Fees or Total:
 // ABOUTME: the recipient pays nothing, and the amount is the headline. Shares the deposit/transfer summary styling.
 
 import { ArmadaLogo } from '@/design'
@@ -32,7 +32,12 @@ export function ReceivedSummary({ senderShieldedAddress, memoText, confirmedAt }
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <CopyableAddress address={senderShieldedAddress} label="Copy sender address" copiedLabel="Sender address copied" />
+                <CopyableAddress
+                  address={senderShieldedAddress}
+                  label="Copy sender address"
+                  copiedLabel="Sender address copied"
+                  presentation="link"
+                />
               </span>
             </span>
           </div>

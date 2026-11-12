@@ -94,6 +94,34 @@ describe('<DepositReviewSummary>', () => {
     expect(writeText).toHaveBeenLastCalledWith(shielded)
   })
 
+  it('on a receipt, each address is the copy control and has no copy icon', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    const wallet = '0x1234567890abcdef1234567890abcdef12345678'
+    const shielded = '0zk1qyk9nn28x0u3rwn5pknglda68wrn7gw6anjw8gg94mcj6eq5u48tlrv7j6fe3z53lama02nutwtcqc979wnce0'
+    render(
+      <DepositReviewSummary
+        fromChainId={31337}
+        amount={3_000_000n}
+        fee={0n}
+        netAmount={3_000_000n}
+        walletAddress={wallet}
+        shieldedAddress={shielded}
+        confirmedAt={1_700_000_000_000}
+      />,
+    )
+    const walletButton = screen.getByRole('button', { name: 'Copy wallet address' })
+    const armadaButton = screen.getByRole('button', { name: 'Copy Armada address' })
+    expect(walletButton).toHaveTextContent('0x1234...5678')
+    expect(armadaButton).toHaveTextContent('0zk1qyk9nn28...9wnce0')
+    expect(walletButton.querySelector('svg')).toBeNull()
+    expect(armadaButton.querySelector('svg')).toBeNull()
+    await act(async () => {
+      fireEvent.click(walletButton)
+    })
+    expect(writeText).toHaveBeenLastCalledWith(wallet)
+  })
+
   it('explains a gasless cross-chain shield\'s fees as their parts: relayer, protocol, CCTP (5A)', () => {
     render(<DepositReviewSummary fromChainId={84532} amount={3_000_000n} fee={25_651n} netAmount={2_974_349n} gasless estimated />)
     fireEvent.mouseEnter(screen.getAllByRole('button', { name: 'What is this fee?' })[0]!.parentElement as HTMLElement)

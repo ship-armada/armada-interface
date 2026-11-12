@@ -22,7 +22,7 @@ const ROW_ICON_PX = 16
 export interface TransferReviewSummaryProps {
   /** Destination address (0zk shielded or 0x public) — its format drives the privacy notice + recipient icon. */
   recipient: string
-  /** The user's own shielded (Armada) address — rendered (truncated, with a copy button for the full address) as the "From your private account" row when present. */
+  /** The user's own shielded (Armada) address — shortened on the "From your private account" row when present. */
   armadaAddress?: string
   /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null (pre-quote-load). */
   fee: bigint | null
@@ -99,7 +99,12 @@ export function TransferReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <CopyableAddress address={armadaAddress} label="Copy your address" copiedLabel="Your address copied" />
+                <CopyableAddress
+                  address={armadaAddress}
+                  label="Copy your address"
+                  copiedLabel="Your address copied"
+                  presentation={confirmedAt !== undefined ? 'link' : 'icon'}
+                />
               </span>
             </span>
           </div>
@@ -116,12 +121,21 @@ export function TransferReviewSummary({
               ) : (
                 <WalletProviderIcon provider={recipientWalletProvider} size={ROW_ICON_PX} />
               )}
-              {/* Tap to see the full address (and copy it) before confirming — the shortened form alone isn't enough to verify. */}
-              <AddressReveal
-                address={recipient}
-                expanded={showFullRecipient}
-                onToggle={() => setShowFullRecipient((open) => !open)}
-              />
+              {/* Review: tap to see the full address before confirming. A receipt copies it from the underlined address. */}
+              {confirmedAt !== undefined ? (
+                <CopyableAddress
+                  address={recipient}
+                  label="Copy recipient address"
+                  copiedLabel="Recipient address copied"
+                  presentation="link"
+                />
+              ) : (
+                <AddressReveal
+                  address={recipient}
+                  expanded={showFullRecipient}
+                  onToggle={() => setShowFullRecipient((open) => !open)}
+                />
+              )}
             </span>
           </span>
         </div>

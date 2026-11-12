@@ -1,5 +1,5 @@
-// ABOUTME: Tests for ReceivedSummary — the received payment's table: the disclosed sender (shortened, with a copy
-// ABOUTME: button for the full address) and the memo; rows hide when the sender or memo is absent.
+// ABOUTME: Tests for ReceivedSummary — the received payment's table: the disclosed sender (shortened, underlined,
+// ABOUTME: copies the full address) and the memo; rows hide when the sender or memo is absent.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'

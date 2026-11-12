@@ -18,11 +18,11 @@ export interface DepositReviewSummaryProps {
   amount: bigint
   fee: bigint | null
   netAmount: bigint | null
-  /** Connected EVM wallet address — rendered (shortened, with a copy button for the full address) as the "From your wallet" row when present. */
+  /** Connected EVM wallet address — shortened. Review adds a copy icon; a receipt underlines it and copies on click. */
   walletAddress?: string
   /** Connected wallet provider name (wagmi connector) — drives the "From your wallet" brand glyph. */
   walletProvider?: string
-  /** Shielded (Armada) destination address — rendered (shortened, with a copy button for the full address) as the "To Armada" row when present. */
+  /** Shielded (Armada) destination address — shortened. Review adds a copy icon; a receipt underlines it and copies on click. */
   shieldedAddress?: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row for confirmations. */
   confirmedAt?: number
@@ -81,7 +81,12 @@ export function DepositReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <WalletProviderIcon provider={walletProvider} size={ROW_ICON_PX} />
-                <CopyableAddress address={walletAddress} label="Copy wallet address" copiedLabel="Wallet address copied" />
+                <CopyableAddress
+                  address={walletAddress}
+                  label="Copy wallet address"
+                  copiedLabel="Wallet address copied"
+                  presentation={confirmedAt !== undefined ? 'link' : 'icon'}
+                />
               </span>
             </span>
           </div>
@@ -92,7 +97,12 @@ export function DepositReviewSummary({
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />
-                <CopyableAddress address={shieldedAddress} label="Copy Armada address" copiedLabel="Armada address copied" />
+                <CopyableAddress
+                  address={shieldedAddress}
+                  label="Copy Armada address"
+                  copiedLabel="Armada address copied"
+                  presentation={confirmedAt !== undefined ? 'link' : 'icon'}
+                />
               </span>
             </span>
           </div>

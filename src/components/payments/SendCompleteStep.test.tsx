@@ -2,7 +2,7 @@
 // ABOUTME: and a cross-chain exit's "Recipient received" / "You received" row once Circle's actual fee is known.
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { SendCompleteStep, type SendCompleteStepProps } from './SendCompleteStep'
 
 const VALID_EVM = '0xabcdef1234567890abcdef1234567890abcdef12'
@@ -87,6 +87,22 @@ describe('<SendCompleteStep>', () => {
     renderComplete({ explorerUrl: 'https://example.test/tx/0xabc', onViewExplorer })
     fireEvent.click(screen.getByRole('button', { name: /View on explorer/ }))
     expect(onViewExplorer).toHaveBeenCalledTimes(1)
+  })
+
+  it('copies the full recipient from the underlined address, with no copy icon', async () => {
+    const writeText = vi.fn(async () => {})
+    Object.assign(navigator, { clipboard: { writeText } })
+    renderComplete({ recipient: VALID_0ZK, armadaAddress: '0zkownaddressownaddressownaddressownaddress1234' })
+    expect(screen.queryByRole('button', { name: 'Show full address' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy address' })).toBeNull()
+    const recipient = screen.getByRole('button', { name: 'Copy recipient address' })
+    const own = screen.getByRole('button', { name: 'Copy your address' })
+    expect(recipient.querySelector('svg')).toBeNull()
+    expect(own.querySelector('svg')).toBeNull()
+    await act(async () => {
+      fireEvent.click(recipient)
+    })
+    expect(writeText).toHaveBeenCalledWith(VALID_0ZK)
   })
 
   it('a cross-chain send links to its delivery (mint) on the destination chain (14A)', () => {
