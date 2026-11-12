@@ -22,6 +22,8 @@ export interface ShieldCompleteStepProps {
   shieldedAddress?: string
   /** Completion timestamp (ms) — drives the summary's "Date and time" row. */
   confirmedAt: number
+  /** Source transaction hash. Shown above the fee, the same row the activity receipt uses. */
+  txHash?: string
   /** A cross-chain shield's destination (CCTP mint into the hub) tx link (`lib/explorer::deliveryExplorerLink`); shown under the summary. */
   deliveryLink?: { url: string; chainName: string } | null
   /** Source-chain explorer URL for the deposit tx; absent disables the "View on explorer" button. */
@@ -41,6 +43,7 @@ export function ShieldCompleteStep({
   walletProvider,
   shieldedAddress,
   confirmedAt,
+  txHash,
   explorerUrl,
   deliveryLink,
   onViewExplorer,
@@ -65,6 +68,7 @@ export function ShieldCompleteStep({
         walletProvider={walletProvider}
         shieldedAddress={shieldedAddress}
         confirmedAt={confirmedAt}
+        txHash={txHash}
       />
       <DeliveryTxLink link={deliveryLink ?? null} />
     </ConfirmedScreenLayout>

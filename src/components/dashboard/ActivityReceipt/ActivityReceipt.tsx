@@ -1,5 +1,5 @@
 // ABOUTME: Activity receipt — reopens a past tx's confirm-step view (same FlowShell chrome + frost card + review summary); a pending tx adds its live stepper.
-// ABOUTME: Reconstructs the summary props from the record's meta/artifacts (no stored snapshot — chunk 6b decision a); step-bar hidden, CTAs are View-on-explorer + Done.
+// ABOUTME: Reconstructs the summary props from the record, including the transaction hash above the fee; step-bar hidden, CTAs are View-on-explorer + Done.
 
 import { useRef, type ReactNode } from 'react'
 import { ExternalLink } from 'lucide-react'
@@ -14,8 +14,7 @@ import { EarnReviewSummary } from '@/components/yield/EarnReviewSummary'
 import { ConsolidationSummary } from '@/components/consolidate/ConsolidationSummary'
 import { ReceivedSummary } from '@/components/dashboard/ReceivedSummary'
 import { frozenApyRate, type YieldRate } from '@/hooks/useYieldRate'
-import { formatUsdcPlain, truncateAddressEnds } from '@/lib/format'
-import { CopyAddressButton } from '@/components/ui/CopyAddressButton'
+import { formatUsdcPlain } from '@/lib/format'
 import { repeatIntentFor, repeatLabel } from '@/components/dashboard/repeatIntent'
 import type { RepeatIntent } from '@/state/ui'
 import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
@@ -83,6 +82,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
           fundsNote: fundsNote(record),
         })
   const explorerUrl = txExplorerUrl(record.walletContext.sourceChainId, displayTxHash(record))
+  const txHash = displayTxHash(record)
   // A tx that failed or was cancelled before its first on-chain transaction confirmed moved no money: its fees and
   // totals read "—" (the headline stays, struck through). One that did move money shows what it was charged.
   const charged = moneyMoved(record)
@@ -113,6 +113,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             // A relayer fee means the relayer submitted it — also on a record recovered from chain, which lacks useGasless.
             gasless={meta.useGasless === true || (meta.feeAmount ?? 0n) > 0n}
             confirmedAt={confirmedAt}
+            txHash={txHash}
           />
         ),
       }
@@ -151,6 +152,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             variant={asWithdraw ? 'withdraw' : 'send'}
             networkName={networkName}
             confirmedAt={confirmedAt}
+            txHash={txHash}
           />
         ),
       }
@@ -184,6 +186,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             estimated={yieldEstimated}
             netLabel={netLabel}
             confirmedAt={confirmedAt}
+            txHash={txHash}
             showApy={rate !== null}
           />
         ),
@@ -208,6 +211,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             {...(meta.notesCreated !== undefined ? { notesCreated: meta.notesCreated } : {})}
             fee={ifCharged(fee)}
             {...(confirmedAt !== undefined ? { confirmedAt } : {})}
+            {...(txHash !== undefined ? { txHash } : {})}
           />
         ),
       }
@@ -230,6 +234,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
             {...(meta.senderShieldedAddress !== undefined ? { senderShieldedAddress: meta.senderShieldedAddress } : {})}
             {...(meta.memoText !== undefined ? { memoText: meta.memoText } : {})}
             {...(confirmedAt !== undefined ? { confirmedAt } : {})}
+            {...(txHash !== undefined ? { txHash } : {})}
           />
         ),
       }
@@ -239,7 +244,6 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
 
 export function ActivityReceipt({ record, ownWalletAddress, open, onClose, onRepeat }: ActivityReceiptProps) {
   const view = record ? buildReceiptView(record, ownWalletAddress) : null
-  const txHash = record ? displayTxHash(record) : undefined
   const repeat = record && onRepeat ? repeatIntentFor(record, ownWalletAddress) : null
 
   // "Do it again" waits for the receipt's exit, so the flow it opens doesn't slide in over it.
@@ -318,14 +322,6 @@ export function ActivityReceipt({ record, ownWalletAddress, open, onClose, onRep
           {view.summary}
           {/* A cross-chain tx's second half: the CCTP mint on the destination chain ("View on explorer" is the source tx). */}
           {record ? <DeliveryTxLink link={deliveryExplorerLink(record)} /> : null}
-
-          {txHash ? (
-            <div className={styles.txHashRow}>
-              <span className={styles.txHashLabel}>Transaction</span>
-              <span className={styles.txHash}>{truncateAddressEnds(txHash)}</span>
-              <CopyAddressButton address={txHash} label="Copy transaction hash" copiedLabel="Transaction hash copied" />
-            </div>
-          ) : null}
 
           {repeat ? (
             <button

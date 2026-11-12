@@ -9,6 +9,7 @@ import type { YieldRate } from '@/hooks/useYieldRate'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import type { EarnTab } from '../EarnInputStep'
 import { FeeInfo } from '@/components/tx/FeeInfo'
+import { TransactionHashRow } from '@/components/tx/TransactionHashRow'
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
 export interface EarnReviewSummaryProps {
@@ -30,6 +31,8 @@ export interface EarnReviewSummaryProps {
   netLabel: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row for confirmations. */
   confirmedAt?: number
+  /** Source transaction hash. Shown above the fee on a confirmation and on the activity receipt. */
+  txHash?: string
   /**
    * When true, the net total is an estimate — a withdrawal redeems fixed SHARES at the execution-time
    * rate, so the received amount depends on yield accrued between review and execution. Renders a `≈`
@@ -63,6 +66,7 @@ export function EarnReviewSummary({
   netAmount,
   netLabel,
   confirmedAt,
+  txHash,
   showApy = true,
   estimated,
   estimatedTime,
@@ -115,6 +119,7 @@ export function EarnReviewSummary({
             <span className={styles.summaryValue}>{estimatedTime}</span>
           </div>
         ) : null}
+        {txHash ? <TransactionHashRow txHash={txHash} /> : null}
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>
             Fees

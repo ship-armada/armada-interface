@@ -4,6 +4,7 @@
 import { ArmadaLogo } from '@/design'
 import { formatTransactionDateTime } from '@/lib/format'
 import { CopyableAddress } from '@/components/ui/CopyableAddress'
+import { TransactionHashRow } from '@/components/tx/TransactionHashRow'
 // The deposit summary's styles, so the received table stays in visual sync with the other flows' summaries.
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
@@ -14,9 +15,11 @@ export interface ReceivedSummaryProps {
   memoText?: string
   /** Completion timestamp (ms) — adds a leading "Date and time" row. */
   confirmedAt?: number
+  /** Source transaction hash. Shown as the last detail; a received payment has no fee. */
+  txHash?: string
 }
 
-export function ReceivedSummary({ senderShieldedAddress, memoText, confirmedAt }: ReceivedSummaryProps) {
+export function ReceivedSummary({ senderShieldedAddress, memoText, confirmedAt, txHash }: ReceivedSummaryProps) {
   return (
     <div className={styles.summary}>
       <div className={styles.summaryBody}>
@@ -48,6 +51,7 @@ export function ReceivedSummary({ senderShieldedAddress, memoText, confirmedAt }
             <span className={styles.summaryValue}>{memoText}</span>
           </div>
         ) : null}
+        {txHash ? <TransactionHashRow txHash={txHash} /> : null}
       </div>
     </div>
   )

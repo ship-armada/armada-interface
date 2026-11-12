@@ -282,6 +282,7 @@ export function ShieldModal() {
           walletProvider={shieldFlow.walletProvider}
           shieldedAddress={shieldFlow.shieldedAddress}
           confirmedAt={record?.updatedAt ?? Date.now()}
+          txHash={displayTxHash(record)}
           explorerUrl={explorerUrl}
           deliveryLink={deliveryLink}
           onViewExplorer={() => {
@@ -303,6 +304,7 @@ export function ShieldModal() {
           networkName={unshieldFlow.networkName}
           recipientWalletProvider={unshieldFlow.recipientWalletProvider}
           confirmedAt={record?.updatedAt ?? Date.now()}
+          txHash={displayTxHash(record)}
           explorerUrl={explorerUrl}
           deliveryLink={deliveryLink}
           onViewExplorer={() => {

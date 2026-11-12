@@ -11,11 +11,13 @@ import styles from './CopyableAddress.module.css'
 export interface CopyableAddressProps extends CopyAddressButtonProps {
   /** `icon` sits a copy button beside the address. `link` is the receipt: the address is the control. */
   presentation?: 'icon' | 'link'
+  /** Text shown on the control. Defaults to the shortened address. */
+  display?: string
 }
 
-export function CopyableAddress({ address, label, copiedLabel, presentation = 'icon' }: CopyableAddressProps) {
+export function CopyableAddress({ address, label, copiedLabel, presentation = 'icon', display }: CopyableAddressProps) {
   if (presentation === 'link') {
-    return <CopyAddressLink address={address} label={label} copiedLabel={copiedLabel} />
+    return <CopyAddressLink address={address} label={label} copiedLabel={copiedLabel} display={display} />
   }
   return (
     <span className={styles.line}>
@@ -29,7 +31,8 @@ function CopyAddressLink({
   address,
   label = 'Copy address',
   copiedLabel = 'Address copied',
-}: CopyAddressButtonProps) {
+  display,
+}: CopyAddressButtonProps & { display?: string }) {
   const { copied, copy } = useCopyToClipboard()
   return (
     <Tooltip variant="action" content={copied ? 'Copied' : 'Copy'}>
@@ -39,7 +42,7 @@ function CopyAddressLink({
         aria-label={copied ? copiedLabel : label}
         onClick={() => void copy(address)}
       >
-        {shortAddress(address)}
+        {display ?? shortAddress(address)}
       </button>
     </Tooltip>
   )

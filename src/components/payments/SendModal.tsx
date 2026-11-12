@@ -631,6 +631,7 @@ export function SendModal() {
           networkName={networkName}
           recipientWalletProvider={recipientWalletProvider}
           confirmedAt={record?.updatedAt ?? Date.now()}
+          txHash={displayTxHash(record)}
           // Hub-chain explorer link for the on-chain submission. The destination delivery for
           // xchain is a separate event tracked elsewhere; this is the source-chain action.
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}

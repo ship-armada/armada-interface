@@ -509,6 +509,7 @@ export function EarnModal() {
           estimated={completeReceipt.estimated}
           netLabel={completeNetLabel}
           confirmedAt={record?.updatedAt ?? Date.now()}
+          txHash={displayTxHash(record)}
           explorerUrl={txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))}
           onViewExplorer={() => {
             const url = txExplorerUrl(record?.walletContext.sourceChainId, displayTxHash(record))

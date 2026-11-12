@@ -21,6 +21,8 @@ export interface EarnCompleteStepProps {
   netLabel: string
   /** Completion timestamp (ms) — drives the summary's "Date and time" row. */
   confirmedAt: number
+  /** Source transaction hash. Shown above the fee, the same row the activity receipt uses. */
+  txHash?: string
   /** Hub-chain explorer URL for the tx; absent disables the "View on explorer" button. */
   explorerUrl?: string
   onViewExplorer: () => void
@@ -36,6 +38,7 @@ export function EarnCompleteStep({
   estimated,
   netLabel,
   confirmedAt,
+  txHash,
   explorerUrl,
   onViewExplorer,
   onGoToDashboard,
@@ -59,6 +62,7 @@ export function EarnCompleteStep({
         estimated={estimated}
         netLabel={netLabel}
         confirmedAt={confirmedAt}
+        txHash={txHash}
         // No APY frozen on the record (captured without a rate) → hide the row, as the Activity receipt does.
         showApy={rate !== null}
       />

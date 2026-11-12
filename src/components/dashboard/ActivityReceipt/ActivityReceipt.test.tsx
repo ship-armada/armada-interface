@@ -196,6 +196,9 @@ describe('<ActivityReceipt>', () => {
     render(<ActivityReceipt record={withHash} open onClose={vi.fn()} />)
     expect(screen.getByText('0x1234...abcdef')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy transaction hash' })).toBeInTheDocument()
+    const transaction = screen.getByText('Transaction')
+    const fees = screen.getByText('Fees')
+    expect(transaction.compareDocumentPosition(fees) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('has no tx hash line before there is a hash', () => {

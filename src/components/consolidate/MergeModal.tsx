@@ -209,6 +209,7 @@ export function MergeModal() {
           notesCreated={record.meta.notesCreated ?? 0}
           fee={txFiguresAs(record, 'merge').fee}
           confirmedAt={record.updatedAt}
+          txHash={displayTxHash(record)}
           {...(blockedAction !== undefined ? { blockedAction } : {})}
           {...(needsAnotherRound ? { onMergeAgain: mergeAgain } : {})}
           {...(explorerUrl ? { explorerUrl } : {})}

@@ -193,23 +193,6 @@
   color: var(--semantic-color-text-muted);
 }
 
-.txHashRow {
-  display: flex;
-  align-items: center;
-  gap: var(--primitives-spacing-2);
-  width: 100%;
-  color: var(--semantic-color-text-muted);
-}
-
-.txHash {
-  font-family: var(--primitives-fontFamily-mono), monospace;
-  color: var(--semantic-color-text-secondary);
-}
-
-.txHashLabel {
-  margin-right: auto;
-}
-
 .repeatButton {
   display: inline-flex;
   align-items: center;

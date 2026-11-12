@@ -31,6 +31,8 @@ export interface SendCompleteStepProps {
   recipientWalletProvider?: string
   /** Completion timestamp (ms) — drives the summary's "Date and time" row. */
   confirmedAt: number
+  /** Source transaction hash. Shown above the fee, the same row the activity receipt uses. */
+  txHash?: string
   /** A cross-chain send's destination (CCTP mint) tx link (`lib/explorer::deliveryExplorerLink`); shown under the summary. */
   deliveryLink?: { url: string; chainName: string } | null
   /** Source-chain explorer URL for the tx; absent disables the "View on explorer" button. */
@@ -52,6 +54,7 @@ export function SendCompleteStep({
   networkName,
   recipientWalletProvider,
   confirmedAt,
+  txHash,
   explorerUrl,
   onViewExplorer,
   onGoToDashboard,
@@ -82,6 +85,7 @@ export function SendCompleteStep({
         networkName={networkName}
         recipientWalletProvider={recipientWalletProvider}
         confirmedAt={confirmedAt}
+        txHash={txHash}
       />
       <DeliveryTxLink link={deliveryLink ?? null} />
     </ConfirmedScreenLayout>

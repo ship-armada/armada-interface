@@ -14,6 +14,8 @@ export interface MergeCompleteStepProps {
   fee: bigint
   /** Completion timestamp (ms) — the summary's "Date and time" row. */
   confirmedAt: number
+  /** Source transaction hash. Shown above the fee, the same row the activity receipt uses. */
+  txHash?: string
   /** The blocked action the merge was for, in plain words ("withdrawal"). */
   blockedAction?: string
   /** Set when one merge wasn't enough for the blocked action — shows "Merge again". */
@@ -30,6 +32,7 @@ export function MergeCompleteStep({
   notesCreated,
   fee,
   confirmedAt,
+  txHash,
   blockedAction,
   onMergeAgain,
   explorerUrl,
@@ -50,6 +53,7 @@ export function MergeCompleteStep({
         notesCreated={notesCreated}
         fee={fee}
         confirmedAt={confirmedAt}
+        txHash={txHash}
       />
       {blockedAction !== undefined && onMergeAgain ? (
         <MergeNotesNotice

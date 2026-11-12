@@ -5,6 +5,7 @@ import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 // The deposit summary's styles, so the merge table stays in visual sync with the other flows' summaries.
 import { FeeInfo } from '@/components/tx/FeeInfo'
+import { TransactionHashRow } from '@/components/tx/TransactionHashRow'
 import styles from '../../deposit/DepositReviewSummary/DepositReviewSummary.module.css'
 
 export interface ConsolidationSummaryProps {
@@ -17,6 +18,8 @@ export interface ConsolidationSummaryProps {
   fee: bigint | null
   /** Completion timestamp (ms) — adds a leading "Date and time" row. */
   confirmedAt?: number
+  /** Source transaction hash. Shown above the fee on a confirmation and on the activity receipt. */
+  txHash?: string
   /** Review's "Est. time" row ("Usually takes ~15 sec", from `lib/tx/eta::estimatedTimeLabel`); omitted elsewhere. */
   estimatedTime?: string
 }
@@ -27,6 +30,7 @@ export function ConsolidationSummary({
   notesCreated,
   fee,
   confirmedAt,
+  txHash,
   estimatedTime,
 }: ConsolidationSummaryProps) {
   const feeText = fee === null ? '—' : `${formatUsdcAmount(fee)} USDC`
@@ -57,6 +61,7 @@ export function ConsolidationSummary({
             <span className={styles.summaryValue}>{estimatedTime}</span>
           </div>
         ) : null}
+        {txHash ? <TransactionHashRow txHash={txHash} /> : null}
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>
             Fees

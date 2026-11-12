@@ -7,6 +7,7 @@ import { CopyableAddress } from '@/components/ui/CopyableAddress'
 import { formatTransactionDateTime, formatUsdcAmount } from '@/lib/format'
 import { getChainById, getNetworkConfig } from '@/config/network'
 import { FeeInfo, shieldFeeParts } from '@/components/tx/FeeInfo'
+import { TransactionHashRow } from '@/components/tx/TransactionHashRow'
 import { formatNativeGasAmount, type NativeGasEstimate } from '@/lib/fees/displayFees'
 import usdcAmount from '@/design/styles/usdcAmount.module.css'
 import styles from './DepositReviewSummary.module.css'
@@ -26,6 +27,8 @@ export interface DepositReviewSummaryProps {
   shieldedAddress?: string
   /** Completion timestamp (ms) — when present, adds a leading "Date and time" row for confirmations. */
   confirmedAt?: number
+  /** Source transaction hash. Shown above the fee on a confirmation and on the activity receipt. */
+  txHash?: string
   /** Direct-path network-gas estimate (paid in ETH from the user's wallet) — renders a "Network gas"
    *  row under Fees on the REVIEW step only. Omitted on gasless (relayer-covered) shields and on the
    *  confirmation/receipt view (guarded by `confirmedAt`). */
@@ -52,6 +55,7 @@ export function DepositReviewSummary({
   walletProvider,
   shieldedAddress,
   confirmedAt,
+  txHash,
   estimated,
   nativeGas,
   gasless,
@@ -119,6 +123,7 @@ export function DepositReviewSummary({
             <span className={styles.summaryValue}>{estimatedTime}</span>
           </div>
         ) : null}
+        {txHash ? <TransactionHashRow txHash={txHash} /> : null}
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>
             Fees
