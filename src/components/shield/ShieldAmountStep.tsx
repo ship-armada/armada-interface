@@ -10,12 +10,13 @@ import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import type { DisplayFees } from '@/lib/fees/displayFees'
 import { formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
+import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
 import { hasActiveAmount } from '@/utils/amountInput'
 import styles from './ShieldAmountStep.module.css'
 
 export type ShieldTab = 'shield' | 'unshield'
 
-const SHIELD_TABS = [
+export const SHIELD_TABS = [
   { id: 'shield' as const, label: 'Shield' },
   { id: 'unshield' as const, label: 'Unshield' },
 ]
@@ -88,6 +89,7 @@ export function ShieldAmountStepContent({
   shaking = false,
   onShakeAnimationEnd,
 }: ShieldAmountStepContentProps) {
+  const keypad = useAmountEntryMode() === 'keypad'
   const gasWarning = useGasBalanceWarning(gasChainId, requiredGasWei)
   const showGasNotice = !gaslessMode && gasWarning.show
 
@@ -109,13 +111,18 @@ export function ShieldAmountStepContent({
       : undefined)
 
   return (
-    <div className={`${styles.contentZone} ${modalStepBodyEnter}`}>
+    <div
+      className={[styles.contentZone, modalStepBodyEnter, keypad && styles.contentZoneKeypad].filter(Boolean).join(' ')}
+      {...(keypad ? { 'data-keypad-step': '' } : {})}
+    >
       <DepositAmountCard
+        keypad={keypad}
         // The chain row is the shared ChainSelect (matches the Send flow's network selector).
         chainSlot={<ChainSelect value={chainId} onChange={onChainIdChange} label="Network" layout="inline" />}
         balanceSource={isShield ? 'wallet' : 'armada'}
         walletProvider={isShield ? walletProvider : undefined}
         header={
+          keypad ? undefined : (
           <SegmentedControl<ShieldTab>
             size="sm"
             aria-label="Shield or unshield"
@@ -123,8 +130,9 @@ export function ShieldAmountStepContent({
             onChange={onTabChange}
             options={SHIELD_TABS}
           />
+          )
         }
-        title={title}
+        title={keypad ? undefined : title}
         amount={amountStr}
         onAmountChange={onAmountChange}
         balance={balance}
@@ -176,14 +184,15 @@ export function ShieldAmountStepFooter({
   onContinue,
   onIncompleteContinue,
 }: ShieldAmountStepFooterProps) {
+  const keypad = useAmountEntryMode() === 'keypad'
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > maxInput
   const tooSmall = minAmount > 0n && amount > 0n && amount <= minAmount
   const canReview = hasActiveAmount(amountStr) && !tooMuch && !tooSmall && !parseError
 
   return (
-    <div className={`${flowButtonRow.buttonRow} ${modalActionRowEnter}`}>
-      <Button variant="secondary" size="lg" label="Cancel" showIcon={false} onClick={onCancel} />
+    <div className={[flowButtonRow.buttonRow, modalActionRowEnter, keypad && flowButtonRow.buttonRowKeypad].filter(Boolean).join(' ')}>
+      {keypad ? null : <Button variant="secondary" size="lg" label="Cancel" showIcon={false} onClick={onCancel} />}
       <Button
         variant="primary"
         size="lg"

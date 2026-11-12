@@ -9,3 +9,18 @@
   max-width: 27.25rem; /* ~436px — the mockup's step column width */
   margin-inline: auto;
 }
+
+.stepColumnFill {
+  flex: 1;
+  min-height: 0;
+  max-width: none;
+  height: 100%;
+  gap: var(--primitives-spacing-5);
+}
+
+.stepColumnFill > [data-keypad-step] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

@@ -17,6 +17,7 @@ import {
 import { useTx } from '@/hooks/useTx'
 import { useMergeNotes } from '@/hooks/useMergeNotes'
 import { useContinueWithWallet } from '@/hooks/useOpenActionModal'
+import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
 import { useSpendCheck } from '@/hooks/useSpendCheck'
 import type { BlockedSpend } from '@/lib/shielded/merge-intent'
 import { useRecentRecipients, useSendCountTo } from '@/hooks/useRecentRecipients'
@@ -391,6 +392,7 @@ export function SendModal() {
   // Route the close through useFlowExit so FlowShell plays its slide-down before unmounting. The
   // atom stays set (isOpen true) until the animation completes, which keeps the step content frozen.
   const { exiting, requestClose: close } = useFlowExit(() => setOpenModal(null))
+  const keypad = useAmountEntryMode() === 'keypad'
 
   async function handleSubmit() {
     if (submittingRef.current) return
@@ -497,6 +499,16 @@ export function SendModal() {
     }
   }
 
+  const keypadBack = !keypad
+    ? undefined
+    : step === 'recipient'
+      ? close
+      : step === 'input'
+        ? () => setStep('recipient')
+        : step === 'review'
+          ? () => setStep('input')
+          : undefined
+
   if (!isOpen) return null
 
   // FlowShell renders a 4-segment Steps indicator (Recipient / Amount / Review / Confirm).
@@ -534,6 +546,9 @@ export function SendModal() {
       steps={['Recipient', 'Amount', 'Review', 'Confirm']}
       currentStep={currentStep}
       status={status}
+      chrome={keypad ? 'simple' : 'default'}
+      onBack={keypadBack}
+      fill={keypad && step === 'input'}
     >
       <RelayerStatusBanner isOpen={isOpen} crossChain={computedKind === 'unshield-xchain'} />
       {step === 'recipient' && (

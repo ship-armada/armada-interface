@@ -21,6 +21,24 @@
   width: 100%;
 }
 
+.sendContentKeypad {
+  flex: 1;
+  min-height: 0;
+  gap: var(--primitives-spacing-4);
+}
+
+.sendContentKeypad .amountGroup {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sendContentKeypad .amountGroup > :first-child {
+  flex: 1;
+  min-height: 0;
+}
+
 .recipientSlot {
   width: 100%;
 }

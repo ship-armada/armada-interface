@@ -1,10 +1,18 @@
 // ABOUTME: Deposit amount card — optional in-card title, chain slot, left-aligned large mono amount, balance/fee row.
-// ABOUTME: The chain UI (when shown) is supplied by the caller via `chainSlot` (e.g. the shared ChainSelect).
+// ABOUTME: On a phone (`keypad`) the amount and fee are centered and an on-screen keypad replaces the system keyboard.
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { WalletIcon } from '@heroicons/react/24/solid'
 import { ArmadaLogo } from '@/design'
-import { formatAmountInputDisplay, hasActiveAmount, sanitizeAmountEdit } from '@/utils/amountInput'
+import {
+  applyKeypadBackspace,
+  applyKeypadDecimal,
+  applyKeypadDigit,
+  formatAmountInputDisplay,
+  hasActiveAmount,
+  sanitizeAmountEdit,
+} from '@/utils/amountInput'
+import { NumericKeypad, type NumericKeypadKey } from '@/components/deposit/NumericKeypad/NumericKeypad'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { FeeBreakdownTooltip, type FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { WalletProviderIcon } from '@/components/ui/WalletProviderIcon'
@@ -124,6 +132,8 @@ export interface DepositAmountCardProps {
   shaking?: boolean
   /** Clears the shake once the animation finishes; wire to `useNudgeShake().onShakeAnimationEnd`. */
   onShakeAnimationEnd?: (event: React.AnimationEvent<HTMLDivElement>) => void
+  /** Phone layout: centered amount, fee under it, balance row, and the on-screen keypad. */
+  keypad?: boolean
 }
 
 export function DepositAmountCard({
@@ -151,6 +161,7 @@ export function DepositAmountCard({
   inputRef,
   shaking = false,
   onShakeAnimationEnd,
+  keypad = false,
 }: DepositAmountCardProps) {
   const amountInputId = useId()
   const amountErrorId = useId()
@@ -160,6 +171,7 @@ export function DepositAmountCard({
   // The flow dialog focuses itself on open, after this card's effects. Focus the amount on the
   // next turn so Shield, Send, and Earn show the field active.
   useEffect(() => {
+    if (keypad) return
     if (!inputRef || typeof inputRef === 'function') return
     const id = window.setTimeout(() => {
       const input = inputRef.current
@@ -167,7 +179,7 @@ export function DepositAmountCard({
       if (input && document.activeElement === input) setAmountFocused(true)
     }, 0)
     return () => window.clearTimeout(id)
-  }, [inputRef])
+  }, [inputRef, keypad])
 
   // Odometer roll for preset/Max taps (mockup): the amount digit-spins from the old value to the new
   // one. A preset handler records where we're rolling *from*; the effect below detects the resulting
@@ -201,6 +213,20 @@ export function DepositAmountCard({
     setAmountRoll({ fromValue, toValue, trigger })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- roll is keyed off the amount change only.
   }, [amount])
+
+  function handleKeypadKey(key: NumericKeypadKey) {
+    clearAmountRoll()
+    pendingRollFromRef.current = null
+    if (key === 'backspace') {
+      onAmountChange(applyKeypadBackspace(amount))
+      return
+    }
+    if (key === '.') {
+      onAmountChange(applyKeypadDecimal(amount))
+      return
+    }
+    onAmountChange(applyKeypadDigit(amount, key))
+  }
 
   function handleAmountInput(raw: string) {
     clearAmountRoll()
@@ -358,12 +384,12 @@ export function DepositAmountCard({
   return (
     <div
       ref={cardRef}
-      className={[styles.card, shaking && incompleteCtaShakeClass].filter(Boolean).join(' ')}
+      className={[keypad ? styles.keypad : styles.card, shaking && incompleteCtaShakeClass].filter(Boolean).join(' ')}
       onAnimationEnd={onShakeAnimationEnd}
     >
       <div className={styles.cardTop}>
-      {header ? <div className={styles.cardHeader}>{header}</div> : null}
-      {title ? <p className={styles.cardTitle}>{title}</p> : null}
+      {keypad || !header ? null : <div className={styles.cardHeader}>{header}</div>}
+      {keypad || !title ? null : <p className={styles.cardTitle}>{title}</p>}
 
       <div className={styles.amountStack}>
         <label className={styles.amountWrapper} htmlFor={amountInputId}>
@@ -399,13 +425,13 @@ export function DepositAmountCard({
               ref={inputRef}
               id={amountInputId}
               type="text"
-              inputMode="decimal"
+              inputMode={keypad ? 'none' : 'decimal'}
               autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
               data-1p-ignore
               data-lpignore="true"
-              className={[styles.amountInput, isAmountRolling && styles.amountValueHidden]
+              className={[styles.amountInput, keypad && styles.amountInputInert, isAmountRolling && styles.amountValueHidden]
                 .filter(Boolean)
                 .join(' ')}
               value={displayAmount}
@@ -413,7 +439,8 @@ export function DepositAmountCard({
               aria-label={amountAriaLabel}
               aria-invalid={Boolean(error)}
               aria-describedby={error ? amountErrorId : undefined}
-              readOnly={isAmountRolling}
+              readOnly={keypad || isAmountRolling}
+              tabIndex={keypad ? -1 : undefined}
               onFocus={() => {
                 setAmountFocused(true)
                 syncCaret()
@@ -526,6 +553,11 @@ export function DepositAmountCard({
           ) : null}
         </div>
       </div>
+      {keypad ? (
+        <div className={styles.keypadDock}>
+          <NumericKeypad className={styles.keypadPad} fullWidth onKey={handleKeypadKey} />
+        </div>
+      ) : null}
     </div>
   )
 }

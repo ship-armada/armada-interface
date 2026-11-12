@@ -12,6 +12,7 @@ import { useTx } from '@/hooks/useTx'
 import { useFees } from '@/hooks/useFees'
 import { useSpendableSyncGate } from '@/hooks/useSpendableSyncGate'
 import { useContinueWithWallet } from '@/hooks/useOpenActionModal'
+import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
 import { useRelayerSubmitBlock } from '@/hooks/useRelayerSubmitBlock'
 import { frozenApyRate, useYieldRate } from '@/hooks/useYieldRate'
 import { getNetworkConfig } from '@/config/network'
@@ -36,9 +37,10 @@ import {
   type FlowVisibleStep,
 } from '@/components/flow'
 import { FlowShell } from '@/components/flow/FlowShell'
+import { SegmentedControl } from '@/components/ui'
 import { useFlowExit } from '@/components/flow/useFlowExit'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
-import { EarnInputStepContent, EarnInputStepFooter, type EarnTab } from './EarnInputStep'
+import { EarnInputStepContent, EarnInputStepFooter, EARN_MODE_TABS, type EarnTab } from './EarnInputStep'
 import { useDisplayFees } from '@/hooks/useDisplayFees'
 import { EarnReviewStep } from './EarnReviewStep'
 import { EarnCompleteStep } from './EarnCompleteStep'
@@ -305,6 +307,7 @@ export function EarnModal() {
   // Route the close through useFlowExit so FlowShell plays its slide-down before unmounting. The
   // atom stays set (isOpen true) until the animation completes, which keeps the step content frozen.
   const { exiting, requestClose: close } = useFlowExit(() => setOpenModal(null))
+  const keypad = useAmountEntryMode() === 'keypad'
 
   async function handleSubmit() {
     if (submittingRef.current) return
@@ -408,6 +411,15 @@ export function EarnModal() {
     }
   }
 
+  const showEarnTabs = keypad && (step === 'input' || step === 'review')
+  const keypadBack = !keypad
+    ? undefined
+    : step === 'input'
+      ? close
+      : step === 'review'
+        ? () => setStep('input')
+        : undefined
+
   if (!isOpen) return null
 
   // FlowShell renders a 3-segment Steps indicator (Amount / Review / Confirm). progress / complete /
@@ -431,6 +443,23 @@ export function EarnModal() {
       steps={['Amount', 'Review', 'Confirm']}
       currentStep={currentStep}
       status={status}
+      chrome={keypad ? 'simple' : 'default'}
+      headerCenter={
+        showEarnTabs ? (
+          <SegmentedControl<EarnTab>
+            size="sm"
+            aria-label="Earn mode"
+            value={tab}
+            onChange={(next) => {
+              setTab(next)
+              setAmountStr('')
+            }}
+            options={EARN_MODE_TABS}
+          />
+        ) : undefined
+      }
+      onBack={keypadBack}
+      fill={keypad && step === 'input'}
     >
       <RelayerStatusBanner isOpen={isOpen} />
       {step === 'input' && (

@@ -22,12 +22,15 @@ import {
   type FlowStep,
 } from '@/components/flow'
 import { FlowShell } from '@/components/flow/FlowShell'
+import { SegmentedControl } from '@/components/ui'
+import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
 import { useFlowExit } from '@/components/flow/useFlowExit'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
 import { RelayerStatusBanner } from '@/components/RelayerStatusBanner'
 import {
   ShieldAmountStepContent,
   ShieldAmountStepFooter,
+  SHIELD_TABS,
   type ShieldTab,
 } from './ShieldAmountStep'
 import { ShieldReviewStep } from './ShieldReviewStep'
@@ -106,6 +109,8 @@ export function ShieldModal() {
     setTab(next)
   }
 
+  const keypad = useAmountEntryMode() === 'keypad'
+
   if (!isOpen) return null
 
   const isShield = tab === 'shield'
@@ -133,6 +138,14 @@ export function ShieldModal() {
           ? 3
           : 4
     : overlayIndicatorStep(step as FlowStep)
+  const showKeypadTabs = keypad && (step === 'input' || step === 'review' || step === 'wallet')
+  const keypadBack = !keypad
+    ? undefined
+    : step === 'input'
+      ? close
+      : step === 'review'
+        ? (isShield ? shieldFlow.onBackToInput : unshieldFlow.onBackToInput)
+        : undefined
   const status = isShield
     ? step === 'complete'
       ? 'confirmed'
@@ -151,6 +164,20 @@ export function ShieldModal() {
       steps={steps}
       currentStep={currentStep}
       status={status}
+      chrome={keypad ? 'simple' : 'default'}
+      headerCenter={
+        showKeypadTabs ? (
+          <SegmentedControl<ShieldTab>
+            size="sm"
+            aria-label="Shield or unshield"
+            value={tab}
+            onChange={handleTabChange}
+            options={SHIELD_TABS}
+          />
+        ) : undefined
+      }
+      onBack={keypadBack}
+      fill={keypad && step === 'input'}
     >
       <RelayerStatusBanner
         isOpen={isOpen}

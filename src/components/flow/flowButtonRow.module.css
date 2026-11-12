@@ -11,3 +11,7 @@
   flex: 1;
   width: 100%;
 }
+
+.buttonRowKeypad {
+  padding-bottom: calc(var(--primitives-spacing-5) + var(--mobile-safe-area-bottom, 0px));
+}

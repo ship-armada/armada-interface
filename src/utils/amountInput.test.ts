@@ -2,7 +2,15 @@
 // ABOUTME: Covers digit/dot filtering, the 6-decimal cap, leading-zero collapse, forward-typing states, and comma-as-decimal edits.
 
 import { describe, it, expect } from 'vitest'
-import { sanitizeAmountInput, sanitizeAmountEdit, hasActiveAmount, formatAmountInputDisplay } from './amountInput'
+import {
+  sanitizeAmountInput,
+  sanitizeAmountEdit,
+  hasActiveAmount,
+  formatAmountInputDisplay,
+  applyKeypadDigit,
+  applyKeypadDecimal,
+  applyKeypadBackspace,
+} from './amountInput'
 
 describe('sanitizeAmountInput', () => {
   it('keeps digits and a single decimal point', () => {
@@ -119,5 +127,23 @@ describe('sanitizeAmountEdit — comma as a decimal mark', () => {
 
   it('still caps decimals at six after converting a comma', () => {
     expect(sanitizeAmountEdit('1,1234567', '')).toBe('1.123456')
+  })
+})
+
+describe('keypad entry', () => {
+  it('appends a digit and stops at 6 decimal places', () => {
+    expect(applyKeypadDigit('1.12345', '6')).toBe('1.123456')
+    expect(applyKeypadDigit('1.123456', '7')).toBe('1.123456')
+  })
+
+  it('inserts a single decimal point', () => {
+    expect(applyKeypadDecimal('')).toBe('0.')
+    expect(applyKeypadDecimal('12')).toBe('12.')
+    expect(applyKeypadDecimal('1.2')).toBe('1.2')
+  })
+
+  it('deletes the last character', () => {
+    expect(applyKeypadBackspace('12.')).toBe('12')
+    expect(applyKeypadBackspace('')).toBe('')
   })
 })

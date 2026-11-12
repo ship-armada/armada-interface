@@ -12,6 +12,17 @@
   z-index: 1;
 }
 
+.contentZoneKeypad {
+  flex: 1;
+  min-height: 0;
+  gap: var(--primitives-spacing-4);
+}
+
+.contentZoneKeypad > :first-child {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Serif display title for the shield amount step (matches the deposit-flow mockup). */
 .title {
   composes: displayLg from '../../design/styles/displayLgTitle.module.css';

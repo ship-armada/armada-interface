@@ -94,6 +94,25 @@ export function formatAmountInputDisplay(sanitized: string): string {
   return `${formattedInt}${decSuffix}`
 }
 
+/** Append a digit from the on-screen keypad. USDC keeps at most 6 decimal places. */
+export function applyKeypadDigit(current: string, digit: string): string {
+  if (!/^\d$/.test(digit)) return sanitizeAmountInput(current)
+  return sanitizeAmountInput(`${current}${digit}`)
+}
+
+/** Insert one decimal point from the on-screen keypad. A leading point becomes `0.`. */
+export function applyKeypadDecimal(current: string): string {
+  if (!current) return '0.'
+  if (current.includes('.')) return sanitizeAmountInput(current)
+  return sanitizeAmountInput(`${current}.`)
+}
+
+/** Delete the last character from keypad entry. */
+export function applyKeypadBackspace(current: string): string {
+  if (!current) return ''
+  return sanitizeAmountInput(current.slice(0, -1))
+}
+
 /** True when the user has a non-zero amount or is mid-decimal entry (e.g. "0."). */
 export function hasActiveAmount(value: string): boolean {
   const trimmed = value.trim()

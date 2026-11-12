@@ -2,7 +2,7 @@
 // ABOUTME: Every feature flow renders it: the logo + Steps progress + close + backdrop/focus-trap.
 
 import type { ReactNode } from 'react'
-import { FlowModalOverlay, ModalShell, ModalStepSwitch } from '@/design'
+import { FlowModalOverlay, ModalShell, ModalStepSwitch, type ModalShellChrome } from '@/design'
 import styles from './FlowShell.module.css'
 
 /** Default 3-step deposit/action progress labels (Amount → Review → Confirm). */
@@ -25,6 +25,14 @@ export interface FlowShellProps {
    * remounts the new step so its enter animations replay. Omit for static shells (e.g. the receipt).
    */
   stepKey?: string
+  /** `simple` = back + title (or `headerCenter`) + close. Phone amount flows. */
+  chrome?: ModalShellChrome
+  /** Replaces the simple-chrome title (Shield/Unshield or Earn tabs). */
+  headerCenter?: ReactNode
+  /** Back control for simple chrome. */
+  onBack?: () => void
+  /** Let the step column fill the phone shell so the keypad can sit at the bottom. */
+  fill?: boolean
   children: ReactNode
 }
 
@@ -38,6 +46,10 @@ export function FlowShell({
   hideSteps = false,
   exiting = false,
   stepKey,
+  chrome = 'default',
+  headerCenter,
+  onBack,
+  fill = false,
   children,
 }: FlowShellProps) {
   if (!open && !exiting) return null
@@ -51,6 +63,9 @@ export function FlowShell({
         hideSteps={hideSteps}
         exiting={exiting}
         flowLabel={flowLabel}
+        chrome={chrome}
+        headerCenter={headerCenter}
+        onBack={onBack}
         onClose={onClose}
       >
         {/* The .stepColumn (436px column + inter-element gap) lives INSIDE ModalStepSwitch so it
@@ -59,10 +74,10 @@ export function FlowShell({
             switch — otherwise the gap + width never reach the card/buttons. */}
         {stepKey !== undefined ? (
           <ModalStepSwitch stepKey={stepKey} skipExit={exiting}>
-            <div className={styles.stepColumn}>{children}</div>
+            <div className={[styles.stepColumn, fill && styles.stepColumnFill].filter(Boolean).join(' ')}>{children}</div>
           </ModalStepSwitch>
         ) : (
-          <div className={styles.stepColumn}>{children}</div>
+          <div className={[styles.stepColumn, fill && styles.stepColumnFill].filter(Boolean).join(' ')}>{children}</div>
         )}
       </ModalShell>
     </FlowModalOverlay>

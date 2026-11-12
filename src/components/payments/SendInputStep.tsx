@@ -11,6 +11,7 @@ import type { DisplayFees } from '@/lib/fees/displayFees'
 import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
 import { formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
+import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
 import { hasActiveAmount } from '@/utils/amountInput'
 import type { SendFlowVariant } from './SendRecipientStep'
 import styles from './SendInputStep.module.css'
@@ -92,6 +93,7 @@ export function SendInputStepContent({
   | 'shaking'
   | 'onShakeAnimationEnd'
 >) {
+  const keypad = useAmountEntryMode() === 'keypad'
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const gasWarning = useGasBalanceWarning(gasChainId)
   // Only surface the gas notice when the user actually pays gas themselves. All three SendModal
@@ -103,11 +105,15 @@ export function SendInputStepContent({
     ?? (tooMuch ? overMaxAmountMessage({ verb: 'send', maxInput, feeOnTop: true }) : undefined)
 
   return (
-    <div className={`${styles.sendContent} ${modalStepBodyEnter}`}>
+    <div
+      className={[styles.sendContent, modalStepBodyEnter, keypad && styles.sendContentKeypad].filter(Boolean).join(' ')}
+      {...(keypad ? { 'data-keypad-step': '' } : {})}
+    >
       <div className={styles.amountGroup}>
         <DepositAmountCard
+          keypad={keypad}
           // Title lives inside the card; the chain is chosen on the recipient step (no chain row here).
-          title="How much USDC?"
+          title={keypad ? undefined : 'How much USDC?'}
           balanceSource="armada"
           amount={amountStr}
           onAmountChange={onAmountChange}
@@ -150,13 +156,15 @@ export function SendInputStepFooter({
   SendInputStepProps,
   'amountStr' | 'maxInput' | 'onBack' | 'onContinue' | 'onIncompleteContinue'
 >) {
+  const keypad = useAmountEntryMode() === 'keypad'
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > maxInput
   // "0." is a valid in-progress input but parses to 0, and a zero-value unshield is rejected by the pool (#112).
   const canReview = hasActiveAmount(amountStr) && amount > 0n && !tooMuch && !parseError
 
   return (
-    <div className={`${flowButtonRow.buttonRow} ${modalActionRowEnter}`}>
+    <div className={[flowButtonRow.buttonRow, modalActionRowEnter, keypad && flowButtonRow.buttonRowKeypad].filter(Boolean).join(' ')}>
+      {keypad ? null : (
       <Button
         variant="secondary"
         size="lg"
@@ -164,6 +172,7 @@ export function SendInputStepFooter({
         showIcon={false}
         onClick={onBack}
       />
+      )}
       <Button
         variant="primary"
         size="lg"

@@ -452,6 +452,87 @@
   cursor: pointer;
 }
 
+/* Phone amount step: no frost card. The amount sits in the free space, the balance under it, the keypad below that. */
+.keypad {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  gap: var(--primitives-spacing-4);
+  position: relative;
+  z-index: 1;
+}
+
+.keypad .cardTop {
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+}
+
+.keypad .amountStack {
+  align-items: center;
+  width: 100%;
+}
+
+.keypad .amountWrapper {
+  justify-content: center;
+  padding-left: 0;
+}
+
+.keypad .amountField {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.keypad .amountDisplay {
+  width: max-content;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* The roll covers the full-width field. Keep its digits on the centered amount, and leave the
+   static value in flow so the row keeps its height while the digits spin. */
+.keypad .amountDisplayRolling {
+  position: static;
+  visibility: hidden;
+}
+
+.keypad .amountRollLayer {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  max-width: none;
+  justify-content: center;
+}
+
+.keypadDock {
+  flex-shrink: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--primitives-spacing-4);
+  border-radius: calc(var(--semantic-borderRadius-modal) * 1px);
+  background: var(--semantic-color-frost-raised);
+  box-sizing: border-box;
+}
+
+.keypadPad {
+  width: 100%;
+  max-width: none;
+  margin-top: 0;
+  padding-block: var(--primitives-spacing-1);
+}
+
+.amountInputInert {
+  pointer-events: none;
+}
+
 .balanceButton:focus-visible {
   outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
   outline-offset: calc(var(--primitives-spacing-1) * 0.5);

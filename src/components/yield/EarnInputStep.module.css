@@ -8,6 +8,17 @@
   width: 100%;
 }
 
+.rootKeypad {
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+
+.rootKeypad > :first-child {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Serif display prompt (matches the flow mockup). */
 .yearlyYield {
   display: flex;

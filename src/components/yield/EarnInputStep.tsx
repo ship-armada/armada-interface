@@ -24,12 +24,13 @@ import {
 import { InfoTip } from '@/components/ui/InfoTip'
 import { VaultExplainer } from './VaultExplainer'
 import type { YieldRate } from '@/hooks/useYieldRate'
+import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
 import { hasActiveAmount } from '@/utils/amountInput'
 import styles from './EarnInputStep.module.css'
 
 export type EarnTab = 'add' | 'withdraw'
 
-const TABS = [
+export const EARN_MODE_TABS = [
   { id: 'add' as const, label: 'Add to vault' },
   { id: 'withdraw' as const, label: 'Withdraw' },
 ] as const
@@ -143,6 +144,7 @@ export function EarnInputStepContent({
   | 'shaking'
   | 'onShakeAnimationEnd'
 >) {
+  const keypad = useAmountEntryMode() === 'keypad'
   const gasWarning = useGasBalanceWarning(gasChainId)
   // Only surface the gas notice when the user actually pays gas themselves. Both yield ops are relayer-mediated
   // (no wallet-submit fallback — #23), so the parent passes `gaslessMode={true}` on both tabs and the notice
@@ -169,8 +171,12 @@ export function EarnInputStepContent({
       : null
 
   return (
-    <div className={`${styles.root} ${modalStepBodyEnter}`}>
-      {/* APY intro banner — shown on both tabs (mockup). The live vault rate fills the headline. */}
+    <div
+      className={[styles.root, modalStepBodyEnter, keypad && styles.rootKeypad].filter(Boolean).join(' ')}
+      {...(keypad ? { 'data-keypad-step': '' } : {})}
+    >
+      {/* APY intro banner — shown on both tabs (mockup). Hidden on the phone keypad, where the tabs move to the header. */}
+      {keypad ? null : (
       <DepositTooltip
         stretch
         BadgeIcon={ChartBarIcon}
@@ -181,20 +187,24 @@ export function EarnInputStepContent({
         body={EARN_APY_BANNER_BODY}
         infoTooltip={apyExplanation(rate?.yieldFeeBps)}
       />
+      )}
 
       <DepositAmountCard
+        keypad={keypad}
         // Add/Withdraw mode tabs live inside the card, above the title (mockup headerSlot).
         header={
+          keypad ? undefined : (
           <SegmentedControl<EarnTab>
             size="sm"
             aria-label="Earn mode"
             value={tab}
             onChange={onTabChange}
-            options={TABS}
+            options={EARN_MODE_TABS}
           />
+          )
         }
         // Title lives inside the card; the vault has no chain selection (no chain row).
-        title={question}
+        title={keypad ? undefined : question}
         balanceSource="armada"
         amount={amountStr}
         onAmountChange={onAmountChange}
@@ -218,7 +228,7 @@ export function EarnInputStepContent({
       />
 
       {/* A deposit's rough yearly earnings at today's rate (12E) — not on a withdrawal, nor before an amount and rate. */}
-      {yearlyYield !== null ? (
+      {!keypad && yearlyYield !== null ? (
         <p className={styles.yearlyYield}>
           <span className={styles.yearlyYieldLabel}>
             Est. yearly yield
@@ -228,14 +238,14 @@ export function EarnInputStepContent({
         </p>
       ) : null}
 
-      {showGasNotice ? (
+      {!keypad && showGasNotice ? (
         <GasBalanceNotice
           nativeSymbol={gasWarning.nativeSymbol}
           formattedBalance={gasWarning.formattedBalance}
         />
       ) : null}
 
-      <VaultExplainer yieldFeeBps={rate?.yieldFeeBps} />
+      {keypad ? null : <VaultExplainer yieldFeeBps={rate?.yieldFeeBps} />}
     </div>
   )
 }
@@ -256,6 +266,7 @@ export function EarnInputStepFooter({
   | 'onContinue'
   | 'onIncompleteContinue'
 >) {
+  const keypad = useAmountEntryMode() === 'keypad'
   const { value: amount, error: parseError } = parseUsdcInput(amountStr)
   const tooMuch = amount > maxInput
   // "0." is a valid in-progress input but parses to 0, and a zero-value unshield is rejected by the pool (#112).
@@ -263,7 +274,8 @@ export function EarnInputStepFooter({
     hasActiveAmount(amountStr) && amount > 0n && !tooMuch && !parseError && !continueBlockedReason
 
   return (
-    <div className={`${flowButtonRow.buttonRow} ${modalActionRowEnter}`}>
+    <div className={[flowButtonRow.buttonRow, modalActionRowEnter, keypad && flowButtonRow.buttonRowKeypad].filter(Boolean).join(' ')}>
+      {keypad ? null : (
       <Button
         variant="secondary"
         size="lg"
@@ -271,6 +283,7 @@ export function EarnInputStepFooter({
         showIcon={false}
         onClick={onCancel}
       />
+      )}
       <Button
         variant="primary"
         size="lg"
