@@ -60,8 +60,8 @@
   animation: dashboardTooltipHandoffExit 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Clip only while the grow-in / collapse runs: once a grow-in settles the slot stays `tooltipHandoffEnter` for the rest
-   of the session, and a lasting clip would cut off anything that extends past the banner — its ⓘ tooltip opens above it. */
+/* Clip only while the grow-in / collapse runs. Once it settles the handoff class is removed, so the
+   banner no longer carries the animation's max-height — that would cut off the ⓘ tooltip above it. */
 .tooltipHandoffEnter:not(.tooltipHandoffSettled),
 .tooltipHandoffExit {
   overflow: hidden;

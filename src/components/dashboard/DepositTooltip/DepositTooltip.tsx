@@ -97,7 +97,7 @@ export function DepositTooltip({
           size="sm"
           className={styles.dismissButton}
           iconClassName={styles.dismissIcon}
-          icon={<InformationCircleIcon strokeWidth={1.5} aria-hidden />}
+          icon={<InformationCircleIcon data-tooltip-anchor="" strokeWidth={1.5} aria-hidden />}
           aria-label="About the APY estimate"
         />
       </Tooltip>

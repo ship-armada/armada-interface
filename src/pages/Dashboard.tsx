@@ -453,11 +453,14 @@ function EarnBannerSlot({
 
   if (!rendered) return null
 
+  // Drop the handoff class once it finishes. Its animation keeps a max-height, which would
+  // clip the info tooltip that opens above the banner.
+  const animatingHandoff = handoffEnter && !handoffSettled
   const enterClass = exiting
     ? styles.tooltipHandoffExit
-    : handoffEnter
+    : animatingHandoff
       ? styles.tooltipHandoffEnter
-      : persistVisible
+      : persistVisible || handoffEnter
         ? styles.tooltipVisible
         : styles.tooltipEnter
 

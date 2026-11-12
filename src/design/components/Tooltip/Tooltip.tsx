@@ -81,7 +81,8 @@ export default function Tooltip(props: TooltipProps) {
       onKeyDown={isAction ? undefined : handleKeyDown}
       ref={(node) => {
         triggerRef.current = node
-        refs.setReference(node)
+        const anchor = node?.querySelector('[data-tooltip-anchor]')
+        refs.setReference(anchor ?? node)
       }}
       aria-describedby={visible && !isAction ? tooltipId : undefined}
     >

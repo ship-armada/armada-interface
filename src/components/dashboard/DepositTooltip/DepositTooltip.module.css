@@ -143,12 +143,6 @@
   z-index: 1;
 }
 
-.dismiss [role='tooltip'] {
-  left: auto;
-  right: 0;
-  transform: none;
-}
-
 /* Info button is icon-only — no ghost border/fill (match mockup). */
 .dismiss .dismissButton {
   background: transparent;
