@@ -167,7 +167,7 @@ export function Dashboard() {
   const lastLiveRef = useRef<number | null>(null)
   const lastVaultRef = useRef<number>(liveVault)
   // Whether the activity list takes the page-load cascade, decided once (activityFirstPaint): yes when it first shows with
-  // the balance; no when it was already on screen while syncing, or appears later — those enter immediately.
+  // the balance. It stays hidden through the scan, so that first show is the cascade; anything later enters at once.
   const activityVisibleOnPaintRef = useRef<boolean | null>(null)
   useEffect(() => {
     if (gated || openModal !== null) return
@@ -231,9 +231,9 @@ export function Dashboard() {
   const showDepositTooltip = depositTooltipHandoff.showDepositTooltip
   const depositTooltipPersistVisible = depositTooltipHandoff.depositTooltipPersistVisible
   const depositTooltipExiting = depositTooltipHandoff.depositTooltipExiting
-  // Activity shows automatically whenever there are items (the manual hide toggle was dropped in the
-  // polish redesign — the more-menu that held it is gone).
-  const showActivity = allActivityItems.length > 0
+  // Activity shows once the balance is known and there are items. History can already be in memory while
+  // the first scan is on screen; listing it then would show transactions before the balance they belong to.
+  const showActivity = !gated && allActivityItems.length > 0
   // Earn promo banner — the two banners are mutually exclusive; earn only shows once the deposit
   // tooltip is gone and the vault pays a real APY. Gated on `handoffReady` so it can't flash during
   // load: yieldRate (→ earnApyAvailable) and the deferred `displayedVault` settle on different renders,
@@ -284,14 +284,14 @@ export function Dashboard() {
   )
 
   // Locked: the same balance card, empty. Once unlocked the card stays up: the figure slot holds the scan,
-  // then the amount. `activityFace` still reports the scan so activity does not cascade early.
+  // then the amount. `activityFace` stays on the scan until the balance is known, so the list waits with it.
   const locked = shieldedWallet.status !== 'unlocked'
   const face: BalanceSpotFace = locked ? 'sign-in' : 'balance'
   const activityFace: BalanceSpotFace = locked ? 'sign-in' : gated ? 'sync' : 'balance'
   const syncFailed = syncState.status === 'failed'
 
   // Page-load cascade: activity enters last, after the hero → actions → banner beats — when it first shows with the balance.
-  // Activity already on screen while syncing keeps no delay (raising it would replay its entrance); later activity enters at once.
+  // Anything that appears after that first reveal enters at once.
   activityVisibleOnPaintRef.current = activityFirstPaint(activityVisibleOnPaintRef.current, activityFace, showActivity)
   const activityEnterDelayMs = dashboardActivityEnterDelayMs(
     showDepositTooltip || showEarnBanner,
