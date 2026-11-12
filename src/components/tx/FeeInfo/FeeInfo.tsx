@@ -24,7 +24,7 @@ export function FeeInfo({ parts }: { parts: readonly FeePart[] }) {
   const [only] = parts
   const trigger = (
     <button type="button" className={styles.trigger} aria-label="What is this fee?">
-      <InformationCircleIcon className={styles.icon} aria-hidden />
+      <InformationCircleIcon className={styles.icon} strokeWidth={1.5} aria-hidden />
     </button>
   )
   // No heading: the row's label already names the fee. A combined row lists its parts by name.

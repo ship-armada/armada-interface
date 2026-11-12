@@ -1,7 +1,7 @@
 // ABOUTME: Info icon (16px) with rich tooltip — protocol fee (USDC), network gas (native token),
 // ABOUTME: optional broadcaster fee + "you'll receive / total deducted" lines from computeFeeBreakdown.
 
-import { InformationCircleIcon } from '@heroicons/react/16/solid'
+import { InformationCircleIcon } from '@heroicons/react/24/outline'
 import { formatUsdcAmount } from '@/lib/format'
 import { formatNativeGasAmount, type DisplayFees } from '@/lib/fees/displayFees'
 import { Tooltip } from '@/components/ui/Tooltip'
@@ -133,7 +133,7 @@ export function FeeBreakdownTooltip({
         className={styles.trigger}
         aria-label="Fee breakdown"
       >
-        <InformationCircleIcon className={styles.iconMicro} aria-hidden />
+        <InformationCircleIcon className={styles.iconMicro} strokeWidth={1.5} aria-hidden />
       </button>
     </Tooltip>
   )
