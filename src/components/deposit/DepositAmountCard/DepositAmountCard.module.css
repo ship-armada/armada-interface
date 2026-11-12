@@ -216,6 +216,7 @@
   gap: var(--primitives-spacing-2);
   width: 100%;
   min-height: calc(var(--primitives-fontSize-4xl) * 1px);
+  padding-left: var(--primitives-spacing-1);
   cursor: text;
 }
 
@@ -270,9 +271,15 @@
   display: block;
   text-align: left;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--semantic-color-text-primary) 30%, transparent);
+  color: var(--semantic-color-text-primary);
+  opacity: 1;
+  transform: translateX(-0.05em);
   pointer-events: none;
   user-select: none;
+}
+
+.amountField:focus-within:not(.amountFieldHasValue) .amountDisplay {
+  opacity: 0.15;
 }
 
 /* Out of flow while the odometer is showing, so the odometer row — not the stored string — sets
@@ -284,11 +291,13 @@
 
 .amountDisplayActive {
   color: var(--semantic-color-text-primary);
+  opacity: 1;
 }
 
 /* Error state — reddens the amount numeral (overrides the active colour; must follow it). */
 .amountDisplayError {
   color: var(--semantic-color-status-error);
+  opacity: 1;
 }
 
 .amountInput {
@@ -302,13 +311,36 @@
   background: transparent;
   text-align: left;
   color: transparent;
-  caret-color: var(--semantic-color-text-primary);
+  caret-color: transparent;
   outline: none;
   box-sizing: border-box;
 }
 
-.amountFieldHasValue .amountInput {
-  caret-color: var(--semantic-color-brand-lavender);
+.amountCaret {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: calc(var(--primitives-spacing-1) * 0.5);
+  height: calc(var(--amount-font-size, var(--primitives-fontSize-4xl)) * 0.74 * 1px);
+  transform: translateY(-50%);
+  background: var(--semantic-color-text-primary);
+  pointer-events: none;
+  animation: amountCaretBlink 1.06s steps(1, end) infinite;
+}
+
+.amountFieldHasValue .amountCaret {
+  background: var(--semantic-color-brand-lavender);
+}
+
+.amountCaretError {
+  background: var(--semantic-color-status-error);
+}
+
+@keyframes amountCaretBlink {
+  0%,
+  49% { opacity: 1; }
+  50%,
+  100% { opacity: 0; }
 }
 
 .amountInput:focus {
@@ -332,16 +364,24 @@
   color: var(--semantic-color-text-primary);
   pointer-events: none;
   white-space: nowrap;
+  transform: translateX(-0.05em);
 }
 
-/* Rolling to the inactive 0 placeholder — the same dim colour as the static value it hands over to. */
+/* Rolling to the inactive 0 — the same 15% as the focused empty amount it hands over to. */
 .amountRollInactive {
-  color: color-mix(in srgb, var(--semantic-color-text-primary) 30%, transparent);
+  opacity: 0.15;
 }
 
 /* Error state for the roll — matches `.amountDisplayError`; must follow `.amountRollInactive`. */
 .amountRollError {
   color: var(--semantic-color-status-error);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .amountCaret {
+    animation: none;
+  }
 }
 
 /* Hide the input (and its caret) during the roll so only the odometer shows. The static value is

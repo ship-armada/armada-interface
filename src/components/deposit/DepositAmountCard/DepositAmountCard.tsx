@@ -1,7 +1,7 @@
 // ABOUTME: Deposit amount card — optional in-card title, chain slot, left-aligned large mono amount, balance/fee row.
 // ABOUTME: The chain UI (when shown) is supplied by the caller via `chainSlot` (e.g. the shared ChainSelect).
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { WalletIcon } from '@heroicons/react/24/solid'
 import { ArmadaLogo } from '@/design'
 import { formatAmountInputDisplay, hasActiveAmount, sanitizeAmountEdit } from '@/utils/amountInput'
@@ -24,6 +24,22 @@ function fittedAmountFontSize(neededPx: number, availablePx: number, maxPx: numb
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function caretOffset(input: HTMLInputElement): number {
+  const index = input.selectionStart ?? input.value.length
+  const before = input.value.slice(0, index)
+  const computed = getComputedStyle(input)
+  const fontSize = Number.parseFloat(computed.fontSize)
+  // Geist Mono digits leave 0.05em before the stroke. The glyphs shift back by that
+  // amount, so the caret tracks the same edge.
+  const inkInset = Number.isFinite(fontSize) ? fontSize * 0.05 : 0
+  if (!before) return 0
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (!context) return 0
+  context.font = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`
+  return Math.max(0, context.measureText(before).width - inkInset)
 }
 
 export interface DepositAmountCardProps {
@@ -138,13 +154,17 @@ export function DepositAmountCard({
 }: DepositAmountCardProps) {
   const amountInputId = useId()
   const amountErrorId = useId()
+  const [amountFocused, setAmountFocused] = useState(false)
+  const [caretLeft, setCaretLeft] = useState(0)
 
   // The flow dialog focuses itself on open, after this card's effects. Focus the amount on the
   // next turn so Shield, Send, and Earn show the field active.
   useEffect(() => {
     if (!inputRef || typeof inputRef === 'function') return
     const id = window.setTimeout(() => {
-      inputRef.current?.focus({ preventScroll: true })
+      const input = inputRef.current
+      input?.focus({ preventScroll: true })
+      if (input && document.activeElement === input) setAmountFocused(true)
     }, 0)
     return () => window.clearTimeout(id)
   }, [inputRef])
@@ -233,6 +253,29 @@ export function DepositAmountCard({
     amountRoll && formatAmountInputDisplay(amountRoll.fromValue).length > (displayAmount || '0').length
       ? formatAmountInputDisplay(amountRoll.fromValue)
       : displayAmount || '0'
+
+  const syncCaret = useCallback(() => {
+    const input = inputRef && typeof inputRef !== 'function' ? inputRef.current : null
+    if (!input) return
+    const next = caretOffset(input)
+    setCaretLeft((current) => (Math.abs(current - next) < 0.5 ? current : next))
+  }, [inputRef])
+
+  useEffect(() => {
+    if (!amountFocused) return
+    const onSelectionChange = () => {
+      const input = inputRef && typeof inputRef !== 'function' ? inputRef.current : null
+      if (document.activeElement !== input) return
+      syncCaret()
+    }
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => document.removeEventListener('selectionchange', onSelectionChange)
+  }, [amountFocused, inputRef, syncCaret])
+
+  useLayoutEffect(() => {
+    if (!amountFocused || isAmountRolling) return
+    syncCaret()
+  }, [amountFocused, displayAmount, fittedAmountFont, isAmountRolling, syncCaret])
 
   useLayoutEffect(() => {
     const card = cardRef.current
@@ -371,7 +414,19 @@ export function DepositAmountCard({
               aria-invalid={Boolean(error)}
               aria-describedby={error ? amountErrorId : undefined}
               readOnly={isAmountRolling}
+              onFocus={() => {
+                setAmountFocused(true)
+                syncCaret()
+              }}
+              onBlur={() => setAmountFocused(false)}
             />
+            {amountFocused && !isAmountRolling ? (
+              <span
+                className={[styles.amountCaret, hasError && styles.amountCaretError].filter(Boolean).join(' ')}
+                style={{ left: caretLeft }}
+                aria-hidden
+              />
+            ) : null}
             {isAmountRolling && amountRoll ? (
               <span
                 className={[
