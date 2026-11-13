@@ -167,7 +167,11 @@ function ActivityListItems({
                 <Icon className={styles.icon} strokeWidth={1.5} />
               </span>
               <div className={styles.copy}>
-                <span className={[styles.label, struck && styles.labelStruck].filter(Boolean).join(' ')}>
+                <span
+                  className={[styles.label, struck && styles.labelStruck, item.pending && styles.labelLive]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
                   {item.label}
                 </span>
                 <span className={styles.time} title={formatTransactionDateTime(item.occurredAt)}>

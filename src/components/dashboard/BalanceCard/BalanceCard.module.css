@@ -453,7 +453,7 @@
 @property --sync-label-shine {
   syntax: '<percentage>';
   inherits: false;
-  initial-value: 0%;
+  initial-value: 100%;
 }
 
 .label.syncLabel {
@@ -478,7 +478,7 @@
 
 @keyframes syncLabelShine {
   to {
-    --sync-label-shine: 100%;
+    --sync-label-shine: 0%;
   }
 }
 

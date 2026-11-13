@@ -222,6 +222,38 @@
   color: var(--semantic-color-text-primary);
 }
 
+@property --sync-label-shine {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 100%;
+}
+
+.label.labelLive {
+  --sync-label-ink: color-mix(in srgb, var(--semantic-color-text-primary) 55%, var(--semantic-color-surface-bg));
+  background-image: linear-gradient(
+    105deg,
+    var(--sync-label-ink) 0%,
+    var(--sync-label-ink) 36%,
+    var(--semantic-color-text-primary) 50%,
+    var(--sync-label-ink) 64%,
+    var(--sync-label-ink) 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: var(--sync-label-shine) 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: syncLabelShine 1.6s linear infinite;
+}
+
+@keyframes syncLabelShine {
+  to {
+    --sync-label-shine: 0%;
+  }
+}
+
 .time {
   composes: labelSmRegular from '../../../design/styles/typographyComposites.module.css';
   line-height: var(--primitives-lineHeight-tight);
@@ -320,5 +352,14 @@
 @media (prefers-reduced-motion: reduce) {
   .root {
     animation: none;
+  }
+
+  .label.labelLive {
+    animation: none;
+    background-image: none;
+    background-clip: border-box;
+    -webkit-background-clip: border-box;
+    -webkit-text-fill-color: currentcolor;
+    color: color-mix(in srgb, var(--semantic-color-text-primary) 55%, transparent);
   }
 }
