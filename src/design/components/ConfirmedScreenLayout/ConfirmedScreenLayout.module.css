@@ -42,7 +42,7 @@
   font-size: calc(var(--primitives-fontSize-md) * 1px);
   line-height: var(--primitives-spacing-6);
   letter-spacing: var(--primitives-letterSpacing-normal);
-  color: var(--semantic-color-text-primary);
+  color: var(--semantic-color-text-secondary);
 }
 
 .amountRow {

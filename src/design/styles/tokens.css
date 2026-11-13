@@ -127,7 +127,8 @@
   --semantic-color-border-amber: rgba(243,208,160,0.14);
   --semantic-color-border-focus: var(--primitives-color-purple-500);
   --semantic-color-text-primary: var(--primitives-color-white-full);
-  --semantic-color-text-secondary: var(--primitives-color-white-70);
+  /* Secondary is 60% ink in both themes. white-70 stays the 70% primitive. */
+  --semantic-color-text-secondary: rgba(255,255,255,0.60);
   --semantic-color-text-muted: var(--primitives-color-white-mid);
   --semantic-color-text-dim: var(--primitives-color-white-low);
   --semantic-color-text-lavender: var(--primitives-color-purple-500);
@@ -393,7 +394,8 @@
   --semantic-color-border-amber: rgba(143,94,28,0.18);
   --semantic-color-border-focus: var(--primitives-color-purple-700);
   --semantic-color-text-primary: var(--primitives-color-white-full);
-  --semantic-color-text-secondary: var(--primitives-color-white-70);
+  /* Secondary is 60% ink in both themes. white-70 stays the 70% primitive. */
+  --semantic-color-text-secondary: rgba(0,0,0,0.60);
   --semantic-color-text-muted: var(--primitives-color-white-mid);
   --semantic-color-text-dim: var(--primitives-color-white-low);
   --semantic-color-text-lavender: var(--primitives-color-purple-700);

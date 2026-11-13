@@ -446,7 +446,7 @@
 }
 
 .label {
-  color: var(--semantic-color-text-primary);
+  color: var(--semantic-color-text-secondary);
   padding-left: var(--primitives-spacing-1);
 }
 
