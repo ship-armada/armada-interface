@@ -34,20 +34,32 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+/** Space between the caret bar and the digit stroke. The bar itself is half of spacing-1. */
+const CARET_GAP_PX = 2
+const CARET_BAR_PX = 2
+
 function caretOffset(input: HTMLInputElement): number {
   const index = input.selectionStart ?? input.value.length
   const before = input.value.slice(0, index)
   const computed = getComputedStyle(input)
   const fontSize = Number.parseFloat(computed.fontSize)
   // Geist Mono digits leave 0.05em before the stroke. The glyphs shift back by that
-  // amount, so the caret tracks the same edge.
+  // amount, so the caret is measured in that same shifted box.
   const inkInset = Number.isFinite(fontSize) ? fontSize * 0.05 : 0
-  if (!before) return 0
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d')
-  if (!context) return 0
+  if (!context) return before ? 0 : -(CARET_GAP_PX + CARET_BAR_PX)
   context.font = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`
-  return Math.max(0, context.measureText(before).width - inkInset)
+  const origin = -inkInset
+  if (!before) {
+    const glyph = input.value.slice(index) || '0'
+    const metrics = context.measureText(glyph)
+    const inkLeft = origin - metrics.actualBoundingBoxLeft
+    return inkLeft - CARET_GAP_PX - CARET_BAR_PX
+  }
+  const metrics = context.measureText(before)
+  const inkRight = origin + metrics.actualBoundingBoxRight
+  return inkRight + CARET_GAP_PX
 }
 
 export interface DepositAmountCardProps {
