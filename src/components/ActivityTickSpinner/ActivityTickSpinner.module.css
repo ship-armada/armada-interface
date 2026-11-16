@@ -1,0 +1,63 @@
+/* ABOUTME: Tick ring for sync, in-progress activity, and wallet steps. */
+/* ABOUTME: The static variant is the same ring with no sweep, for a step that has not started. */
+
+.ring {
+  --ring-size: var(--primitives-spacing-8);
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  width: var(--ring-size);
+  height: var(--ring-size);
+}
+
+.tick {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.5px;
+  height: var(--primitives-spacing-1);
+  border-radius: calc(var(--primitives-borderRadius-sm) * 0.5px);
+  background: var(--semantic-color-text-lavender);
+  transform-origin: 50% calc(var(--ring-size) / 2);
+  transform: translate(-50%, calc(var(--ring-size) / -2)) rotate(calc(var(--i) * 15deg));
+  opacity: 0.4;
+  animation: syncTickSweep 2.1s linear infinite;
+  animation-delay: calc(var(--i) * 0.0875s);
+}
+
+@keyframes syncTickSweep {
+  0% {
+    opacity: 1;
+    width: 3px;
+  }
+
+  12% {
+    opacity: 0.7;
+    width: 2.25px;
+  }
+
+  30% {
+    opacity: 0.45;
+    width: 1.5px;
+  }
+
+  100% {
+    opacity: 0.4;
+    width: 1.5px;
+  }
+}
+
+/* Waiting step: the same ring, every tick the same weight, no sweep. */
+.tickStatic {
+  animation: none;
+  opacity: 0.55;
+  width: 1.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick {
+    animation: none;
+    opacity: 0.55;
+    width: 1.5px;
+  }
+}

@@ -58,6 +58,7 @@ describe('txRecordToActivityItem', () => {
     expect(item.amount).toBe(1.5)
     expect(item.label).toBe('Shield')
     expect(item.pending).toBe(false)
+    expect(txRecordToActivityItem(makeRecord('shield', { executionState: 'active' })).label).toBe('Shield...')
   })
 
   it('classifies an unshield as withdraw when the recipient is the connected wallet, else send', () => {

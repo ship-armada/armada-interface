@@ -4,7 +4,7 @@
 import type { TxRecord, TxKind } from '@/lib/tx/types'
 import { historySortTime } from '@/lib/tx/types'
 import { txOutcome, type TxOutcome } from '@/lib/tx/outcome'
-import { recordTitle } from '@/components/tx/stageCopy'
+import { inProgressActivityLabel, recordTitle } from '@/components/tx/stageCopy'
 import type { RequestLinkRecord } from '@/lib/shielded/requestLinks'
 import { txHeadline } from '@/lib/fees/txFigures'
 
@@ -85,6 +85,10 @@ function counterpartyAddress(record: TxRecord): string | undefined {
   }
 }
 
+function displayActivityLabel(completedLabel: string, pending: boolean): string {
+  return pending ? inProgressActivityLabel(completedLabel) : completedLabel
+}
+
 export function txRecordToActivityItem(
   record: TxRecord,
   ownWallet?: string | null,
@@ -106,7 +110,7 @@ export function txRecordToActivityItem(
     return {
       ...base,
       kind: withdraw ? 'withdraw' : 'send',
-      label: withdraw ? 'Unshielded to your wallet' : recordTitle(record),
+      label: displayActivityLabel(withdraw ? 'Unshielded to your wallet' : recordTitle(record), status === 'pending'),
       amount: -usdcToNumber(txHeadline(record)),
     }
   }
@@ -115,7 +119,7 @@ export function txRecordToActivityItem(
   return {
     ...base,
     kind: direction.kind,
-    label: recordTitle(record),
+    label: displayActivityLabel(recordTitle(record), status === 'pending'),
     // The receipt's headline figure, signed by direction — a row and its receipt show the same number.
     amount: direction.sign * usdcToNumber(txHeadline(record)),
   }

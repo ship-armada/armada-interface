@@ -81,14 +81,14 @@ export function shieldWalletSteps(
       step(
         `Authorize ${amountLabel} USDC`,
         permitDone ? 'done' : 'loading',
-        `Lets Armada\u2019s shield contract take exactly ${amountLabel} USDC for this shield. No gas.`,
+        `Approves ${amountLabel} USDC. Nothing moves yet.`,
       ),
       // The EIP-712 shield intent binds the note array (yours + the relayer's fee note): any relayer can submit it, none
       // can redirect it.
       step(
         'Sign shield transaction',
         authorized ? 'done' : permitDone ? 'loading' : 'pending',
-        'Locks in where your USDC goes, so the relayer can submit it but not change it. No gas.',
+        `Moves ${amountLabel} USDC into your shielded balance.`,
       ),
     ]
   }
@@ -113,7 +113,7 @@ export function shieldWalletSteps(
       step(
         `Approve ${amountLabel} USDC`,
         stepStatus(approveDone, approveSent, onSubmitWallet),
-        `Lets Armada\u2019s contract take exactly ${amountLabel} USDC from your wallet.`,
+        `Approves ${amountLabel} USDC. Nothing moves yet.`,
       ),
     )
   }
@@ -123,10 +123,7 @@ export function shieldWalletSteps(
       ? `Submit ${amountLabel} USDC cross-chain shield`
       : `Submit ${amountLabel} USDC shield`
 
-  const depositWhy =
-    record?.kind === 'shield-xchain'
-      ? `Sends ${amountLabel} USDC across chains to the privacy pool. You pay the network gas.`
-      : `Sends ${amountLabel} USDC to the privacy pool. You pay the network gas.`
+  const depositWhy = `Moves ${amountLabel} USDC into your shielded balance.`
   steps.push(
     step(depositLabel, stepStatus(terminalSuccess, depositBroadcast, approveDone && onSubmitWallet), depositWhy),
   )

@@ -310,13 +310,12 @@ describe('<ShieldModal>', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Confirm$/ }))
     })
-    // Confirm now lands on the wallet step (approve/sign checklist). The record is at build-proof
-    // (no prompt live yet), so the title reads "Preparing your deposit…". submit() awaits IDB
+    // Confirm now lands on the wallet step (approve/sign checklist). submit() awaits IDB
     // persistence, so waitFor() covers the brief gap before the record reaches the atom.
     await waitFor(() => {
       expect(screen.getByRole('list', { name: 'Wallet confirmations' })).toBeInTheDocument()
     })
-    expect(screen.getByText('Preparing your shield…')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Confirm transactions in your wallet' })).toBeInTheDocument()
   })
 
   it('does not create a second record when Confirm is double-clicked (P0-7)', async () => {

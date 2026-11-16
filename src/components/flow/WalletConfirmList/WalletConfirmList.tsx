@@ -1,6 +1,9 @@
-// ABOUTME: Step-4-style wallet action list — spinner / pending circle / check per row inside a raised card, with where the
-// ABOUTME: active row is ("In your wallet" / "Confirming on chain") under its label.
+// ABOUTME: Wallet approval card — title inside the frost card, each prompt as an activity-style row.
+// ABOUTME: The badge holds a sweeping tick ring, a static ring, or a lavender check. "In your wallet" is not shown.
 
+import { useId } from 'react'
+import { CheckIcon } from '@heroicons/react/24/outline'
+import { ActivityTickSpinner } from '@/components/ActivityTickSpinner/ActivityTickSpinner'
 import styles from './WalletConfirmList.module.css'
 import type { WalletStep, WalletStepStatus } from '@/lib/tx/shieldWalletSteps'
 
@@ -12,49 +15,42 @@ const STATUS_LABEL: Record<WalletStepStatus, string> = {
 }
 
 export interface WalletConfirmListProps {
+  title: string
   steps: WalletStep[]
   className?: string
 }
 
-export function WalletConfirmList({ steps, className }: WalletConfirmListProps) {
+export function WalletConfirmList({ title, steps, className }: WalletConfirmListProps) {
+  const titleId = useId()
+  const cardClassName = [styles.card, className].filter(Boolean).join(' ')
+
   return (
-    <div
-      className={[styles.card, className].filter(Boolean).join(' ')}
-      role="list"
-      aria-live="polite"
-      aria-label="Wallet confirmations"
-    >
-      {steps.map((step) => (
-        <div key={step.label} className={styles.row} role="listitem">
-          <span className={styles.labelBlock}>
-            <span className={styles.label}>{step.label}</span>
-            {step.detail ? <span className={styles.detail}>{step.detail}</span> : null}
-            {step.why ? <span className={styles.why}>{step.why}</span> : null}
-          </span>
-          <div className={styles.status} aria-label={STATUS_LABEL[step.status]}>
-            {step.status === 'loading' || step.status === 'confirming' ? (
-              <div className={styles.spinner} role="status" aria-label={STATUS_LABEL[step.status]} />
-            ) : null}
-            {step.status === 'pending' ? (
-              <div className={styles.circle} aria-hidden="true" />
-            ) : null}
-            {step.status === 'done' ? (
-              <div className={styles.check} aria-hidden="true">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path
-                    d="M2 6L5 9L10 3"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-            ) : null}
-            <span className={styles.visuallyHidden}>{STATUS_LABEL[step.status]}</span>
+    <section className={cardClassName} aria-labelledby={titleId}>
+      <h1 id={titleId} className={styles.title}>
+        {title}
+      </h1>
+      <div className={styles.list} role="list" aria-label="Wallet confirmations" aria-live="polite">
+        {steps.map((step) => (
+          <div
+            key={step.label}
+            className={styles.row}
+            role="listitem"
+            aria-label={`${step.label}, ${STATUS_LABEL[step.status]}`}
+          >
+            <span className={styles.badge} aria-hidden>
+              {step.status === 'loading' || step.status === 'confirming' ? <ActivityTickSpinner /> : null}
+              {step.status === 'pending' ? <ActivityTickSpinner variant="static" /> : null}
+              {step.status === 'done' ? (
+                <CheckIcon className={styles.checkIcon} strokeWidth={1.5} />
+              ) : null}
+            </span>
+            <span className={styles.copy}>
+              <span className={styles.label}>{step.label}</span>
+              {step.why ? <span className={styles.why}>{step.why}</span> : null}
+            </span>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </section>
   )
 }

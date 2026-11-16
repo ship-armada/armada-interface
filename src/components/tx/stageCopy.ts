@@ -1,5 +1,5 @@
 // ABOUTME: Tx titles for lists — kindTitle (per kind) and recordTitle (per record: source chain, recipient, vault op), read by
-// ABOUTME: the activity adapter. The in-flight processing view's copy lives in processing/processingView.ts.
+// ABOUTME: the activity adapter. Pending rows use inProgressActivityLabel. Processing-view copy lives in processingView.ts.
 
 import type { TxKind, TxRecord } from '@/lib/tx/types'
 import { getChainById } from '@/config/network'
@@ -27,6 +27,25 @@ const KIND_TITLES: Record<TxKind, string> = {
 
 export function kindTitle(kind: TxKind): string {
   return KIND_TITLES[kind]
+}
+
+const PROGRESS_VERBS: ReadonlyArray<readonly [string, string]> = [
+  ['Unshielded ', 'Unshielding '],
+  ['Unshield ', 'Unshielding '],
+  ['Shield ', 'Shielding '],
+  ['Sent ', 'Sending '],
+  ['Added ', 'Adding '],
+  ['Withdrawn ', 'Withdrawing '],
+]
+
+/** In-progress form of a completed activity title, e.g. "Shielding from Ethereum Sepolia..." */
+export function inProgressActivityLabel(completedLabel: string): string {
+  for (const [from, to] of PROGRESS_VERBS) {
+    if (completedLabel.startsWith(from)) {
+      return `${to}${completedLabel.slice(from.length)}...`
+    }
+  }
+  return completedLabel.endsWith('...') ? completedLabel : `${completedLabel}...`
 }
 
 /**

@@ -23,6 +23,7 @@ import {
   PlusIcon,
   QuestionMarkCircleIcon,
 } from '@heroicons/react/24/outline'
+import { ActivityTickSpinner } from '@/components/ActivityTickSpinner/ActivityTickSpinner'
 import { BalanceScrambleValue } from '@/components/dashboard/BalanceScrambleValue'
 import { formatUsdcAmount, formatTimeAgo } from '@/components/dashboard/dashboardFormat'
 import { formatPaymentLinkExpiry } from '@/lib/payViaLink'
@@ -113,23 +114,16 @@ function ActivityListItems({
 }) {
   const isMobile = useMobileLayout()
   const [peekedId, setPeekedId] = useState<string | null>(null)
-  // Animate only a freshly-prepended top row (not the whole list, and not on first paint — the
-  // list-level enter handles that). Mirrors the mockup's enteringId/skipEnter.
+  // Open a new head row from height 0 on the first paint. Setting this during render (not in an
+  // effect) keeps the closed row on the first frame, so siblings are pushed down instead of the
+  // row popping in and then fading.
+  const firstId = items[0]?.id ?? null
+  const [trackedFirstId, setTrackedFirstId] = useState(firstId)
   const [enteringId, setEnteringId] = useState<string | null>(null)
-  const seenFirstIdRef = useRef<string | null>(null)
-  const skipEnterRef = useRef(true)
-  useEffect(() => {
-    const firstId = items[0]?.id ?? null
-    if (skipEnterRef.current) {
-      skipEnterRef.current = false
-      seenFirstIdRef.current = firstId
-      return
-    }
-    if (firstId && firstId !== seenFirstIdRef.current) {
-      setEnteringId(firstId)
-      seenFirstIdRef.current = firstId
-    }
-  }, [items])
+  if (firstId !== trackedFirstId) {
+    setTrackedFirstId(firstId)
+    setEnteringId(firstId)
+  }
 
   return (
     <ul className={styles.list}>
@@ -153,18 +147,30 @@ function ActivityListItems({
           isMobile,
         )
 
+        const isEntering = enteringId === item.id
+
         return (
-          <li key={item.id}>
+          <li
+            key={item.id}
+            className={isEntering ? styles.rowEnter : undefined}
+            onAnimationEnd={(event) => {
+              if (event.target !== event.currentTarget) return
+              setEnteringId((current) => (current === item.id ? null : current))
+            }}
+          >
+            <div className={styles.rowClip}>
             <button
               type="button"
-              className={[styles.item, enteringId === item.id ? styles.itemEnter : '']
-                .filter(Boolean)
-                .join(' ')}
+              className={styles.item}
               onClick={() => onItemClick?.(item)}
               {...peekHandlers}
             >
               <span className={styles.iconBadge} aria-hidden>
-                <Icon className={styles.icon} strokeWidth={1.5} />
+                {item.pending && !struck && item.status !== 'unknown' ? (
+                  <ActivityTickSpinner />
+                ) : (
+                  <Icon className={styles.icon} strokeWidth={1.5} />
+                )}
               </span>
               <div className={styles.copy}>
                 <span
@@ -185,6 +191,7 @@ function ActivityListItems({
                 <BalanceScrambleValue value={amountLabel} revealed={itemRevealed} struck={struck} />
               </span>
             </button>
+            </div>
           </li>
         )
       })}
