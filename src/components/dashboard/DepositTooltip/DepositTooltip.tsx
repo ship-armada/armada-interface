@@ -4,6 +4,7 @@ import type { ComponentType, SVGProps } from 'react'
 import { InformationCircleIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { IconButton } from '@/design'
 import { Tooltip } from '@/design'
+import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { TokenBadge } from '@/components/dashboard/TokenBadge'
 import styles from './DepositTooltip.module.css'
 
@@ -46,6 +47,7 @@ export function DepositTooltip({
 }: DepositTooltipProps) {
   const hasInfoTooltip = Boolean(infoTooltip)
   const wrapAsButton = Boolean(onDeposit) && !hasInfoTooltip
+  const mobile = useMobileLayout()
   const accessibleName = ariaLabel ?? headline
 
   const rootClassName = [
@@ -91,7 +93,11 @@ export function DepositTooltip({
 
   const infoControl = infoTooltip ? (
     <div className={styles.dismiss}>
-      <Tooltip variant="centered" content={infoTooltip}>
+      <Tooltip
+        variant="centered"
+        content={infoTooltip}
+        placement={mobile ? 'bottom-end' : 'top'}
+      >
         <IconButton
           variant="ghost"
           size="sm"

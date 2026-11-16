@@ -1,7 +1,7 @@
 // ABOUTME: Hover/focus tooltip with centered, rich, and action variants.
 // ABOUTME: Ported from the armada-app design mockup.
 import { useEffect, useId, useRef, useState } from 'react'
-import { autoUpdate, flip, offset, shift, useFloating } from '@floating-ui/react'
+import { autoUpdate, flip, offset, shift, useFloating, type Placement } from '@floating-ui/react'
 import { useFineHover } from '@/hooks/useFineHover'
 import styles from './Tooltip.module.css'
 
@@ -12,6 +12,8 @@ interface TooltipSimpleProps {
   variant: 'centered'
   content: string
   children: React.ReactNode
+  /** Preferred side. Defaults to above the trigger. */
+  placement?: Placement
 }
 
 interface TooltipRichProps {
@@ -39,11 +41,20 @@ export default function Tooltip(props: TooltipProps) {
 
   const show = () => setVisible(true)
   const hide = () => setVisible(false)
+  const placement = props.variant === 'centered' && props.placement ? props.placement : 'top'
   const { refs, floatingStyles, isPositioned } = useFloating({
     open: visible,
-    placement: 'top',
+    placement,
     strategy: 'absolute',
-    middleware: [offset(TOOLTIP_GAP_PX), flip({ padding: TOOLTIP_GAP_PX }), shift({ padding: TOOLTIP_GAP_PX })],
+    middleware: [
+      offset(TOOLTIP_GAP_PX),
+      flip({
+        padding: TOOLTIP_GAP_PX,
+        // A phone tip that prefers below the icon should stay below if it can.
+        ...(placement === 'bottom-end' ? { fallbackPlacements: ['bottom', 'top-end'] as const } : {}),
+      }),
+      shift({ padding: TOOLTIP_GAP_PX }),
+    ],
     whileElementsMounted: autoUpdate,
   })
 
