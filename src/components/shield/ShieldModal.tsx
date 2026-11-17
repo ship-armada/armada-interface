@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { balanceProjectionAtom } from '@/state/balanceProjection'
+import { usdcBalancesAtom } from '@/state/wallet'
 import { openModalAtom, repeatIntentAtom } from '@/state/ui'
 import { useShieldFlow } from '@/hooks/useShieldFlow'
 import { useUnshieldFlow } from '@/hooks/useUnshieldFlow'
@@ -11,7 +12,7 @@ import { useContinueWithWallet } from '@/hooks/useOpenActionModal'
 import { RELAYER_CHECKING_REASON } from '@/hooks/useRelayerSubmitBlock'
 import { QUOTE_PENDING_REASON } from '@/lib/tx/submitQuote'
 import { getNetworkConfig } from '@/config/network'
-import { formatUsdcPlain } from '@/lib/format'
+import { formatUsdcAmount, formatUsdcPlain } from '@/lib/format'
 import { txFiguresAs } from '@/lib/fees/txFigures'
 import { deliveryExplorerLink, displayTxHash, txExplorerUrl } from '@/lib/explorer'
 import {
@@ -68,6 +69,12 @@ export function ShieldModal() {
     ;(tab === 'shield' ? shieldFlow : unshieldFlow).onContinueToReview()
   })
   const arrivingUsdc = useAtomValue(balanceProjectionAtom).usdc
+  const usdcBalances = useAtomValue(usdcBalancesAtom)
+  const chainBalanceLabels: Record<number, string> = {}
+  for (const [id, raw] of Object.entries(usdcBalances)) {
+    if (raw === undefined) continue
+    chainBalanceLabels[Number(id)] = formatUsdcAmount(raw, { decimals: 2 })
+  }
 
   // "Shield again" / "Unshield again" from a receipt: seed the tab's chain + amount (still editable), then consume it.
   // The tab itself comes from the modal kind the receipt opened.
@@ -216,6 +223,7 @@ export function ShieldModal() {
             gasChainId={isShield ? shieldFlow.fromChainId : hubChainId}
             requiredGasWei={isShield ? (shieldFlow.displayFees.nativeGas?.wei ?? null) : null}
             walletProvider={isShield ? shieldFlow.walletProvider : undefined}
+            chainBalances={chainBalanceLabels}
             inputRef={amountInputRef}
             shaking={shaking}
             onShakeAnimationEnd={onShakeAnimationEnd}

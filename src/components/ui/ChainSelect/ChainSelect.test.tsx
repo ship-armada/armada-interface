@@ -30,6 +30,21 @@ describe('<ChainSelect>', () => {
     expect(screen.queryByRole('option', { name: /Anvil/ })).toBeNull()
   })
 
+  it('puts each chain’s USDC on the right of its name', () => {
+    render(
+      <ChainSelect
+        value={1}
+        onChange={() => {}}
+        chains={[MAINNET, OPTIMISM]}
+        label="From chain"
+        balances={{ 1: '10,000.00', 10: '0.00' }}
+      />,
+    )
+    fireEvent.click(screen.getByLabelText('From chain'))
+    expect(screen.getByRole('option', { name: 'Mainnet, 10,000.00 USDC' })).toHaveTextContent('10,000.00')
+    expect(screen.getByRole('option', { name: 'Optimism, 0.00 USDC' })).toHaveTextContent('0.00')
+  })
+
   it('fires onChange with the numeric chainId when an option is picked', () => {
     const onChange = vi.fn()
     render(<ChainSelect value={31337} onChange={onChange} label="From chain" />)

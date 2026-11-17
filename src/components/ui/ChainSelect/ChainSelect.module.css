@@ -7,6 +7,8 @@
 }
 
 .rootInline {
+  /* Let the open menu position against the balance row, not this chip. */
+  position: static;
   width: auto;
   max-width: 100%;
 }
@@ -173,14 +175,18 @@
   background: var(--semantic-color-surface-tooltip);
   border: none;
   border-radius: calc(var(--semantic-borderRadius-card) * 1px);
-  box-shadow: 0 var(--primitives-spacing-3) var(--primitives-spacing-6)
-    color-mix(in srgb, var(--semantic-color-surface-bg) 55%, transparent);
+  box-shadow:
+    0 var(--primitives-spacing-1) var(--primitives-spacing-2)
+      color-mix(in srgb, var(--semantic-color-brand-deep) 6%, transparent),
+    0 var(--primitives-spacing-3) var(--primitives-spacing-8)
+      color-mix(in srgb, var(--semantic-color-brand-deep) 12%, transparent);
 }
 
 .rootInline .menu {
-  right: auto;
-  width: max-content;
-  min-width: 100%;
+  /* Span from the network control back to the start of the balance row. */
+  left: 0;
+  right: 0;
+  width: auto;
 }
 
 /* Option list inside the mobile BottomSheet — the sheet supplies the chrome (surface, radius,
@@ -246,9 +252,26 @@
 }
 
 .optionLabel {
+  flex: 1;
+  min-width: 0;
   font-family: var(--primitives-fontFamily-ui), sans-serif;
   font-size: calc(var(--primitives-fontSize-base) * 1px);
   color: var(--semantic-color-text-primary);
+  white-space: nowrap;
+}
+
+.optionBalance {
+  flex-shrink: 0;
+  /* Room for 10,000,000.00. Shorter amounts stay right-aligned in the same column. */
+  min-width: 13ch;
+  margin-left: var(--primitives-spacing-4);
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-base) * 1px);
+  font-weight: var(--primitives-fontWeight-regular);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--semantic-color-text-secondary);
+  white-space: nowrap;
 }
 
 /* Non-interactive "more chains soon" hint below the selectable chains — muted, with a hairline

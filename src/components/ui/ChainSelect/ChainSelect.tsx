@@ -23,6 +23,8 @@ export interface ChainSelectProps {
   layout?: 'full' | 'inline'
   disabled?: boolean
   className?: string
+  /** Formatted public USDC on each chain. A chain with no entry shows no figure. */
+  balances?: Readonly<Partial<Record<number, string>>>
 }
 
 function ChainIcon({
@@ -59,6 +61,7 @@ export function ChainSelect({
   layout = 'full',
   disabled,
   className,
+  balances,
 }: ChainSelectProps) {
   const listboxId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -93,20 +96,25 @@ export function ChainSelect({
   const cls = [styles.root, inline && styles.rootInline, className].filter(Boolean).join(' ')
   const iconVariant = inline ? 'branded' : 'background'
 
-  const optionItems = options.map(option => (
-    <li key={option.chainId} role="presentation">
-      <button
-        type="button"
-        role="option"
-        aria-selected={option.chainId === value}
-        className={styles.option}
-        onClick={() => selectChain(option.chainId)}
-      >
-        <ChainIcon chainId={option.chainId} name={option.name} />
-        <span className={styles.optionLabel}>{option.name}</span>
-      </button>
-    </li>
-  ))
+  const optionItems = options.map(option => {
+    const balance = balances?.[option.chainId]
+    return (
+      <li key={option.chainId} role="presentation">
+        <button
+          type="button"
+          role="option"
+          aria-selected={option.chainId === value}
+          aria-label={balance ? `${option.name}, ${balance} USDC` : undefined}
+          className={styles.option}
+          onClick={() => selectChain(option.chainId)}
+        >
+          <ChainIcon chainId={option.chainId} name={option.name} />
+          <span className={styles.optionLabel}>{option.name}</span>
+          {balance ? <span className={styles.optionBalance}>{balance}</span> : null}
+        </button>
+      </li>
+    )
+  })
 
   // Non-interactive "coming soon" hint below the selectable chains. `role="presentation"` keeps it
   // out of the listbox's option set (not selectable, not arrow-navigable); the text stays perceivable.
