@@ -1,0 +1,197 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--primitives-spacing-5);
+  background: var(--semantic-color-overlay);
+  cursor: pointer;
+  animation: vaultHowScrimIn 220ms ease;
+}
+
+.dialog {
+  width: min(100%, calc(var(--primitives-spacing-20) * 6));
+  max-height: calc(100dvh - var(--primitives-spacing-10));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--semantic-color-surface-default);
+  border-radius: calc(var(--semantic-borderRadius-modal) * 1px);
+  cursor: default;
+  animation: vaultHowDialogIn 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--primitives-spacing-3);
+  padding: var(--primitives-spacing-5) var(--primitives-spacing-5) 0;
+}
+
+.title {
+  margin: 0;
+  padding-top: var(--primitives-spacing-2);
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-weight: var(--primitives-fontWeight-semibold);
+  font-size: calc(var(--primitives-fontSize-md) * 1px);
+  line-height: var(--primitives-lineHeight-snug);
+  color: var(--semantic-color-text-primary);
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--mobile-touch-target-min);
+  height: var(--mobile-touch-target-min);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--primitives-borderRadius-full) * 1px);
+  background: transparent;
+  color: var(--semantic-color-text-muted);
+  cursor: pointer;
+}
+
+.closeButton:focus-visible {
+  outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
+  outline-offset: calc(var(--primitives-spacing-1) * 1px);
+}
+
+.closeIcon {
+  width: var(--primitives-spacing-5);
+  height: var(--primitives-spacing-5);
+}
+
+.handleRow {
+  display: none;
+}
+
+.topics {
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  padding: var(--primitives-spacing-4) var(--primitives-spacing-5) var(--primitives-spacing-5);
+}
+
+.topic {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+  padding: var(--primitives-spacing-4) 0;
+}
+
+.topic + .topic {
+  border-top: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-default);
+}
+
+.topic:first-child {
+  padding-top: 0;
+}
+
+.topic:last-child {
+  padding-bottom: 0;
+}
+
+.topicTitle {
+  margin: 0;
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-weight: var(--primitives-fontWeight-semibold);
+  font-size: calc(var(--primitives-fontSize-base) * 1px);
+  line-height: var(--primitives-lineHeight-snug);
+  color: var(--semantic-color-text-primary);
+}
+
+.topicBody {
+  margin: 0;
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-base) * 1px);
+  font-weight: var(--primitives-fontWeight-regular);
+  line-height: var(--primitives-lineHeight-normal);
+  color: var(--semantic-color-text-secondary);
+}
+
+@keyframes vaultHowScrimIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes vaultHowDialogIn {
+  from {
+    opacity: 0;
+    translate: 0 var(--primitives-spacing-2);
+  }
+}
+
+@media (max-width: 479px) {
+  .scrim {
+    align-items: flex-end;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: min(
+      var(--semantic-size-sheet-max),
+      calc(100dvh - var(--mobile-safe-area-top, 0px) - var(--primitives-spacing-5))
+    );
+    border-radius: calc(var(--semantic-borderRadius-modal) * 1px)
+      calc(var(--semantic-borderRadius-modal) * 1px) 0 0;
+    box-shadow: 0 calc(var(--primitives-spacing-6) * -1)
+      calc(var(--primitives-spacing-12) + var(--primitives-spacing-1) * 0.5) 0
+      color-mix(in srgb, var(--semantic-color-brand-ink) 12%, transparent);
+    animation: vaultHowSheetIn 320ms cubic-bezier(0.22, 1, 0.36, 1);
+    overscroll-behavior: none;
+    touch-action: pan-y;
+  }
+
+  .handleRow {
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+    padding-block: var(--primitives-spacing-3);
+  }
+
+  .handle {
+    width: var(--primitives-spacing-10);
+    height: var(--primitives-spacing-1);
+    border-radius: calc(var(--primitives-borderRadius-full) * 1px);
+    background: color-mix(in srgb, var(--semantic-color-text-primary) 18%, transparent);
+  }
+
+  .header {
+    align-items: center;
+    padding: 0 var(--primitives-spacing-5) var(--primitives-spacing-3);
+  }
+
+  .title {
+    padding-top: 0;
+  }
+
+  .topics {
+    overscroll-behavior: none;
+    padding-bottom: calc(var(--primitives-spacing-10) + var(--mobile-safe-area-bottom, 0px));
+  }
+}
+
+@keyframes vaultHowSheetIn {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scrim,
+  .dialog {
+    animation: none;
+  }
+}

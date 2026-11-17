@@ -24,7 +24,7 @@ import { isInitialSyncGated } from '@/components/sync'
 import { useSyncRetry } from '@/hooks/useSyncRetry'
 import { useYieldRate } from '@/hooks/useYieldRate'
 import { useOpenActionModal } from '@/hooks/useOpenActionModal'
-import { apyExplanation, formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
+import { formatApyPercent, formatEarnApyHeadline, sharesToUsdc } from '@/lib/yield'
 import { accruedVaultYieldRaw } from '@/components/dashboard/vaultEarnings'
 import { historyRecoveryAtom } from '@/state/history'
 import {
@@ -376,7 +376,8 @@ export function Dashboard() {
             iconTileTone="purple"
             headline={formatEarnApyHeadline(vaultApy ?? 0)}
             body="Add USDC to Armada's shielded vault and start earning now."
-            infoTooltip={apyExplanation(yieldRate?.yieldFeeBps)}
+            howItWorks
+            yieldFeeBps={yieldRate?.yieldFeeBps}
             ariaLabel={`Estimated yearly yield ~${formatApyPercent(vaultApy ?? 0)}`}
             onDeposit={() => openActionModal('yield-deposit')}
           />

@@ -20,7 +20,7 @@ export interface YieldRate {
    * uses this; the contract math (deposit/withdraw share conversions) uses `rate`.
    */
   apyBps: bigint
-  /** The vault's fee on earnings in basis points (clamped to 10_000) — named in the rate's ⓘ (`lib/yield::apyExplanation`).
+  /** The vault's fee on earnings in basis points (clamped to 10_000) — named in the How it works dialog.
    *  Absent on a rate frozen on a record (`frozenApyRate`). */
   yieldFeeBps?: bigint
   fetchedAt: number

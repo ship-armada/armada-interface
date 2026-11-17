@@ -1,11 +1,9 @@
 // ABOUTME: Callout card guiding users into the shielded pool; doubles as an earn/APY banner via optional props.
 // ABOUTME: Ported from the armada-app design mockup.
-import type { ComponentType, SVGProps } from 'react'
+import { useState, type ComponentType, SVGProps } from 'react'
 import { InformationCircleIcon, PlusIcon } from '@heroicons/react/24/outline'
-import { IconButton } from '@/design'
-import { Tooltip } from '@/design'
-import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { TokenBadge } from '@/components/dashboard/TokenBadge'
+import { VaultHowItWorksDialog } from '@/components/dashboard/VaultHowItWorksDialog/VaultHowItWorksDialog'
 import styles from './DepositTooltip.module.css'
 
 const TOOLTIP_ICON_PX = 34
@@ -17,8 +15,10 @@ const DEFAULT_BODY =
 export interface DepositTooltipProps {
   variant?: 'default' | 'v2'
   onDeposit?: () => void
-  /** Info tooltip in the top-right (earn APY banner). */
-  infoTooltip?: string
+  /** Earn banner: an info button opens the vault explainer. */
+  howItWorks?: boolean
+  /** The vault's fee on earnings (basis points), named in the explainer when known. */
+  yieldFeeBps?: bigint
   headline?: string
   hideHeadline?: boolean
   body?: string
@@ -34,7 +34,8 @@ export interface DepositTooltipProps {
 
 export function DepositTooltip({
   onDeposit,
-  infoTooltip,
+  howItWorks = false,
+  yieldFeeBps,
   headline = DEFAULT_HEADLINE,
   hideHeadline = false,
   body = DEFAULT_BODY,
@@ -45,27 +46,24 @@ export function DepositTooltip({
   stretch = false,
   className,
 }: DepositTooltipProps) {
-  const hasInfoTooltip = Boolean(infoTooltip)
-  const wrapAsButton = Boolean(onDeposit) && !hasInfoTooltip
-  const mobile = useMobileLayout()
+  const [howOpen, setHowOpen] = useState(false)
+  const wrapAsButton = Boolean(onDeposit) && !howItWorks
   const accessibleName = ariaLabel ?? headline
 
   const rootClassName = [
     styles.root,
     stretch && styles.stretch,
     wrapAsButton && styles.rootInteractive,
-    hasInfoTooltip && styles.rootDismissable,
     className,
   ]
     .filter(Boolean)
     .join(' ')
 
-  const content = (
-    <>
+  const icon = (
       <div className={[
         styles.iconTile,
         iconTileTone === 'purple' && styles.iconTilePurple,
-        (wrapAsButton || hasInfoTooltip) && styles.iconTileStatic,
+        (wrapAsButton || howItWorks) && styles.iconTileStatic,
       ].filter(Boolean).join(' ')}>
         <div className={styles.iconCluster} aria-hidden>
           <div className={styles.tokenBadgeSlot}>
@@ -83,31 +81,28 @@ export function DepositTooltip({
           </div>
         </div>
       </div>
+  )
 
+  const text = (
       <div className={styles.textBlock}>
         {hideHeadline ? null : <p className={styles.headline}>{headline}</p>}
         <p className={`armada-text-ui-body-sm ${styles.body}`}>{body}</p>
       </div>
-    </>
   )
 
-  const infoControl = infoTooltip ? (
-    <div className={styles.dismiss}>
-      <Tooltip
-        variant="centered"
-        content={infoTooltip}
-        placement={mobile ? 'bottom-end' : 'top'}
-      >
-        <IconButton
-          variant="ghost"
-          size="sm"
-          className={styles.dismissButton}
-          iconClassName={styles.dismissIcon}
-          icon={<InformationCircleIcon data-tooltip-anchor="" strokeWidth={1.5} aria-hidden />}
-          aria-label="About the APY estimate"
-        />
-      </Tooltip>
-    </div>
+  const howControl = howItWorks ? (
+    <button
+      type="button"
+      className={styles.howItWorks}
+      aria-label="How the shielded vault works"
+      onClick={() => setHowOpen(true)}
+    >
+      <InformationCircleIcon className={styles.howIcon} strokeWidth={1.5} aria-hidden />
+    </button>
+  ) : null
+
+  const howDialog = howOpen ? (
+    <VaultHowItWorksDialog yieldFeeBps={yieldFeeBps} onClose={() => setHowOpen(false)} />
   ) : null
 
   if (wrapAsButton) {
@@ -119,31 +114,36 @@ export function DepositTooltip({
         aria-label={accessibleName}
         data-testing-click="deposit_first_button"
       >
-        {content}
+        {icon}
+        {text}
       </button>
     )
   }
 
-  if (hasInfoTooltip && onDeposit) {
+  if (howItWorks) {
     return (
-      <aside className={rootClassName}>
-        {infoControl}
-        <button
-          type="button"
-          className={styles.activate}
-          onClick={onDeposit}
-          aria-label={accessibleName}
-        >
-          {content}
-        </button>
+      <aside className={[rootClassName, styles.rootDismissable].filter(Boolean).join(' ')}>
+        {howControl}
+        {onDeposit ? (
+          <button type="button" className={styles.activate} onClick={onDeposit} aria-label={accessibleName}>
+            {icon}
+            {text}
+          </button>
+        ) : (
+          <>
+            {icon}
+            {text}
+          </>
+        )}
+        {howDialog}
       </aside>
     )
   }
 
   return (
     <aside className={rootClassName} aria-label={accessibleName}>
-      {infoControl}
-      {content}
+      {icon}
+      {text}
     </aside>
   )
 }

@@ -1,5 +1,5 @@
 // ABOUTME: Tests for EarnInputStep — tab switching, amount validation against tab-specific maxInput, APY copy in each rate state,
-// ABOUTME: the rate's ⓘ (naming the vault fee), the deposit's estimated yearly yield, and the "How the shielded vault works" panel.
+// ABOUTME: the How it works dialog (naming the vault fee), and the deposit's estimated yearly yield.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -50,19 +50,15 @@ function setup(extras?: {
   return props
 }
 
-/** Open a tooltip whichever way the trigger's Tooltip listens (hover on fine pointers, tap otherwise). */
-function openTip(trigger: HTMLElement) {
-  fireEvent.mouseEnter(trigger.closest('div') as HTMLElement)
-  if (!screen.queryByRole('tooltip')) fireEvent.click(trigger)
-}
-
 const RATE: YieldRate = { rate: 1_000_000n, apyBps: 420n, yieldFeeBps: 1_000n, fetchedAt: 0 }
 
 describe('<EarnInputStep> yield clarity (package 15)', () => {
-  it('the rate\'s ⓘ says it is current, after the vault\'s fee on earnings (12C)', () => {
+  it('How it works names the vault fee on earnings (12C)', () => {
     setup({ rate: RATE })
-    openTip(screen.getByRole('button', { name: 'About the APY estimate' }))
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Current yearly rate after the vault\u2019s 10% fee on earnings, as determined by the Aave market.')
+    fireEvent.click(screen.getByRole('button', { name: 'How the shielded vault works' }))
+    expect(screen.getByRole('dialog', { name: 'How the shielded vault works' })).toHaveTextContent(
+      'keeps 10% of what you earn',
+    )
   })
 
   it('a deposit shows what it would earn in a year at today\'s rate (12E)', () => {
@@ -80,16 +76,13 @@ describe('<EarnInputStep> yield clarity (package 15)', () => {
     expect(screen.queryByRole('button', { name: /Est\. yearly yield/ })).toBeNull()
   })
 
-  it('"How the shielded vault works" opens a short explainer naming the source, the fee and the risks (12F)', () => {
+  it('"How it works" opens a dialog naming the source, the fee and the risks (12F)', () => {
     setup({ rate: RATE })
-    const toggle = screen.getByRole('button', { name: 'How the shielded vault works' })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    const panel = screen.getByRole('region', { name: 'How the shielded vault works' })
-    expect(panel).toHaveTextContent(/lends your USDC on Aave/)
-    expect(panel).toHaveTextContent(/keeps 10% of what you earn/)
-    expect(panel).toHaveTextContent(/Risks/)
+    fireEvent.click(screen.getByRole('button', { name: 'How the shielded vault works' }))
+    const dialog = screen.getByRole('dialog', { name: 'How the shielded vault works' })
+    expect(dialog).toHaveTextContent(/lends your USDC on Aave/)
+    expect(dialog).toHaveTextContent(/keeps 10% of what you earn/)
+    expect(dialog).toHaveTextContent(/Risks/)
   })
 })
 

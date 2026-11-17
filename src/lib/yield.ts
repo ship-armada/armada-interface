@@ -47,9 +47,9 @@ export function formatFeePercent(feeBps: bigint): string {
 }
 
 /**
- * What the vault's rate is (12C) — the ⓘ on the dashboard and Earn banners. The rate is the Aave market's current yearly
- * yield less the vault's fee on earnings (`useYieldRate().rate.yieldFeeBps`); while the fee isn't known the sentence
- * leaves its number out.
+ * What the vault's rate is (12C). The earn card now opens the How it works dialog instead of this sentence; the rate is
+ * the Aave market's current yearly yield less the vault's fee on earnings (`useYieldRate().rate.yieldFeeBps`). While
+ * the fee isn't known the sentence leaves its number out.
  */
 export function apyExplanation(yieldFeeBps: bigint | undefined): string {
   const fee = yieldFeeBps !== undefined ? `${formatFeePercent(yieldFeeBps)} ` : ''

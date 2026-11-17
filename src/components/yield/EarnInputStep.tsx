@@ -1,5 +1,5 @@
 // ABOUTME: Earn amount step — APY intro banner (DepositTooltip) above a chain-less DepositAmountCard whose in-card header holds the Add/Withdraw SegmentedControl.
-// ABOUTME: No chain selection; the rate banner (with its ⓘ) shows on both tabs, a deposit adds its est. yearly yield, and "How the shielded vault works" opens below.
+// ABOUTME: No chain selection; the rate banner (with How it works) shows on both tabs, and a deposit adds its est. yearly yield.
 
 import { useRef, type Ref } from 'react'
 import { ChartBarIcon } from '@heroicons/react/24/solid'
@@ -14,14 +14,12 @@ import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
 import { formatUsdcAmount, formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import {
-  apyExplanation,
   formatApyPercent,
   formatEarnApyHeadline,
   projectedYearlyYield,
   rateToApy,
 } from '@/lib/yield'
 import { EarnYearlyYield } from './EarnYearlyYield/EarnYearlyYield'
-import { VaultExplainer } from './VaultExplainer'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
 import { hasActiveAmount } from '@/utils/amountInput'
@@ -184,7 +182,8 @@ export function EarnInputStepContent({
         headline={apyBannerHeadline(rate)}
         ariaLabel={`Estimated yearly yield ${formatApy(rate)}`}
         body={EARN_APY_BANNER_BODY}
-        infoTooltip={apyExplanation(rate?.yieldFeeBps)}
+        howItWorks
+        yieldFeeBps={rate?.yieldFeeBps}
       />
       )}
 
@@ -238,7 +237,6 @@ export function EarnInputStepContent({
         />
       ) : null}
 
-      {keypad ? null : <VaultExplainer yieldFeeBps={rate?.yieldFeeBps} />}
     </div>
   )
 }
