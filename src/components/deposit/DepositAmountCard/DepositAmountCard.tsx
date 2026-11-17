@@ -64,7 +64,7 @@ function caretOffset(input: HTMLInputElement): number {
 
 export interface DepositAmountCardProps {
   /**
-   * Chain-row content rendered above the title (e.g. the shared `ChainSelect`). Omit for flows with
+   * Network picker on the right of the bottom row, opposite the balance. Omit for flows with
    * no in-card chain row (e.g. Send/Earn, where the chain is chosen on a prior step or is fixed).
    */
   chainSlot?: ReactNode
@@ -342,9 +342,8 @@ export function DepositAmountCard({
   const hasError = Boolean(error)
 
   // Total displayed fee (protocol + broadcaster + CCTP — except a CCTP fee taken from the amount in transit, which
-  // isn't charged on top). Rendered as the under-amount caption
-  // ("+ $X.XX FEE") once an amount is entered and the fee is non-zero — matching the mockup, which
-  // moved the fee off a bottom row and into a caption directly below the amount.
+  // isn't charged on top). Rendered under the amount once an amount is entered. A non-zero fee keeps
+  // its "incl." / "+" caption; a resolved zero reads "$0 FEE".
   const totalFeeRaw = displayFees
     ? displayFees.totalFee + (flowBreakdown?.broadcasterFee ?? 0n)
       + (flowBreakdown?.cctpFeeFromAmount ? 0n : (flowBreakdown?.cctpFee ?? 0n))
@@ -353,7 +352,8 @@ export function DepositAmountCard({
   // gas), so surface a neutral "Estimating…" caption instead of either committed segment.
   const showResolving = showActiveAmount && feeResolving
   const showUnavailable = showActiveAmount && !feeResolving && feeUnavailable
-  const showFee = showActiveAmount && !feeResolving && !feeUnavailable && displayFees !== undefined && totalFeeRaw > 0n
+  const feeKnown = showActiveAmount && !feeResolving && !feeUnavailable && displayFees !== undefined
+  const showFee = feeKnown && totalFeeRaw > 0n
   // A fee taken from the amount (a shield) or from the proceeds (a vault withdrawal) is included in the figure typed,
   // not added to it — so it reads "incl.", and "+" is left for a fee charged on top (G-7).
   const feePrefix = flowBreakdown?.feesFromAmount || flowBreakdown?.feeFromProceeds ? 'incl.' : '+'
@@ -364,6 +364,9 @@ export function DepositAmountCard({
   // only cost the caption can show.
   const nativeGas = displayFees?.nativeGas ?? null
   const showGas = showActiveAmount && !feeResolving && userPaysNativeGas && nativeGas !== null
+  // A resolved zero is "$0 FEE", with no breakdown icon. Estimating and "—" stay ahead of it, and a
+  // direct shield that only costs network gas keeps that gas line instead of a zero USDC fee.
+  const showZeroFee = feeKnown && totalFeeRaw === 0n && !showGas
 
   const balanceMark =
     balanceSource === 'armada' ? (
@@ -491,12 +494,10 @@ export function DepositAmountCard({
           </span>
         </label>
 
-        {/* Fee caption (mockup): "+ $X.XX FEE" ("incl. $X.XX FEE" when the fee comes out of the amount) directly
-            under the amount, plus a "+ ~X ETH gas" segment on the direct path where the user pays network
-            gas from their own wallet (the
-            two combine on a direct cross-chain shield). The line is always reserved (non-breaking
-            space when there's no fee) so the card height stays stable. The breakdown tooltip is
-            kept beside the value for the full protocol/broadcaster/gas split. */}
+        {/* Fee caption under the amount, only once an amount is entered. While the quote is in
+            flight the line says "Estimating fees…"; a quote that can't be priced says "—". A
+            resolved zero is "$0 FEE" with no info icon. A real fee keeps its figure and the
+            breakdown tooltip, and a direct shield adds "+ ~X ETH gas" when the user pays gas. */}
         <AmountFieldWarning
           id={amountErrorId}
           visible={Boolean(error)}
@@ -508,6 +509,8 @@ export function DepositAmountCard({
             <span className={styles.feeResolving}>Estimating fees…</span>
           ) : showUnavailable ? (
             <span>{feePrefix} — FEE</span>
+          ) : showZeroFee ? (
+            <span>$0 FEE</span>
           ) : (showFee || showGas) && displayFees ? (
             <>
               {showFee ? <span>{feePrefix} ${formatUsdcAmount(totalFeeRaw)} FEE</span> : null}
@@ -529,7 +532,6 @@ export function DepositAmountCard({
       </div>
 
       <div className={[styles.bottomRow, chainSlot && styles.bottomRowSplit].filter(Boolean).join(' ')}>
-        {chainSlot ? <div className={styles.chainSlotFooter}>{chainSlot}</div> : null}
         <div className={styles.balanceControls}>
           {maxInput !== undefined || onMax ? (
             <button
@@ -564,6 +566,7 @@ export function DepositAmountCard({
             </button>
           ) : null}
         </div>
+        {chainSlot ? <div className={styles.chainSlotFooter}>{chainSlot}</div> : null}
       </div>
       {keypad ? (
         <div className={styles.keypadDock}>

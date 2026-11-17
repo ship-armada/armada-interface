@@ -256,6 +256,8 @@ describe('DepositAmountCard — fee caption', () => {
     // line. The explicit flag is off, so no gas segment — this is the #1 bug fix.
     renderCard({ amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n } })
     expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
+    expect(screen.getByText('$0 FEE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fee breakdown' })).not.toBeInTheDocument()
   })
 
   it('hides the gas segment on the gasless path (relayer covers gas, broadcasterFee > 0)', () => {
@@ -298,6 +300,17 @@ describe('DepositAmountCard — fee caption', () => {
     expect(screen.getByText(/Estimating fees…/)).toBeInTheDocument()
     expect(screen.queryByText(/ETH gas/)).not.toBeInTheDocument()
     expect(screen.queryByText(/FEE/)).not.toBeInTheDocument()
+  })
+
+  it('keeps "Estimating fees…" over a still-zero quote, then shows $0 FEE once it settles', () => {
+    const props = { amount: '5', displayFees: fees(0n), flowBreakdown: { broadcasterFee: 0n }, onAmountChange: () => {}, balance: '12.00' }
+    const { rerender } = render(<DepositAmountCard {...props} feeResolving />)
+    expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
+    expect(screen.queryByText('$0 FEE')).not.toBeInTheDocument()
+    rerender(<DepositAmountCard {...props} feeResolving={false} />)
+    expect(screen.queryByText('Estimating fees…')).not.toBeInTheDocument()
+    expect(screen.getByText('$0 FEE')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fee breakdown' })).not.toBeInTheDocument()
   })
 
   it('shows the fee as "—" (no figure) when it can\'t be worked out', () => {
