@@ -32,13 +32,15 @@ export function Tooltip(props: TooltipProps) {
 
   const show = () => setVisible(true)
   const hide = () => setVisible(false)
-  const { refs, floatingStyles, isPositioned } = useFloating({
+  const { refs, floatingStyles, isPositioned, placement: resolvedPlacement } = useFloating({
     open: visible,
     placement: 'top',
     strategy: 'absolute',
     middleware: [offset(TOOLTIP_GAP_PX), flip({ padding: TOOLTIP_GAP_PX }), shift({ padding: TOOLTIP_GAP_PX })],
     whileElementsMounted: autoUpdate,
   })
+
+  const [side, align = 'center'] = resolvedPlacement.split('-')
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -71,9 +73,15 @@ export function Tooltip(props: TooltipProps) {
           style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
           className={[
             styles.tooltip,
+            styles.tail,
+            isPositioned && styles.enter,
             props.variant === 'centered' ? styles.centered : styles.rich,
-          ].join(' ')}
+          ]
+            .filter(Boolean)
+            .join(' ')}
           role="tooltip"
+          data-side={side}
+          data-align={align}
         >
           {props.variant === 'centered' && (
             <p className={styles.centeredText}>{props.content}</p>

@@ -14,14 +14,13 @@ import type { FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
 import { useGasBalanceWarning } from '@/hooks/useGasBalanceWarning'
 import { formatUsdcAmount, formatUsdcPlain, overMaxAmountMessage, parseUsdcInput, usdcInputErrorMessage } from '@/lib/format'
 import {
-  PROJECTED_YIELD_EXPLANATION,
   apyExplanation,
   formatApyPercent,
   formatEarnApyHeadline,
   projectedYearlyYield,
   rateToApy,
 } from '@/lib/yield'
-import { InfoTip } from '@/components/ui/InfoTip'
+import { EarnYearlyYield } from './EarnYearlyYield/EarnYearlyYield'
 import { VaultExplainer } from './VaultExplainer'
 import type { YieldRate } from '@/hooks/useYieldRate'
 import { useAmountEntryMode } from '@/hooks/useAmountEntryMode'
@@ -216,7 +215,7 @@ export function EarnInputStepContent({
         feeLoading={feeLoading}
         feeResolving={feeResolving}
         feeUnavailable={feeUnavailable}
-        // maxInput drives the 25% / 50% / 75% / Max percent pills; onMax keeps the exact fee-aware cap.
+        // maxInput drives the balance portion menu; onMax keeps the exact fee-aware cap.
         maxInput={maxInput}
         balanceRaw={max}
         onMax={() => onAmountChange(formatUsdcPlain(maxInput))}
@@ -225,18 +224,12 @@ export function EarnInputStepContent({
         inputRef={inputRef}
         shaking={shaking}
         onShakeAnimationEnd={onShakeAnimationEnd}
+        balanceAccessory={
+          yearlyYield !== null ? (
+            <EarnYearlyYield figure={formatUsdcAmount(yearlyYield)} />
+          ) : undefined
+        }
       />
-
-      {/* A deposit's rough yearly earnings at today's rate (12E) — not on a withdrawal, nor before an amount and rate. */}
-      {!keypad && yearlyYield !== null ? (
-        <p className={styles.yearlyYield}>
-          <span className={styles.yearlyYieldLabel}>
-            Est. yearly yield
-            <InfoTip text={PROJECTED_YIELD_EXPLANATION} label="About the yearly yield estimate" />
-          </span>
-          <span className={styles.yearlyYieldValue}>{`\u2248 ${formatUsdcAmount(yearlyYield)} USDC`}</span>
-        </p>
-      ) : null}
 
       {!keypad && showGasNotice ? (
         <GasBalanceNotice

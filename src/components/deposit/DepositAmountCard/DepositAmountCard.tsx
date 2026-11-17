@@ -12,6 +12,7 @@ import {
   hasActiveAmount,
   sanitizeAmountEdit,
 } from '@/utils/amountInput'
+import { BalancePercentMenu } from '@/components/deposit/BalancePercentMenu/BalancePercentMenu'
 import { NumericKeypad, type NumericKeypadKey } from '@/components/deposit/NumericKeypad/NumericKeypad'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { FeeBreakdownTooltip, type FlowFeeBreakdown } from '@/components/ui/FeeBreakdownTooltip'
@@ -121,12 +122,12 @@ export interface DepositAmountCardProps {
   onMax?: () => void
   /**
    * Raw 6-decimal cap the amount input accepts. When provided, the balance row renders
-   * 25% / 50% / 75% / Max percentage pills (each sets the amount to that fraction of `maxInput`);
+   * 25% / 50% / 75% / Max menu on the balance (each sets the amount to that fraction of `maxInput`);
    * when omitted the card falls back to the single `Max` button (driven by `onMax`).
    */
   maxInput?: bigint
   /**
-   * Full (pre-fee) balance the percent pills take a share of — a % of this, capped at `maxInput`.
+   * Full (pre-fee) balance the portion menu takes a share of — a % of this, capped at `maxInput`.
    * When omitted the pills fall back to a share of `maxInput` (fine where the cap equals the balance,
    * e.g. shield). Set on fee-on-top paths (send/withdraw/earn) so 25/50/75 land on round balance
    * fractions rather than fractions of the fee-adjusted cap.
@@ -146,6 +147,8 @@ export interface DepositAmountCardProps {
   onShakeAnimationEnd?: (event: React.AnimationEvent<HTMLDivElement>) => void
   /** Phone layout: centered amount, fee under it, balance row, and the on-screen keypad. */
   keypad?: boolean
+  /** Sits on the right of the balance row (earn yearly yield). Omitted when a chain picker is shown. */
+  balanceAccessory?: ReactNode
 }
 
 export function DepositAmountCard({
@@ -174,6 +177,7 @@ export function DepositAmountCard({
   shaking = false,
   onShakeAnimationEnd,
   keypad = false,
+  balanceAccessory,
 }: DepositAmountCardProps) {
   const amountInputId = useId()
   const amountErrorId = useId()
@@ -534,37 +538,20 @@ export function DepositAmountCard({
       <div className={[styles.bottomRow, chainSlot && styles.bottomRowSplit].filter(Boolean).join(' ')}>
         <div className={styles.balanceControls}>
           {maxInput !== undefined || onMax ? (
-            <button
-              type="button"
+            <BalancePercentMenu
               className={styles.balanceButton}
-              aria-label={`Use maximum, ${balance} USDC`}
-              onClick={handleMax}
+              label={`Balance ${balance} USDC, choose a portion`}
+              onPick={(ratio) => {
+                if (ratio === 1) handleMax()
+                else applyPercent(BigInt(Math.round(ratio * 100)))
+              }}
             >
               {balanceFigure}
-            </button>
+            </BalancePercentMenu>
           ) : (
             <div className={styles.balanceGroup}>{balanceFigure}</div>
           )}
-          {chainSlot ? null : maxInput !== undefined ? (
-            <div className={styles.pctPills}>
-              <button type="button" className={styles.pctPill} onClick={() => applyPercent(25n)}>
-                25%
-              </button>
-              <button type="button" className={styles.pctPill} onClick={() => applyPercent(50n)}>
-                50%
-              </button>
-              <button type="button" className={styles.pctPill} onClick={() => applyPercent(75n)}>
-                75%
-              </button>
-              <button type="button" className={styles.pctPill} onClick={handleMax}>
-                Max
-              </button>
-            </div>
-          ) : onMax ? (
-            <button type="button" className={styles.maxBtn} onClick={handleMax}>
-              Max
-            </button>
-          ) : null}
+          {chainSlot ? null : balanceAccessory}
         </div>
         {chainSlot ? <div className={styles.chainSlotFooter}>{chainSlot}</div> : null}
       </div>

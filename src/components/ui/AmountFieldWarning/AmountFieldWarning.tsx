@@ -75,7 +75,7 @@ export function AmountFieldWarning({
         {visible ? (
           <div
             id={id}
-            className={[tooltipStyles.tooltip, tooltipStyles.action, styles.tooltip].join(' ')}
+            className={[tooltipStyles.tooltip, tooltipStyles.enter, tooltipStyles.action, styles.tooltip].join(' ')}
             role="alert"
           >
             <p className={tooltipStyles.actionText}>{message}</p>
@@ -93,7 +93,9 @@ export function AmountFieldWarning({
           id={id}
           ref={refs.setFloating}
           style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
-          className={[tooltipStyles.tooltip, tooltipStyles.action].join(' ')}
+          className={[tooltipStyles.tooltip, isPositioned && tooltipStyles.enter, tooltipStyles.action]
+            .filter(Boolean)
+            .join(' ')}
           role="alert"
         >
           <p className={tooltipStyles.actionText}>{message}</p>

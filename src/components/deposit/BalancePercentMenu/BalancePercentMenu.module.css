@@ -1,0 +1,98 @@
+/* ABOUTME: Tray of portion buttons that opens above the balance. */
+/* ABOUTME: Each option has its own fill so the row reads as a control, not a tooltip. */
+
+.anchor {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  min-width: 0;
+}
+
+.menu {
+  z-index: 130;
+  display: flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  padding: var(--primitives-spacing-1);
+  background: var(--semantic-color-surface-default);
+  border: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-default);
+  border-radius: calc(var(--primitives-borderRadius-xl) * 1px);
+  box-shadow:
+    0 var(--primitives-spacing-1) var(--primitives-spacing-2)
+      color-mix(in srgb, var(--semantic-color-brand-deep) 6%, transparent),
+    0 var(--primitives-spacing-3) var(--primitives-spacing-8)
+      color-mix(in srgb, var(--semantic-color-brand-deep) 12%, transparent);
+  animation: balanceMenuIn 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Fills the offset gap so the pointer can travel onto the menu. */
+.menu::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: var(--primitives-spacing-2);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--primitives-spacing-6);
+  padding-inline: var(--primitives-spacing-2);
+  border: none;
+  border-radius: calc(var(--semantic-borderRadius-item) * 1px);
+  background: color-mix(in srgb, var(--semantic-color-text-primary) 6%, transparent);
+  color: var(--semantic-color-text-primary);
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-weight: var(--primitives-fontWeight-medium);
+  font-size: calc(var(--primitives-fontSize-base) * 1px);
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .option:hover {
+    background: color-mix(in srgb, var(--semantic-color-text-primary) 12%, transparent);
+  }
+}
+
+.option:active {
+  background: color-mix(in srgb, var(--semantic-color-text-primary) 18%, transparent);
+}
+
+.option:focus-visible {
+  outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
+  outline-offset: calc(var(--primitives-spacing-1) * 0.5);
+  background: color-mix(in srgb, var(--semantic-color-text-primary) 12%, transparent);
+}
+
+@media (min-width: 480px) {
+  .option {
+    font-size: calc(var(--primitives-fontSize-sm) * 1px + 1px);
+  }
+}
+
+@keyframes balanceMenuIn {
+  from {
+    opacity: 0;
+    translate: 0 var(--primitives-spacing-1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
+}

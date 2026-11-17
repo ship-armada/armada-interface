@@ -1,0 +1,45 @@
+/* ABOUTME: Hit target and figure for the earn amount card's yearly yield. */
+/* ABOUTME: The trigger matches the balance row height so the footer stays one line. */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+  flex-shrink: 0;
+  height: var(--primitives-spacing-5);
+  margin-block: calc(var(--primitives-spacing-3) * -1);
+  padding: var(--primitives-spacing-3) var(--primitives-spacing-1);
+  border: none;
+  border-radius: calc(var(--primitives-borderRadius-sm) * 1px);
+  background: transparent;
+  color: var(--semantic-color-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.trigger:focus-visible {
+  outline: calc(var(--primitives-borderWidth-default) * 1px) solid var(--semantic-color-border-focus);
+  outline-offset: calc(var(--primitives-spacing-1) * 0.5);
+}
+
+.cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--primitives-spacing-1);
+}
+
+.icon {
+  width: var(--primitives-spacing-5);
+  height: var(--primitives-spacing-5);
+  flex-shrink: 0;
+  color: color-mix(in srgb, var(--semantic-color-text-primary) 38%, transparent);
+}
+
+.figure {
+  font-family: var(--primitives-fontFamily-mono), ui-monospace, monospace;
+  font-weight: var(--primitives-fontWeight-regular);
+  font-size: calc(var(--primitives-fontSize-base) * 1px);
+  color: var(--semantic-color-text-primary);
+  white-space: nowrap;
+  letter-spacing: 0;
+}

@@ -1,4 +1,4 @@
-// ABOUTME: Tests for DepositAmountCard — pending-balance suffix, amount typing, percent pills and the
+// ABOUTME: Tests for DepositAmountCard — pending-balance suffix, amount typing, the balance portion menu and the
 // ABOUTME: amount roll (lifetime + colour), fee caption, and the incomplete-CTA nudge shake.
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
@@ -6,6 +6,13 @@ import { act, render, screen, fireEvent } from '@testing-library/react'
 import { incompleteCtaShakeClass } from '@/design'
 import { formatUsdcPlain } from '@/lib/format'
 import { DepositAmountCard } from './DepositAmountCard'
+
+/** Open the balance menu, then choose a portion. The menu stays closed until the balance is activated. */
+function choosePortion(label: string) {
+  const name = label === 'Max' ? 'Maximum' : `${label} of balance`
+  fireEvent.click(screen.getByRole('button', { name: /choose a portion/ }))
+  fireEvent.click(screen.getByRole('menuitem', { name }))
+}
 
 /** Timers the odometer uses: its two-frame kick-off (rAF) and its settle timer (setTimeout). */
 const ROLL_TIMERS = ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] as const
@@ -115,7 +122,7 @@ describe('DepositAmountCard — presets + amount roll', () => {
     const onAmountChange = vi.fn()
     // 12 USDC cap → 25% is 3 USDC (integer bigint math, no float rounding).
     renderCard({ maxInput: 12_000000n, onAmountChange })
-    fireEvent.click(screen.getByRole('button', { name: '25%' }))
+    choosePortion('25%')
     expect(onAmountChange).toHaveBeenCalledWith(formatUsdcPlain(3_000000n))
   })
 
@@ -123,7 +130,7 @@ describe('DepositAmountCard — presets + amount roll', () => {
     const onMax = vi.fn()
     const onAmountChange = vi.fn()
     renderCard({ maxInput: 12_000000n, onMax, onAmountChange })
-    fireEvent.click(screen.getByRole('button', { name: 'Max' }))
+    choosePortion('Max')
     expect(onMax).toHaveBeenCalledTimes(1)
     // onMax owns the amount update; the card does not also commit its own fraction.
     expect(onAmountChange).not.toHaveBeenCalled()
@@ -140,7 +147,7 @@ describe('DepositAmountCard — presets + amount roll', () => {
           amountAriaLabel="Deposit amount"
         />,
       )
-      fireEvent.click(screen.getByRole('button', { name: '50%' }))
+      choosePortion('50%')
       // The parent commits the new amount → the roll effect starts on the prop change.
       rerender(
         <DepositAmountCard
@@ -165,7 +172,7 @@ describe('DepositAmountCard — presets + amount roll', () => {
         amountAriaLabel="Deposit amount"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: '50%' }))
+    choosePortion('50%')
     rerender(
       <DepositAmountCard
         amount="6"
@@ -188,7 +195,7 @@ describe('DepositAmountCard — roll lifetime and colour', () => {
     const onAmountChange = vi.fn()
     const props = { onAmountChange, maxInput: 20_000000n, amountAriaLabel: 'Deposit amount', ...extra }
     const { rerender, container } = render(<DepositAmountCard amount={from} {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: pill }))
+    choosePortion(pill)
     rerender(<DepositAmountCard amount={to} {...props} />)
     return container
   }
@@ -228,7 +235,7 @@ describe('DepositAmountCard — roll lifetime and colour', () => {
       const onAmountChange = vi.fn()
       const props = { onAmountChange, maxInput: 0n, amountAriaLabel: 'Deposit amount' }
       const { rerender, container } = render(<DepositAmountCard amount="5" {...props} />)
-      fireEvent.click(screen.getByRole('button', { name: '25%' }))
+      choosePortion('25%')
       rerender(<DepositAmountCard amount="0" {...props} />)
       const layer = container.querySelector('[class*="amountRollLayer"]')
       expect(layer?.className).toContain('amountRollInactive')

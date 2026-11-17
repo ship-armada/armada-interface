@@ -1,4 +1,4 @@
-// ABOUTME: Send/Withdraw amount step — DepositAmountCard (no chain row; chosen on the recipient step) + percent pills + gas notice.
+// ABOUTME: Send/Withdraw amount step — DepositAmountCard (no chain row; chosen on the recipient step) + balance portion menu + gas notice.
 // ABOUTME: Recipient + chain live on the preceding recipient step, so this step gates only on the amount.
 
 import { useRef, type Ref } from 'react'
@@ -125,7 +125,7 @@ export function SendInputStepContent({
           feeLoading={feeLoading}
           feeResolving={feeResolving}
           feeUnavailable={feeUnavailable}
-          // maxInput drives the 25% / 50% / 75% / Max percent pills; onMax keeps the exact fee-aware cap.
+          // maxInput drives the balance portion menu; onMax keeps the exact fee-aware cap.
           maxInput={maxInput}
           balanceRaw={max}
           onMax={() => onAmountChange(formatUsdcPlain(maxInput))}

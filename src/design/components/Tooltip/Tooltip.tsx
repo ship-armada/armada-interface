@@ -42,7 +42,7 @@ export default function Tooltip(props: TooltipProps) {
   const show = () => setVisible(true)
   const hide = () => setVisible(false)
   const placement = props.variant === 'centered' && props.placement ? props.placement : 'top'
-  const { refs, floatingStyles, isPositioned } = useFloating({
+  const { refs, floatingStyles, isPositioned, placement: resolvedPlacement } = useFloating({
     open: visible,
     placement,
     strategy: 'absolute',
@@ -71,6 +71,8 @@ export default function Tooltip(props: TooltipProps) {
     document.addEventListener('pointerdown', onPointerDown)
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [fineHover, visible])
+
+  const [side, align = 'center'] = resolvedPlacement.split('-')
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -106,6 +108,8 @@ export default function Tooltip(props: TooltipProps) {
           style={{ ...floatingStyles, visibility: isPositioned ? 'visible' : 'hidden' }}
           className={[
             styles.tooltip,
+            styles.tail,
+            isPositioned && styles.enter,
             props.variant === 'centered' && styles.centered,
             props.variant === 'rich' && styles.rich,
             props.variant === 'action' && styles.action,
@@ -113,6 +117,8 @@ export default function Tooltip(props: TooltipProps) {
             .filter(Boolean)
             .join(' ')}
           role="tooltip"
+          data-side={side}
+          data-align={align}
         >
           {props.variant === 'centered' && (
             <p className={styles.centeredText}>{props.content}</p>

@@ -1,4 +1,4 @@
-// ABOUTME: Tests for SendInputStep (amount step) — no chain row, percent pills, amount gating, variant copy, Back/Review actions.
+// ABOUTME: Tests for SendInputStep (amount step) — no chain row, balance portion menu, amount gating, variant copy, Back/Review actions.
 
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -60,16 +60,18 @@ describe('<SendInputStep>', () => {
     expect(screen.queryByRole('listbox')).toBeNull()
   })
 
-  it('renders the 25% / 50% / 75% / Max percent pills', () => {
+  it('offers 25% / 50% / 75% / Max from the balance', () => {
     setup()
-    for (const label of ['25%', '50%', '75%', 'Max']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /choose a portion/ }))
+    for (const label of ['25% of balance', '50% of balance', '75% of balance', 'Maximum']) {
+      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument()
     }
   })
 
-  it('a percent pill sets the amount to that fraction of the input cap', () => {
+  it('a portion sets the amount to that fraction of the input cap', () => {
     const props = setup({ maxInput: 5_000_000n, max: 5_000_000n })
-    fireEvent.click(screen.getByRole('button', { name: '50%' }))
+    fireEvent.click(screen.getByRole('button', { name: /choose a portion/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '50% of balance' }))
     expect(props.onAmountChange).toHaveBeenCalledWith('2.5')
   })
 

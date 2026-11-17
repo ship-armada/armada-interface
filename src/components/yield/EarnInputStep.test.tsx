@@ -67,18 +67,17 @@ describe('<EarnInputStep> yield clarity (package 15)', () => {
 
   it('a deposit shows what it would earn in a year at today\'s rate (12E)', () => {
     setup({ rate: RATE, amountStr: '100' })
-    expect(screen.getByText('Est. yearly yield')).toBeInTheDocument()
-    expect(screen.getByText('\u2248 4.20 USDC')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Est. yearly yield, 4.20 USDC' })).toBeInTheDocument()
   })
 
   it('no yearly yield on a withdrawal, without an amount, or before the rate loads', () => {
     setup({ rate: RATE, amountStr: '100', tab: 'withdraw' })
-    expect(screen.queryByText('Est. yearly yield')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Est\. yearly yield/ })).toBeNull()
   })
 
   it('no yearly yield without an amount or a rate', () => {
     setup({ rate: RATE, amountStr: '' })
-    expect(screen.queryByText('Est. yearly yield')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Est\. yearly yield/ })).toBeNull()
   })
 
   it('"How the shielded vault works" opens a short explainer naming the source, the fee and the risks (12F)', () => {
@@ -107,10 +106,11 @@ describe('<EarnInputStep>', () => {
     expect(screen.queryByRole('listbox')).toBeNull()
   })
 
-  it('renders the 25% / 50% / 75% / Max percent pills', () => {
+  it('offers 25% / 50% / 75% / Max from the balance', () => {
     setup()
-    for (const label of ['25%', '50%', '75%', 'Max']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /choose a portion/ }))
+    for (const label of ['25% of balance', '50% of balance', '75% of balance', 'Maximum']) {
+      expect(screen.getByRole('menuitem', { name: label })).toBeInTheDocument()
     }
   })
 

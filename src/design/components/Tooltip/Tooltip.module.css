@@ -23,6 +23,18 @@
   white-space: normal;
 }
 
+/* Same entrance as the balance portion menu: fade in and rise 4px. `translate` stays off Floating UI's `transform`. */
+.enter {
+  animation: tooltipIn 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes tooltipIn {
+  from {
+    opacity: 0;
+    translate: 0 var(--primitives-spacing-1);
+  }
+}
+
 @media (hover: none), (pointer: coarse) {
   .tooltip {
     pointer-events: auto;
@@ -129,6 +141,88 @@
   letter-spacing: var(--semantic-typography-ui-label-md-letter-spacing);
   color: var(--semantic-color-text-primary);
   white-space: nowrap;
+}
+
+/* Points at the trigger. A square rotated 45deg, overlapped into the bubble so the seam stays covered. */
+.tail::after {
+  content: '';
+  position: absolute;
+  width: var(--primitives-spacing-2);
+  height: var(--primitives-spacing-2);
+  background: inherit;
+  pointer-events: none;
+  rotate: 45deg;
+}
+
+.tail[data-side='top']::after {
+  bottom: calc(var(--primitives-spacing-1) * -0.75);
+}
+
+.tail[data-side='bottom']::after {
+  top: calc(var(--primitives-spacing-1) * -0.75);
+}
+
+.tail[data-side='left']::after {
+  right: calc(var(--primitives-spacing-1) * -0.75);
+}
+
+.tail[data-side='right']::after {
+  left: calc(var(--primitives-spacing-1) * -0.75);
+}
+
+.tail[data-align='center'][data-side='top']::after,
+.tail[data-align='center'][data-side='bottom']::after {
+  left: calc(50% - var(--primitives-spacing-1));
+}
+
+.tail[data-align='center'][data-side='left']::after,
+.tail[data-align='center'][data-side='right']::after {
+  top: calc(50% - var(--primitives-spacing-1));
+}
+
+.tail[data-align='start'][data-side='top']::after,
+.tail[data-align='start'][data-side='bottom']::after {
+  left: var(--primitives-spacing-3);
+}
+
+.tail[data-align='end'][data-side='top']::after,
+.tail[data-align='end'][data-side='bottom']::after {
+  right: var(--primitives-spacing-3);
+}
+
+.tail[data-align='start'][data-side='left']::after,
+.tail[data-align='start'][data-side='right']::after {
+  top: var(--primitives-spacing-3);
+}
+
+.tail[data-align='end'][data-side='left']::after,
+.tail[data-align='end'][data-side='right']::after {
+  bottom: var(--primitives-spacing-3);
+}
+
+/* Light-mode trial: ink bubble, light type. The amount warning stays on the light surface. */
+:global([data-theme='light']) .tooltip[role='tooltip'] {
+  background: var(--semantic-component-button-ink-bg);
+  border-color: color-mix(in srgb, var(--semantic-component-button-ink-text) 14%, transparent);
+  color: var(--semantic-component-button-ink-text);
+}
+
+:global([data-theme='light']) .tooltip[role='tooltip'] :is(.centeredText, .title, .actionText) {
+  color: var(--semantic-component-button-ink-text);
+}
+
+:global([data-theme='light']) .tooltip[role='tooltip'] :is(.description, .bulletText) {
+  color: color-mix(in srgb, var(--semantic-component-button-ink-text) 72%, transparent);
+}
+
+:global([data-theme='light']) .tooltip[role='tooltip'] .bulletDot {
+  background: var(--semantic-component-button-ink-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
 }
 
 .wrapper:focus-visible {
