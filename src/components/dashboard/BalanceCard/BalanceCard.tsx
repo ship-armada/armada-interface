@@ -25,6 +25,7 @@ import {
   vaultPositionExitDurationMs,
 } from './balanceRevealMotion'
 import { VaultPositionBar } from '@/components/dashboard/VaultPositionBar'
+import { useFineHover } from '@/hooks/useFineHover'
 import { useMobileLayout } from '@/hooks/useMobileLayout'
 import { formatUsdcAmount, truncateArmadaAddress } from '@/components/dashboard/dashboardFormat'
 import styles from './BalanceCard.module.css'
@@ -90,6 +91,34 @@ function fitBalanceFontSize(rowWidth: number, naturalTextWidth: number): number 
   return Math.max(BALANCE_MIN_FONT_SIZE_PX, scaled)
 }
 
+/** Copies during the tap, before any await can drop the browser's user-gesture permission. */
+function copyTextInGesture(text: string): boolean {
+  const area = document.createElement('textarea')
+  area.value = text
+  area.setAttribute('readonly', '')
+  area.setAttribute('aria-hidden', 'true')
+  area.setAttribute('inputmode', 'none')
+  area.style.position = 'fixed'
+  area.style.top = '0'
+  area.style.left = '0'
+  area.style.width = '1px'
+  area.style.height = '1px'
+  area.style.opacity = '0'
+  area.style.pointerEvents = 'none'
+  document.body.appendChild(area)
+  area.focus()
+  area.select()
+  area.setSelectionRange(0, area.value.length)
+  let copied = false
+  try {
+    copied = document.execCommand('copy')
+  } catch {
+    copied = false
+  }
+  area.remove()
+  return copied
+}
+
 export function BalanceCard({
   balance,
   balanceRollTrigger = 0,
@@ -115,6 +144,8 @@ export function BalanceCard({
   onSyncRetry,
 }: BalanceCardProps) {
   const isMobileLayout = useMobileLayout()
+  const fineHover = useFineHover()
+  const touchTip = isMobileLayout || !fineHover
   const [internalBalanceHidden, setInternalBalanceHidden] = useState(false)
   const balanceHiddenControlled = balanceHiddenProp !== undefined
   const balanceHidden = balanceHiddenControlled ? balanceHiddenProp : internalBalanceHidden
@@ -165,14 +196,25 @@ export function BalanceCard({
 
   async function copyArmadaAddress() {
     if (!armadaAddress) return
+    // Copy inside the tap. A phone often rejects clipboard.writeText, and waiting for that
+    // rejection also drops the gesture the fallback needs.
+    const copiedInGesture = copyTextInGesture(armadaAddress)
+    if (copiedInGesture) markAddressCopied()
     try {
       await navigator.clipboard.writeText(armadaAddress)
-      setArmadaAddressCopied(true)
-      if (armadaAddressCopyTimerRef.current) clearTimeout(armadaAddressCopyTimerRef.current)
-      armadaAddressCopyTimerRef.current = setTimeout(() => setArmadaAddressCopied(false), 2000)
+      if (!copiedInGesture) markAddressCopied()
     } catch {
-      setArmadaAddressCopied(false)
+      if (!copiedInGesture) {
+        setArmadaAddressCopied(false)
+        if (armadaAddressCopyTimerRef.current) clearTimeout(armadaAddressCopyTimerRef.current)
+      }
     }
+  }
+
+  function markAddressCopied() {
+    setArmadaAddressCopied(true)
+    if (armadaAddressCopyTimerRef.current) clearTimeout(armadaAddressCopyTimerRef.current)
+    armadaAddressCopyTimerRef.current = setTimeout(() => setArmadaAddressCopied(false), 2000)
   }
 
   useEffect(() => {
@@ -382,24 +424,35 @@ export function BalanceCard({
           <div className={styles.headerBlock}>
             <div className={styles.headingStack}>
               {armadaAddress ? (
-                <Tooltip variant="centered" content="This is your shielded address.">
+                <Tooltip
+                  variant="centered"
+                  announce={touchTip}
+                  open={touchTip ? armadaAddressCopied : undefined}
+                  content={
+                    touchTip
+                      ? 'Shielded address copied'
+                      : 'This is your shielded address.\nClick to copy.'
+                  }
+                >
                   <button
                     type="button"
                     className={[
                       'armada-text-ui-label-md',
                       styles.armadaAddress,
-                      armadaAddressCopied && styles.armadaAddressCopied,
+                      armadaAddressCopied && !touchTip && styles.armadaAddressCopied,
                     ]
                       .filter(Boolean)
                       .join(' ')}
                     onClick={() => void copyArmadaAddress()}
                     aria-label={
                       armadaAddressCopied
-                        ? 'Address copied'
+                        ? touchTip
+                          ? 'Shielded address copied'
+                          : 'Address copied'
                         : `Copy Armada address ${truncateArmadaAddress(armadaAddress)}`
                     }
                   >
-                    {armadaAddressCopied ? 'Copied' : truncateArmadaAddress(armadaAddress)}
+                    {armadaAddressCopied && !touchTip ? 'Copied' : truncateArmadaAddress(armadaAddress)}
                   </button>
                 </Tooltip>
               ) : onConnect ? (
