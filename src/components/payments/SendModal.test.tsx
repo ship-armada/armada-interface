@@ -330,7 +330,7 @@ describe('<SendModal>', () => {
     completeRecipientStep(VALID_0ZK)
     fireEvent.change(screen.getByLabelText('Send amount'), { target: { value: '3' } })
     fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-    expect(screen.getByText('Private transfer.')).toBeInTheDocument()
+    expect(screen.getByText('Shielded transfer.')).toBeInTheDocument()
     expect(screen.queryByText('Network')).toBeNull()
   })
 

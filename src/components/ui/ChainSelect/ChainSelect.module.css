@@ -18,7 +18,7 @@
   gap: var(--primitives-spacing-3);
   width: 100%;
   min-height: calc(var(--primitives-spacing-12) + var(--primitives-spacing-2));
-  padding: var(--primitives-spacing-2) var(--primitives-spacing-5);
+  padding: var(--primitives-spacing-3);
   border: none;
   border-radius: calc(var(--primitives-borderRadius-xl) * 1px);
   background: var(--semantic-color-frost-control);
@@ -123,8 +123,8 @@
   font-weight: var(--primitives-fontWeight-regular);
   font-size: var(--semantic-typography-ui-label-sm-font-size);
   line-height: var(--semantic-typography-ui-label-sm-line-height);
-  letter-spacing: var(--semantic-typography-ui-label-sm-letter-spacing);
-  color: var(--semantic-color-text-muted);
+  letter-spacing: 0;
+  color: var(--semantic-color-text-secondary);
 }
 
 .name {

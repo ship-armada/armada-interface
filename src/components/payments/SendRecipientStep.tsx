@@ -1,8 +1,8 @@
-// ABOUTME: Send/Withdraw recipient step — a frost card (title + address TextField with Clear + a paste row that
-// ABOUTME: previews a valid 0zk/0x on the clipboard + public-only chain selector + privacy badge once valid) over an always-visible Cancel / Continue action row + a recent-recipients list.
+// ABOUTME: Send/Withdraw recipient step — a frost card (title + address field that becomes a shielded/public identity once valid, with Clear + a paste row that
+// ABOUTME: previews a valid 0zk/0x on the clipboard + public-only chain selector) over an always-visible Cancel / Continue action row + a recent-recipients list.
 
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { GlobeAltIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
+import { GlobeAltIcon, ClipboardDocumentIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import {
   ArmadaLogo,
   Button,
@@ -12,6 +12,7 @@ import {
   incompleteCtaShakeClass,
 } from '@/design'
 import iconButtonStyles from '@/design/components/IconButton/IconButton.module.css'
+import fieldStyles from '@/design/components/TextField/TextField.module.css'
 import { ChainSelect } from '@/components/ui'
 import { AmountFieldWarning } from '@/components/ui/AmountFieldWarning'
 import { useNudgeShake } from '@/hooks/useNudgeShake'
@@ -102,7 +103,9 @@ export function SendRecipientStep({
   // whenever the tab regains focus (the user may copy then return).
   const [clipboardText, setClipboardText] = useState<string | null>(null)
   const clipboardAddressRef = useRef<HTMLSpanElement>(null)
+  const addressFitRef = useRef<HTMLSpanElement>(null)
   const [fittedClipboardAddress, setFittedClipboardAddress] = useState('')
+  const [fittedAddress, setFittedAddress] = useState(recipient)
 
   const recipientTrimmed = recipient.trim()
   const hasInput = recipientTrimmed.length > 0
@@ -170,6 +173,8 @@ export function SendRecipientStep({
   // Your own 0zk isn't a recipient: the note comes straight back, so the send would only pay the fee (spec PS-7).
   const recipientIsSelf = isPrivate && ownShieldedAddress !== undefined && recipientTrimmed === ownShieldedAddress
   const recipientValid = (isPrivate && !recipientIsSelf) || isPublic
+  const showIdentity = (isPrivate || isPublic) && !inputFocused
+  const identityTitle = isPrivate ? 'Shielded address' : 'Public address'
   const recipientInvalid = hasInput && !recipientValid
   // Terse single-line copy so it reads cleanly in the above-field warning tooltip (matches the
   // amount step's over-balance tooltip).
@@ -191,6 +196,41 @@ export function SendRecipientStep({
 
   const canContinue = recipientValid && !destDeploymentError
 
+  useLayoutEffect(() => {
+    if (!showIdentity) return
+    const el = addressFitRef.current
+    if (!el || !recipientTrimmed) return
+
+    function fitAddress() {
+      const node = addressFitRef.current
+      if (!node || !recipientTrimmed) return
+      const style = getComputedStyle(node)
+      const font = [style.fontStyle, style.fontWeight, style.fontSize, style.fontFamily]
+        .filter(Boolean)
+        .join(' ')
+      setFittedAddress(truncateMiddleToWidth(recipientTrimmed, node.clientWidth, font))
+    }
+
+    fitAddress()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(fitAddress)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [showIdentity, recipientTrimmed])
+
+  useLayoutEffect(() => {
+    if (inputFocused) inputRef.current?.focus()
+  }, [inputFocused])
+
+  function beginEdit() {
+    setInputFocused(true)
+  }
+
+  function handleClear() {
+    onRecipientChange('')
+    setInputFocused(false)
+  }
+
   return (
     <div className={styles.root}>
       <div
@@ -207,6 +247,41 @@ export function SendRecipientStep({
             visible={Boolean(recipientError)}
             message={recipientError ?? ''}
           >
+            {showIdentity ? (
+              <div className={styles.recognizedField}>
+                <span
+                  className={[styles.privacyIcon, styles.recognizedIcon, isPrivate ? styles.brandBadge : styles.privacyIconPublic].join(' ')}
+                  aria-hidden
+                >
+                  {isPrivate ? (
+                    <ArmadaLogo variant="mark" markTone="deep" className={styles.brandMark} />
+                  ) : (
+                    <GlobeAltIcon className={styles.privacyIconSvg} strokeWidth={1.75} />
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className={styles.recognizedEdit}
+                  aria-label={`${identityTitle}, ${recipientTrimmed}. Edit address`}
+                  onClick={beginEdit}
+                >
+                  <span className={styles.identityLabel} role="status">
+                    {identityTitle}
+                  </span>
+                  <span ref={addressFitRef} className={`${styles.identityAddress} ${styles.recognizedAddress}`} title={recipientTrimmed}>
+                    {fittedAddress || recipientTrimmed}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={fieldStyles.clearButton}
+                  aria-label="Clear address"
+                  onClick={handleClear}
+                >
+                  <XMarkIcon className={fieldStyles.clearIcon} strokeWidth={2} aria-hidden />
+                </button>
+              </div>
+            ) : (
             <TextField
               ref={inputRef}
               type="text"
@@ -234,8 +309,9 @@ export function SendRecipientStep({
               aria-describedby={recipientError ? recipientErrorId : undefined}
               clearable={hasInput}
               clearAriaLabel="Clear address"
-              onClear={() => onRecipientChange('')}
+              onClear={handleClear}
             />
+            )}
           </AmountFieldWarning>
 
           {/* Empty state only: a paste row shown whenever the clipboard has content. A valid 0zk/0x is
@@ -292,28 +368,6 @@ export function SendRecipientStep({
             </div>
           ) : null}
         </div>
-
-        {/* Privacy badge reveals inside the card once the address is valid. */}
-        {recipientValid ? (
-          <div className={[styles.privacyBadge, styles.actionRowReveal].join(' ')} role="status">
-            <span
-              className={[styles.privacyIcon, isPrivate ? styles.brandBadge : styles.privacyIconPublic].join(' ')}
-              aria-hidden
-            >
-              {isPrivate ? (
-                <ArmadaLogo variant="mark" markTone="deep" className={styles.brandMark} />
-              ) : (
-                <GlobeAltIcon className={styles.privacyIconSvg} strokeWidth={1.75} />
-              )}
-            </span>
-            <div className={styles.privacyCopy}>
-              <span className={styles.privacyTitle}>{isPrivate ? 'Private address' : 'Public address'}</span>
-              <span className={styles.privacySubtitle}>
-                {isPrivate ? 'Transaction will be fully private' : "Transfer won't be fully private"}
-              </span>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {/* Always-visible action row — Continue stays disabled + labeled "Enter address" until valid. */}
@@ -328,7 +382,8 @@ export function SendRecipientStep({
           onClick={onContinue}
           onDisabledClick={() => {
             nudge()
-            inputRef.current?.focus()
+            if (showIdentity) setInputFocused(true)
+            else inputRef.current?.focus()
           }}
         />
       </div>

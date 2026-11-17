@@ -49,7 +49,7 @@ describe('<SendCompleteStep>', () => {
     expect(screen.getByText('USDC shielded transfer confirmed')).toBeInTheDocument()
     expect(screen.getByText('Date and time')).toBeInTheDocument()
     // The privacy notice is only shown pre-confirmation; the confirmed view omits it.
-    expect(screen.queryByText('Private transfer.')).toBeNull()
+    expect(screen.queryByText('Shielded transfer.')).toBeNull()
     expect(screen.getAllByText(/100\.00 USDC/).length).toBeGreaterThan(0)
   })
 

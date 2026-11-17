@@ -152,14 +152,14 @@ describe('<ActivityReceipt> figures (spec fixture)', () => {
       showReceipt('yield-withdraw', { amount: G, shares: 9_523_809n, broadcasterFeeAmount: F, broadcasterShieldedAddress: RELAYER_0ZK })
       expect(headlineAmount()).toBe('9.999999')
       expect(summaryRow('Fees')).toBe('1.000003 USDC')
-      expect(summaryRow('Received into private balance')).toBe('8.999996 USDC')
+      expect(summaryRow('Received into shielded balance')).toBe('8.999996 USDC')
     })
   })
 
   describe('yield-withdraw, unreconciled', () => {
     it('the typed amount and its net read as estimates (YD-10, G-5)', () => {
       showReceipt('yield-withdraw', { amount: A, shares: 1n, broadcasterFeeAmount: F, broadcasterShieldedAddress: RELAYER_0ZK, amountIsEstimate: true })
-      expect(summaryRow('Received into private balance')).toBe('≈ 8.999997 USDC')
+      expect(summaryRow('Received into shielded balance')).toBe('≈ 8.999997 USDC')
     })
   })
 

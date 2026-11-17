@@ -155,7 +155,7 @@ export function EarnReviewSummary({
             <ArmadaLogo variant="mark" markTone="deep" className={styles.privacyNoticeMark} />
           </span>
           <div className={styles.privacyNoticeCopy}>
-            <p className={styles.privacyNoticeTitle}>Private transfer.</p>
+            <p className={styles.privacyNoticeTitle}>Shielded transfer.</p>
             <p className={styles.privacyNoticeBody}>{privacyBody}</p>
           </div>
         </div>

@@ -382,7 +382,7 @@ export function BalanceCard({
           <div className={styles.headerBlock}>
             <div className={styles.headingStack}>
               {armadaAddress ? (
-                <Tooltip variant="centered" content="This is your private address.">
+                <Tooltip variant="centered" content="This is your shielded address.">
                   <button
                     type="button"
                     className={[

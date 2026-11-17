@@ -46,9 +46,9 @@ describe('<SendReviewStep>', () => {
     expect(screen.getByText('The relayer is unavailable.')).toBeInTheDocument()
   })
 
-  it('private: shows the "Private transfer." notice and no network row', () => {
+  it('private: shows the "Shielded transfer." notice and no network row', () => {
     renderReview({ recipient: VALID_0ZK })
-    expect(screen.getByText('Private transfer.')).toBeInTheDocument()
+    expect(screen.getByText('Shielded transfer.')).toBeInTheDocument()
     expect(screen.queryByText('Network')).toBeNull()
   })
 

@@ -216,14 +216,14 @@ export function EarnModal() {
         broadcasterFee: fee,
         feeFromProceeds: true,
         ...(reviewFigures ? { recipientReceives: reviewFigures.netAmount } : {}),
-        recipientLabel: "You'll receive into private balance",
+        recipientLabel: "You'll receive into shielded balance",
       }
   const displayNetLabel: string =
-    tab === 'add' ? 'Total deducted from balance' : "You'll receive into private balance"
+    tab === 'add' ? 'Total deducted from balance' : "You'll receive into shielded balance"
   // Past-tense variant for the confirmed screen — the review says "You'll receive…", the
   // completed screen says "Received…" for the same withdraw net.
   const completeNetLabel: string =
-    tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
+    tab === 'add' ? 'Total deducted from balance' : 'Received into shielded balance'
   // Pre-flight: the withdraw fee is skimmed from the redeemed proceeds (contract-side re-shield to
   // the relayer — see yield-sdk redeemAndShield), so the user needs NO pre-existing private USDC. The
   // only uncoverable case is a withdrawal that doesn't exceed its own fee — the redeem can't pay a fee

@@ -26,7 +26,7 @@ describe('<EarnReviewSummary>', () => {
     expect(screen.getByText('Total deducted from balance')).toBeInTheDocument()
     expect(screen.getByText('101.00 USDC')).toBeInTheDocument()
     // Vault moves are private — the notice shows the add-tab copy.
-    expect(screen.getByText('Private transfer.')).toBeInTheDocument()
+    expect(screen.getByText('Shielded transfer.')).toBeInTheDocument()
     expect(screen.getByText("You are sending to Armada's shielded vault")).toBeInTheDocument()
   })
 
@@ -123,7 +123,7 @@ describe('<EarnReviewSummary>', () => {
     )
     expect(screen.getByText('Date and time')).toBeInTheDocument()
     // The confirmation view carries the date row instead of the privacy notice.
-    expect(screen.queryByText('Private transfer.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Shielded transfer.')).not.toBeInTheDocument()
   })
 
   it('explains the fee: the relayer\'s, which includes the network gas (5A)', () => {

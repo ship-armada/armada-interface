@@ -23,7 +23,7 @@ const ROW_ICON_PX = 16
 export interface TransferReviewSummaryProps {
   /** Destination address (0zk shielded or 0x public) — its format drives the privacy notice + recipient icon. */
   recipient: string
-  /** The user's own shielded (Armada) address — shortened on the "From your private account" row when present. */
+  /** The user's own shielded (Armada) address — shortened on the "From your shielded account" row when present. */
   armadaAddress?: string
   /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null (pre-quote-load). */
   fee: bigint | null
@@ -78,7 +78,7 @@ export function TransferReviewSummary({
   // wallet. Drives the recipient-row icon, whether the network row shows, and the privacy notice.
   const isPrivate = isShieldedAddress(recipient)
   const privacyNotice = isPrivate
-    ? { title: 'Private transfer.', body: 'You are sending to an Armada address.' }
+    ? { title: 'Shielded transfer.', body: 'You are sending to an Armada address.' }
     : { title: 'Public transfer.', body: 'You are sending to an external address.' }
   return (
     <div className={styles.summary}>
@@ -99,7 +99,7 @@ export function TransferReviewSummary({
         ) : null}
         {armadaAddress ? (
           <div className={styles.summaryRow}>
-            <span className={styles.summaryLabel}>From your private account</span>
+            <span className={styles.summaryLabel}>From your shielded account</span>
             <span className={styles.summaryValue}>
               <span className={styles.valueWithIcon}>
                 <ArmadaLogo variant="mark" markTone="deep" className={styles.armadaIcon} />

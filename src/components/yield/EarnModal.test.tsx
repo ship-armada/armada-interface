@@ -396,10 +396,10 @@ describe('<EarnModal>', () => {
         })
         await waitFor(() => expect(store.get(txListAtom).some((r) => r.kind === 'yield-withdraw')).toBe(true))
         settle(store, 'yield-withdraw', { amount: G, broadcasterFeeAmount: F, amountIsEstimate: false })
-        await waitFor(() => expect(screen.getByText('Received into private balance')).toBeInTheDocument())
+        await waitFor(() => expect(screen.getByText('Received into shielded balance')).toBeInTheDocument())
         expect(headlineAmount()).toBe('9.999999')
         expect(summaryRow('Fees')).toBe('1.000003 USDC')
-        expect(summaryRow('Received into private balance')).toBe('8.999996 USDC')
+        expect(summaryRow('Received into shielded balance')).toBe('8.999996 USDC')
       } finally {
         hoistedFees.quote.fees.crossContract = original
       }
@@ -454,7 +454,7 @@ describe('<EarnModal>', () => {
       fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '10' } })
       fireEvent.focus(screen.getByRole('button', { name: 'Fee breakdown' }))
       const tooltip = screen.getByRole('tooltip')
-      expect(tooltip).toHaveTextContent("You'll receive into private balance: 8.999997 USDC")
+      expect(tooltip).toHaveTextContent("You'll receive into shielded balance: 8.999997 USDC")
       expect(tooltip).not.toHaveTextContent('Total deducted')
       expect(tooltip).toHaveTextContent('comes out of the redeemed proceeds')
     } finally {
@@ -515,7 +515,7 @@ describe('<EarnModal>', () => {
       expect(screen.getByText('Estimating fees…')).toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: /Review/ }))
       expect(summaryRow('Fees')).toBe('—')
-      expect(summaryRow("You'll receive into private balance")).toBe('—')
+      expect(summaryRow("You'll receive into shielded balance")).toBe('—')
       expect(screen.getByText('Getting the relayer fee…')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /^Confirm/ })).toBeDisabled()
     }))
@@ -562,11 +562,11 @@ describe('<EarnModal>', () => {
         act(() => store.set(yieldSharesAtom, 20n * 10n ** 18n))
         fireEvent.change(screen.getByLabelText('Shielded vault withdrawal amount'), { target: { value: '10' } })
         fireEvent.click(screen.getByRole('button', { name: /Review/ }))
-        const review = readFigures({ fees: 'Fees', net: "You'll receive into private balance" })
+        const review = readFigures({ fees: 'Fees', net: "You'll receive into shielded balance" })
         await act(async () => {
           fireEvent.click(screen.getByRole('button', { name: /^Confirm/ }))
         })
-        const { confirm, receipt } = await settleAndRead(store, 'yield-withdraw', { fees: 'Fees', net: 'Received into private balance' })
+        const { confirm, receipt } = await settleAndRead(store, 'yield-withdraw', { fees: 'Fees', net: 'Received into shielded balance' })
         expect(review).toEqual({ headline: '10', fees: '1.000003 USDC', net: '8.999997 USDC' })
         expect(confirm).toEqual(review)
         expect(receipt).toEqual(review)

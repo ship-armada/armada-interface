@@ -17,7 +17,7 @@ import styles from './SendReviewStep.module.css'
 export interface SendReviewStepProps {
   variant: SendFlowVariant
   recipient: string
-  /** The user's own shielded (Armada) address — rendered as the summary's "From your private account" row. */
+  /** The user's own shielded (Armada) address — rendered as the summary's "From your shielded account" row. */
   armadaAddress?: string
   amount: bigint
   /** The fee charged on top of the amount — the relayer fee (+ any protocol fee). Rendered as "—" when null. */

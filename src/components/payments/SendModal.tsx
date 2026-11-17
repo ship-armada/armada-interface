@@ -91,7 +91,7 @@ export function SendModal() {
   const variant: SendFlowVariant = 'send'
 
   // The user's own shielded (Armada) address — rendered as the review/complete summary's
-  // "From your private account" row. Optional; the row is omitted when locked/absent.
+  // "From your shielded account" row. Optional; the row is omitted when locked/absent.
   const shieldedWallet = useAtomValue(shieldedWalletAtom)
 
   // Form state

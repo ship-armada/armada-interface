@@ -163,7 +163,7 @@ function buildReceiptView(record: TxRecord, ownWalletAddress?: string): ReceiptV
       // identically wherever it's shown (withdraw's `amount` is the handler-reconciled redeemed gross).
       const { headline: amount, fee, netAmount, apyBps, estimated: yieldEstimated } = txFiguresAs(record, 'yield')
       const tab = record.kind === 'yield-deposit' ? 'add' : 'withdraw'
-      const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into private balance'
+      const netLabel = tab === 'add' ? 'Total deducted from balance' : 'Received into shielded balance'
       // The reviewed net APY is frozen on the record (Tier 4) — reconstruct a minimal rate snapshot so
       // the "Estimated APY" row shows the historical value. `EarnReviewSummary` reads only `apyBps`.
       // Absent on pre-capture records → keep the row hidden (unknown, not a fabricated 0%).

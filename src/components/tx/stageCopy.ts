@@ -16,7 +16,7 @@ const KIND_TITLES: Record<TxKind, string> = {
   // intent (self vs other) via the modal they started from + the recipient field default.
   'unshield-local': 'Unshield',
   'unshield-xchain': 'Unshield',
-  'transfer-shielded': 'Private transfer',
+    'transfer-shielded': 'Shielded transfer',
   // Incoming private transfer reconstructed from chain — someone sent USDC to our 0zk address.
   'transfer-shielded-received': 'Received',
   'yield-deposit': 'Vault deposit',
@@ -51,7 +51,7 @@ export function inProgressActivityLabel(completedLabel: string): string {
 /**
  * Rich row title for an in-flight or historical record — matches the dashboard mockup's activity
  * copy: deposits name their source chain, public sends name the 0x recipient, private sends read
- * "Sent to private address", vault ops read "Added to / Withdrawn from earn vault". Reads per-kind
+ * "Sent to shielded address", vault ops read "Added to / Withdrawn from earn vault". Reads per-kind
  * meta fields; TS can't narrow the union from `record.kind` (TxRecord is parametrised), so the
  * runtime casts are safe — meta is shaped per-kind. Falls back to the bare kind title if a field
  * is missing (defensive — persisted records may carry older schemas).
@@ -73,7 +73,7 @@ export function recordTitle(record: TxRecord): string {
     }
     case 'transfer-shielded':
       // Private (0zk → 0zk) send. The recipient stays private, so we don't surface the address.
-      return 'Sent to private address'
+      return 'Sent to shielded address'
     case 'transfer-shielded-received':
       // Incoming private transfer — sender is private by design, so no address.
       return 'Received payment'

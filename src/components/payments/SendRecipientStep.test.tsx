@@ -1,4 +1,4 @@
-// ABOUTME: Tests for SendRecipientStep — address validity, private/public badge, chain-selector visibility, deployment-error gating, Cancel/Continue.
+// ABOUTME: Tests for SendRecipientStep — address validity, shielded/public identity in the field, chain-selector visibility, deployment-error gating, Cancel/Continue.
 // ABOUTME: The action row is always visible — Continue stays disabled + labeled "Enter address" until the address is valid.
 
 import { describe, it, expect, vi } from 'vitest'
@@ -56,7 +56,7 @@ describe('<SendRecipientStep>', () => {
 
   it('0zk recipient: private badge, no chain selector, Continue enabled', () => {
     setup({ recipient: VALID_0ZK })
-    expect(screen.getByText('Private address')).toBeInTheDocument()
+    expect(screen.getByText('Shielded address')).toBeInTheDocument()
     expect(screen.queryByLabelText('Destination chain')).toBeNull()
     expect(screen.getByRole('button', { name: /Continue/ })).not.toBeDisabled()
   })
@@ -122,6 +122,7 @@ describe('<SendRecipientStep>', () => {
 
   it('leaves single-keystroke edits alone (no silent rewriting while typing)', () => {
     const props = setup({ recipient: VALID_EVM })
+    fireEvent.click(screen.getByRole('button', { name: /Edit address/ }))
     fireEvent.change(screen.getByLabelText('Recipient address'), { target: { value: `${VALID_EVM}a` } })
     expect(props.onRecipientChange).toHaveBeenLastCalledWith(`${VALID_EVM}a`)
   })

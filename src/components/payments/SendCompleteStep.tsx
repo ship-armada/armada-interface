@@ -12,7 +12,7 @@ import type { SendFlowVariant } from './SendRecipientStep'
 export interface SendCompleteStepProps {
   variant: SendFlowVariant
   recipient: string
-  /** The user's own shielded (Armada) address — rendered as the summary's "From your private account" row. */
+  /** The user's own shielded (Armada) address — rendered as the summary's "From your shielded account" row. */
   armadaAddress?: string
   /** Gross amount sent/withdrawn (raw 6-decimal USDC) — shown full-precision in the amount block. */
   amount: bigint

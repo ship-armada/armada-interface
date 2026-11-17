@@ -10,7 +10,7 @@ describe('kindTitle', () => {
     expect(kindTitle('shield')).toBe('Shield')
     expect(kindTitle('unshield-local')).toBe('Unshield')
     expect(kindTitle('unshield-xchain')).toBe('Unshield')
-    expect(kindTitle('transfer-shielded')).toBe('Private transfer')
+    expect(kindTitle('transfer-shielded')).toBe('Shielded transfer')
     expect(kindTitle('transfer-shielded-received')).toBe('Received')
     expect(kindTitle('yield-deposit')).toBe('Vault deposit')
     expect(kindTitle('yield-withdraw')).toBe('Vault withdrawal')
@@ -47,7 +47,7 @@ describe('recordTitle', () => {
     expect(recordTitle(record)).toMatch(/^Sent to 0x/)
   })
 
-  it('reads "Sent to private address" for a private (0zk) transfer', () => {
+  it('reads "Sent to shielded address" for a private (0zk) transfer', () => {
     const record: TxRecord<'transfer-shielded'> = {
       id: '01J', kind: 'transfer-shielded', executionState: 'pending', stage: 'build-proof',
       stagesCompleted: [], updatedSeq: 0, createdAt: 0, updatedAt: 0,
@@ -61,7 +61,7 @@ describe('recordTitle', () => {
       artifacts: {},
       walletContext: { evmAddress: undefined, shieldedWalletId: '', sourceChainId: 31337 },
     }
-    expect(recordTitle(record)).toBe('Sent to private address')
+    expect(recordTitle(record)).toBe('Sent to shielded address')
   })
 
   it('reads "Received payment" for an incoming private transfer', () => {
