@@ -9,15 +9,19 @@ const NOW = 1_000_000_000_000
 const EVM_A = '0x1111111111111111111111111111111111111111'
 const EVM_B = '0x2222222222222222222222222222222222222222'
 
+const SHIELDED = '0zk1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszq5xlt'
 const ITEMS: RecentRecipient[] = [
   { address: EVM_A, kind: 'unshield-local', destChainId: 31337, lastAt: NOW - 3 * 86_400_000 },
   { address: EVM_B, kind: 'unshield-xchain', destChainId: 84532, lastAt: NOW - 60_000 },
+  { address: SHIELDED, kind: 'transfer-shielded', lastAt: NOW - 7 * 86_400_000 },
 ]
 
 describe('<RecentAddressList>', () => {
   it('renders the label, a truncated address, and a relative time per item', () => {
     render(<RecentAddressList items={ITEMS} onSelect={vi.fn()} now={NOW} />)
     expect(screen.getByText('Recent address')).toBeInTheDocument()
+    expect(screen.getAllByText('Public address')).toHaveLength(2)
+    expect(screen.getByText('Shielded address')).toBeInTheDocument()
     // Shortened address ("0x" + 4 + "..." + 4, ends emphasised), with the full address in the title.
     expect(screen.getByTitle(EVM_A)).toHaveTextContent('0x1111...1111')
     expect(screen.getByText('3d ago')).toBeInTheDocument()
